@@ -19,84 +19,131 @@ const app = express();
 const PORT = process.env.PORT || 5002;
 const HOST = '0.0.0.0';
 
-/**
- * =========================
- * CORS CONFIG (FIXED)
- * =========================
- */
+const PUBLIC_BACKEND_URL = (
+  process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : process.env.BACKEND_PUBLIC_URL ||
+      process.env.PUBLIC_BACKEND_URL ||
+      'https://app-backend-production-7738.up.railway.app'
+).replace(/\/+$/g, '');
 
-const allowedOrigins = [
+const staticOrigins = [
   'http://localhost:8081',
   'http://127.0.0.1:8081',
   'http://localhost:19006',
+  'http://127.0.0.1:19006',
   'https://linawletra-130cb.web.app',
   'https://linawletra-130cb.firebaseapp.com',
   'https://app-backend-production-7738.up.railway.app',
+  PUBLIC_BACKEND_URL,
+].filter(Boolean);
+
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const frontendOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([...staticOrigins, ...envOrigins, ...frontendOrigins]));
+const corsAllowedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+const corsAllowedHeaders = [
+  'Content-Type',
+  'Authorization',
+  'X-Requested-With',
+  'Accept',
+  'Accept-Language',
+  'X-API-Key',
+  'X-User-Id',
 ];
 
-// helper
 const isOriginAllowed = (origin) => {
-  if (!origin) return true; // mobile apps / postman
-
+  if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
 
   try {
     const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+    const protocol = url.protocol.toLowerCase();
+
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && protocol === 'http:') {
+      return true;
+    }
+
+    if (
+      protocol === 'http:' &&
+      (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+        /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+        /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname))
+    ) {
+      return process.env.NODE_ENV !== 'production';
+    }
+
     return (
-      url.hostname.includes('railway.app') ||
-      url.hostname.includes('expo.dev') ||
-      url.hostname.includes('firebaseapp.com')
+      protocol === 'https:' &&
+      (hostname.endsWith('.up.railway.app') ||
+        hostname.endsWith('.expo.dev') ||
+        hostname.endsWith('.web.app') ||
+        hostname.endsWith('.firebaseapp.com'))
     );
   } catch {
     return false;
   }
 };
 
-/**
- * =========================
- * CLEAN CORS MIDDLEWARE
- * =========================
- */
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) return callback(null, true);
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    return callback(null, false);
+  },
+  methods: corsAllowedMethods,
+  allowedHeaders: corsAllowedHeaders,
+  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  credentials: true,
+  maxAge: 3600,
+  optionsSuccessStatus: 200,
+};
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', corsAllowedMethods.join(', '));
+  res.setHeader('Access-Control-Allow-Headers', corsAllowedHeaders.join(', '));
+
   if (origin && isOriginAllowed(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
+  } else if (!origin) {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Requested-With'
-  );
-
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    return res.status(200).end();
   }
 
-  next();
+  return next();
 });
 
-// IMPORTANT: keep only ONE cors usage
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-/**
- * =========================
- * MIDDLEWARE
- * =========================
- */
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
-/**
- * =========================
- * ROUTES
- * =========================
- */
+app.use((req, res, next) => {
+  const clientIp = req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress || 'unknown';
+  const origin = req.headers.origin || 'no-origin';
+  if (req.method !== 'OPTIONS') {
+    console.log(`${req.method.padEnd(6)} ${req.path.padEnd(30)} origin=${origin} ip=${clientIp}`);
+  }
+  next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/speech', speechRoutes);
 app.use('/api/reading', readingRoutes);
@@ -107,24 +154,49 @@ app.use('/api/activities', activitiesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/practice', practiceRoutes);
 
-/**
- * =========================
- * HEALTH CHECK
- * =========================
- */
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
+    timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     uptime: process.uptime(),
+    port: PORT,
   });
 });
 
-/**
- * =========================
- * ERROR HANDLER (FIXED CORS)
- * =========================
- */
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    message: 'LinawLetra API is running.',
+    health: '/health',
+    routes: [
+      '/api/notifications',
+      '/api/auth/child-profile/:id',
+      '/api/auth/send-email-otp',
+      '/api/auth/verify-otp',
+      '/api/progress/update',
+      '/api/practice',
+    ],
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime(),
+    port: PORT,
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
 app.use((err, req, res, next) => {
   const origin = req.headers.origin;
 
@@ -134,19 +206,28 @@ app.use((err, req, res, next) => {
   }
 
   console.error('Server error:', err);
-
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error',
   });
 });
 
-/**
- * =========================
- * START SERVER
- * =========================
- */
-app.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-  console.log('CORS FIXED ✔');
-});
+const startServer = (port = PORT, host = HOST) => {
+  const server = app.listen(port, host, () => {
+    console.log(`Server running on ${host}:${port}`);
+    console.log(`Node.js ${process.versions.node}`);
+    console.log(`API running on /api`);
+    console.log(`Health check: /health`);
+    console.log(`Allowed CORS origins (${allowedOrigins.length}): ${allowedOrigins.join(', ')}`);
+  });
+
+  return server;
+};
+
+if (require.main === module) {
+  startServer(PORT, HOST);
+}
+
+module.exports = app;
+module.exports.startServer = startServer;
+module.exports.isOriginAllowed = isOriginAllowed;

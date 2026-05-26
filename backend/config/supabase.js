@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 const { validateEnv } = require('./env');
 
 const {
@@ -9,8 +10,24 @@ const {
 
 const key = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
 
+if (typeof globalThis.WebSocket === 'undefined') {
+  globalThis.WebSocket = WebSocket;
+}
+
 const supabaseAdmin = createClient(SUPABASE_URL, key, {
-  auth: { persistSession: false },
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+  realtime: {
+    transport: WebSocket,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'linawletra-backend',
+    },
+  },
 });
 
 if (!SUPABASE_SERVICE_ROLE_KEY && SUPABASE_ANON_KEY) {
