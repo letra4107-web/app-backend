@@ -1,10 +1,12 @@
 const nodemailer = require('nodemailer');
 
-const emailUser = process.env.EMAIL_USER || process.env.SMTP_USER;
-const emailPass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
-const emailHost = process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com';
-const emailPort = parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '465', 10);
-const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_FROM || 'LinawLetra <noreply@linawletra.com>';
+const stripQuotes = (value = '') => String(value).trim().replace(/^"(.*)"$/, '$1');
+
+const emailUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+const emailPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').replace(/\s/g, '');
+const emailHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
+const emailPort = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
+const emailFrom = stripQuotes(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>');
 const emailService = process.env.EMAIL_SERVICE || '';
 const rejectUnauthorized = String(process.env.SMTP_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
 const isProduction = (process.env.NODE_ENV || 'development') === 'production';
@@ -28,7 +30,7 @@ const buildTransportOptions = () => {
       auth: { user: emailUser, pass: emailPass },
       pool: false,
       connectionTimeout: SMTP_TIMEOUT_MS,
-      greetingTimeout: SMTP_TIMEOUT_MS,
+      greetingTimeout: 5000,
       socketTimeout: SMTP_SEND_TIMEOUT_MS,
       tls: { rejectUnauthorized },
     };
@@ -43,7 +45,7 @@ const buildTransportOptions = () => {
     pool: false,
     tls: { rejectUnauthorized },
     connectionTimeout: SMTP_TIMEOUT_MS,
-    greetingTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: 5000,
     socketTimeout: SMTP_SEND_TIMEOUT_MS,
   };
 };

@@ -144,6 +144,34 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    railway: Boolean(process.env.RAILWAY_PUBLIC_DOMAIN),
+    uptime: process.uptime(),
+    port: PORT,
+  });
+});
+
+app.get('/health/smtp', async (req, res) => {
+  try {
+    const { transporter, smtpConfigured } = require('./config/mailer');
+    if (!smtpConfigured || !transporter) {
+      return res.status(503).json({ status: 'error', smtp: 'SMTP is not configured' });
+    }
+
+    await transporter.verify();
+    return res.status(200).json({ status: 'ok', smtp: 'connected' });
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      smtp: error?.message || String(error),
+    });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/speech', speechRoutes);
 app.use('/api/reading', readingRoutes);
@@ -153,16 +181,6 @@ app.use('/api/lessons', lessonsRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/practice', practiceRoutes);
-
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    uptime: process.uptime(),
-    port: PORT,
-  });
-});
 
 app.get('/api', (req, res) => {
   res.json({

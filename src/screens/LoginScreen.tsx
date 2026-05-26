@@ -188,7 +188,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       const loginIsUsername = !isEmail;
       let user: any;
       let profileData: any = null;
-      let profileRole = 'parent';
+      let profileRole = '';
       let loginEmail = '';
 
       if (isEmail) {
@@ -267,8 +267,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             profileRole = 'student';
             profileData = { ...(profileData || {}), name: childLookup.data.name };
           } else {
-            // No child record found and no role — default to parent
-            profileRole = 'parent';
+            profileRole = '';
           }
         } else {
           profileRole = determinedRole;
@@ -316,6 +315,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           // TODO: navigation.replace('TeacherDashboard') once built
           navigation.replace('ParentDashboard');
         } else {
+          console.error('[Login] Could not determine role for user:', user.id);
           setGlobalError(`Hindi kilala ang account type. Makipag-ugnayan sa admin.`);
           setLoading(false);
         }

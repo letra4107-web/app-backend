@@ -22,9 +22,11 @@ function validateEnv() {
   const supabaseUrl = process.env[ENV_VARS.SUPABASE_URL]?.trim();
   const serviceRoleKey = process.env[ENV_VARS.SUPABASE_SERVICE_ROLE_KEY]?.trim();
   const anonKey = process.env[ENV_VARS.SUPABASE_ANON_KEY]?.trim();
-  const smtpUser = (process.env.EMAIL_USER || process.env.SMTP_USER || '').trim();
-  const smtpPass = (process.env.EMAIL_PASS || process.env.SMTP_PASS || '').trim();
-  const smtpFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
+  const effectiveSmtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const effectiveSmtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s/g, '');
+  const effectiveSmtpFrom = (process.env.SMTP_FROM || process.env.EMAIL_FROM || '')
+    .trim()
+    .replace(/^"(.*)"$/, '$1');
 
   if (!supabaseUrl) {
     missing.push(ENV_VARS.SUPABASE_URL);
@@ -35,13 +37,13 @@ function validateEnv() {
   }
 
   if ((process.env.NODE_ENV || 'development') === 'production') {
-    if (!smtpUser) {
+    if (!effectiveSmtpUser) {
       missing.push(SMTP_VARS.EMAIL_USER);
     }
-    if (!smtpPass) {
+    if (!effectiveSmtpPass) {
       missing.push(SMTP_VARS.EMAIL_PASS);
     }
-    if (!smtpFrom) {
+    if (!effectiveSmtpFrom) {
       missing.push(SMTP_VARS.EMAIL_FROM);
     }
   }
