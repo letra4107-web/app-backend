@@ -2,7 +2,7 @@
 REM Quick test script for backend endpoints - Windows version
 
 set BASE_URL=%1
-if "%BASE_URL%"=="" set BASE_URL=http://localhost:5002
+if "%BASE_URL%"=="" set BASE_URL=https://app-backend-production-7738.up.railway.app
 
 echo Testing backend at: %BASE_URL%
 echo.

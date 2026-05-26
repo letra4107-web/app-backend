@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { buildApiUrl, getJson } from '../config/api';
 
 export type ActivityStatus = 'pending' | 'completed' | 'overdue';
 
@@ -22,24 +22,19 @@ const toStatus = (deadline: string, status?: string | null): ActivityStatus => {
 };
 
 export async function fetchStudentActivities(authUid: string, childId?: string) {
-  const filters = [`student_id.eq.${authUid}`];
-  if (childId && childId !== authUid) filters.push(`student_id.eq.${childId}`);
+  const query = new URLSearchParams({ authUid });
+  if (childId) query.set('childId', childId);
 
-  const { data, error } = await supabase
-    .from('activities')
-    .select('id,title,description,deadline,subject,status,student_id')
-    .or(filters.join(','))
-    .order('deadline', { ascending: true });
+  const response = await getJson<{ success: boolean; activities?: StudentActivity[]; message?: string }>(
+    buildApiUrl(`/activities?${query.toString()}`),
+    15000,
+  );
 
-  if (error) {
-    if (error.code === 'PGRST205' || error.code === '42P01' || (error as any).status === 404) {
-      console.warn('[Activities] activities table is missing. Run migration/migrations/005_activities.sql.');
-      return [];
-    }
-    throw error;
+  if (!response?.success) {
+    throw new Error(response?.message || 'Unable to load activities.');
   }
 
-  return (data || []).map((row: any) => ({
+  return (response.activities || []).map((row: any) => ({
     ...row,
     status: toStatus(row.deadline, row.status),
   })) as StudentActivity[];

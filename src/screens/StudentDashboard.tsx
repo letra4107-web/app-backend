@@ -9,7 +9,7 @@ import {
 } from 'expo-speech-recognition';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
-import { API_BASE_URL, getJson } from '../config/api';
+import { buildApiUrl, getJson } from '../config/api';
 import { onAuthStateChanged, signOutUser } from '../services/supabaseService';
 import StudentWordOfDay from './StudentWordOfDay';
 import ConfettiOverlay from '../components/ConfettiOverlay';
@@ -227,7 +227,7 @@ export default function StudentDashboard({ navigation }: any) {
 
     try {
       const res = await getJson<{ success: boolean; uploads: Upload[] }>(
-        `${API_BASE_URL}/reading/uploads`,
+        buildApiUrl('/reading/uploads'),
         15000,
       );
 
@@ -263,7 +263,7 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const fetchChildProfile = async (authUid: string) => {
-    const url = `${API_BASE_URL}/auth/child-profile/${authUid}`;
+    const url = buildApiUrl(`/auth/child-profile/${authUid}`);
 
     let response: { success: boolean; child?: ChildProfile; message?: string; details?: any; code?: string; hint?: string };
     try {
@@ -324,9 +324,24 @@ export default function StudentDashboard({ navigation }: any) {
     const currentProgress = profile.child_progress?.[0] || emptyProgress(profile.id);
     setProgress(currentProgress);
 
+    const readingActivitiesPromise = (async () => {
+      try {
+        return await supabase
+          .from('reading_activities')
+          .select('words')
+          .eq('grade', Number(profile.grade_level || 1));
+      } catch (err: any) {
+        console.warn('[StudentDashboard] reading activities load failed:', err?.message || err);
+        return { data: [], error: null };
+      }
+    })();
+
     const [wordLog, readingActivities, uploads, lessonRows, assignedActivities] = await Promise.all([
-      getOrCreateWordOfDay(profile.id, Number(profile.grade_level || 1)),
-      supabase.from('reading_activities').select('words').eq('grade', Number(profile.grade_level || 1)),
+      getOrCreateWordOfDay(profile.id, Number(profile.grade_level || 1)).catch((err) => {
+        console.warn('[StudentDashboard] word-of-day load failed:', err?.message || err);
+        return null;
+      }),
+      readingActivitiesPromise,
       fetchTeacherUploads(Number(profile.grade_level || 1)),
       loadPublishedLessons(Number(profile.grade_level || 1)),
       fetchStudentActivities(profile.auth_uid, profile.id).catch((err) => {
@@ -336,13 +351,17 @@ export default function StudentDashboard({ navigation }: any) {
       }),
     ]);
 
-    setWordOfDay(wordLog);
+    if (wordLog) {
+      setWordOfDay(wordLog);
+    }
 
-    if (readingActivities.error) throw readingActivities.error;
+    if (readingActivities.error) {
+      console.warn('[StudentDashboard] reading activities query failed:', readingActivities.error?.message || readingActivities.error);
+    }
     const practiceWordsList = (readingActivities.data || []).flatMap((row: any) =>
       Array.isArray(row.words) ? row.words : []
     );
-    setPracticeWords([...new Set(practiceWordsList)]);
+    setPracticeWords([...new Set(practiceWordsList.map(String))]);
     setUploads(uploads);
     setLessons(lessonRows);
     setActivities(assignedActivities);

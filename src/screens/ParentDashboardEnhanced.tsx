@@ -10,6 +10,8 @@ import { NotificationsView } from './ParentNotifications';
 import EnrollChildModal from './EnrollChildModal';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 import { StudentActivity } from '../services/activityService';
+import { buildApiUrl, getJson } from '../config/api';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 type Section = 'welcome' | 'progress' | 'calendar' | 'notifications' | 'settings';
 type Level = 'Beginner' | 'Intermediate' | 'Advanced';
@@ -107,29 +109,22 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     return rows;
   };
 
-  const loadActivitiesForChildren = async (rows: ChildRow[]) => {
-    const studentIds = Array.from(
-      new Set(rows.flatMap((child) => [child.id, child.auth_uid]).filter(Boolean) as string[]),
-    );
-
-    if (!studentIds.length) {
+  const loadActivitiesForChildren = async (rows: ChildRow[], activeParentId = parentId) => {
+    if (!rows.length || !activeParentId) {
       setActivities([]);
       return;
     }
 
-    const { data, error: activityError } = await supabase
-      .from('activities')
-      .select('id,title,description,deadline,subject,status,student_id')
-      .in('student_id', studentIds)
-      .order('deadline', { ascending: true });
-
-    if (activityError) {
-      console.warn('[ParentDashboard] activities load failed:', activityError.message || activityError);
+    try {
+      const response = await getJson<{ success: boolean; activities?: StudentActivity[]; message?: string }>(
+        buildApiUrl(`/activities?parentId=${encodeURIComponent(activeParentId)}`),
+        15000,
+      );
+      setActivities(response.activities || []);
+    } catch (error: any) {
+      console.warn('[ParentDashboard] activities load failed:', error?.message || error);
       setActivities([]);
-      return;
     }
-
-    setActivities((data || []) as StudentActivity[]);
   };
 
   const loadPracticeSessionsForChildren = async (rows: ChildRow[]) => {
@@ -139,25 +134,26 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       return;
     }
 
-    const { data, error: sessionError } = await supabase
-      .from('pronunciation_practice_sessions')
-      .select('id,student_id,word,spoken_text,accuracy_percentage,created_at')
-      .in('student_id', childIds)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (sessionError) {
-      console.warn('[ParentDashboard] practice sessions load failed:', sessionError.message || sessionError);
+    try {
+      const response = await getJson<{ success: boolean; sessions?: PracticeSessionRow[]; message?: string }>(
+        buildApiUrl(`/practice/sessions?limit=20&studentIds=${encodeURIComponent(childIds.join(','))}`),
+        15000,
+      );
+      setPracticeSessions(response.sessions || []);
+    } catch (error: any) {
+      console.warn('[ParentDashboard] practice sessions load failed:', error?.message || error);
       setPracticeSessions([]);
-      return;
     }
-
-    setPracticeSessions((data || []) as PracticeSessionRow[]);
   };
 
   const refreshNotifications = async (id: string) => {
-    const rows = await fetchNotifications(id);
-    setUnreadNotifications(rows.filter((item) => !(item.is_read ?? item.read)).length);
+    try {
+      const rows = await fetchNotifications(id);
+      setUnreadNotifications(rows.filter((item) => !(item.is_read ?? item.read)).length);
+    } catch (error: any) {
+      console.warn('[ParentDashboard] notifications load failed:', error?.message || error);
+      setUnreadNotifications(0);
+    }
   };
 
   const loadParent = async (id: string, email?: string) => {
@@ -175,7 +171,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         setParentName(parentData.full_name || parentData.name || 'Magulang');
         setParentEmail(parentData.email || email || '');
         const rows = await loadChildren(id);
-        await Promise.all([loadActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+        await Promise.all([loadActivitiesForChildren(rows, id), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
         loadedParentRef.current = id;
         return;
       }
@@ -192,14 +188,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         setParentEmail(email || '');
       }
       const rows = await loadChildren(id);
-      await Promise.all([loadActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+      await Promise.all([loadActivitiesForChildren(rows, id), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
       loadedParentRef.current = id;
     } catch (err) {
       console.error('Failed to load parent dashboard:', err);
       setError('Hindi ma-load ang parent profile.');
       try {
         const rows = await loadChildren(id);
-        await Promise.all([loadActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+        await Promise.all([loadActivitiesForChildren(rows, id), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
       } catch (_) {}
     } finally {
       loadingParentRef.current = null;
@@ -819,7 +815,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       case 'calendar':
         return renderCalendar();
       case 'notifications':
-        return <NotificationsView userId={parentId} onUnreadChange={setUnreadNotifications} />;
+        return (
+          <ErrorBoundary title="Notifications unavailable" message="Notifications could not load right now. The rest of the dashboard is still ready.">
+            <NotificationsView userId={parentId} onUnreadChange={setUnreadNotifications} />
+          </ErrorBoundary>
+        );
       case 'settings':
         return renderSettings();
       default:

@@ -1,10 +1,8 @@
 require('dotenv').config();
 
+const PRODUCTION_BACKEND_URL = 'https://app-backend-production-7738.up.railway.app';
 const envAndroidPackage = process.env.ANDROID_PACKAGE || process.env.EXPO_ANDROID_PACKAGE;
-const configuredApiUrl =
-  process.env.EXPO_PUBLIC_API_URL ||
-  process.env.EXPO_PUBLIC_BASE_URL ||
-  process.env.API_BASE_URL;
+const configuredApiUrl = PRODUCTION_BACKEND_URL;
 
 module.exports = ({ config }) => {
   const androidPackage = envAndroidPackage || config.android?.package;
@@ -50,16 +48,11 @@ module.exports = ({ config }) => {
         projectId: "153e47e5-7a90-480b-ab99-2bada18510e8"   // 🔑 Added EAS project ID
       },
       EXPO_PUBLIC_API_URL:
-        configuredApiUrl ||
-        'http://localhost:5002/api',
+        configuredApiUrl,
       EXPO_PUBLIC_BASE_URL:
-        process.env.EXPO_PUBLIC_BASE_URL ||
-        configuredApiUrl ||
-        'http://localhost:5002/api',
+        configuredApiUrl,
       API_BASE_URL:
-        process.env.API_BASE_URL ||
-        configuredApiUrl ||
-        'http://localhost:5002/api',
+        configuredApiUrl,
       EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
       EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
     },

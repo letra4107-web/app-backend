@@ -50,7 +50,7 @@ cd backend
 npm start
 ```
 
-The server will start on `http://localhost:5002`
+The server will start on `https://app-backend-production-7738.up.railway.app`
 
 ### Test the Endpoint
 
@@ -85,7 +85,7 @@ formData.append('audio', {
 });
 formData.append('language', 'tl');
 
-const response = await fetch('http://localhost:5002/api/speech/recognize', {
+const response = await fetch('https://app-backend-production-7738.up.railway.app/api/speech/recognize', {
   method: 'POST',
   body: formData,
 });

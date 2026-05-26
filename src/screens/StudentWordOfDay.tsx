@@ -6,7 +6,7 @@ import * as Speech from 'expo-speech';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import levenshtein from 'fast-levenshtein';
-import { API_BASE_URL, postJson } from '../config/api';
+import { buildApiUrl, postJson } from '../config/api';
 import { WordOfDayLog, updateWordOfDayLog } from '../services/wordOfDayService';
 
 const PRIMARY = '#4f46e5';
@@ -96,7 +96,7 @@ export default function StudentWordOfDay({
       const uri = active.getURI();
       if (!uri) throw new Error('No audio URI');
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const response = await postJson<{ transcript: string }>(`${API_BASE_URL}/speech/transcribe`, {
+      const response = await postJson<{ transcript: string }>(buildApiUrl('/speech/transcribe'), {
         audioBase64: base64,
         mimeType: 'audio/m4a',
         filename: 'word-of-day.m4a',

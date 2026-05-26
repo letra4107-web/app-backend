@@ -285,6 +285,11 @@ router.post('/send-email-otp', async (req, res) => {
   }
 });
 
+router.post('/send-otp', (req, res, next) => {
+  req.url = '/send-email-otp';
+  return router.handle(req, res, next);
+});
+
 router.post('/create-student-account', async (req, res) => {
   try {
     const username = String(req.body.username || '').trim().toLowerCase();

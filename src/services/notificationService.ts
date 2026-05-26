@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { buildApiUrl, getJson, postJson, fetchJson } from '../config/api';
 
 export type NotificationItem = {
   id: string;
@@ -22,40 +23,26 @@ export type ParentNotificationInput = {
   type: string;
 };
 
-const formatSupabaseError = (error: any) => ({
-  code: error?.code,
-  message: error?.message,
-  details: error?.details,
-  hint: error?.hint,
-  status: error?.status,
-});
-
-const isMissingColumnError = (error: any, column: string) =>
-  error?.code === 'PGRST204' &&
-  String(error?.message || '').includes(`'${column}'`);
-
 export const fetchNotifications = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .or(`parent_id.eq.${userId},user_id.eq.${userId}`)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data || []) as NotificationItem[];
+  if (!userId) return [];
+
+  const response = await getJson<{ success: boolean; notifications?: NotificationItem[]; message?: string }>(
+    buildApiUrl(`/notifications?userId=${encodeURIComponent(userId)}`),
+    15000,
+  );
+  if (!response?.success) {
+    throw new Error(response?.message || 'Unable to load notifications.');
+  }
+  return Array.isArray(response.notifications) ? response.notifications : [];
 };
 
 export const markNotificationRead = async (id: string) => {
-  const { error } = await supabase.from('notifications').update({ read: true, is_read: true }).eq('id', id);
-  if (!error) return;
+  if (!id) return;
 
-  if (isMissingColumnError(error, 'is_read')) {
-    console.warn('[Notifications] is_read column missing; retrying read update with legacy read column.');
-    const retry = await supabase.from('notifications').update({ read: true }).eq('id', id);
-    if (retry.error) throw retry.error;
-    return;
-  }
-
-  throw error;
+  await fetchJson(buildApiUrl(`/notifications/${encodeURIComponent(id)}/read`), {
+    method: 'PATCH',
+    headers: { Accept: 'application/json' },
+  }, 15000);
 };
 
 export const subscribeToParentNotifications = (
@@ -88,36 +75,12 @@ export const createNotification = async (userId: string, title: string, body: st
     throw new Error('Cannot create notification without an authenticated user id.');
   }
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) {
-    console.warn('[Notifications] session lookup failed before insert:', formatSupabaseError(sessionError));
-    throw sessionError;
-  }
-
-  const authUser = sessionData.session?.user;
-  const payload = {
+  await postJson(buildApiUrl('/notifications'), {
     user_id: userId,
     title,
     body,
     type,
-  };
-
-  console.debug('[Notifications] insert auth user:', authUser);
-  console.debug('[Notifications] insert user_id:', userId);
-  console.debug('[Notifications] insert payload:', payload);
-
-  if (!authUser?.id) {
-    throw new Error('Cannot create notification without an active Supabase session.');
-  }
-
-  const { error } = await supabase.from('notifications').insert(payload);
-
-  if (error) {
-    console.warn('[Notifications] insert failed:', formatSupabaseError(error));
-    throw error;
-  }
-
-  console.debug('[Notifications] insert succeeded:', { user_id: userId, type });
+  }, 15000);
 };
 
 export const createParentNotification = async ({
@@ -131,18 +94,7 @@ export const createParentNotification = async ({
     throw new Error('Cannot create parent notification without studentId and parentId.');
   }
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) {
-    console.warn('[Notifications] parent notification session lookup failed:', formatSupabaseError(sessionError));
-    throw sessionError;
-  }
-
-  const authUser = sessionData.session?.user;
-  if (!authUser?.id) {
-    throw new Error('Cannot create parent notification without an active Supabase session.');
-  }
-
-  const payload = {
+  await postJson(buildApiUrl('/notifications'), {
     student_id: studentId,
     parent_id: parentId,
     user_id: parentId,
@@ -152,32 +104,5 @@ export const createParentNotification = async ({
     type,
     is_read: false,
     read: false,
-  };
-
-  console.debug('[Notifications] parent insert auth user:', authUser);
-  console.debug('[Notifications] parent insert payload:', payload);
-
-  let { error } = await supabase.from('notifications').insert(payload);
-
-  if (error && isMissingColumnError(error, 'is_read')) {
-    console.warn('[Notifications] is_read column missing; retrying parent insert without is_read.');
-    const retryPayload = { ...payload };
-    delete (retryPayload as any).is_read;
-    const retry = await supabase.from('notifications').insert(retryPayload);
-    error = retry.error;
-  }
-
-  if (error && isMissingColumnError(error, 'message')) {
-    console.warn('[Notifications] message column missing; retrying parent insert with legacy body only.');
-    const retryPayload = { ...payload };
-    delete (retryPayload as any).is_read;
-    delete (retryPayload as any).message;
-    const retry = await supabase.from('notifications').insert(retryPayload);
-    error = retry.error;
-  }
-
-  if (error) {
-    console.warn('[Notifications] parent insert failed:', formatSupabaseError(error));
-    throw error;
-  }
+  }, 15000);
 };

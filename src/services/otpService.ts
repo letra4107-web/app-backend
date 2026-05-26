@@ -4,7 +4,7 @@
  */
 
 import {
-  API_BASE_URL,
+  buildApiUrl,
   postJson,
   isRetryableNetworkError,
 } from '../config/api';
@@ -186,9 +186,9 @@ export const sendEmailOTP = async (
 
   try {
     return await postJsonWithRetry(
-      `${API_BASE_URL}/auth/send-email-otp`,
+      buildApiUrl('/auth/send-otp'),
       { email: normalizedEmail, userId },
-      'send-email-otp'
+      'send-otp'
     );
   } finally {
     releaseLock(lockKey);
@@ -208,7 +208,7 @@ export const resendOTP = async (
 
   try {
     return await postJsonWithRetry(
-      `${API_BASE_URL}/auth/resend-otp`,
+      buildApiUrl('/auth/resend-otp'),
       { email: normalizedEmail, userId },
       'resend-otp'
     );
@@ -224,7 +224,7 @@ export const verifyOTP = async (
 ): Promise<OTPResponse> => {
   const normalizedEmail = email.trim().toLowerCase();
   return postJsonWithRetry(
-    `${API_BASE_URL}/auth/verify-otp`,
+    buildApiUrl('/auth/verify-otp'),
     { code: otp.trim(), userId, email: normalizedEmail },
     'verify-otp'
   );

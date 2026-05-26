@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { buildApiUrl, getJson } from '../config/api';
 
 export type Lesson = {
   id: string;
@@ -15,29 +16,17 @@ export type Lesson = {
 };
 
 export const fetchPublishedLessons = async (gradeLevel?: number | string | null): Promise<Lesson[]> => {
-  let query = supabase
-    .from('lessons')
-    .select('id,teacher_id,title,description,subject,grade_level,pdf_url,file_name,is_published,created_at,updated_at')
-    .eq('is_published', true)
-    .order('created_at', { ascending: false });
+  const query = gradeLevel ? `?gradeLevel=${encodeURIComponent(String(gradeLevel))}` : '';
+  const response = await getJson<{ success: boolean; lessons?: Lesson[]; message?: string }>(
+    buildApiUrl(`/lessons${query}`),
+    15000,
+  );
 
-  if (gradeLevel) {
-    const grade = String(gradeLevel);
-    query = query.or(`grade_level.eq.${grade},grade_level.eq.Grade ${grade},grade_level.is.null`);
+  if (!response?.success) {
+    throw new Error(response?.message || 'Unable to load lessons.');
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    if (error.code === 'PGRST205' || error.code === '42P01' || (error as any).status === 404) {
-      console.warn('[Lessons] lessons table is missing. Run migration/migrations/006_lessons.sql.');
-      return [];
-    }
-    console.error('[Lessons] fetch failed:', error);
-    throw error;
-  }
-
-  return (data || []) as Lesson[];
+  return response.lessons || [];
 };
 
 export const subscribeToPublishedLessons = (

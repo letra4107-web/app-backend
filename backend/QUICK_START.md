@@ -38,12 +38,12 @@ Expected output:
 
 ```bash
 # Send OTP
-curl -X POST http://localhost:8081/api/auth/send-email-otp \
+curl -X POST https://app-backend-production-7738.up.railway.app/api/auth/send-email-otp \
   -H "Content-Type: application/json" \
   -d '{"email":"test@gmail.com","userId":"test-user-123"}'
 
 # Health check
-curl http://localhost:8081/health
+curl https://app-backend-production-7738.up.railway.app/health
 ```
 
 ---
@@ -78,7 +78,7 @@ node --inspect server.js
 | Issue | Solution |
 |-------|----------|
 | `Port 8081 already in use` | Kill process: `lsof -i :8081 \| kill -9 <PID>` |
-| `Network request failed` from app | Check backend health: `curl http://localhost:8081/health` |
+| `Network request failed` from app | Check backend health: `curl https://app-backend-production-7738.up.railway.app/health` |
 | `SMTP error` | Regenerate Gmail App Password and update `.env` |
 | `Supabase not reachable` | Verify `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env` |
 
@@ -86,7 +86,7 @@ node --inspect server.js
 
 ## 📱 Frontend Integration
 
-The React Native app automatically points to `http://localhost:8081/api` in development. No additional config needed!
+The React Native app automatically points to `https://app-backend-production-7738.up.railway.app/api` in development. No additional config needed!
 
 ---
 

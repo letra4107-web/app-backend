@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { getSupabaseDebugInfo, supabase } from '../config/supabase';
-import { API_BASE_URL, getJson } from '../config/api';
+import { buildApiUrl, getJson } from '../config/api';
 
 const SIGNUP_TIMEOUT_MS = 20000;
 
@@ -321,7 +321,7 @@ export const getAssignments = async (studentId: string) => {
 
 export const getReadingActivitiesByGrade = async (grade: number) => {
   return getJson<{ success: boolean; grade: number; gradeLabel: string; words: string[] }>(
-    `${API_BASE_URL}/reading/activities/${grade}`,
+    buildApiUrl(`/reading/activities/${grade}`),
   );
 };
 

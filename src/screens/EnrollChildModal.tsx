@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { API_BASE_URL, postJson } from '../config/api';
+import { buildApiUrl, postJson } from '../config/api';
 import { supabase } from '../config/supabase';
 
 type ReadingDifficulty = 'Beginner' | 'Intermediate' | 'Advanced';
@@ -83,7 +83,7 @@ export default function EnrollChildModal({ visible, parentId, parentEmail, onClo
     try {
       const username = await getAvailableUsername();
       const password = makePassword();
-      await postJson(`${API_BASE_URL}/auth/enroll-child`, {
+      await postJson(buildApiUrl('/auth/enroll-child'), {
         parentId,
         parentEmail,
         childName: name.trim(),

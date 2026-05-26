@@ -1,4 +1,4 @@
-import { API_BASE_URL, postJson } from '../config/api';
+import { buildApiUrl, postJson } from '../config/api';
 
 export type ReadingLevel = 'Beginner' | 'Intermediate' | 'Advanced';
 
@@ -68,7 +68,7 @@ export const buildNextProgress = (
 };
 
 export const saveProgress = async (progress: ChildProgress) => {
-  return postJson<{ success: boolean; progress: ChildProgress }>(`${API_BASE_URL}/progress/update`, {
+  return postJson<{ success: boolean; progress: ChildProgress }>(buildApiUrl('/progress/update'), {
     childId: progress.child_id,
     student_id: progress.child_id,
     xp: progress.xp,

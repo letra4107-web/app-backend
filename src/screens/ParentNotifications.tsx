@@ -42,17 +42,28 @@ export function NotificationsView({
 
   const openItem = async (item: NotificationItem) => {
     if (!(item.is_read ?? item.read)) {
-      await markNotificationRead(item.id);
-      setItems((prev) => prev.map((next) => (next.id === item.id ? { ...next, read: true, is_read: true } : next)));
-      onUnreadChange?.(items.filter((next) => next.id !== item.id && !(next.is_read ?? next.read)).length);
+      try {
+        await markNotificationRead(item.id);
+        setItems((prev) => {
+          const nextItems = prev.map((next) => (next.id === item.id ? { ...next, read: true, is_read: true } : next));
+          onUnreadChange?.(nextItems.filter((next) => !(next.is_read ?? next.read)).length);
+          return nextItems;
+        });
+      } catch {
+        setError('Hindi ma-update ang notification. Subukan muli mamaya.');
+      }
     }
   };
 
   const markAllRead = async () => {
     const unread = items.filter((item) => !(item.is_read ?? item.read));
-    await Promise.all(unread.map((item) => markNotificationRead(item.id)));
-    setItems((prev) => prev.map((item) => ({ ...item, read: true, is_read: true })));
-    onUnreadChange?.(0);
+    try {
+      await Promise.all(unread.map((item) => markNotificationRead(item.id)));
+      setItems((prev) => prev.map((item) => ({ ...item, read: true, is_read: true })));
+      onUnreadChange?.(0);
+    } catch {
+      setError('Hindi ma-update ang notifications. Subukan muli mamaya.');
+    }
   };
 
   return (
@@ -71,6 +82,7 @@ export function NotificationsView({
         {items.map((item) => {
           const isUnread = !(item.is_read ?? item.read);
           const body = item.message || item.body || '';
+          const date = item.created_at ? new Date(item.created_at) : null;
           return (
             <TouchableOpacity
               key={item.id}
@@ -80,7 +92,7 @@ export function NotificationsView({
             >
               <Text style={[styles.cardTitle, isUnread && styles.cardTitleUnread]}>{item.title}</Text>
               <Text style={styles.body}>{body}</Text>
-              <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
+              <Text style={styles.date}>{date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : ''}</Text>
             </TouchableOpacity>
           );
         })}

@@ -3,7 +3,7 @@ import { ImageBackground, View, Text, TextInput, TouchableOpacity, StyleSheet, A
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../config/theme';
-import { API_BASE_URL, postJson } from '../config/api';
+import { buildApiUrl, postJson } from '../config/api';
 import { signInUser, getChildByUsername, getChildByAuthUid, getUserProfileById, mapSupabaseAuthErrorCode, upsertUserProfile } from '../services/supabaseService';
 
 interface LoginScreenProps {
@@ -128,7 +128,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   };
 
   const createStudentAuthAccount = async (username: string, password: string, displayName: string) => {
-    const data = await postJson(`${API_BASE_URL}/auth/create-student-account`, { username, password, displayName });
+    const data = await postJson(buildApiUrl('/auth/create-student-account'), { username, password, displayName });
     if (!data?.success) {
       throw new Error(data?.message || 'Unable to create student auth account');
     }

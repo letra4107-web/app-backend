@@ -9,35 +9,63 @@ process.env.NODE_ENV = 'test';
 
 const { startServer } = require('../server');
 
+const request = ({ port, path, method = 'GET', headers = {} }) =>
+  new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path,
+        method,
+        headers,
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => resolve({ res, body }));
+      },
+    );
+
+    req.on('error', reject);
+    req.end();
+  });
+
 const server = startServer(0);
 
-server.once('listening', () => {
+server.once('listening', async () => {
   const address = server.address();
   assert(address && address.port, 'Server should bind to a port');
 
-  const port = address.port;
-  const url = `http://127.0.0.1:${port}/health`;
+  try {
+    const health = await request({ port: address.port, path: '/health' });
+    assert.strictEqual(health.res.statusCode, 200, 'Health endpoint should return HTTP 200');
+    assert.strictEqual(JSON.parse(health.body).status, 'ok');
 
-  http.get(url, (res) => {
-  let body = '';
-  res.on('data', (chunk) => {
-    body += chunk;
-  });
-  res.on('end', () => {
-    try {
-      assert.strictEqual(res.statusCode, 200, 'Health endpoint should return HTTP 200');
-      const json = JSON.parse(body);
-      assert.strictEqual(json.status, 'ok');
-      console.log('server_smoke.test.js passed');
-    } catch (error) {
-      console.error(error);
-      process.exit(1);
-    } finally {
-      server.close(() => process.exit(0));
-    }
-  });
-}).on('error', (error) => {
-  console.error('Failed to reach /health endpoint:', error);
-  server.close(() => process.exit(1));
-});
+    const preflight = await request({
+      port: address.port,
+      path: '/api/notifications',
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:8081',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'Content-Type, Authorization',
+      },
+    });
+
+    assert.strictEqual(preflight.res.statusCode, 200, 'CORS preflight should return HTTP 200');
+    assert.strictEqual(
+      preflight.res.headers['access-control-allow-origin'],
+      'http://localhost:8081',
+    );
+    assert.match(preflight.res.headers['access-control-allow-methods'] || '', /GET/);
+    assert.match(preflight.res.headers['access-control-allow-headers'] || '', /Content-Type/);
+
+    console.log('server_smoke.test.js passed');
+    server.close(() => process.exit(0));
+  } catch (error) {
+    console.error(error);
+    server.close(() => process.exit(1));
+  }
 });
