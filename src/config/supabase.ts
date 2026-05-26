@@ -1,0 +1,104 @@
+import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+type ExpoExtra = Record<string, any>;
+
+const extra =
+  (Constants.expoConfig?.extra as ExpoExtra | undefined) ||
+  (Constants as any).manifest?.extra ||
+  {};
+
+// Support flat keys, EXPO_PUBLIC_ prefixed keys, AND nested extra.supabase object
+const SUPABASE_URL_RAW =
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  extra.EXPO_PUBLIC_SUPABASE_URL ||
+  extra.SUPABASE_URL ||
+  extra.supabase?.url ||
+  'https://fnnqtoypfozldszrdjof.supabase.co';
+
+const SUPABASE_ANON_KEY =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  extra.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  extra.SUPABASE_ANON_KEY ||
+  extra.supabase?.anonKey ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZubnF0b3lwZm96bGRzenJkam9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTk1MTYsImV4cCI6MjA5NDU3NTUxNn0.m5dRk-SEC8W92eh96OwfKq-ImC_30Zk3swKEk_Jja9I';
+
+// Strip accidental path suffixes and validate
+const stripSupabasePaths = (url: string): string => {
+  const stripped = url.trim().replace(/\/(rest|auth|storage|realtime)\/v\d.*$/i, '');
+  if (stripped !== url.trim()) {
+    console.warn(
+      `[Supabase] URL contained a path suffix and was auto-corrected.\n  Was: ${url}\n  Now: ${stripped}`
+    );
+  }
+  return stripped;
+};
+
+const SUPABASE_URL = stripSupabasePaths(SUPABASE_URL_RAW);
+
+const maskKey = (key: string) =>
+  key.length > 16 ? `${key.slice(0, 8)}...${key.slice(-6)}` : 'configured';
+
+const getSupabaseProjectRef = (url: string) => {
+  try {
+    return new URL(url).hostname.split('.')[0];
+  } catch {
+    return 'invalid-url';
+  }
+};
+
+// Validation: warn instead of throwing so bundler doesn't fail at import-time.
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY. Check your .env / app.config.');
+}
+
+try {
+  const parsed = new URL(SUPABASE_URL);
+  if (parsed.protocol !== 'https:') {
+    console.warn(`[Supabase] SUPABASE_URL should use https://. Got: ${SUPABASE_URL}`);
+  }
+} catch (e) {
+  console.warn(`[Supabase] SUPABASE_URL is not a valid URL: "${SUPABASE_URL}"`);
+}
+
+if (SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length < 100) {
+  console.warn(
+    `[Supabase] SUPABASE_ANON_KEY looks too short (${SUPABASE_ANON_KEY.length} chars). It may be truncated.`
+  );
+}
+
+// Only use React Native AsyncStorage on native platforms. On web, let supabase-js use browser storage.
+let clientOptions: any = { auth: { detectSessionInUrl: false } };
+if (Platform.OS !== 'web') {
+  try {
+    // Require dynamically so bundlers targeting web don't try to resolve native-only packages.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    const storage = AsyncStorage?.default || AsyncStorage;
+    clientOptions = {
+      auth: {
+        storage,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
+    };
+  } catch (e) {
+    console.warn('[Supabase] AsyncStorage not available; falling back to default storage.', (e as any)?.message || e);
+  }
+}
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, clientOptions);
+
+export const getSupabaseDebugInfo = () => ({
+  url: SUPABASE_URL,
+  projectRef: getSupabaseProjectRef(SUPABASE_URL),
+  anonKeyMasked: maskKey(SUPABASE_ANON_KEY),
+  anonKeyLength: SUPABASE_ANON_KEY.length,
+  hasAsyncStorage: true,
+});
+
+console.log('[Supabase] client config:', getSupabaseDebugInfo());

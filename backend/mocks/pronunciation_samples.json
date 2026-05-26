@@ -1,0 +1,112 @@
+{
+  "1": {
+    "word": "pa-pa",
+    "score": 88,
+    "is_correct": true,
+    "phoneme_scores": [{"phoneme":"p","score":90},{"phoneme":"a","score":86}],
+    "suggestion": "Great job!",
+    "positive_message": "Good job!",
+    "action": "none",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/pa-pa.mp3"
+  },
+  "2": {
+    "word": "pa-pa",
+    "score": 62,
+    "is_correct": false,
+    "phoneme_scores": [{"phoneme":"p","score":60},{"phoneme":"a","score":64}],
+    "suggestion": "Try to make the first p sound stronger",
+    "positive_message": "Great try!",
+    "action": "repeat_word",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/pa-pa.mp3"
+  },
+  "3": {
+    "word": "bayani",
+    "score": 80,
+    "is_correct": true,
+    "phoneme_scores": [{"phoneme":"b","score":82},{"phoneme":"a","score":78},{"phoneme":"y","score":80}],
+    "suggestion": "Well articulated",
+    "positive_message": "Nice work!",
+    "action": "none",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/bayani.mp3"
+  },
+  "4": {
+    "word": "bayani",
+    "score": 55,
+    "is_correct": false,
+    "phoneme_scores": [{"phoneme":"b","score":50},{"phoneme":"a","score":60},{"phoneme":"y","score":55}],
+    "suggestion": "Emphasize the initial consonant",
+    "positive_message": "Keep it up!",
+    "action": "repeat_word",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/bayani.mp3"
+  },
+  "5": {
+    "word": "ako",
+    "score": 76,
+    "is_correct": true,
+    "phoneme_scores": [{"phoneme":"a","score":78},{"phoneme":"k","score":74}],
+    "suggestion": "Good clarity",
+    "positive_message": "You're doing great!",
+    "action": "none",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/ako.mp3"
+  },
+  "6": {
+    "word": "ako",
+    "score": 40,
+    "is_correct": false,
+    "phoneme_scores": [{"phoneme":"a","score":42},{"phoneme":"k","score":38}],
+    "suggestion": "Try to open your mouth more for the vowel",
+    "positive_message": "Good try!",
+    "action": "repeat_word",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/ako.mp3"
+  },
+  "7": {
+    "word": "mahal",
+    "score": 90,
+    "is_correct": true,
+    "phoneme_scores": [{"phoneme":"m","score":92},{"phoneme":"a","score":88}],
+    "suggestion": "Excellent",
+    "positive_message": "Congratulations!",
+    "action": "none",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/mahal.mp3"
+  },
+  "8": {
+    "word": "mahal",
+    "score": 68,
+    "is_correct": false,
+    "phoneme_scores": [{"phoneme":"m","score":70},{"phoneme":"a","score":66}],
+    "suggestion": "Try to project the first consonant",
+    "positive_message": "Great try!",
+    "action": "repeat_word",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/mahal.mp3"
+  },
+  "9": {
+    "word": "saya",
+    "score": 77,
+    "is_correct": true,
+    "phoneme_scores": [{"phoneme":"s","score":80},{"phoneme":"a","score":74}],
+    "suggestion": "Good",
+    "positive_message": "Good job!",
+    "action": "none",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/saya.mp3"
+  },
+  "10": {
+    "word": "saya",
+    "score": 50,
+    "is_correct": false,
+    "phoneme_scores": [{"phoneme":"s","score":48},{"phoneme":"a","score":52}],
+    "suggestion": "Try again with clearer vowel",
+    "positive_message": "Keep it up!",
+    "action": "repeat_word",
+    "retry_allowed": 2,
+    "audio_url": "/assets/audio/saya.mp3"
+  }
+}

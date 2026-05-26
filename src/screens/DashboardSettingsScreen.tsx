@@ -1,0 +1,589 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { MaterialIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import { supabase } from '../config/supabase';
+import { fetchProfile, updateProfile, uploadAvatar } from '../services/profileService';
+import {
+  changeEmail,
+  changePassword,
+  DashboardSettings,
+  fetchDashboardSettings,
+  FontSize,
+  ReadingTheme,
+  SettingsRole,
+  signOut,
+  updateDashboardSettings,
+} from '../services/settingsService';
+
+const PRIMARY = '#4f46e5';
+const BG = '#f8fafc';
+const SURFACE = '#ffffff';
+const BORDER = '#e5e7eb';
+const TEXT = '#111827';
+const MUTED = '#6b7280';
+const DANGER = '#dc2626';
+const SUCCESS = '#059669';
+
+type Props = {
+  role: SettingsRole;
+  navigation: any;
+  embedded?: boolean;
+};
+
+type ProfileState = {
+  id?: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  phone_number?: string;
+  avatar_url?: string | null;
+};
+
+type AccountModal = 'password' | 'email' | null;
+
+export default function DashboardSettingsScreen({ role, navigation, embedded = false }: Props) {
+  const [authUid, setAuthUid] = useState('');
+  const [profile, setProfile] = useState<ProfileState>({});
+  const [settings, setSettings] = useState<DashboardSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [modal, setModal] = useState<AccountModal>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const fade = useRef(new Animated.Value(0)).current;
+
+  const isParent = role === 'parent';
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const dark = !!settings?.dark_mode;
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      setLoading(true);
+      setError('');
+      try {
+        const { data, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        const user = data.user;
+        if (!user) {
+          navigation.replace('Login');
+          return;
+        }
+        const [profileData, settingsData] = await Promise.all([
+          fetchProfile(user.id),
+          fetchDashboardSettings(user.id, role),
+        ]);
+        if (!mounted) return;
+        setAuthUid(user.id);
+        setProfile({
+          id: user.id,
+          full_name: profileData?.full_name || profileData?.name || user.user_metadata?.display_name || '',
+          email: profileData?.email || user.email || '',
+          phone: profileData?.phone || profileData?.phone_number || '',
+          phone_number: profileData?.phone_number || profileData?.phone || '',
+          avatar_url: profileData?.avatar_url || null,
+        });
+        setSettings(settingsData);
+        setNewEmail(user.email || '');
+        Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+      } catch (e: any) {
+        if (mounted) setError(e?.message || 'Could not load settings. Please check your connection.');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, [fade, navigation, role]);
+
+  const initials = useMemo(() => {
+    const name = profile.full_name || (isParent ? 'Parent' : 'Student');
+    return name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+  }, [isParent, profile.full_name]);
+
+  const showSuccess = (text: string) => {
+    setMessage(text);
+    setError('');
+    setTimeout(() => setMessage(''), 2400);
+  };
+
+  const showError = (text: string) => {
+    setError(text);
+    setMessage('');
+  };
+
+  const saveProfile = async () => {
+    if (!authUid) return;
+    if (!profile.full_name?.trim()) {
+      showError('Full name is required.');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await updateProfile({
+        id: authUid,
+        full_name: profile.full_name.trim(),
+        name: profile.full_name.trim(),
+        email: profile.email,
+        phone: profile.phone_number || profile.phone,
+        phone_number: profile.phone_number || profile.phone,
+        avatar_url: profile.avatar_url,
+      });
+      showSuccess('Profile saved.');
+    } catch (e: any) {
+      showError(e?.message || 'Could not save profile.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const pickAvatar = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showError('Photo library permission is required.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.75,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+      const canceled = 'canceled' in result ? result.canceled : (result as any).cancelled;
+      const uri = result.assets?.[0]?.uri || (result as any).uri;
+      if (canceled || !uri) return;
+      setSavingProfile(true);
+      const publicUrl = await uploadAvatar(authUid, uri);
+      setProfile((prev) => ({ ...prev, avatar_url: publicUrl }));
+      showSuccess('Profile photo updated.');
+    } catch (e: any) {
+      showError(e?.message || 'Could not upload profile photo.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const updateSetting = async <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => {
+    if (!authUid || !settings) return;
+    const previous = settings;
+    setSettings({ ...settings, [key]: value });
+    setSavingKey(String(key));
+    try {
+      const saved = await updateDashboardSettings(authUid, role, { [key]: value } as Partial<DashboardSettings>);
+      setSettings(saved);
+      showSuccess('Setting saved.');
+    } catch (e: any) {
+      setSettings(previous);
+      showError(e?.message || 'Could not save setting. Changes were reverted.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const submitPassword = async () => {
+    if (newPassword.length < 8) {
+      showError('Password must be at least 8 characters.');
+      return;
+    }
+    setSavingKey('password');
+    try {
+      await changePassword(newPassword);
+      setNewPassword('');
+      setModal(null);
+      showSuccess('Password updated.');
+    } catch (e: any) {
+      showError(e?.message || 'Could not update password.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const submitEmail = async () => {
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      showError('Enter a valid email address.');
+      return;
+    }
+    setSavingKey('email');
+    try {
+      await changeEmail(trimmed);
+      setProfile((prev) => ({ ...prev, email: trimmed }));
+      setModal(null);
+      showSuccess('Check your inbox to confirm the new email.');
+    } catch (e: any) {
+      showError(e?.message || 'Could not update email.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut();
+      navigation.replace('Login');
+    } catch (e: any) {
+      showError(e?.message || 'Could not log out.');
+    }
+  };
+
+  const contactSupport = async () => {
+    const subject = encodeURIComponent(`LinawLetra support - ${isParent ? 'Parent' : 'Student'} account`);
+    const body = encodeURIComponent(`User ID: ${authUid}\n\nHow can we help?`);
+    const url = `mailto:support@linawletra.app?subject=${subject}&body=${body}`;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) await Linking.openURL(url);
+    else showError('No email app is available on this device.');
+  };
+
+  const confirmLogout = () => {
+    if (Platform.OS === 'web') {
+      void logout();
+      return;
+    }
+    Alert.alert('Log out?', 'You will need to sign in again.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: logout },
+    ]);
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete account',
+      'Account deletion needs a secure server-side admin endpoint. Contact support to request deletion.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Contact support', onPress: contactSupport },
+      ],
+    );
+  };
+
+  const renderSwitch = (key: keyof DashboardSettings, value?: boolean) => (
+    <Switch
+      value={!!value}
+      onValueChange={(next) => updateSetting(key, next as any)}
+      disabled={savingKey === String(key)}
+      trackColor={{ false: '#cbd5e1', true: '#c7d2fe' }}
+      thumbColor={value ? PRIMARY : '#f8fafc'}
+    />
+  );
+
+  const renderSegment = <T extends string>(key: keyof DashboardSettings, value: T, options: T[]) => (
+    <View style={styles.segment}>
+      {options.map((item) => {
+        const active = item === value;
+        return (
+          <TouchableOpacity
+            key={item}
+            style={[styles.segmentButton, active && styles.segmentButtonActive]}
+            onPress={() => updateSetting(key, item as any)}
+            disabled={savingKey === String(key)}
+          >
+            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{item}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const Section = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => (
+    <View style={[styles.card, dark && styles.cardDark]}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionIcon}>
+          <MaterialIcons name={icon as any} size={20} color={PRIMARY} />
+        </View>
+        <Text style={[styles.sectionTitle, dark && styles.textDark]}>{title}</Text>
+      </View>
+      {children}
+    </View>
+  );
+
+  const Row = ({
+    icon,
+    title,
+    subtitle,
+    right,
+    onPress,
+    danger,
+  }: {
+    icon: string;
+    title: string;
+    subtitle?: string;
+    right?: React.ReactNode;
+    onPress?: () => void;
+    danger?: boolean;
+  }) => (
+    <TouchableOpacity style={styles.row} activeOpacity={onPress ? 0.72 : 1} onPress={onPress}>
+      <MaterialIcons name={icon as any} size={22} color={danger ? DANGER : PRIMARY} />
+      <View style={styles.rowText}>
+        <Text style={[styles.rowTitle, dark && styles.textDark, danger && { color: DANGER }]}>{title}</Text>
+        {!!subtitle && <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{subtitle}</Text>}
+      </View>
+      {right}
+    </TouchableOpacity>
+  );
+
+  if (loading || !settings) {
+    return (
+      <View style={[styles.center, dark && styles.containerDark]}>
+        <ActivityIndicator size="large" color={PRIMARY} />
+        <Text style={styles.loadingText}>Loading settings...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Animated.View style={[styles.container, dark && styles.containerDark, { opacity: fade }]}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          {!embedded && (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <MaterialIcons name="arrow-back" size={22} color={PRIMARY} />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Parent Settings' : 'Student Settings'}</Text>
+            <Text style={[styles.subtitle, dark && styles.mutedDark]}>Saved securely with Supabase</Text>
+          </View>
+        </View>
+
+        {!!message && <Text style={styles.successBanner}>{message}</Text>}
+        {!!error && <Text style={styles.errorBanner}>{error}</Text>}
+
+        <Section title="Profile" icon="person">
+          <View style={styles.profileTop}>
+            <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrap} disabled={savingProfile}>
+              {profile.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarInitial}>{initials}</Text>
+                </View>
+              )}
+              <View style={styles.avatarEdit}>
+                <MaterialIcons name="photo-camera" size={16} color="#fff" />
+              </View>
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
+              <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{profile.email}</Text>
+            </View>
+          </View>
+
+          <TextInput
+            style={[styles.input, dark && styles.inputDark]}
+            value={profile.full_name || ''}
+            onChangeText={(full_name) => setProfile((prev) => ({ ...prev, full_name }))}
+            placeholder="Full name"
+            placeholderTextColor="#94a3b8"
+          />
+          <TextInput
+            style={[styles.input, styles.readOnlyInput, dark && styles.inputDark]}
+            value={profile.email || ''}
+            editable={false}
+            placeholder="Email"
+            placeholderTextColor="#94a3b8"
+          />
+          <TextInput
+            style={[styles.input, dark && styles.inputDark]}
+            value={profile.phone_number || profile.phone || ''}
+            onChangeText={(phone_number) => setProfile((prev) => ({ ...prev, phone_number, phone: phone_number }))}
+            keyboardType="phone-pad"
+            placeholder="Phone number"
+            placeholderTextColor="#94a3b8"
+          />
+          <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={savingProfile}>
+            {savingProfile ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
+          </TouchableOpacity>
+        </Section>
+
+        <Section title="Account" icon="manage-accounts">
+          <Row icon="lock" title="Change password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
+          <Row icon="email" title="Change email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
+          <Row icon="delete-outline" title="Delete account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
+        </Section>
+
+        <Section title="Notifications" icon="notifications-active">
+          <Row icon="notifications" title="Notifications enabled" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
+          <Row icon="assignment" title="Assignment notifications" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
+          <Row icon="cloud-upload" title="Lesson notifications" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
+          {isParent ? (
+            <>
+              <Row icon="insert-chart" title="Progress notifications" right={renderSwitch('progress_notifications', settings.progress_notifications)} />
+              <Row icon="notifications" title="Push notifications" right={renderSwitch('push_notifications', settings.push_notifications)} />
+            </>
+          ) : (
+            <Row icon="event" title="Deadline reminders" right={renderSwitch('deadline_notifications', settings.deadline_notifications)} />
+          )}
+        </Section>
+
+        <Section title="App Preferences" icon="palette">
+          <Row icon="dark-mode" title="Dark mode" right={renderSwitch('dark_mode', settings.dark_mode)} />
+          <Row icon="format-size" title="Font size" subtitle={settings.font_size} right={renderSegment<FontSize>('font_size', settings.font_size, ['small', 'medium', 'large'])} />
+          <Row icon="text-fields" title="Dyslexia-friendly font" right={renderSwitch('dyslexia_font', settings.dyslexia_font)} />
+          <Row icon="wb-sunny" title="Reading theme" subtitle={settings.reading_theme || 'light'} right={renderSegment<ReadingTheme>('reading_theme', settings.reading_theme || 'light', ['light', 'dark', 'sepia'])} />
+        </Section>
+
+        <Section title="Accessibility" icon="accessibility-new">
+          <Row icon="record-voice-over" title="Text-to-speech" right={renderSwitch('tts_enabled', settings.tts_enabled)} />
+          <Row icon="mic" title="Speech-to-text" right={renderSwitch('stt_enabled', settings.stt_enabled)} />
+          <Row icon="contrast" title="High contrast mode" right={renderSwitch('high_contrast', settings.high_contrast)} />
+          <Row icon="view-day" title="Reading guide overlay" right={renderSwitch('reading_guide', settings.reading_guide)} />
+        </Section>
+
+        <Section title="Security" icon="verified-user">
+          <Row icon="logout" title="Logout" subtitle="End this session" onPress={confirmLogout} />
+          <Row icon="devices" title="Active sessions" subtitle="Current device session managed by Supabase Auth" />
+          <Row icon="security" title="Two-factor authentication" subtitle="Preference saved for future verification flow" right={renderSwitch('two_factor_enabled', settings.two_factor_enabled)} />
+        </Section>
+
+        {isParent && (
+          <Section title="Child Monitoring" icon="supervisor-account">
+            <Row icon="calendar-month" title="Weekly progress reports" right={renderSwitch('weekly_progress_reports', settings.weekly_progress_reports)} />
+            <Row icon="summarize" title="Daily activity summary" right={renderSwitch('daily_activity_summary', settings.daily_activity_summary)} />
+            <Row icon="campaign" title="Teacher updates" right={renderSwitch('teacher_updates', settings.teacher_updates)} />
+            <Row icon="emoji-events" title="Learning milestone alerts" right={renderSwitch('milestone_alerts', settings.milestone_alerts)} />
+          </Section>
+        )}
+
+        <Section title="About" icon="info">
+          <Row icon="app-settings-alt" title="App version" subtitle={appVersion} />
+          <Row icon="gavel" title="Terms and Privacy" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
+          <Row icon="support-agent" title="Contact support" subtitle="Open your email app" onPress={contactSupport} />
+        </Section>
+      </ScrollView>
+
+      <Modal visible={!!modal} transparent animationType="fade" onRequestClose={() => setModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, dark && styles.cardDark]}>
+            <Text style={[styles.modalTitle, dark && styles.textDark]}>{modal === 'password' ? 'Change Password' : 'Change Email'}</Text>
+            {modal === 'password' ? (
+              <TextInput
+                style={[styles.input, dark && styles.inputDark]}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                placeholder="New password"
+                placeholderTextColor="#94a3b8"
+              />
+            ) : (
+              <TextInput
+                style={[styles.input, dark && styles.inputDark]}
+                value={newEmail}
+                onChangeText={setNewEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholder="New email"
+                placeholderTextColor="#94a3b8"
+              />
+            )}
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => setModal(null)}>
+                <Text style={styles.secondaryButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.primaryButtonSmall}
+                onPress={modal === 'password' ? submitPassword : submitEmail}
+                disabled={savingKey === 'password' || savingKey === 'email'}
+              >
+                <Text style={styles.primaryButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: BG },
+  containerDark: { backgroundColor: '#030712' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BG },
+  loadingText: { marginTop: 12, color: MUTED, fontWeight: '700' },
+  content: { padding: 16, paddingBottom: 40 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 18, paddingBottom: 10 },
+  backButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#eef2ff', alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 24, fontWeight: '900', color: TEXT },
+  subtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
+  card: {
+    backgroundColor: SURFACE,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 14,
+    marginTop: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  cardDark: { backgroundColor: '#0b1220', borderColor: '#1f2937' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  sectionIcon: { width: 34, height: 34, borderRadius: 8, backgroundColor: '#eef2ff', alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontSize: 16, fontWeight: '900', color: TEXT },
+  row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  rowText: { flex: 1 },
+  rowTitle: { color: TEXT, fontSize: 15, fontWeight: '800' },
+  rowSubtitle: { color: MUTED, fontSize: 12, marginTop: 3 },
+  textDark: { color: '#f8fafc' },
+  mutedDark: { color: '#94a3b8' },
+  profileTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
+  avatarWrap: { position: 'relative' },
+  avatar: { width: 72, height: 72, borderRadius: 8 },
+  avatarPlaceholder: { backgroundColor: '#eef2ff', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { color: PRIMARY, fontSize: 28, fontWeight: '900' },
+  avatarEdit: { position: 'absolute', right: -4, bottom: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
+  profileName: { fontSize: 18, fontWeight: '900', color: TEXT },
+  input: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    backgroundColor: '#fff',
+    color: TEXT,
+  },
+  inputDark: { backgroundColor: '#111827', borderColor: '#334155', color: '#f8fafc' },
+  readOnlyInput: { backgroundColor: '#f1f5f9' },
+  primaryButton: { minHeight: 48, borderRadius: 8, marginTop: 12, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonSmall: { minHeight: 44, borderRadius: 8, paddingHorizontal: 18, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center', flex: 1 },
+  primaryButtonText: { color: '#fff', fontWeight: '900' },
+  secondaryButton: { minHeight: 44, borderRadius: 8, paddingHorizontal: 18, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', flex: 1 },
+  secondaryButtonText: { color: '#334155', fontWeight: '900' },
+  successBanner: { color: SUCCESS, backgroundColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1, padding: 10, borderRadius: 8, marginTop: 8, fontWeight: '800' },
+  errorBanner: { color: DANGER, backgroundColor: '#fee2e2', borderColor: '#fecaca', borderWidth: 1, padding: 10, borderRadius: 8, marginTop: 8, fontWeight: '800' },
+  segment: { flexDirection: 'row', backgroundColor: '#eef2ff', borderRadius: 8, padding: 2, maxWidth: 210 },
+  segmentButton: { minHeight: 34, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
+  segmentButtonActive: { backgroundColor: PRIMARY },
+  segmentText: { color: PRIMARY, fontWeight: '800', fontSize: 12, textTransform: 'capitalize' },
+  segmentTextActive: { color: '#fff' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', justifyContent: 'center', padding: 20 },
+  modalCard: { backgroundColor: '#fff', borderRadius: 8, padding: 18 },
+  modalTitle: { color: TEXT, fontSize: 18, fontWeight: '900', marginBottom: 4 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+});

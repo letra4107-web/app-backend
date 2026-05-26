@@ -1,0 +1,380 @@
+import { supabase } from '../config/supabase';
+
+type Profile = {
+  id?: string;
+  auth_uid?: string;
+  full_name?: string;
+  name?: string;
+  username?: string;
+  email?: string;
+  phone?: string;
+  phone_number?: string;
+  birthdate?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  avatar_url?: string | null;
+};
+
+const parentProfileInFlight = new Map<string, Promise<Profile | null>>();
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isMissingRelationError = (error: any) => {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.code === 'PGRST205' || error?.code === '42P01' || error?.status === 404 || message.includes('could not find the table');
+};
+
+const isDuplicateEmailError = (error: any) => {
+  const message = String(error?.message || '').toLowerCase();
+  return (error?.code === '23505' || error?.status === 409) && (message.includes('parents_email') || message.includes('email'));
+};
+
+const isDuplicateOrConflictError = (error: any) => {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    error?.code === '23505' ||
+    error?.status === 409 ||
+    message.includes('duplicate key') ||
+    message.includes('conflict')
+  );
+};
+
+const getMissingColumnName = (error: any) => {
+  const message = String(error?.message || '');
+  const details = String(error?.details || '');
+  return (
+    message.match(/\.([a-zA-Z0-9_]+) does not exist/)?.[1] ||
+    message.match(/'([a-zA-Z0-9_]+)' column/)?.[1] ||
+    details.match(/'([a-zA-Z0-9_]+)' column/)?.[1] ||
+    null
+  );
+};
+
+const isSchemaMismatchError = (error: any) =>
+  error?.code === 'PGRST204' ||
+  error?.code === '42703' ||
+  error?.status === 400 ||
+  String(error?.message || '').toLowerCase().includes('column');
+
+const sanitizeParentPayload = (profile: Profile, includeEmail = true) => {
+  const authUid = profile.auth_uid || profile.id;
+  const payload: Record<string, any> = {
+    auth_uid: authUid,
+    full_name: profile.full_name || profile.name,
+    avatar_url: profile.avatar_url,
+    phone_number: profile.phone_number || profile.phone,
+  };
+
+  if (includeEmail) payload.email = profile.email;
+
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
+      delete payload[key];
+    }
+  });
+
+  return payload;
+};
+
+const withoutMissingColumns = (payload: Record<string, any>, missingColumns: string[]) => {
+  const next = { ...payload };
+  missingColumns.forEach((column) => {
+    if (column !== 'auth_uid') delete next[column];
+  });
+  return next;
+};
+
+const toParentProfile = (row: any): Profile => ({
+  id: row.id,
+  auth_uid: row.auth_uid,
+  full_name: row.full_name || row.name,
+  name: row.full_name || row.name,
+  username: row.username,
+  email: row.email,
+  phone: row.phone_number || row.phone,
+  phone_number: row.phone_number || row.phone,
+  birthdate: row.birthdate,
+  gender: row.gender,
+  address: row.address,
+  avatar_url: row.avatar_url,
+});
+
+const fetchParentByAuthUid = async (authUid: string) => {
+  const { data, error } = await supabase
+    .from('parents')
+    .select('*')
+    .eq('auth_uid', authUid)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? toParentProfile(data) : null;
+};
+
+export async function fetchParentProfile(userId: string, defaults: Partial<Profile> = {}) {
+  console.log('[ParentProfile] fetch start:', { auth_uid: userId, hasDefaults: !!Object.keys(defaults).length });
+  const { data, error } = await supabase
+    .from('parents')
+    .select('*')
+    .eq('auth_uid', userId)
+    .maybeSingle();
+
+  console.log('[ParentProfile] fetch response:', {
+    auth_uid: userId,
+    hasData: !!data,
+    error: error ? { code: error.code, status: (error as any).status, message: error.message } : null,
+  });
+
+  if (error) {
+    if (isMissingRelationError(error)) {
+      console.warn('Parent profile table not found. Run the parents table migration in Supabase.');
+    } else {
+      console.error('Failed to fetch parent profile:', error);
+    }
+    return { data: null, error };
+  }
+
+  if (!data) {
+    console.warn('[ParentProfile] missing profile, attempting auto-create:', {
+      auth_uid: userId,
+      reason: 'No row matched parents.auth_uid',
+    });
+    try {
+      const created = await ensureParentProfile({
+        id: userId,
+        auth_uid: userId,
+        full_name: defaults.full_name || defaults.name,
+        name: defaults.name || defaults.full_name,
+        email: defaults.email,
+        avatar_url: defaults.avatar_url,
+        phone: defaults.phone,
+        phone_number: defaults.phone_number,
+      });
+      return { data: created || { id: userId, auth_uid: userId, ...defaults }, error: null };
+    } catch (createError: any) {
+      console.error('[ParentProfile] auto-create failed:', {
+        auth_uid: userId,
+        code: createError?.code,
+        message: createError?.message || String(createError),
+      });
+      return { data: { id: userId, auth_uid: userId, ...defaults }, error: null };
+    }
+  }
+
+  return { data: toParentProfile(data), error: null };
+}
+
+export async function ensureParentProfile(profile: Profile) {
+  const authUid = profile.auth_uid || profile.id;
+  if (!authUid) {
+    throw new Error('Cannot save parent profile without an auth user id.');
+  }
+
+  const existingRequest = parentProfileInFlight.get(authUid);
+  if (existingRequest) return existingRequest;
+
+  const request = (async () => {
+    const existing = await supabase
+      .from('parents')
+      .select('*')
+      .eq('auth_uid', authUid)
+      .maybeSingle();
+
+    if (existing.error) throw existing.error;
+
+    const payload = sanitizeParentPayload({ ...profile, auth_uid: authUid });
+
+    if (existing.data) {
+      const updatePayload = { ...payload };
+      delete updatePayload.auth_uid;
+      if (!Object.keys(updatePayload).length) return toParentProfile(existing.data);
+
+      const updateWithRetry = async (missingColumns: string[] = []): Promise<any> => {
+        const updated = await supabase
+          .from('parents')
+          .update(withoutMissingColumns(updatePayload, missingColumns))
+          .eq('auth_uid', authUid)
+          .select()
+          .maybeSingle();
+
+        if (!updated.error) return updated;
+
+        const missingColumn = getMissingColumnName(updated.error);
+        if (isSchemaMismatchError(updated.error) && missingColumn && !missingColumns.includes(missingColumn)) {
+          return updateWithRetry([...missingColumns, missingColumn]);
+        }
+
+        return updated;
+      };
+
+      const updated = await updateWithRetry();
+
+      if (updated.error) {
+        if (isDuplicateEmailError(updated.error)) {
+          const retryPayload = { ...updatePayload };
+          delete retryPayload.email;
+          const retry = await supabase
+            .from('parents')
+            .update(retryPayload)
+            .eq('auth_uid', authUid)
+            .select()
+            .maybeSingle();
+          if (retry.error) throw retry.error;
+          return retry.data ? toParentProfile(retry.data) : toParentProfile(existing.data);
+        }
+        throw updated.error;
+      }
+
+      return updated.data ? toParentProfile(updated.data) : toParentProfile(existing.data);
+    }
+
+    const upsertWithRetry = async (upsertPayload: Record<string, any>, missingColumns: string[] = []): Promise<any> => {
+      const inserted = await supabase
+        .from('parents')
+        .upsert(withoutMissingColumns(upsertPayload, missingColumns), { onConflict: 'auth_uid' })
+        .select()
+        .maybeSingle();
+
+      if (!inserted.error) return inserted;
+
+      const missingColumn = getMissingColumnName(inserted.error);
+      if (isSchemaMismatchError(inserted.error) && missingColumn && !missingColumns.includes(missingColumn)) {
+        return upsertWithRetry(upsertPayload, [...missingColumns, missingColumn]);
+      }
+
+      return inserted;
+    };
+
+    const inserted = await upsertWithRetry(payload);
+
+    if (inserted.error) {
+      if (isDuplicateEmailError(inserted.error)) {
+        console.warn('[ParentProfile] duplicate email constraint hit; retrying parent upsert without email:', {
+          auth_uid: authUid,
+          code: inserted.error.code,
+          status: (inserted.error as any).status,
+        });
+        const retryPayload = sanitizeParentPayload({ ...profile, auth_uid: authUid }, false);
+        const retry = await upsertWithRetry(retryPayload);
+        if (retry.error) {
+          if (isDuplicateOrConflictError(retry.error)) {
+            await sleep(250);
+            const recovered = await fetchParentByAuthUid(authUid).catch(() => null);
+            if (recovered) return recovered;
+          }
+          throw retry.error;
+        }
+        return retry.data ? toParentProfile(retry.data) : null;
+      }
+      if (isDuplicateOrConflictError(inserted.error)) {
+        console.warn('[ParentProfile] parent upsert conflict; refetching existing profile:', {
+          auth_uid: authUid,
+          code: inserted.error.code,
+          status: (inserted.error as any).status,
+          message: inserted.error.message,
+        });
+        await sleep(250);
+        const recovered = await fetchParentByAuthUid(authUid).catch(() => null);
+        if (recovered) return recovered;
+
+        const retryPayload = sanitizeParentPayload({ ...profile, auth_uid: authUid }, false);
+        const retry = await upsertWithRetry(retryPayload);
+        if (!retry.error) return retry.data ? toParentProfile(retry.data) : null;
+      }
+      throw inserted.error;
+    }
+
+    return inserted.data ? toParentProfile(inserted.data) : null;
+  })();
+
+  parentProfileInFlight.set(authUid, request);
+  try {
+    return await request;
+  } finally {
+    parentProfileInFlight.delete(authUid);
+  }
+}
+
+export async function upsertParentProfile(profile: Profile) {
+  try {
+    return await ensureParentProfile(profile);
+  } catch (error) {
+    console.error('Failed to save parent profile:', error);
+    throw error;
+  }
+}
+
+export async function fetchProfile(userId: string) {
+  const { data: sessionData } = await supabase.auth.getUser();
+  const user = sessionData?.user;
+  const fallbackName =
+    user?.user_metadata?.display_name ||
+    [user?.user_metadata?.firstName, user?.user_metadata?.lastName].filter(Boolean).join(' ') ||
+    undefined;
+
+  const { data: parentData, error: parentErr } = await fetchParentProfile(userId, {
+    full_name: fallbackName,
+    email: user?.email,
+  });
+  if (parentData) return parentData;
+  if (parentErr && !isMissingRelationError(parentErr)) {
+    console.warn('Falling back to legacy profile after parent profile error:', parentErr);
+  }
+
+  const { data: userData, error: userError } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+  if (userData) {
+    return {
+      id: userData.id,
+      auth_uid: userData.id,
+      full_name: userData.full_name || userData.name,
+      name: userData.name || userData.full_name,
+      email: userData.email,
+      avatar_url: userData.avatar_url,
+    } as Profile;
+  }
+  if (userError) throw userError;
+
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    console.warn('Parent profile not found');
+    return { id: userId } as Profile;
+  }
+  return data as Profile;
+}
+
+export async function updateProfile(profile: Profile) {
+  const { id, ...rest } = profile;
+  try {
+    const savedParent = await ensureParentProfile({ id, ...rest });
+    if (savedParent) return [savedParent] as Profile[];
+  } catch (e: any) {
+    if (!isMissingRelationError(e)) throw e;
+  }
+
+  const { data, error } = await supabase.from('users').upsert({
+    id,
+    name: rest.full_name || rest.name,
+    email: rest.email,
+  }).select();
+  if (error) throw error;
+  return (data || []) as Profile[];
+}
+
+export async function uploadAvatar(userId: string, uri: string) {
+  try {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const fileExt = uri.split('.').pop();
+    const filePath = `avatars/${userId}.${fileExt}`;
+    const { data, error: uploadError } = await supabase.storage.from('avatars').upload(filePath, blob, {
+      upsert: true,
+      cacheControl: '3600',
+    });
+    if (uploadError) throw uploadError;
+    const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(data.path);
+    const publicUrl = publicData?.publicUrl || null;
+    await updateProfile({ id: userId, avatar_url: publicUrl });
+    return publicUrl;
+  } catch (e) {
+    throw e;
+  }
+}

@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start Backend",
+			"type": "shell",
+			"command": "cd backend && npm install && node server.js",
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Start Backend",
+			"type": "shell",
+			"command": "cd backend; npm install; node server.js",
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "CD Backend",
+			"type": "shell",
+			"command": "cd backend",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

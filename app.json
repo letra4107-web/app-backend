@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "LinawLm",
+    "slug": "LinawLm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/Logo.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Kinakailangan ang mikropono para sa voice practice at pagkilala ng boses."
+      }
+    },
+    "android": {
+      "package": "com.linawletra.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/Logo.jpg",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Payagan ang LinawLetra na gamitin ang mikropono para sa pronunciation practice.",
+          "speechRecognitionPermission": "Payagan ang LinawLetra na makinig at kilalanin ang binibigkas na salita.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ]
+    ]
+  }
+}

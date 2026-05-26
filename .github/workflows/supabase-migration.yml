@@ -1,0 +1,33 @@
+name: Supabase Migration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install supabase CLI
+        run: npm install -g supabase
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci
+      - name: Run DB migrations
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "Run migrations using psql or supabase CLI"
+          # supabase db push or psql commands would run here in real workflow
+      - name: Deploy Edge Functions
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "Deploy Edge Functions via supabase functions deploy"
