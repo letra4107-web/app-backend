@@ -158,10 +158,33 @@ app.get('/health/smtp', async (req, res) => {
   }
 });
 
+const apiRoutes = [
+  '/api/auth',
+  '/api/speech',
+  '/api/reading',
+  '/api/pronunciation',
+  '/api/progress',
+  '/api/lessons',
+  '/api/activities',
+  '/api/notifications',
+  '/api/practice',
+  '/api/cors-test',
+  '/api/routes',
+  '/api',
+  '/api/health',
+];
+
 app.get('/api/cors-test', (req, res) => {
   res.json({
     ok: true,
     origin: req.headers.origin || null,
+  });
+});
+
+app.get('/api/routes', (req, res) => {
+  res.json({
+    success: true,
+    routes: apiRoutes,
   });
 });
 
