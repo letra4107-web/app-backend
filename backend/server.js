@@ -96,6 +96,7 @@ const isOriginAllowed = (origin) => {
 
 const corsOptions = {
   origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
     if (isOriginAllowed(origin)) return callback(null, true);
     console.warn(`[CORS] Blocked origin: ${origin}`);
     return callback(null, false);
@@ -108,29 +109,14 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', corsAllowedMethods.join(', '));
-  res.setHeader('Access-Control-Allow-Headers', corsAllowedHeaders.join(', '));
-
-  if (origin && isOriginAllowed(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  return next();
-});
-
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+app.use((req, res, next) => {
+  if (!req.headers.origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  next();
+});
 
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
@@ -170,6 +156,13 @@ app.get('/health/smtp', async (req, res) => {
       smtp: error?.message || String(error),
     });
   }
+});
+
+app.get('/api/cors-test', (req, res) => {
+  res.json({
+    ok: true,
+    origin: req.headers.origin || null,
+  });
 });
 
 app.use('/api/auth', authRoutes);
@@ -216,13 +209,6 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  const origin = req.headers.origin;
-
-  if (origin && isOriginAllowed(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
-
   console.error('Server error:', err);
   res.status(err.status || 500).json({
     success: false,

@@ -193,6 +193,10 @@ export const getJson = async <T = any>(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS
 ): Promise<T> => {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log('[API] GET', url);
+  }
+
   return fetchJson<T>(
     url,
     {
