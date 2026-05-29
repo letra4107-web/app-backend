@@ -3,7 +3,7 @@ const nodemailer = require('nodemailer');
 const stripQuotes = (value = '') => String(value).trim().replace(/^"(.*)"$/, '$1');
 
 const emailUser = process.env.SMTP_USER || process.env.EMAIL_USER;
-const emailPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').replace(/\s/g, '');
+const emailPass = stripQuotes(process.env.SMTP_PASS || process.env.EMAIL_PASS || '').replace(/\s/g, '');
 const emailHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
 const emailPort = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
 const emailFrom = stripQuotes(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>');
@@ -170,7 +170,11 @@ const verifyMailerConnection = async () => {
 };
 
 logMailerStatus();
-setTimeout(verifyMailerConnection, 1000);
+setTimeout(() => {
+  verifyMailerConnection().catch((error) =>
+    console.warn('[Mailer] startup verify failed (non-fatal):', error?.message || String(error))
+  );
+}, 2000);
 
 const sendOTPEmail = async (email, otp) => {
   if (!smtpConfigured) {
