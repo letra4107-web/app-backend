@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../config/theme';
 import { buildApiUrl, postJson } from '../config/api';
 import { signInUser, getChildByUsername, getChildByAuthUid, getUserProfileById, mapSupabaseAuthErrorCode, upsertUserProfile } from '../services/supabaseService';
+import { supabase } from '../config/supabase';
 
 interface LoginScreenProps {
   navigation: any;
@@ -235,6 +236,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       }
 
       console.log('Login successful for user:', user.email);
+      try {
+        const sessionRes = await supabase.auth.getSession();
+        console.log('[Login] supabase.getSession after signIn:', { session: sessionRes?.data?.session });
+      } catch (sessionErr) {
+        console.error('[Login] supabase.getSession error:', sessionErr);
+      }
       // We'll check Supabase Auth first, then fall back to our public.users.email_verified flag
       let emailVerified = !!user.email_confirmed_at;
 
