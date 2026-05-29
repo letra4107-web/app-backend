@@ -660,7 +660,15 @@ const fetchChildProfileByAuthUid = async (authUid, requestId) => {
 router.get('/child-profile/:authUid', async (req, res) => {
   const authUid = String(req.params.authUid || '').trim();
   const requestId = `child-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  authLog('log', 'child-profile request received', { requestId, authUid, path: req.path, query: req.query, ip: req.ip });
+  authLog('log', 'child-profile request received', {
+    requestId,
+    authUid,
+    path: req.path,
+    query: req.query,
+    ip: req.ip,
+    origin: req.headers.origin,
+    authorization: Boolean(req.headers.authorization),
+  });
 
   if (!authUid) {
     authLog('warn', 'child-profile missing authUid', { requestId });
@@ -668,6 +676,7 @@ router.get('/child-profile/:authUid', async (req, res) => {
   }
 
   try {
+    authLog('log', 'fetching child profile by authUid', { requestId, authUid });
     const { data: child, error, status, table } = await fetchChildProfileByAuthUid(authUid, requestId);
 
     if (error) {
@@ -692,11 +701,28 @@ router.get('/child-profile/:authUid', async (req, res) => {
     }
 
     if (!child) {
-      authLog('warn', 'child-profile not found', { requestId, authUid, status, table });
-      return res.status(404).json({ success: false, message: 'Child profile not found', table });
+      authLog('warn', 'child-profile not found for authUid', {
+        requestId,
+        authUid,
+        status,
+        table,
+        debugInfo: `Searched in table: ${table}`,
+      });
+      return res.status(404).json({
+        success: false,
+        message: 'Child profile not found',
+        table,
+        authUid,
+      });
     }
 
-    authLog('log', 'child-profile loaded successfully', { requestId, authUid, childId: child.id, table });
+    authLog('log', 'child-profile loaded successfully', {
+      requestId,
+      authUid,
+      childId: child.id,
+      table,
+      childName: child.name,
+    });
     return res.status(200).json({ success: true, child });
   } catch (error) {
     authLog('error', 'Unexpected error in child-profile route', {

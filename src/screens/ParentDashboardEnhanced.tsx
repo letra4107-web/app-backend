@@ -122,8 +122,28 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       );
       setActivities(response.activities || []);
     } catch (error: any) {
-      console.warn('[ParentDashboard] activities load failed:', error?.message || error);
-      setActivities([]);
+      console.warn('[ParentDashboard] activities load failed, falling back to Supabase:', error?.message || error);
+
+      try {
+        const childIds = rows.map((child) => child.id).filter(Boolean);
+        if (!childIds.length) {
+          setActivities([]);
+          return;
+        }
+
+        const { data: activities, error: supabaseError } = await supabase
+          .from('activities')
+          .select('id,title,description,deadline,subject,status,student_id')
+          .in('student_id', childIds)
+          .order('deadline', { ascending: true });
+
+        if (supabaseError) throw supabaseError;
+        setActivities((activities || []) as StudentActivity[]);
+        console.log('[ParentDashboard] Supabase fallback succeeded for activities');
+      } catch (supabaseErr: any) {
+        console.warn('[ParentDashboard] Supabase fallback for activities failed:', supabaseErr?.message);
+        setActivities([]);
+      }
     }
   };
 
@@ -141,8 +161,23 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       );
       setPracticeSessions(response.sessions || []);
     } catch (error: any) {
-      console.warn('[ParentDashboard] practice sessions load failed:', error?.message || error);
-      setPracticeSessions([]);
+      console.warn('[ParentDashboard] practice sessions load failed, falling back to Supabase:', error?.message || error);
+
+      try {
+        const { data: sessions, error: supabaseError } = await supabase
+          .from('pronunciation_practice_sessions')
+          .select('id,student_id,word,spoken_text,accuracy_percentage,created_at')
+          .in('student_id', childIds)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (supabaseError) throw supabaseError;
+        setPracticeSessions((sessions || []) as PracticeSessionRow[]);
+        console.log('[ParentDashboard] Supabase fallback succeeded for practice sessions');
+      } catch (supabaseErr: any) {
+        console.warn('[ParentDashboard] Supabase fallback for practice sessions failed:', supabaseErr?.message);
+        setPracticeSessions([]);
+      }
     }
   };
 

@@ -165,6 +165,21 @@ export const fetchJson = async <T = any>(
 };
 
 /* -------------------------
+   GET AUTH HEADERS
+-------------------------- */
+const getAuthHeaders = async () => {
+  try {
+    const { supabase } = await import('./supabase');
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch (error) {
+    console.warn('[API] Failed to get auth token:', error);
+    return {};
+  }
+};
+
+/* -------------------------
    POST JSON
 -------------------------- */
 export const postJson = async <T = any>(
@@ -172,6 +187,8 @@ export const postJson = async <T = any>(
   body: any,
   timeoutMs = DEFAULT_TIMEOUT_MS
 ): Promise<T> => {
+  const authHeaders = await getAuthHeaders();
+
   return fetchJson<T>(
     url,
     {
@@ -179,6 +196,7 @@ export const postJson = async <T = any>(
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
+        ...authHeaders,
       },
       body: JSON.stringify(body),
     },
@@ -193,6 +211,8 @@ export const getJson = async <T = any>(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS
 ): Promise<T> => {
+  const authHeaders = await getAuthHeaders();
+
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     console.log('[API] GET', url);
   }
@@ -201,7 +221,7 @@ export const getJson = async <T = any>(
     url,
     {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...authHeaders },
     },
     timeoutMs
   );

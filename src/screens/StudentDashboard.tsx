@@ -269,16 +269,34 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       response = await getJson(url, 30000);
     } catch (fetchErr: any) {
-      console.error('[StudentDashboard] child-profile fetch failed:', {
+      console.warn('[StudentDashboard] child-profile fetch failed, falling back to Supabase:', {
         url,
         authUid,
         message: fetchErr?.message,
         status: fetchErr?.status,
-        data: fetchErr?.data,
       });
-      throw new Error(
-        'Hindi ma-load ang iyong profile. Siguraduhing tumatakbo ang backend at may internet connection.'
-      );
+
+      try {
+        const { data: child, error: supabaseError } = await supabase
+          .from('children')
+          .select('id,parent_id,name,grade_level,username,auth_uid,child_progress(*)')
+          .eq('auth_uid', authUid)
+          .single();
+
+        if (supabaseError) throw supabaseError;
+        if (!child) throw new Error('Child not found in Supabase');
+
+        console.log('[StudentDashboard] Supabase fallback succeeded for authUid:', authUid);
+        return child as ChildProfile;
+      } catch (supabaseErr: any) {
+        console.error('[StudentDashboard] Supabase fallback also failed:', {
+          authUid,
+          message: supabaseErr?.message,
+        });
+        throw new Error(
+          'Hindi ma-load ang iyong profile. Siguraduhing tumatakbo ang backend at may internet connection.'
+        );
+      }
     }
 
     if (!response.success || !response.child) {
