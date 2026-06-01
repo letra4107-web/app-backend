@@ -36,16 +36,11 @@ function validateEnv() {
     missing.push(`${ENV_VARS.SUPABASE_SERVICE_ROLE_KEY} or ${ENV_VARS.SUPABASE_ANON_KEY}`);
   }
 
-  if ((process.env.NODE_ENV || 'development') === 'production') {
-    if (!effectiveSmtpUser) {
-      missing.push(SMTP_VARS.EMAIL_USER);
-    }
-    if (!effectiveSmtpPass) {
-      missing.push(SMTP_VARS.EMAIL_PASS);
-    }
-    if (!effectiveSmtpFrom) {
-      missing.push(SMTP_VARS.EMAIL_FROM);
-    }
+  const smtpConfigured = Boolean(effectiveSmtpUser && effectiveSmtpPass);
+  if (!smtpConfigured) {
+    console.warn(
+      '[Env] SMTP credentials are not configured. Email delivery will be disabled. Set SMTP_USER/SMTP_PASS or EMAIL_USER/EMAIL_PASS for OTP email support.'
+    );
   }
 
   if (missing.length) {
@@ -59,6 +54,7 @@ function validateEnv() {
     SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey || null,
     SUPABASE_ANON_KEY: anonKey || null,
     SUPABASE_KEY: serviceRoleKey || anonKey,
+    SMTP_CONFIGURED: smtpConfigured,
   };
 }
 

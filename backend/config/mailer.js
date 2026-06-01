@@ -170,11 +170,15 @@ const verifyMailerConnection = async () => {
 };
 
 logMailerStatus();
-setTimeout(() => {
-  verifyMailerConnection().catch((error) =>
-    console.warn('[Mailer] startup verify failed (non-fatal):', error?.message || String(error))
-  );
-}, 2000);
+if (smtpConfigured) {
+  setTimeout(() => {
+    verifyMailerConnection().catch((error) =>
+      console.warn('[Mailer] startup verify failed (non-fatal):', error?.message || String(error))
+    );
+  }, 2000);
+} else {
+  mailerLog('warn', 'SMTP is disabled at startup; email sending will remain disabled until credentials are configured.');
+}
 
 const sendOTPEmail = async (email, otp) => {
   if (!smtpConfigured) {
