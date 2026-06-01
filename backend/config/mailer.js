@@ -5,14 +5,14 @@ const stripQuotes = (value = '') => String(value).trim().replace(/^"(.*)"$/, '$1
 const emailUser = process.env.SMTP_USER || process.env.EMAIL_USER;
 const emailPass = stripQuotes(process.env.SMTP_PASS || process.env.EMAIL_PASS || '').replace(/\s/g, '');
 const emailHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
-const emailPort = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
+const emailPort = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
 const emailFrom = stripQuotes(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>');
-const emailService = process.env.EMAIL_SERVICE || '';
+const emailService = process.env.EMAIL_SERVICE || process.env.SMTP_SERVICE || '';
 const rejectUnauthorized = String(process.env.SMTP_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
 const isProduction = (process.env.NODE_ENV || 'development') === 'production';
 const smtpConfigured = Boolean(emailUser && emailPass);
-const SMTP_TIMEOUT_MS = parseInt(process.env.SMTP_TIMEOUT_MS || '15000', 10);
-const SMTP_SEND_TIMEOUT_MS = parseInt(process.env.SMTP_SEND_TIMEOUT_MS || '20000', 10);
+const SMTP_TIMEOUT_MS = parseInt(process.env.SMTP_TIMEOUT_MS || '30000', 10);
+const SMTP_SEND_TIMEOUT_MS = parseInt(process.env.SMTP_SEND_TIMEOUT_MS || '45000', 10);
 const smtpSecure = String(process.env.SMTP_SECURE || '').trim()
   ? String(process.env.SMTP_SECURE).toLowerCase() === 'true'
   : emailPort === 465;
@@ -24,7 +24,7 @@ const mailerLog = (level, message, meta = {}) => {
 };
 
 const buildTransportOptions = () => {
-  if (emailService) {
+  if (emailService && emailService.toLowerCase() !== 'gmail') {
     return {
       service: emailService,
       auth: { user: emailUser, pass: emailPass },
@@ -40,7 +40,7 @@ const buildTransportOptions = () => {
     host: emailHost,
     port: emailPort,
     secure: smtpSecure,
-    requireTLS: !smtpSecure,
+    requireTLS: emailPort === 587 || !smtpSecure,
     auth: { user: emailUser, pass: emailPass },
     pool: false,
     tls: { rejectUnauthorized },
