@@ -15,7 +15,14 @@ const ensureApiPath = (value: string) => {
    FINAL BASE URL LOGIC
 -------------------------- */
 export const getApiBaseUrl = (): string => {
-  console.log('[API] Using Railway production backend');
+  // In development (Expo web/localhost), use the local backend to avoid CORS
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    const localUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5002';
+    console.log('[API] DEV mode — using local backend:', localUrl);
+    return ensureApiPath(localUrl);
+  }
+  // Production build always uses Railway
+  console.log('[API] PROD mode — using Railway backend');
   return ensureApiPath(PRODUCTION_BACKEND_URL);
 };
 
