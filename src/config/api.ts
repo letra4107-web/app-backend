@@ -1,3 +1,6 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 const DEFAULT_TIMEOUT_MS = 30000;
 
 export const PRODUCTION_BACKEND_URL =
@@ -12,12 +15,51 @@ const ensureApiPath = (value: string) => {
 };
 
 /* -------------------------
+   LAN HOST DETECTION
+   On a physical device, "localhost" points at the phone itself, not the
+   dev machine. Expo's Metro bundler host (e.g. 192.168.1.107:8081) is a
+   reliable stand-in for the dev machine's LAN IP.
+-------------------------- */
+const getMetroLanHost = (): string | null => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any)?.expoGoConfig?.debuggerHost ||
+    (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
+    (Constants as any)?.manifest?.debuggerHost;
+
+  const host = String(hostUri || '').split(':')[0].trim();
+  return host && host !== 'localhost' && host !== '127.0.0.1' ? host : null;
+};
+
+/* -------------------------
    FINAL BASE URL LOGIC
 -------------------------- */
 export const getApiBaseUrl = (): string => {
   // In development (Expo web/localhost), use the local backend to avoid CORS
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    const localUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5002';
+    let localUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5002';
+    if (localUrl.includes('up.railway.app')) {
+      console.warn(
+        '[API] DEV mode is pointing at the production Railway API. Set EXPO_PUBLIC_API_URL to http://localhost:5002 in .env and restart with expo start -c.'
+      );
+    }
+
+    const isLocalhostUrl = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(localUrl);
+    if (isLocalhostUrl && Platform.OS !== 'web') {
+      const lanHost = getMetroLanHost();
+      if (lanHost) {
+        const port = localUrl.match(/:(\d+)/)?.[1] || '5002';
+        const rewritten = `http://${lanHost}:${port}`;
+        console.log('[API] Physical device detected — rewriting localhost to Metro host:', rewritten);
+        localUrl = rewritten;
+      } else {
+        console.warn(
+          '[API] Running on a physical device but could not detect the dev machine LAN IP. ' +
+          'If requests fail, set EXPO_PUBLIC_API_URL in .env to http://<your-computer-LAN-IP>:5002.'
+        );
+      }
+    }
+
     console.log('[API] DEV mode — using local backend:', localUrl);
     return ensureApiPath(localUrl);
   }
@@ -174,7 +216,7 @@ export const fetchJson = async <T = any>(
 /* -------------------------
    GET AUTH HEADERS
 -------------------------- */
-const getAuthHeaders = async () => {
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
   try {
     const { supabase } = await import('./supabase');
     const { data: { session } } = await supabase.auth.getSession();

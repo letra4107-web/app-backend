@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, Animated, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import * as Speech from 'expo-speech';
 import {
@@ -66,7 +66,14 @@ type PracticeResult = {
   xpAward: number;
 };
 
-const DEFAULT_PHONETIC_WORDS = ['Ba-ba', 'Ka-ma', 'A-so', 'Ma-no', 'La-pis'];
+const DEFAULT_PHONETIC_WORDS = [
+  'Ba-ba', 'Ka-ma', 'A-so', 'Ma-no', 'La-pis',
+  'A-ma', 'A-te', 'A-raw', 'U-po',
+  'Bu-kid', 'Da-hon', 'Di-la', 'Ga-bi', 'Ha-pon',
+  'Ku-ya', 'Lu-ma', 'Na-na', 'Ni-yog', 'Pa-la',
+  'Pu-sa', 'Sa-ya', 'Su-si', 'Ta-ma', 'Tu-bo',
+  'Wa-la', 'Ya-ya',
+];
 const PRAISE_FEEDBACK = ['Magaling!', 'Napakahusay!', 'Ayos!', 'Ang galing mo!', 'Perfect!'];
 const SUPPORT_FEEDBACK = [
   'Magaling! Ulitin natin.',
@@ -149,6 +156,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [uploadsError, setUploadsError] = useState<string>('');
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [lessonsError, setLessonsError] = useState<string>('');
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string>('');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
@@ -195,6 +203,7 @@ export default function StudentDashboard({ navigation }: any) {
     setPracticeStatus(event.isFinal ? 'Narinig ko!' : 'Naririnig kita...');
 
     if (event.isFinal) {
+      ExpoSpeechRecognitionModule.stop();
       if (handledTranscriptRef.current === transcript) return;
       handledTranscriptRef.current = transcript;
       handlePracticeResult(transcript);
@@ -260,6 +269,30 @@ export default function StudentDashboard({ navigation }: any) {
     } finally {
       setLessonsLoading(false);
     }
+  };
+
+  const loadStudentActivities = async (authUid: string, childId?: string) => {
+    setActivitiesLoading(true);
+    setActivitiesError('');
+    try {
+      const rows = await fetchStudentActivities(authUid, childId);
+      setActivities(rows);
+      return rows;
+    } catch (error: any) {
+      console.error('[StudentDashboard] activities load failed:', error);
+      setActivitiesError(error?.message || 'Hindi ma-load ang activities. Subukan muli mamaya.');
+      return [] as StudentActivity[];
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  const retryLessons = () => {
+    if (child) void loadPublishedLessons(child.grade_level);
+  };
+
+  const retryActivities = () => {
+    if (child) void loadStudentActivities(child.auth_uid, child.id);
   };
 
   const fetchChildProfile = async (authUid: string) => {
@@ -362,11 +395,7 @@ export default function StudentDashboard({ navigation }: any) {
       readingActivitiesPromise,
       fetchTeacherUploads(Number(profile.grade_level || 1)),
       loadPublishedLessons(Number(profile.grade_level || 1)),
-      fetchStudentActivities(profile.auth_uid, profile.id).catch((err) => {
-        console.warn('[StudentDashboard] activities load failed:', err?.message || err);
-        setActivitiesError('Hindi ma-load ang activity calendar. Subukan muli mamaya.');
-        return [] as StudentActivity[];
-      }),
+      loadStudentActivities(profile.auth_uid, profile.id),
     ]);
 
     if (wordLog) {
@@ -762,7 +791,7 @@ export default function StudentDashboard({ navigation }: any) {
       const score = scorePronunciation(selectedWord, transcript);
       const correct = score >= PRACTICE_PASSING_SCORE;
       const feedback = randomFrom(correct ? PRAISE_FEEDBACK : SUPPORT_FEEDBACK);
-      const xpAward = correct ? XP_CORRECT : 0;
+      const xpAward = correct ? XP_CORRECT : XP_WRONG;
       const result = { correct, score, transcript, feedback, xpAward };
       const newAttempts = (practiceAttempts || 0) + 1;
 
@@ -834,7 +863,9 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       setPracticeResult(null);
       setPracticeTranscript('');
-      setPracticeStatus('Humihingi ng microphone permission...');
+      setPracticeStatus(
+        Platform.OS === 'web' ? 'Ihanda ang microphone para makinig...' : 'Humihingi ng microphone permission...'
+      );
       handledTranscriptRef.current = '';
 
       const available = await ExpoSpeechRecognitionModule.isRecognitionAvailable();
@@ -847,10 +878,12 @@ export default function StudentDashboard({ navigation }: any) {
         return;
       }
 
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!permission.granted) {
-        setPracticeStatus('Kailangan natin ng microphone permission para makinig.');
-        return;
+      if (Platform.OS === 'android' || Platform.OS === 'ios') {
+        const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+        if (!permission.granted) {
+          setPracticeStatus('Kailangan natin ng microphone permission para makinig.');
+          return;
+        }
       }
 
       ExpoSpeechRecognitionModule.start({
@@ -859,11 +892,13 @@ export default function StudentDashboard({ navigation }: any) {
         continuous: false,
         maxAlternatives: 3,
         contextualStrings: [selectedWord, selectedWord.replace(/-/g, ''), ...DEFAULT_PHONETIC_WORDS],
-        androidIntentOptions: {
-          EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 1800,
-          EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 700,
-          EXTRA_MASK_OFFENSIVE_WORDS: false,
-        },
+        ...(Platform.OS === 'android' ? {
+          androidIntentOptions: {
+            EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 1800,
+            EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 700,
+            EXTRA_MASK_OFFENSIVE_WORDS: false,
+          },
+        } : {}),
       });
     } catch (e: any) {
       setPracticeListening(false);
@@ -1129,7 +1164,19 @@ export default function StudentDashboard({ navigation }: any) {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.sectionTitle}>Learn</Text>
       <Text style={styles.sectionSubtitle}>Teacher PDF lessons and assigned learning materials.</Text>
-      {activities.length ? (
+      {activitiesLoading ? (
+        <View style={styles.centerBlock}>
+          <ActivityIndicator size="small" color={PRIMARY} />
+          <Text style={styles.empty}>Loading activities...</Text>
+        </View>
+      ) : activitiesError ? (
+        <View style={styles.errorBlock}>
+          <Text style={styles.error}>{activitiesError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={retryActivities}>
+            <Text style={styles.retryButtonText}>Subukan muli</Text>
+          </TouchableOpacity>
+        </View>
+      ) : activities.length ? (
         <View style={styles.selectedTasksCard}>
           {activities.map((activity) => (
             <View key={activity.id} style={styles.activityTaskRow}>
@@ -1165,12 +1212,15 @@ export default function StudentDashboard({ navigation }: any) {
           <Text style={styles.empty}>Loading lessons...</Text>
         </View>
       )}
-      {!!lessonsError && (
+      {!lessonsLoading && !!lessonsError && (
         <View style={styles.errorBlock}>
           <Text style={styles.error}>{lessonsError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={retryLessons}>
+            <Text style={styles.retryButtonText}>Subukan muli</Text>
+          </TouchableOpacity>
         </View>
       )}
-      {!lessonsLoading && lessons.length ? (
+      {!lessonsLoading && !lessonsError && lessons.length ? (
         lessons.map((lesson) => (
           <View key={lesson.id} style={styles.uploadCard}>
             <Ionicons name="document-text-outline" size={26} color={PRIMARY} />
@@ -1187,7 +1237,12 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         ))
       ) : null}
-      {!lessonsLoading && !lessons.length && <Text style={styles.empty}>No lessons uploaded yet.</Text>}
+      {!lessonsLoading && !lessonsError && !lessons.length && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>📚</Text>
+          <Text style={styles.empty}>Wala pang PDF lessons na na-upload.</Text>
+        </View>
+      )}
 
       {!!uploadsError && (
         <View style={styles.errorBlock}>

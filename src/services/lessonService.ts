@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { buildApiUrl, getJson } from '../config/api';
+import { buildApiUrl, getJson, isRetryableNetworkError } from '../config/api';
 
 export type Lesson = {
   id: string;
@@ -16,17 +16,25 @@ export type Lesson = {
 };
 
 export const fetchPublishedLessons = async (gradeLevel?: number | string | null): Promise<Lesson[]> => {
-  const query = gradeLevel ? `?gradeLevel=${encodeURIComponent(String(gradeLevel))}` : '';
-  const response = await getJson<{ success: boolean; lessons?: Lesson[]; message?: string }>(
-    buildApiUrl(`/lessons${query}`),
-    15000,
-  );
+  try {
+    const query = gradeLevel ? `?gradeLevel=${encodeURIComponent(String(gradeLevel))}` : '';
+    const response = await getJson<{ success: boolean; lessons?: Lesson[]; message?: string }>(
+      buildApiUrl(`/lessons${query}`),
+      15000,
+    );
 
-  if (!response?.success) {
-    throw new Error(response?.message || 'Unable to load lessons.');
+    if (!response?.success) {
+      throw new Error(response?.message || 'Unable to load lessons.');
+    }
+
+    return response.lessons || [];
+  } catch (error: any) {
+    console.warn('[Lessons] fetch failed:', error?.message || error);
+    if (isRetryableNetworkError(error)) {
+      throw new Error('Hindi ma-load ang lessons. Suriin ang internet connection at subukan muli.');
+    }
+    throw new Error(error?.message || 'Hindi ma-load ang lessons. Subukan muli mamaya.');
   }
-
-  return response.lessons || [];
 };
 
 export const subscribeToPublishedLessons = (

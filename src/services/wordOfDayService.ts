@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase';
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
+const warnedMissingGrades = new Set<number>();
 
 export type WordOfDayLog = {
   id: string;
@@ -11,8 +12,7 @@ export type WordOfDayLog = {
   attempts: number;
 };
 
-export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) => {
-  const date = todayKey();
+const fetchWordOfDayRow = async (childId: string, date: string) => {
   const existing = await supabase
     .from('word_of_day_log')
     .select('*')
@@ -21,7 +21,13 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
     .maybeSingle();
 
   if (existing.error) throw existing.error;
-  if (existing.data) return existing.data as WordOfDayLog;
+  return existing.data as WordOfDayLog | null;
+};
+
+export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) => {
+  const date = todayKey();
+  const existingRow = await fetchWordOfDayRow(childId, date);
+  if (existingRow) return existingRow;
 
   const activities = await supabase
     .from('reading_activities')
@@ -31,7 +37,13 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
 
   if (activities.error) throw activities.error;
   const words = Array.isArray(activities.data?.words) ? activities.data.words : [];
-  if (!words.length) throw new Error('Walang available na salita para sa grade level na ito.');
+  if (!words.length) {
+    if (!warnedMissingGrades.has(gradeLevel)) {
+      console.warn(`[WordOfDay] No words configured for grade ${gradeLevel}; showing the empty state.`);
+      warnedMissingGrades.add(gradeLevel);
+    }
+    return null;
+  }
 
   const index = Math.abs(`${childId}-${date}`.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % words.length;
   const word = words[index];
@@ -42,7 +54,16 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
     .select()
     .single();
 
-  if (inserted.error) throw inserted.error;
+  if (inserted.error) {
+    // 23505 = unique_violation. A concurrent call (e.g. the auth-state-change
+    // listener firing alongside the initial load) already created today's row
+    // between our SELECT and this INSERT — fetch and use that row instead.
+    if (inserted.error.code === '23505') {
+      const row = await fetchWordOfDayRow(childId, date);
+      if (row) return row;
+    }
+    throw inserted.error;
+  }
   return inserted.data as WordOfDayLog;
 };
 

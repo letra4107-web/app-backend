@@ -1,4 +1,4 @@
-import { buildApiUrl, getJson } from '../config/api';
+import { buildApiUrl, getJson, isRetryableNetworkError } from '../config/api';
 
 export type ActivityStatus = 'pending' | 'completed' | 'overdue';
 
@@ -22,20 +22,28 @@ const toStatus = (deadline: string, status?: string | null): ActivityStatus => {
 };
 
 export async function fetchStudentActivities(authUid: string, childId?: string) {
-  const query = new URLSearchParams({ authUid });
-  if (childId) query.set('childId', childId);
+  try {
+    const query = new URLSearchParams({ authUid });
+    if (childId) query.set('childId', childId);
 
-  const response = await getJson<{ success: boolean; activities?: StudentActivity[]; message?: string }>(
-    buildApiUrl(`/activities?${query.toString()}`),
-    15000,
-  );
+    const response = await getJson<{ success: boolean; activities?: StudentActivity[]; message?: string }>(
+      buildApiUrl(`/activities?${query.toString()}`),
+      15000,
+    );
 
-  if (!response?.success) {
-    throw new Error(response?.message || 'Unable to load activities.');
+    if (!response?.success) {
+      throw new Error(response?.message || 'Unable to load activities.');
+    }
+
+    return (response.activities || []).map((row: any) => ({
+      ...row,
+      status: toStatus(row.deadline, row.status),
+    })) as StudentActivity[];
+  } catch (error: any) {
+    console.warn('[Activities] fetch failed:', error?.message || error);
+    if (isRetryableNetworkError(error)) {
+      throw new Error('Hindi ma-load ang activities. Suriin ang internet connection at subukan muli.');
+    }
+    throw new Error(error?.message || 'Hindi ma-load ang activities. Subukan muli mamaya.');
   }
-
-  return (response.activities || []).map((row: any) => ({
-    ...row,
-    status: toStatus(row.deadline, row.status),
-  })) as StudentActivity[];
 }
