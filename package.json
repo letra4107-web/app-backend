@@ -14,7 +14,7 @@
     "web": "npx expo start --web",
     "android:verify-env": "node scripts/android-verify-env.js",
     "android:bundle": "node -e \"require('fs').mkdirSync('android/app/src/main/assets', { recursive: true }); require('fs').mkdirSync('android/app/src/main/res', { recursive: true });\" && npx react-native bundle --platform android --dev false --entry-file index.ts --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/",
-    "android:release": "npm run android:verify-env && npx expo prebuild --no-install --platform android && cd android && gradlew clean assembleRelease --no-daemon --stacktrace",
+    "android:release": "npm run android:verify-env && npx expo prebuild --no-install --clean --platform android && cd android && .\\gradlew.bat clean assembleRelease --no-daemon --stacktrace",
     "eas:build:android": "eas build --platform android --profile production"
   },
   "dependencies": {

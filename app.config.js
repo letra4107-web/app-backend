@@ -22,6 +22,7 @@ module.exports = ({ config }) => {
     {
       android: {
         minSdkVersion: 24,
+        ndkVersion: '27.1.12297006',
         gradleProperties: {
           'org.gradle.daemon': 'false',
           'org.gradle.parallel': 'false',
