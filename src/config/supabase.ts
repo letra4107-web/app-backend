@@ -16,7 +16,7 @@ const SUPABASE_URL_RAW =
   extra.EXPO_PUBLIC_SUPABASE_URL ||
   extra.SUPABASE_URL ||
   extra.supabase?.url ||
-  'https://fnnqtoypfozldszrdjof.supabase.co';
+  '';
 
 const SUPABASE_ANON_KEY =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
@@ -24,7 +24,15 @@ const SUPABASE_ANON_KEY =
   extra.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   extra.SUPABASE_ANON_KEY ||
   extra.supabase?.anonKey ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZubnF0b3lwZm96bGRzenJkam9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTk1MTYsImV4cCI6MjA5NDU3NTUxNn0.m5dRk-SEC8W92eh96OwfKq-ImC_30Zk3swKEk_Jja9I';
+  '';
+
+if (!SUPABASE_URL_RAW || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    '[Supabase] Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY. ' +
+    'Set them in .env (see .env.example) or in app.config extra.supabase before starting the app. ' +
+    'Refusing to start with no credentials rather than falling back to a baked-in key.'
+  );
+}
 
 // Strip accidental path suffixes and validate
 const stripSupabasePaths = (url: string): string => {
@@ -49,11 +57,6 @@ const getSupabaseProjectRef = (url: string) => {
     return 'invalid-url';
   }
 };
-
-// Validation: warn instead of throwing so bundler doesn't fail at import-time.
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY. Check your .env / app.config.');
-}
 
 try {
   const parsed = new URL(SUPABASE_URL);
