@@ -1,5 +1,5 @@
-import * as Speech from 'expo-speech';
 import { createParentNotification } from './notificationService';
+import { speakPhrase } from './ttsService';
 import { ChildProgress } from './progressService';
 
 export type AchievementDefinition = {
@@ -44,7 +44,7 @@ export const unlockAchievements = async (
   };
 
   const first = newlyUnlocked[0];
-  Speech.speak(`Binabati kita! Nakuha mo ang badge na ${first.title}!`, { language: 'fil-PH' });
+  speakPhrase(`Binabati kita! Nakuha mo ang badge na ${first.title}!`);
 
   if (parentId) {
     try {

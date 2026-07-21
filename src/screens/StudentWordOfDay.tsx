@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Speech from 'expo-speech';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import levenshtein from 'fast-levenshtein';
 import { buildApiUrl, postJson } from '../config/api';
 import { WordOfDayLog, updateWordOfDayLog } from '../services/wordOfDayService';
+import { speakPhrase, speakWord } from '../services/ttsService';
 
 const PRIMARY = '#4f46e5';
 const BORDER = '#e5e7eb';
@@ -117,11 +117,11 @@ export default function StudentWordOfDay({
       const phrase = correct
         ? SUCCESS_PHRASES[Math.floor(Math.random() * SUCCESS_PHRASES.length)]
         : TRY_PHRASES[Math.floor(Math.random() * TRY_PHRASES.length)];
-      Speech.speak(phrase, { language: 'fil-PH' });
+      speakPhrase(phrase, { onError: (errorMessage) => setMessage(errorMessage) });
       if (!correct) {
         // speak the correct word slowly after a short delay
         setTimeout(() => {
-          Speech.speak(log.word, { language: 'tl-PH', rate: 0.75 });
+          speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) });
         }, 2000);
       }
       await onResult(correct, attempts, score, response.transcript || '');
@@ -141,7 +141,7 @@ export default function StudentWordOfDay({
 
       <TouchableOpacity
         style={styles.listenButton}
-        onPress={() => Speech.speak(log.word, { language: 'tl-PH', rate: 0.85 })}
+        onPress={() => speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) })}
       >
         <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
         <Text style={styles.listenText}>Pakinggan</Text>

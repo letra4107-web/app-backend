@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { colors } from '../config/theme';
 import { getWordOfTheDay, WordOfTheDay } from '../services/streakService';
 import { getCurrentUser, getUserProfileById } from '../services/supabaseService';
+import { speakPhrase } from '../services/ttsService';
 
 type WelcomeRouteProp = RouteProp<{ Welcome: { studentId?: string; studentName?: string } }, 'Welcome'>;
 
@@ -15,10 +15,11 @@ const WelcomeScreen: React.FC = () => {
   const [studentName, setStudentName] = useState<string>('Mag-aaral');
   const [wordOfTheDay, setWordOfTheDay] = useState<WordOfTheDay | null>(null);
   const [loading, setLoading] = useState(true);
+  const [audioError, setAudioError] = useState('');
 
   const speakWelcome = (name: string, word: string) => {
     const message = `Kumusta, ${name}! Welcome back to LinawLetra. Ready to practice today\'s word? Ang salita ng araw ay ${word}.`;
-    Speech.speak(message, { language: 'fil-PH', rate: 0.95 });
+    speakPhrase(message, { onError: setAudioError });
   };
 
   const loadStudentName = async () => {
@@ -66,7 +67,7 @@ const WelcomeScreen: React.FC = () => {
 
   const handleReplayWord = () => {
     if (wordOfTheDay) {
-      Speech.speak(`Ang salita ng araw ay ${wordOfTheDay.word}.`, { language: 'fil-PH', rate: 0.95 });
+      speakPhrase(`Ang salita ng araw ay ${wordOfTheDay.word}.`, { onError: setAudioError });
     }
   };
 
@@ -94,6 +95,7 @@ const WelcomeScreen: React.FC = () => {
             <Ionicons name="volume-high" size={18} color="#1B5E20" />
             <Text style={styles.replayText}>Replay</Text>
           </TouchableOpacity>
+          {!!audioError && <Text style={styles.audioErrorText}>{audioError}</Text>}
         </View>
 
         <TouchableOpacity style={styles.startButton} onPress={handleStartPractice}>
@@ -195,6 +197,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1B5E20',
     fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+  },
+  audioErrorText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#9A6B00',
+    textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
   },
   startButton: {

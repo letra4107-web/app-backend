@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import * as Speech from 'expo-speech';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
@@ -18,6 +17,7 @@ import { getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService
 import { buildNextProgress, ChildProgress, saveProgress } from '../services/progressService';
 import { ACHIEVEMENTS, unlockAchievements } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
+import { speakPhrase, speakWord, stopSpeaking } from '../services/ttsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { createParentNotification } from '../services/notificationService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
@@ -677,12 +677,8 @@ export default function StudentDashboard({ navigation }: any) {
 
   const speakPracticeWord = (word = selectedWord || '') => {
     if (!word) return;
-    Speech.stop();
-    Speech.speak(word.replace(/-/g, ' '), {
-      language: 'fil-PH',
-      rate: 0.68,
-      pitch: 1.1,
-    });
+    stopSpeaking();
+    speakWord(word.replace(/-/g, ' '), { onError: (message) => setPracticeStatus(message) });
   };
 
   const savePronunciationSession = async (result: PracticeResult, word: string) => {
@@ -808,11 +804,9 @@ export default function StudentDashboard({ navigation }: any) {
       setConfettiVisible(true);
       setTimeout(() => setConfettiVisible(false), 2400);
 
-      Speech.stop();
-      Speech.speak(correct ? feedback : `${feedback} Pakinggan mo. ${selectedWord.replace(/-/g, ' ')}`, {
-        language: 'fil-PH',
-        rate: correct ? 0.9 : 0.72,
-        pitch: 1.12,
+      stopSpeaking();
+      speakPhrase(correct ? feedback : `${feedback} Pakinggan mo. ${selectedWord.replace(/-/g, ' ')}`, {
+        onError: (message) => setPracticeStatus(message),
         onDone: () => {
           if (!correct) speakPracticeWord(selectedWord);
         },
