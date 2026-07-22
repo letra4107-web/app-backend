@@ -1863,8 +1863,8 @@ const styles = StyleSheet.create({
   // --- Home tab (redesigned around assets/sdbg.jpg) ---
   homeBg: { flex: 1, width: '100%' },
   homeTopScrim: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 140,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    position: 'absolute', top: 0, left: 0, right: 0, height: 90,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   homeContent: { padding: 18, paddingBottom: 48 },
   homeErrorBanner: {
@@ -1882,9 +1882,12 @@ const styles = StyleSheet.create({
   homeGreeting: { marginBottom: 16 },
   homeGreetingHello: {
     fontFamily: FONT_DISPLAY, fontSize: 26, color: HOME_INK,
-    textShadowColor: 'rgba(255,255,255,0.6)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 },
+    textShadowColor: 'rgba(255,255,255,0.85)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 },
   },
-  homeGreetingSub: { color: HOME_INK_SOFT, fontWeight: '600', marginTop: 4, fontSize: 14 },
+  homeGreetingSub: {
+    color: HOME_INK_SOFT, fontWeight: '600', marginTop: 4, fontSize: 14,
+    textShadowColor: 'rgba(255,255,255,0.85)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 },
+  },
   homeStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   homeStatPill: {
     flex: 1, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 8,
