@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
 import { getUserProfileById, onAuthStateChanged, signOutUser } from '../services/supabaseService';
@@ -723,7 +723,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 { backgroundColor: unlocked ? PRIMARY_LIGHT : '#f9fafb', borderColor: unlocked ? PRIMARY : BORDER },
               ]}
             >
-              <Text style={styles.rewardEmoji}>{achievement.emoji || '🏅'}</Text>
+              <Image source={achievement.image} style={styles.rewardImage} resizeMode="contain" />
               <Text style={styles.rewardTitle}>{achievement.title}</Text>
               <View style={styles.rewardChildRow}>
                 {children.map((child) => {
@@ -1131,6 +1131,7 @@ const styles = StyleSheet.create({
   rewardsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   rewardCell: { width: '47%', borderRadius: 16, padding: 14, alignItems: 'center', borderWidth: 1.5 },
   rewardEmoji: { fontSize: 30, marginBottom: 8 },
+  rewardImage: { width: 56, height: 56, marginBottom: 8 },
   rewardTitle: { fontSize: 13, fontWeight: '800', textAlign: 'center', marginBottom: 10, color: TEXT_PRIMARY },
   rewardChildRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center' },
   rewardChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },

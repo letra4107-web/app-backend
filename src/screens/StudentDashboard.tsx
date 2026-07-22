@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import {
   ExpoSpeechRecognitionModule,
@@ -140,6 +140,9 @@ const emptyProgress = (childId: string): ChildProgress => ({
   total_attempts: 0,
   achievements: [],
   badges: [],
+  baseline_accuracy: null,
+  accuracy_sum: 0,
+  activities_completed: 0,
 });
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
@@ -160,11 +163,11 @@ export default function StudentDashboard({ navigation }: any) {
   const [activitiesError, setActivitiesError] = useState<string>('');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
-  type Section = 'home' | 'learn' | 'practice' | 'progress' | 'settings';
+  type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'settings';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [achievement, setAchievement] = useState<{ emoji: string; title: string } | null>(null);
+  const [achievement, setAchievement] = useState<{ image: any; title: string } | null>(null);
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
   const [practiceListening, setPracticeListening] = useState(false);
@@ -568,8 +571,16 @@ export default function StudentDashboard({ navigation }: any) {
 
   const getStatusColor = (status: string) => {
     if (status === 'completed') return SUCCESS;
+    if (status === 'completed_late') return WARNING;
     if (status === 'overdue') return DANGER;
     return WARNING;
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (status === 'completed') return 'Naisumite';
+    if (status === 'completed_late') return 'Naisumite (Huli)';
+    if (status === 'overdue') return 'Overdue';
+    return 'Pending';
   };
 
   const iconForUpload = (contentType = '') => {
@@ -639,9 +650,12 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const completeActivity = async (activity: StudentActivity) => {
+    const isLate = new Date() > new Date(activity.deadline);
+    const finalStatus = isLate ? 'completed_late' : 'completed';
+
     const { error } = await supabase
       .from('activities')
-      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .update({ status: finalStatus, updated_at: new Date().toISOString() })
       .eq('id', activity.id);
 
     if (error) {
@@ -651,16 +665,35 @@ export default function StudentDashboard({ navigation }: any) {
     }
 
     setActivities((prev) =>
-      prev.map((item) => (item.id === activity.id ? { ...item, status: 'completed' } : item)),
+      prev.map((item) => (item.id === activity.id ? { ...item, status: finalStatus } : item)),
     );
-    await notifyParent('Assignment Completed', `${child?.name || 'Student'} completed "${activity.title}".`, 'assignment');
+    await notifyParent(
+      isLate ? 'Assignment Turned In Late' : 'Assignment Turned In',
+      `${child?.name || 'Student'} turned in "${activity.title}"${isLate ? ' late' : ''}.`,
+      'assignment',
+    );
+
+    if (!progress) return;
+    const next = { ...progress, activities_completed: (progress.activities_completed || 0) + 1 };
+    await saveProgress(next);
+    setProgress(next);
+
+    const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
+    if (newlyUnlocked?.length) {
+      await saveProgress(updatedProgress);
+      setProgress(updatedProgress);
+      setAchievement({ image: newlyUnlocked[0].image, title: newlyUnlocked[0].title });
+    }
   };
 
   const handleWordOfDayResult = async (correct: boolean, attempts: number, score?: number, transcript?: string) => {
     try {
       if (!progress) return;
       const addXp = correct ? XP_CORRECT : XP_WRONG;
-      const next = buildNextProgress(progress, wordOfDay?.word || '', addXp, { countsAsPracticeSession: false });
+      const next = buildNextProgress(progress, wordOfDay?.word || '', addXp, {
+        countsAsPracticeSession: false,
+        accuracy: score,
+      });
       await saveProgress(next);
       setProgress(next);
       await notifyParent(
@@ -669,7 +702,11 @@ export default function StudentDashboard({ navigation }: any) {
         'word',
       );
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
-      if (newlyUnlocked?.length) setAchievement({ emoji: newlyUnlocked[0].emoji || '🏅', title: newlyUnlocked[0].title || 'Bagong Badge' });
+      if (newlyUnlocked?.length) {
+        await saveProgress(updatedProgress);
+        setProgress(updatedProgress);
+        setAchievement({ image: newlyUnlocked[0].image, title: newlyUnlocked[0].title });
+      }
     } catch (e) {
       console.warn('wordOfDay result handling failed', e);
     }
@@ -830,7 +867,10 @@ export default function StudentDashboard({ navigation }: any) {
       await savePracticeFeedbackNotification(result, selectedWord);
       if (!progress) return;
       const beforeStreak = progress.streak || 0;
-      const next = buildNextProgress(progress, selectedWord, xpAward, { countsAsPracticeSession: true });
+      const next = buildNextProgress(progress, selectedWord, xpAward, {
+        countsAsPracticeSession: true,
+        accuracy: score,
+      });
       console.debug('[Practice] streak update decision:', {
         previousStreak: beforeStreak,
         nextStreak: next.streak,
@@ -845,8 +885,11 @@ export default function StudentDashboard({ navigation }: any) {
         await notifyParent('Streak Milestone', `${child?.name || 'Student'} reached a ${next.streak}-day practice streak.`, 'streak');
       }
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
-      if (updatedProgress) setProgress(updatedProgress);
-      if (newlyUnlocked?.length) setAchievement({ emoji: newlyUnlocked[0].emoji || '🏅', title: newlyUnlocked[0].title || 'Bagong Badge' });
+      if (newlyUnlocked?.length) {
+        await saveProgress(updatedProgress);
+        setProgress(updatedProgress);
+        setAchievement({ image: newlyUnlocked[0].image, title: newlyUnlocked[0].title });
+      }
     } catch (e) {
       console.warn('practice result handler failed', e);
     }
@@ -1182,11 +1225,11 @@ export default function StudentDashboard({ navigation }: any) {
                 </Text>
                 {!!activity.description && <Text style={styles.activityTaskDescription}>{activity.description}</Text>}
               </View>
-              {activity.status === 'completed' ? (
-                <Text style={[styles.statusBadge, { color: getStatusColor(activity.status) }]}>{activity.status}</Text>
+              {activity.status === 'completed' || activity.status === 'completed_late' ? (
+                <Text style={[styles.statusBadge, { color: getStatusColor(activity.status) }]}>{getStatusLabel(activity.status)}</Text>
               ) : (
                 <TouchableOpacity style={styles.openButton} onPress={() => void completeActivity(activity)}>
-                  <Text style={styles.openButtonText}>Done</Text>
+                  <Text style={styles.openButtonText}>Turn In</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1299,7 +1342,7 @@ export default function StudentDashboard({ navigation }: any) {
               const dayActivities = getActivitiesForDate(key);
               const selected = key === selectedCalendarDate;
               const hasOverdue = dayActivities.some((activity) => activity.status === 'overdue');
-              const hasCompleted = dayActivities.some((activity) => activity.status === 'completed');
+              const hasCompleted = dayActivities.some((activity) => activity.status === 'completed' || activity.status === 'completed_late');
               return (
                 <TouchableOpacity
                   key={cell.key}
@@ -1334,7 +1377,7 @@ export default function StudentDashboard({ navigation }: any) {
                   </Text>
                   {!!activity.description && <Text style={styles.activityTaskDescription}>{activity.description}</Text>}
                 </View>
-                <Text style={[styles.statusBadge, { color: getStatusColor(activity.status) }]}>{activity.status}</Text>
+                <Text style={[styles.statusBadge, { color: getStatusColor(activity.status) }]}>{getStatusLabel(activity.status)}</Text>
               </View>
             ))
           ) : (
@@ -1368,12 +1411,19 @@ export default function StudentDashboard({ navigation }: any) {
   const renderAchievements = () => (
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.sectionTitle}>Mga Badge Mo 🏆</Text>
+      <Text style={styles.sectionSubtitle}>
+        {progress?.achievements?.length || 0} / {ACHIEVEMENTS.length} na-unlock
+      </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
         {ACHIEVEMENTS.map((badge) => {
           const unlocked = progress?.achievements?.some((a) => a.id === badge.id);
           return (
             <View key={badge.id} style={[styles.badgeCard, unlocked ? {} : styles.lockedBadge, { width: '48%' }]}>
-              <Text style={styles.badgeEmoji}>{unlocked ? badge.emoji : '🔒'}</Text>
+              <Image
+                source={badge.image}
+                style={[styles.badgeImage, !unlocked && styles.badgeImageLocked]}
+                resizeMode="contain"
+              />
               <Text style={styles.badgeTitle}>{badge.title}</Text>
               {unlocked ? <Text style={{ color: SUCCESS }}>✅ Na-unlock</Text> : <Text style={{ color: TEXT_SECONDARY }}> Patuloy lang!</Text>}
             </View>
@@ -1455,6 +1505,7 @@ export default function StudentDashboard({ navigation }: any) {
       {section === 'learn' && renderActivities()}
       {section === 'practice' && renderPractice()}
       {section === 'progress' && renderProgress()}
+      {section === 'achievements' && renderAchievements()}
       {section === 'settings' && renderSettings()}
 
       {/* Sidebar overlay + animated sidebar */}
@@ -1477,6 +1528,7 @@ export default function StudentDashboard({ navigation }: any) {
             { k: 'learn', l: 'Learn', i: 'library-outline' },
             { k: 'practice', l: 'Practice', i: 'mic-outline' },
             { k: 'progress', l: 'Progress', i: 'analytics-outline' },
+            { k: 'achievements', l: 'Badges', i: 'ribbon-outline' },
             { k: 'settings', l: 'Settings', i: 'settings-outline' },
           ].map((it: any) => (
             <TouchableOpacity
@@ -1497,7 +1549,7 @@ export default function StudentDashboard({ navigation }: any) {
 
       <AchievementModal
         visible={!!achievement}
-        emoji={achievement?.emoji || ''}
+        image={achievement?.image}
         title={achievement?.title || ''}
         onClose={() => setAchievement(null)}
       />
@@ -1633,9 +1685,11 @@ const styles = StyleSheet.create({
   statLabel: { color: '#6B7280', fontSize: 12, marginTop: 4 },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
-  badgeCard: { width: 128, backgroundColor: '#fff', borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  badgeCard: { width: 128, backgroundColor: '#fff', borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12 },
   lockedBadge: { opacity: 0.55 },
   badgeEmoji: { fontSize: 28 },
+  badgeImage: { width: 72, height: 72 },
+  badgeImageLocked: { opacity: 0.35 },
   badgeTitle: { textAlign: 'center', fontWeight: '800', color: '#374151', marginTop: 6 },
   uploadCard: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#E5E7EB' },
   uploadBody: { flex: 1 },

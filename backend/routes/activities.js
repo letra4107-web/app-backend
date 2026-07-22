@@ -4,7 +4,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const router = express.Router();
 
 const normalizeStatus = (deadline, status) => {
-  if (status === 'completed') return 'completed';
+  if (status === 'completed' || status === 'completed_late') return status;
   const due = new Date(deadline);
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);

@@ -52,6 +52,12 @@ router.post('/update', async (req, res) => {
       totalAttempts,
       total_attempts,
       badges,
+      baselineAccuracy,
+      baseline_accuracy,
+      accuracySum,
+      accuracy_sum,
+      activitiesCompleted,
+      activities_completed,
     } = req.body || {};
 
     const progressStudentId = childId || studentId || student_id;
@@ -69,6 +75,11 @@ router.post('/update', async (req, res) => {
     const normalizedStreak = asNumber(streak, 0);
     const normalizedTotalAttempts = asNumber(totalAttempts ?? total_attempts, 0);
     const normalizedLastPracticeDate = asDateKey(lastPracticeDate || last_practice_date);
+    const rawBaselineAccuracy = baselineAccuracy ?? baseline_accuracy;
+    const normalizedBaselineAccuracy =
+      rawBaselineAccuracy === null || rawBaselineAccuracy === undefined ? null : asNumber(rawBaselineAccuracy, null);
+    const normalizedAccuracySum = asNumber(accuracySum ?? accuracy_sum, 0);
+    const normalizedActivitiesCompleted = asNumber(activitiesCompleted ?? activities_completed, 0);
 
     const payload = {
       child_id: progressStudentId,
@@ -81,6 +92,9 @@ router.post('/update', async (req, res) => {
       badges: asArray(badges),
       total_attempts: normalizedTotalAttempts,
       level: ['Beginner', 'Intermediate', 'Advanced'].includes(level) ? level : 'Beginner',
+      baseline_accuracy: normalizedBaselineAccuracy,
+      accuracy_sum: normalizedAccuracySum,
+      activities_completed: normalizedActivitiesCompleted,
       updated_at: new Date().toISOString(),
     };
 
@@ -92,10 +106,16 @@ router.post('/update', async (req, res) => {
       .select()
       .single();
 
-    if (error && isMissingColumnError(error) && String(error.message || '').includes('word_count')) {
-      console.warn('[progress] word_count column unavailable; retrying without optional column:', serializeSupabaseError(error));
-      const fallbackPayload = { ...payload };
-      delete fallbackPayload.word_count;
+    const optionalColumns = ['word_count', 'baseline_accuracy', 'accuracy_sum', 'activities_completed'];
+    let fallbackPayload = payload;
+    while (error && isMissingColumnError(error)) {
+      const message = String(error.message || '').toLowerCase();
+      const missingColumn = optionalColumns.find((column) => column in fallbackPayload && message.includes(column));
+      if (!missingColumn) break;
+
+      console.warn(`[progress] ${missingColumn} column unavailable; retrying without optional column:`, serializeSupabaseError(error));
+      fallbackPayload = { ...fallbackPayload };
+      delete fallbackPayload[missingColumn];
       const fallback = await supabaseAdmin
         .from('child_progress')
         .upsert(fallbackPayload, { onConflict: 'child_id' })

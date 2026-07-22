@@ -1,16 +1,18 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
 export default function AchievementModal({
   visible,
   emoji,
+  image,
   title,
   xp = 50,
   onClose,
 }: {
   visible: boolean;
-  emoji: string;
+  emoji?: string;
+  image?: any;
   title: string;
   xp?: number;
   onClose: () => void;
@@ -26,7 +28,11 @@ export default function AchievementModal({
             ))}
           </View>
 
-          <Text style={styles.bigEmoji}>{emoji}</Text>
+          {image ? (
+            <Image source={image} style={styles.badgeImage} resizeMode="contain" />
+          ) : (
+            <Text style={styles.bigEmoji}>{emoji}</Text>
+          )}
           <Text style={styles.title}>Bagong Badge! 🎉</Text>
           <Text style={styles.badgeName}>{title}</Text>
 
@@ -52,6 +58,7 @@ const styles = StyleSheet.create({
   confettiRow: { flexDirection: 'row', gap: 4, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' },
   confetti: { fontSize: 22 },
   bigEmoji: { fontSize: 80, marginBottom: 8 },
+  badgeImage: { width: 128, height: 128, marginBottom: 8 },
   title: { fontSize: 26, fontWeight: '900', color: '#111827', marginBottom: 4 },
   badgeName: { fontSize: 18, color: '#4f46e5', fontWeight: '800', textAlign: 'center', marginBottom: 16 },
   xpPill: {

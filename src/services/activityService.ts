@@ -1,6 +1,6 @@
 import { buildApiUrl, getJson, isRetryableNetworkError } from '../config/api';
 
-export type ActivityStatus = 'pending' | 'completed' | 'overdue';
+export type ActivityStatus = 'pending' | 'completed' | 'completed_late' | 'overdue';
 
 export type StudentActivity = {
   id: string;
@@ -13,7 +13,7 @@ export type StudentActivity = {
 };
 
 const toStatus = (deadline: string, status?: string | null): ActivityStatus => {
-  if (status === 'completed') return 'completed';
+  if (status === 'completed' || status === 'completed_late') return status;
   const due = new Date(deadline);
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);

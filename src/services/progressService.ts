@@ -14,6 +14,14 @@ export type ChildProgress = {
   achievements: Array<{ id: string; unlockedAt: string }>;
   badges: any[];
   updated_at?: string;
+  // Baseline accuracy is captured once, on the student's first scored practice,
+  // and never overwritten again — it's the reference point for "improvement" badges.
+  baseline_accuracy?: number | null;
+  // Running sum of every scored practice's accuracy_percentage; average accuracy
+  // = accuracy_sum / total_attempts. Kept as a sum (not a running average) so it
+  // stays exact regardless of how many attempts have accumulated.
+  accuracy_sum?: number;
+  activities_completed?: number;
 };
 
 export const levelForXp = (xp: number): ReadingLevel => {
@@ -34,7 +42,7 @@ export const buildNextProgress = (
   current: ChildProgress,
   word: string,
   xpAward: number,
-  options: { countsAsPracticeSession?: boolean } = {},
+  options: { countsAsPracticeSession?: boolean; accuracy?: number } = {},
 ) => {
   const today = toDateKey();
   const lastPractice = current.last_practice_date;
@@ -54,6 +62,9 @@ export const buildNextProgress = (
 
   const completedWords = Array.from(new Set([...(current.completed_words || []), word]));
   const xp = (current.xp || 0) + xpAward;
+  const hasAccuracy = typeof options.accuracy === 'number' && Number.isFinite(options.accuracy);
+  const baselineAccuracy = current.baseline_accuracy ?? (hasAccuracy ? options.accuracy! : null);
+  const accuracySum = (current.accuracy_sum || 0) + (hasAccuracy ? options.accuracy! : 0);
 
   return {
     ...current,
@@ -64,6 +75,8 @@ export const buildNextProgress = (
     completed_words: completedWords,
     word_count: completedWords.length,
     total_attempts: (current.total_attempts || 0) + 1,
+    baseline_accuracy: baselineAccuracy,
+    accuracy_sum: accuracySum,
   };
 };
 
@@ -82,5 +95,8 @@ export const saveProgress = async (progress: ChildProgress) => {
     badges: progress.badges,
     level: progress.level,
     totalAttempts: progress.total_attempts,
+    baselineAccuracy: progress.baseline_accuracy ?? null,
+    accuracySum: progress.accuracy_sum ?? 0,
+    activitiesCompleted: progress.activities_completed ?? 0,
   });
 };
