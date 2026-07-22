@@ -1138,7 +1138,6 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderPractice = () => {
     const words = practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS;
-    const goalProgress = Math.min(100, Math.round(((progress?.total_attempts || 0) % DAILY_GOAL) / DAILY_GOAL * 100));
 
     if (selectedWord && child) {
       return (
@@ -1213,36 +1212,66 @@ export default function StudentDashboard({ navigation }: any) {
       );
     }
 
+    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
+    const nextWord = words.find((word) => !progress?.completed_words?.includes(word));
+
     return (
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.practiceIntro}>
-          <Text style={styles.practiceIntroEmoji}>🎤</Text>
+        <View style={styles.practiceHeroBanner}>
+          <View style={styles.practiceHeroGlowOuter}>
+            <View style={styles.practiceHeroGlowInner}>
+              <Ionicons name="mic" size={30} color={HOME_LAVENDER_DARK} />
+            </View>
+          </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.practiceIntroTitle}>Say the Word</Text>
-            <Text style={styles.practiceIntroSub}>Makinig, magsalita, kumuha ng stars, at dagdagan ang XP.</Text>
+            <Text style={styles.practiceHeroTitle}>Handa ka na ba?</Text>
+            <Text style={styles.practiceHeroSub}>Piliin ang salita at simulan ang laro! 🎉</Text>
           </View>
         </View>
 
         <View style={styles.goalCard}>
           <View style={styles.goalTopRow}>
             <Text style={styles.goalTitle}>Daily Goal</Text>
-            <Text style={styles.goalCount}>{Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL)}/{DAILY_GOAL}</Text>
+            {goalDone > 0 ? (
+              <Text style={styles.goalCount}>{goalDone}/{DAILY_GOAL}</Text>
+            ) : (
+              <Text style={styles.goalCountEmpty}>Bagong simula!</Text>
+            )}
           </View>
-          <View style={styles.goalTrack}>
-            <View style={[styles.goalFill, { width: `${goalProgress}%` }]} />
+          <View style={styles.goalDotsRow}>
+            {Array.from({ length: DAILY_GOAL }).map((_, i) => (
+              <View key={i} style={[styles.goalDot, i < goalDone && styles.goalDotFilled]}>
+                {i < goalDone && <Ionicons name="star" size={14} color="#fff" />}
+              </View>
+            ))}
           </View>
+          {goalDone === 0 && (
+            <Text style={styles.goalEmptyNote}>Simulan ang unang pagsasanay ngayon! 🌱</Text>
+          )}
           <View style={styles.rewardRow}>
-            <View style={styles.rewardPill}>
-              <Ionicons name="star" size={13} color="#92400e" />
-              <Text style={styles.rewardText}> {stats.xp} XP</Text>
+            <View style={[styles.rewardPill, { backgroundColor: '#FBE7DF' }]}>
+              <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
+                <Ionicons name="star" size={13} color={HOME_CORAL} />
+              </View>
+              <Text style={[styles.rewardText, { color: HOME_CORAL }]}>
+                {stats.xp > 0 ? `${stats.xp} XP` : 'Simulan ang XP mo!'}
+              </Text>
             </View>
-            <View style={styles.rewardPill}>
-              <Ionicons name="flame" size={13} color="#92400e" />
-              <Text style={styles.rewardText}> {stats.streak} streak</Text>
+            <View style={[styles.rewardPill, { backgroundColor: '#FFF3DC' }]}>
+              <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
+                <Ionicons name="flame" size={13} color={HOME_SUN} />
+              </View>
+              <Text style={[styles.rewardText, { color: HOME_SUN }]}>
+                {stats.streak > 0 ? `${stats.streak} streak` : 'Simulan ang streak!'}
+              </Text>
             </View>
-            <View style={styles.rewardPill}>
-              <Ionicons name="ribbon" size={13} color="#92400e" />
-              <Text style={styles.rewardText}> {progress?.achievements?.length || 0} badges</Text>
+            <View style={[styles.rewardPill, { backgroundColor: '#EFECFB' }]}>
+              <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
+                <Ionicons name="ribbon" size={13} color={HOME_LAVENDER_DARK} />
+              </View>
+              <Text style={[styles.rewardText, { color: HOME_LAVENDER_DARK }]}>
+                {(progress?.achievements?.length || 0) > 0 ? `${progress?.achievements?.length} badges` : 'Kumuha ng unang badge!'}
+              </Text>
             </View>
           </View>
         </View>
@@ -1250,10 +1279,11 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.wordGrid}>
           {words.map((word) => {
             const done = progress?.completed_words?.includes(word);
+            const isNext = !done && word === nextWord;
             return (
               <TouchableOpacity
                 key={word}
-                style={[styles.wordCard, done && styles.wordCardDone]}
+                style={[styles.wordCard, done && styles.wordCardDone, isNext && styles.wordCardNext]}
                 onPress={() => {
                   setSelectedWord(word);
                   setPracticeResult(null);
@@ -1263,9 +1293,17 @@ export default function StudentDashboard({ navigation }: any) {
                   speakPracticeWord(word);
                 }}
               >
-                {done && (<Text style={styles.wordCardCheck}>✅</Text>)}
-                <Text style={[styles.wordText, done && { color: '#10b981' }]}>{word}</Text>
-                <Text style={styles.wordCardHint}>Tapikin</Text>
+                {done && (
+                  <View style={styles.wordCardCheckBadge}>
+                    <Ionicons name="checkmark" size={14} color="#fff" />
+                  </View>
+                )}
+                {isNext && (
+                  <View style={styles.wordCardNextBadge}>
+                    <Text style={styles.wordCardNextBadgeText}>SUSUNOD</Text>
+                  </View>
+                )}
+                <Text style={[styles.wordText, done && { color: SUCCESS }]}>{word}</Text>
               </TouchableOpacity>
             );
           })}
@@ -1881,7 +1919,20 @@ const styles = StyleSheet.create({
   learnEmptyTitle: { color: HOME_INK, fontWeight: '900', fontSize: 16, marginBottom: 6, textAlign: 'center' },
   learnEmptySubtext: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', lineHeight: 19 },
   wordGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  wordCard: { backgroundColor: '#fff', borderRadius: 8, padding: 14, minWidth: '30%', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  wordCard: {
+    backgroundColor: '#fff', borderRadius: 16, padding: 14, minWidth: '30%', minHeight: 64,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#EEE9F9',
+  },
+  wordCardNext: { borderColor: HOME_LAVENDER, borderWidth: 2, backgroundColor: '#F5F3FC' },
+  wordCardCheckBadge: {
+    position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: SUCCESS, alignItems: 'center', justifyContent: 'center',
+  },
+  wordCardNextBadge: {
+    position: 'absolute', top: -8, alignSelf: 'center', backgroundColor: HOME_LAVENDER,
+    borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2,
+  },
+  wordCardNextBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
   wordText: { color: PRIMARY, fontWeight: '900', fontSize: 16 },
   empty: { color: '#6B7280', marginBottom: 8 },
   errorBlock: { backgroundColor: '#fff1f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
@@ -2030,35 +2081,46 @@ const styles = StyleSheet.create({
   bigWord: { fontSize: 48, fontWeight: '900', color: PRIMARY, marginVertical: 10 },
   listenButton: { marginTop: 8, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: PRIMARY },
   // Practice feedback styles
-  practiceIntro: {
+  practiceHeroBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: PRIMARY,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
+    gap: 14,
+    backgroundColor: HOME_LAVENDER,
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 14,
   },
-  practiceIntroEmoji: { fontSize: 34 },
-  practiceIntroTitle: { color: '#fff', fontWeight: '900', fontSize: 24 },
-  practiceIntroSub: { color: '#e0e7ff', fontWeight: '700', marginTop: 4 },
-  goalCard: {
+  practiceHeroGlowOuter: {
+    width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  practiceHeroGlowInner: {
+    width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  },
+  practiceHeroTitle: { color: '#fff', fontWeight: '900', fontSize: 22 },
+  practiceHeroSub: { color: 'rgba(255,255,255,0.9)', fontWeight: '700', marginTop: 4 },
+  goalCard: {
+    backgroundColor: HOME_CREAM,
+    borderRadius: 20,
+    padding: 16,
     marginBottom: 14,
   },
   goalTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  goalTitle: { color: TEXT_PRIMARY, fontWeight: '900' },
-  goalCount: { color: PRIMARY, fontWeight: '900' },
-  goalTrack: { backgroundColor: '#f1f5f9', borderRadius: 999, height: 12, overflow: 'hidden', marginTop: 10 },
-  goalFill: { backgroundColor: PRIMARY, height: 12, borderRadius: 999 },
-  rewardRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  rewardPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fef3c7', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  rewardText: { color: '#92400e', fontWeight: '900', fontSize: 12 },
-  wordCardHint: { color: TEXT_SECONDARY, fontSize: 11, marginTop: 6, fontWeight: '700' },
+  goalTitle: { color: HOME_INK, fontWeight: '900' },
+  goalCount: { color: HOME_LAVENDER_DARK, fontWeight: '900' },
+  goalCountEmpty: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  goalDotsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  goalDot: {
+    flex: 1, height: 32, borderRadius: 16, backgroundColor: 'rgba(124,111,207,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  goalDotFilled: { backgroundColor: HOME_LAVENDER },
+  goalEmptyNote: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10 },
+  rewardRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  rewardPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 6, paddingRight: 12 },
+  rewardIconWrap: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  rewardText: { fontWeight: '900', fontSize: 12 },
   practiceHero: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -2190,7 +2252,6 @@ const styles = StyleSheet.create({
 
   // Word grid updates
   wordCardDone: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
-  wordCardCheck: { position: 'absolute', top: 6, right: 6, fontSize: 14 },
   sectionSubtitle: { color: TEXT_SECONDARY, fontSize: 13, marginBottom: 16 },
   emptyState: { alignItems: 'center', paddingTop: 40 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
