@@ -20,6 +20,7 @@ const EMPTY_STATS: PronunciationStats = {
 export type AchievementDefinition = {
   id: string;
   title: string;
+  description: string;
   image: any;
   isUnlocked: (progress: ChildProgress, stats: PronunciationStats) => boolean;
 };
@@ -90,102 +91,119 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'unang_hakbang',
     title: 'Unang Hakbang',
+    description: 'Tapusin ang unang lesson',
     image: require('../../assets/badges/unang_hakbang.png'),
     isUnlocked: (p) => (p.activities_completed || 0) >= 1,
   },
   {
     id: 'batang_mambabasa',
     title: 'Batang Mambabasa',
+    description: 'Tapusin ang 5 lessons',
     image: require('../../assets/badges/batang_mambabasa.png'),
     isUnlocked: (p) => (p.activities_completed || 0) >= 5,
   },
   {
     id: 'masigasig_na_mambabasa',
     title: 'Masigasig na Mambabasa',
+    description: 'Tapusin ang 10 lessons',
     image: require('../../assets/badges/masigasig_na_mambabasa.png'),
     isUnlocked: (p) => (p.activities_completed || 0) >= 10,
   },
   {
     id: 'kampeon_sa_pagbasa',
     title: 'Kampeon sa Pagbasa',
+    description: 'Tapusin ang 25 lessons',
     image: require('../../assets/badges/kampeon_sa_pagbasa.png'),
     isUnlocked: (p) => (p.activities_completed || 0) >= 25,
   },
   {
     id: 'dalubhasa_sa_pagbasa',
     title: 'Dalubhasa sa Pagbasa',
+    description: 'Tapusin ang 50 lessons',
     image: require('../../assets/badges/dalubhasa_sa_pagbasa.png'),
     isUnlocked: (p) => (p.activities_completed || 0) >= 50,
   },
   {
     id: 'unang_bigkas',
     title: 'Unang Bigkas',
+    description: 'Subukan ang unang pagsasanay sa pagbigkas',
     image: require('../../assets/badges/unang_bigkas.png'),
     isUnlocked: (p) => (p.total_attempts || 0) >= 1,
   },
   {
     id: 'malinaw_magsalita',
     title: 'Malinaw Magsalita',
+    description: 'Makakuha ng 90%+ accuracy sa isang pagsasanay',
     image: require('../../assets/badges/malinaw_magsalita.png'),
     isUnlocked: (_p, stats) => stats.maxSingleAccuracy >= 90,
   },
   {
     id: 'tamang_bigkas',
     title: 'Tamang Bigkas',
+    description: 'Makakuha ng 100% accuracy sa 5 salita',
     image: require('../../assets/badges/tamang_bigkas.png'),
     isUnlocked: (_p, stats) => stats.perfectWordCount >= 5,
   },
   {
     id: 'boses_ng_tagumpay',
     title: 'Boses ng Tagumpay',
+    description: 'Tapusin ang 25 pagsasanay sa pagbigkas',
     image: require('../../assets/badges/boses_ng_tagumpay.png'),
     isUnlocked: (p) => (p.total_attempts || 0) >= 25,
   },
   {
     id: 'bigkas_champion',
     title: 'Bigkas Champion',
+    description: 'Makamit ang 90%+ average accuracy',
     image: require('../../assets/badges/bigkas_champion.png'),
     isUnlocked: (p) => (p.total_attempts || 0) >= MIN_ATTEMPTS_FOR_AVERAGE_BADGE && averageAccuracy(p) >= 90,
   },
   {
     id: 'unang_araw',
     title: 'Unang Araw',
+    description: 'Tapusin ang unang araw ng pag-aaral',
     image: require('../../assets/badges/unang_araw.png'),
     isUnlocked: (p) => !!p.last_practice_date,
   },
   {
     id: 'tuloy_tuloy',
     title: 'Tuloy-Tuloy!',
+    description: 'Mag-practice ng 3 araw nang sunud-sunod',
     image: require('../../assets/badges/tuloy_tuloy.png'),
     isUnlocked: (p) => (p.streak || 0) >= 3,
   },
   {
     id: 'lingguhang_bayani',
     title: 'Lingguhang Bayani',
+    description: 'Mag-practice ng 7 araw nang sunud-sunod',
     image: require('../../assets/badges/lingguhang_bayani.png'),
     isUnlocked: (p) => (p.streak || 0) >= 7,
   },
   {
     id: 'buwan_ng_pagsisikap',
     title: 'Buwan ng Pagsisikap',
+    description: 'Mag-practice ng 30 araw nang sunud-sunod',
     image: require('../../assets/badges/buwan_ng_pagsisikap.png'),
     isUnlocked: (p) => (p.streak || 0) >= 30,
   },
   {
     id: 'hindi_ako_susuko',
     title: 'Hindi Ako Susuko',
+    description: 'Ulitin ang isang mahirap na salita ng 5 beses',
     image: require('../../assets/badges/hindi_ako_susuko.png'),
     isUnlocked: (_p, stats) => stats.hasDifficultWordRetried,
   },
   {
     id: 'lakas_ng_loob',
     title: 'Lakas ng Loob',
+    description: 'Matutunan ang 5 mahihirap na salita',
     image: require('../../assets/badges/lakas_ng_loob.png'),
     isUnlocked: (_p, stats) => stats.challengingWordsMastered >= CHALLENGING_WORDS_REQUIRED,
   },
   {
     id: 'matalinong_mag_aaral',
     title: 'Matalinong Mag-aaral',
+    description: 'Pagbutihin ang accuracy nang 20 points',
     image: require('../../assets/badges/matalinong_mag_aaral.png'),
     isUnlocked: (p) => {
       if ((p.total_attempts || 0) < MIN_ATTEMPTS_FOR_IMPROVEMENT_BADGE) return false;
@@ -196,18 +214,21 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'patuloy_na_umuunlad',
     title: 'Patuloy na Umuunlad',
+    description: 'Umakyat sa susunod na reading level',
     image: require('../../assets/badges/patuloy_na_umuunlad.png'),
     isUnlocked: (p) => p.level !== 'Beginner',
   },
   {
     id: 'aking_unang_tagumpay',
     title: 'Aking Unang Tagumpay',
+    description: 'Awtomatikong makukuha kapag nakuha mo ang una mong badge',
     image: require('../../assets/badges/aking_unang_tagumpay.png'),
     isUnlocked: () => false,
   },
   {
     id: 'alamat_ng_pagbasa',
     title: 'Alamat ng Pagbasa',
+    description: 'I-unlock ang lahat ng 19 na badge',
     image: require('../../assets/badges/alamat_ng_pagbasa.png'),
     isUnlocked: () => false,
   },

@@ -1418,14 +1418,23 @@ export default function StudentDashboard({ navigation }: any) {
         {ACHIEVEMENTS.map((badge) => {
           const unlocked = progress?.achievements?.some((a) => a.id === badge.id);
           return (
-            <View key={badge.id} style={[styles.badgeCard, unlocked ? {} : styles.lockedBadge, { width: '48%' }]}>
+            <View key={badge.id} style={[styles.badgeCard, !unlocked && styles.lockedBadge, { width: '48%' }]}>
+              {!unlocked && (
+                <View style={styles.badgeLockIcon}>
+                  <Ionicons name="lock-closed" size={14} color="#fff" />
+                </View>
+              )}
               <Image
                 source={badge.image}
                 style={[styles.badgeImage, !unlocked && styles.badgeImageLocked]}
                 resizeMode="contain"
               />
               <Text style={styles.badgeTitle}>{badge.title}</Text>
-              {unlocked ? <Text style={{ color: SUCCESS }}>✅ Na-unlock</Text> : <Text style={{ color: TEXT_SECONDARY }}> Patuloy lang!</Text>}
+              {unlocked ? (
+                <Text style={{ color: SUCCESS, fontWeight: '700' }}>✅ Na-unlock</Text>
+              ) : (
+                <Text style={styles.badgeCondition}>{badge.description}</Text>
+              )}
             </View>
           );
         })}
@@ -1686,11 +1695,16 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
   badgeCard: { width: 128, backgroundColor: '#fff', borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12 },
-  lockedBadge: { opacity: 0.55 },
+  lockedBadge: { backgroundColor: '#F3F4F6' },
+  badgeLockIcon: {
+    position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(17,24,39,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+  },
   badgeEmoji: { fontSize: 28 },
   badgeImage: { width: 72, height: 72 },
-  badgeImageLocked: { opacity: 0.35 },
+  badgeImageLocked: { opacity: 0.9 },
   badgeTitle: { textAlign: 'center', fontWeight: '800', color: '#374151', marginTop: 6 },
+  badgeCondition: { textAlign: 'center', color: TEXT_SECONDARY, fontSize: 12, marginTop: 4 },
   uploadCard: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#E5E7EB' },
   uploadBody: { flex: 1 },
   uploadTitle: { fontWeight: '800', color: '#111827' },
