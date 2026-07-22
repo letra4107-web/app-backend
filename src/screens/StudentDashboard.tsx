@@ -1276,11 +1276,17 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderActivities = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.sectionTitle}>Learn</Text>
-      <Text style={styles.sectionSubtitle}>Teacher PDF lessons and assigned learning materials.</Text>
+      <View style={styles.learnSectionHeader}>
+        <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
+          <Ionicons name="library" size={16} color={HOME_LAVENDER_DARK} />
+          <Text style={[styles.learnBadgeText, { color: HOME_LAVENDER_DARK }]}>LEARN</Text>
+        </View>
+        <Text style={styles.learnSectionSubtitle}>Mga takdang-aralin mula sa iyong guro</Text>
+      </View>
+
       {activitiesLoading ? (
         <View style={styles.centerBlock}>
-          <ActivityIndicator size="small" color={PRIMARY} />
+          <ActivityIndicator size="small" color={HOME_LAVENDER} />
           <Text style={styles.empty}>Loading activities...</Text>
         </View>
       ) : activitiesError ? (
@@ -1291,38 +1297,53 @@ export default function StudentDashboard({ navigation }: any) {
           </TouchableOpacity>
         </View>
       ) : activities.length ? (
-        <View style={styles.selectedTasksCard}>
+        <View style={styles.learnCardList}>
           {activities.map((activity) => (
-            <View key={activity.id} style={styles.activityTaskRow}>
-              <View style={[styles.statusStrip, { backgroundColor: getStatusColor(activity.status) }]} />
+            <View key={activity.id} style={styles.learnActivityCard}>
+              <View style={[styles.learnIconWrap, { backgroundColor: '#EFECFB' }]}>
+                <Ionicons name="clipboard" size={22} color={HOME_LAVENDER_DARK} />
+              </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.activityTaskTitle}>{activity.title}</Text>
-                <Text style={styles.activityTaskMeta}>
-                  {activity.subject || 'Activity'} • Due {new Date(activity.deadline).toLocaleDateString()}
-                </Text>
-                {!!activity.description && <Text style={styles.activityTaskDescription}>{activity.description}</Text>}
+                <Text style={styles.learnItemTitle}>{activity.title}</Text>
+                <View style={styles.learnItemMetaRow}>
+                  <View style={[styles.learnStatusDot, { backgroundColor: getStatusColor(activity.status) }]} />
+                  <Text style={styles.learnItemMeta}>
+                    {activity.subject || 'Activity'} • Due {new Date(activity.deadline).toLocaleDateString()}
+                  </Text>
+                </View>
+                {!!activity.description && <Text style={styles.learnItemDescription}>{activity.description}</Text>}
               </View>
               {activity.status === 'completed' || activity.status === 'completed_late' ? (
-                <Text style={[styles.statusBadge, { color: getStatusColor(activity.status) }]}>{getStatusLabel(activity.status)}</Text>
+                <Text style={[styles.learnStatusBadge, { color: getStatusColor(activity.status) }]}>{getStatusLabel(activity.status)}</Text>
               ) : (
-                <TouchableOpacity style={styles.openButton} onPress={() => void completeActivity(activity)}>
-                  <Text style={styles.openButtonText}>Turn In</Text>
+                <TouchableOpacity style={styles.learnActionButton} onPress={() => void completeActivity(activity)}>
+                  <Text style={styles.learnActionButtonText}>Turn In</Text>
                 </TouchableOpacity>
               )}
             </View>
           ))}
         </View>
       ) : (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>📋</Text>
-          <Text style={styles.empty}>Wala pang assigned activities.</Text>
+        <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
+            <Ionicons name="clipboard-outline" size={40} color={HOME_LAVENDER_DARK} />
+          </View>
+          <Text style={styles.learnEmptyTitle}>Wala ka pang assignment ngayon</Text>
+          <Text style={styles.learnEmptySubtext}>Hihintayin natin ang unang takdang-aralin mula sa guro mo! 📝</Text>
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>PDF Lessons</Text>
+      <View style={styles.learnSectionHeader}>
+        <View style={[styles.learnBadgePill, { backgroundColor: '#E9F1E2' }]}>
+          <Ionicons name="book" size={16} color={HOME_SAGE} />
+          <Text style={[styles.learnBadgeText, { color: HOME_SAGE }]}>PDF LESSONS</Text>
+        </View>
+        <Text style={styles.learnSectionSubtitle}>Mga babasahin at aralin para sa iyo</Text>
+      </View>
+
       {lessonsLoading && (
         <View style={styles.centerBlock}>
-          <ActivityIndicator size="small" color={PRIMARY} />
+          <ActivityIndicator size="small" color={HOME_SAGE} />
           <Text style={styles.empty}>Loading lessons...</Text>
         </View>
       )}
@@ -1335,26 +1356,33 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
       )}
       {!lessonsLoading && !lessonsError && lessons.length ? (
-        lessons.map((lesson) => (
-          <View key={lesson.id} style={styles.uploadCard}>
-            <Ionicons name="document-text-outline" size={26} color={PRIMARY} />
-            <View style={styles.uploadBody}>
-              <Text style={styles.uploadTitle}>{lesson.title}</Text>
-              <Text style={styles.uploadDate}>
-                {lesson.subject || 'Lesson'} - {lesson.grade_level || 'All grades'} - {new Date(lesson.created_at).toLocaleDateString()}
-              </Text>
-              {!!lesson.description && <Text style={styles.activityTaskDescription}>{lesson.description}</Text>}
+        <View style={styles.learnCardList}>
+          {lessons.map((lesson) => (
+            <View key={lesson.id} style={styles.learnLessonCard}>
+              <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
+                <Ionicons name="document-text" size={22} color={HOME_SAGE} />
+              </View>
+              <View style={styles.uploadBody}>
+                <Text style={styles.learnItemTitle}>{lesson.title}</Text>
+                <Text style={styles.learnItemMeta}>
+                  {lesson.subject || 'Lesson'} • {lesson.grade_level || 'All grades'} • {new Date(lesson.created_at).toLocaleDateString()}
+                </Text>
+                {!!lesson.description && <Text style={styles.learnItemDescription}>{lesson.description}</Text>}
+              </View>
+              <TouchableOpacity style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]} onPress={() => openLesson(lesson)}>
+                <Text style={styles.learnActionButtonText}>Open</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.openButton} onPress={() => openLesson(lesson)}>
-              <Text style={styles.openButtonText}>Open</Text>
-            </TouchableOpacity>
-          </View>
-        ))
+          ))}
+        </View>
       ) : null}
       {!lessonsLoading && !lessonsError && !lessons.length && (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>📚</Text>
-          <Text style={styles.empty}>Wala pang PDF lessons na na-upload.</Text>
+        <View style={[styles.learnEmptyCard, { backgroundColor: '#F1F6ED' }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E9F1E2' }]}>
+            <Ionicons name="book-outline" size={40} color={HOME_SAGE} />
+          </View>
+          <Text style={styles.learnEmptyTitle}>Wala pang lessons dito</Text>
+          <Text style={styles.learnEmptySubtext}>Kapag nag-upload na ang guro mo, makikita mo agad ito rito! 📚</Text>
         </View>
       )}
 
@@ -1363,16 +1391,27 @@ export default function StudentDashboard({ navigation }: any) {
           <Text style={styles.error}>{uploadsError}</Text>
         </View>
       )}
-      {!lessons.length && uploads.map((upload) => {
-        const name = upload.metadata?.title || upload.path.split('/').pop() || 'Aralin';
-        return (
-          <View key={upload.id} style={styles.uploadCard}>
-            <Ionicons name={iconForUpload(upload.content_type)} size={26} color={PRIMARY} />
-            <View style={styles.uploadBody}><Text style={styles.uploadTitle}>{name}</Text><Text style={styles.uploadDate}>{new Date(upload.created_at).toLocaleDateString()}</Text></View>
-            <TouchableOpacity style={styles.openButton} onPress={() => openUpload(upload)}><Text style={styles.openButtonText}>Buksan</Text></TouchableOpacity>
-          </View>
-        );
-      })}
+      {!lessons.length && uploads.length > 0 && (
+        <View style={styles.learnCardList}>
+          {uploads.map((upload) => {
+            const name = upload.metadata?.title || upload.path.split('/').pop() || 'Aralin';
+            return (
+              <View key={upload.id} style={styles.learnLessonCard}>
+                <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
+                  <Ionicons name={iconForUpload(upload.content_type)} size={22} color={HOME_SAGE} />
+                </View>
+                <View style={styles.uploadBody}>
+                  <Text style={styles.learnItemTitle}>{name}</Text>
+                  <Text style={styles.learnItemMeta}>{new Date(upload.created_at).toLocaleDateString()}</Text>
+                </View>
+                <TouchableOpacity style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]} onPress={() => openUpload(upload)}>
+                  <Text style={styles.learnActionButtonText}>Buksan</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </ScrollView>
   );
 
@@ -1806,12 +1845,41 @@ const styles = StyleSheet.create({
   badgeImageLocked: { opacity: 0.9 },
   badgeTitle: { textAlign: 'center', fontWeight: '800', color: '#374151', marginTop: 6 },
   badgeCondition: { textAlign: 'center', color: TEXT_SECONDARY, fontSize: 12, marginTop: 4 },
-  uploadCard: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#E5E7EB' },
   uploadBody: { flex: 1 },
-  uploadTitle: { fontWeight: '800', color: '#111827' },
-  uploadDate: { color: '#6B7280', fontSize: 12, marginTop: 2 },
-  openButton: { backgroundColor: PRIMARY, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  openButtonText: { color: '#fff', fontWeight: '800' },
+  // --- Learn tab (assignments = lavender family, PDF lessons = sage family) ---
+  learnSectionHeader: { marginTop: 8, marginBottom: 14 },
+  learnBadgePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
+  },
+  learnBadgeText: { fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  learnSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  learnCardList: { gap: 12, marginBottom: 8 },
+  learnActivityCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14, marginBottom: 12,
+  },
+  learnLessonCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F1F6ED', borderRadius: 20, padding: 14, marginBottom: 12,
+  },
+  learnIconWrap: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+  },
+  learnItemTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15 },
+  learnItemMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  learnStatusDot: { width: 8, height: 8, borderRadius: 4 },
+  learnItemMeta: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600' },
+  learnItemDescription: { color: HOME_INK_SOFT, fontSize: 13, marginTop: 6 },
+  learnStatusBadge: { fontWeight: '900', fontSize: 12 },
+  learnActionButton: { backgroundColor: HOME_LAVENDER, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
+  learnActionButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  learnEmptyCard: { alignItems: 'center', borderRadius: 24, paddingVertical: 32, paddingHorizontal: 20, marginBottom: 8 },
+  learnEmptyIconWrap: {
+    width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+  },
+  learnEmptyTitle: { color: HOME_INK, fontWeight: '900', fontSize: 16, marginBottom: 6, textAlign: 'center' },
+  learnEmptySubtext: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', lineHeight: 19 },
   wordGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   wordCard: { backgroundColor: '#fff', borderRadius: 8, padding: 14, minWidth: '30%', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
   wordText: { color: PRIMARY, fontWeight: '900', fontSize: 16 },
