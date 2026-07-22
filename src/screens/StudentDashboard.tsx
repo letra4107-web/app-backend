@@ -15,7 +15,7 @@ import ConfettiOverlay from '../components/ConfettiOverlay';
 import AchievementModal from './AchievementModal';
 import { getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
 import { buildNextProgress, ChildProgress, saveProgress } from '../services/progressService';
-import { ACHIEVEMENTS, unlockAchievements } from '../services/achievementService';
+import { ACHIEVEMENTS, AchievementDefinition, unlockAchievements } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, speakWord, stopSpeaking } from '../services/ttsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
@@ -66,6 +66,22 @@ const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
 const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
+// Mirrors the real streak-badge thresholds in achievementService.ts, so the
+// Home tab's Streaks card targets an actual next badge instead of a made-up max.
+const STREAK_MILESTONES = [
+  { threshold: 3, id: 'tuloy_tuloy' },
+  { threshold: 7, id: 'lingguhang_bayani' },
+  { threshold: 30, id: 'buwan_ng_pagsisikap' },
+];
+// Mirrors the real lesson-count badge thresholds (activities_completed),
+// used by the Home tab's "next badge" motivational banner.
+const LESSON_MILESTONES = [
+  { threshold: 1, id: 'unang_hakbang' },
+  { threshold: 5, id: 'batang_mambabasa' },
+  { threshold: 10, id: 'masigasig_na_mambabasa' },
+  { threshold: 25, id: 'kampeon_sa_pagbasa' },
+  { threshold: 50, id: 'dalubhasa_sa_pagbasa' },
+];
 const XP_CORRECT = 50;
 const XP_WRONG = 30;
 const DAILY_GOAL = 5;
@@ -978,6 +994,31 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderWordOfDay = () => {
     const xpPct = Math.max(4, Math.min(100, Math.round((levelInfo.current / levelInfo.max) * 100)));
+
+    const nextStreakMilestone = STREAK_MILESTONES.find((m) => m.threshold > stats.streak);
+    const streakGoal = nextStreakMilestone?.threshold ?? STREAK_MILESTONES[STREAK_MILESTONES.length - 1].threshold;
+    const streakPct = Math.max(4, Math.min(100, Math.round((stats.streak / streakGoal) * 100)));
+    const nextStreakBadge = nextStreakMilestone ? ACHIEVEMENTS.find((a) => a.id === nextStreakMilestone.id) : null;
+
+    const completedCount = activities.filter((a) => a.status === 'completed' || a.status === 'completed_late').length;
+    const pendingCount = activities.filter((a) => a.status === 'pending').length;
+    const overdueCount = activities.filter((a) => a.status === 'overdue').length;
+
+    const unlockedIds = new Set((progress?.achievements || []).map((a) => a.id));
+    const recentUnlocked = [...(progress?.achievements || [])]
+      .sort((a, b) => new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime())
+      .map((a) => ACHIEVEMENTS.find((ad) => ad.id === a.id))
+      .filter((a): a is AchievementDefinition => !!a);
+    const lockedNext = ACHIEVEMENTS.filter((a) => !unlockedIds.has(a.id));
+    const showcaseBadges = [...recentUnlocked, ...lockedNext].slice(0, 5);
+
+    const activitiesCompletedCount = progress?.activities_completed || 0;
+    const nextLessonMilestone = LESSON_MILESTONES.find((m) => m.threshold > activitiesCompletedCount);
+    const nextLessonBadge = nextLessonMilestone ? ACHIEVEMENTS.find((a) => a.id === nextLessonMilestone.id) : null;
+    const lessonBannerPct = nextLessonMilestone
+      ? Math.max(4, Math.min(100, Math.round((activitiesCompletedCount / nextLessonMilestone.threshold) * 100)))
+      : 100;
+
     return (
       <>
         <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
@@ -999,48 +1040,17 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={styles.homeGreetingSub}>Handa ka na bang matuto ngayon?</Text>
           </View>
 
-          {/* Stat pills with motivating empty states */}
-          <View style={styles.homeStatsRow}>
-            <View style={[styles.homeStatPill, { backgroundColor: '#FFF3DC' }]}>
-              <Ionicons name="flame" size={22} color={HOME_SUN} style={styles.homeStatIcon} />
-              {stats.streak > 0 ? (
-                <>
-                  <Text style={[styles.homeStatValue, { color: HOME_SUN }]}>{stats.streak}</Text>
-                  <Text style={styles.homeStatLabel}>araw na streak</Text>
-                </>
-              ) : (
-                <Text style={styles.homeStatEmptyLabel}>Simulan ang streak mo!</Text>
-              )}
-            </View>
-            <View style={[styles.homeStatPill, { backgroundColor: '#FBE7DF' }]}>
-              <Ionicons name="star" size={22} color={HOME_CORAL} style={styles.homeStatIcon} />
-              {stats.xp > 0 ? (
-                <>
-                  <Text style={[styles.homeStatValue, { color: HOME_CORAL }]}>{stats.xp}</Text>
-                  <Text style={styles.homeStatLabel}>XP</Text>
-                </>
-              ) : (
-                <Text style={styles.homeStatEmptyLabel}>Kumita ng unang XP!</Text>
-              )}
-            </View>
-            <View style={[styles.homeStatPill, { backgroundColor: '#E9F1E2' }]}>
-              <Ionicons name="book" size={22} color={HOME_SAGE} style={styles.homeStatIcon} />
-              {stats.completed > 0 ? (
-                <>
-                  <Text style={[styles.homeStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
-                  <Text style={styles.homeStatLabel}>salitang natutunan</Text>
-                </>
-              ) : (
-                <Text style={styles.homeStatEmptyLabel}>Simulan ang unang salita!</Text>
-              )}
-            </View>
-          </View>
-
           {/* Word of the Day — the hero of Home */}
           {wordOfDay ? (
             <View style={styles.homeHeroCard}>
-              <View style={styles.homeHeroBadge}>
-                <Text style={styles.homeHeroBadgeText}>📅 SALITA NGAYON</Text>
+              <View style={styles.homeHeroTopRow}>
+                <View style={styles.homeHeroBadge}>
+                  <Text style={styles.homeHeroBadgeText}>📅 SALITA NGAYON</Text>
+                </View>
+                <View style={styles.homeHeroStreakPill}>
+                  <Ionicons name="flame" size={13} color="#fff" />
+                  <Text style={styles.homeHeroStreakText}>{stats.streak} {stats.streak === 1 ? 'DAY' : 'DAYS'}</Text>
+                </View>
               </View>
               <Text style={styles.homeHeroSub}>Bigkasin ang salitang ito nang tama!</Text>
               <StudentWordOfDay log={wordOfDay} onResult={handleWordOfDayResult} />
@@ -1051,6 +1061,75 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.homeHeroEmptyText}>Wala pang salita ngayon. Subukan muli mamaya.</Text>
             </View>
           )}
+
+          {/* Streaks card — targets the real next streak badge, not a made-up max */}
+          <View style={styles.homeStreakCard}>
+            <View style={styles.homeStreakTopRow}>
+              <Text style={styles.homeStreakTitle}>Streaks</Text>
+              <View style={styles.homeStreakFlameWrap}>
+                <Ionicons name="flame" size={20} color={HOME_SUN} />
+              </View>
+            </View>
+            <View style={styles.homeStreakTrack}>
+              <View style={[styles.homeStreakFill, { width: `${streakPct}%` }]} />
+            </View>
+            <Text style={styles.homeStreakCaption}>
+              {nextStreakBadge
+                ? `${stats.streak}/${streakGoal} araw — ${streakGoal - stats.streak} pang araw para sa ${nextStreakBadge.title} badge!`
+                : `${stats.streak} araw! Naabot mo na ang Buwan ng Pagsisikap badge — legend ka na! 🏆`}
+            </Text>
+          </View>
+
+          {/* Assignment status row — Completed / Pending / Overdue (real data;
+              there's no "in progress" state since assignments are binary) */}
+          <View style={styles.homeStatsRow}>
+            <View style={[styles.homeStatPill, { backgroundColor: '#E9F1E2' }]}>
+              <Ionicons name="checkmark-circle" size={22} color={SUCCESS} style={styles.homeStatIcon} />
+              <Text style={[styles.homeStatValue, { color: SUCCESS }]}>{completedCount}</Text>
+              <Text style={styles.homeStatLabel}>Completed</Text>
+            </View>
+            <View style={[styles.homeStatPill, { backgroundColor: '#FFF3DC' }]}>
+              <Ionicons name="time" size={22} color={WARNING} style={styles.homeStatIcon} />
+              <Text style={[styles.homeStatValue, { color: WARNING }]}>{pendingCount}</Text>
+              <Text style={styles.homeStatLabel}>Pending</Text>
+            </View>
+            <View style={[styles.homeStatPill, { backgroundColor: '#FBE7DF' }]}>
+              <Ionicons name="alert-circle" size={22} color={DANGER} style={styles.homeStatIcon} />
+              <Text style={[styles.homeStatValue, { color: DANGER }]}>{overdueCount}</Text>
+              <Text style={styles.homeStatLabel}>Overdue</Text>
+            </View>
+          </View>
+
+          {/* Achievement showcase — real badge assets, recently-unlocked first,
+              filled out with the next locked badges (no invented % progress) */}
+          <View style={styles.homeAchievementsCard}>
+            <View style={styles.homeAchievementsHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.homeAchievementsTitle}>🏆 Mga Achievement</Text>
+                <View style={styles.homeAchievementsCountPill}>
+                  <Text style={styles.homeAchievementsCountText}>{progress?.achievements?.length || 0}/{ACHIEVEMENTS.length}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setSection('achievements')}>
+                <Text style={styles.homeAchievementsLink}>Tingnan lahat</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+              {showcaseBadges.map((badge) => {
+                const isUnlockedBadge = unlockedIds.has(badge.id);
+                return (
+                  <View key={badge.id} style={styles.homeBadgeShowcaseItem}>
+                    <Image
+                      source={badge.image}
+                      style={[styles.homeBadgeShowcaseImage, !isUnlockedBadge && styles.homeBadgeShowcaseImageLocked]}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.homeBadgeShowcaseLabel} numberOfLines={2}>{badge.title}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
 
           {/* XP progress toward next level */}
           <View style={styles.homeXpCard}>
@@ -1070,6 +1149,24 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={styles.homeXpMarkerEmoji}>🌟</Text>
               </View>
             </View>
+          </View>
+
+          {/* Motivational banner — real progress toward the next lesson-count badge */}
+          <View style={styles.homeMotivationBanner}>
+            <View style={styles.homeMotivationTextRow}>
+              <Text style={styles.homeMotivationEmoji}>{nextLessonMilestone ? '🔥' : '🏆'}</Text>
+              <Text style={styles.homeMotivationText}>
+                {nextLessonBadge
+                  ? `Kumpletuhin ang ${nextLessonMilestone!.threshold - activitiesCompletedCount} pang aralin para sa ${nextLessonBadge.title} badge!`
+                  : 'Natapos mo na ang lahat ng lesson milestone — ikaw na ang Dalubhasa sa Pagbasa! 🎉'}
+              </Text>
+            </View>
+            <View style={styles.homeMotivationTrack}>
+              <View style={[styles.homeMotivationFill, { width: `${lessonBannerPct}%` }]} />
+            </View>
+            {!!nextLessonMilestone && (
+              <Text style={styles.homeMotivationCount}>{activitiesCompletedCount}/{nextLessonMilestone.threshold}</Text>
+            )}
           </View>
 
           {/* Quick actions */}
@@ -2029,20 +2126,50 @@ const styles = StyleSheet.create({
   homeStatIcon: { marginBottom: 4 },
   homeStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 18 },
   homeStatLabel: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 1 },
-  homeStatEmptyLabel: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700', textAlign: 'center', lineHeight: 15 },
   homeHeroCard: {
     backgroundColor: HOME_CREAM, borderRadius: 24, padding: 18, marginBottom: 16,
     borderWidth: 1, borderColor: 'rgba(124,111,207,0.18)',
     shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6,
   },
+  homeHeroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
   homeHeroBadge: {
-    alignSelf: 'center', backgroundColor: HOME_LAVENDER, borderRadius: 999,
-    paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8,
+    backgroundColor: HOME_LAVENDER, borderRadius: 999,
+    paddingHorizontal: 14, paddingVertical: 6,
   },
   homeHeroBadgeText: { color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  homeHeroStreakPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: HOME_SUN,
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  homeHeroStreakText: { color: '#fff', fontWeight: '900', fontSize: 11, letterSpacing: 0.3 },
   homeHeroSub: { color: HOME_INK_SOFT, fontWeight: '600', textAlign: 'center', marginBottom: 4, fontSize: 13 },
   homeHeroEmptyEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
   homeHeroEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600' },
+  homeStreakCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16,
+  },
+  homeStreakTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  homeStreakTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
+  homeStreakFlameWrap: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFF3DC', alignItems: 'center', justifyContent: 'center',
+  },
+  homeStreakTrack: { backgroundColor: 'rgba(227,151,26,0.15)', height: 14, borderRadius: 999, overflow: 'hidden' },
+  homeStreakFill: { backgroundColor: HOME_SUN, height: 14, borderRadius: 999 },
+  homeStreakCaption: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10, lineHeight: 17 },
+  homeAchievementsCard: {
+    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 20, padding: 16, marginBottom: 16,
+  },
+  homeAchievementsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  homeAchievementsTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
+  homeAchievementsCountPill: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  homeAchievementsCountText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+  homeAchievementsLink: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
+  homeBadgeShowcaseItem: { width: 76, alignItems: 'center' },
+  homeBadgeShowcaseImage: { width: 56, height: 56 },
+  homeBadgeShowcaseImageLocked: { opacity: 0.35 },
+  homeBadgeShowcaseLabel: {
+    color: HOME_INK_SOFT, fontWeight: '700', fontSize: 10.5, textAlign: 'center', marginTop: 4, lineHeight: 13,
+  },
   homeXpCard: {
     backgroundColor: 'rgba(255,255,255,0.85)', padding: 16, borderRadius: 20, marginBottom: 16,
   },
@@ -2061,6 +2188,15 @@ const styles = StyleSheet.create({
     width: 28, height: 28,
   },
   homeXpMarkerEmoji: { fontSize: 20 },
+  homeMotivationBanner: {
+    backgroundColor: HOME_CORAL, borderRadius: 20, padding: 16, marginBottom: 16,
+  },
+  homeMotivationTextRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  homeMotivationEmoji: { fontSize: 22 },
+  homeMotivationText: { color: '#fff', fontWeight: '800', fontSize: 13, flex: 1, lineHeight: 18 },
+  homeMotivationTrack: { backgroundColor: 'rgba(255,255,255,0.3)', height: 10, borderRadius: 999, overflow: 'hidden' },
+  homeMotivationFill: { backgroundColor: '#fff', height: 10, borderRadius: 999 },
+  homeMotivationCount: { color: 'rgba(255,255,255,0.9)', fontWeight: '800', fontSize: 11, marginTop: 6, textAlign: 'right' },
   homeQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   homeQuickCard: {
     flex: 1, borderRadius: 20, paddingVertical: 16, alignItems: 'center', minHeight: 88, justifyContent: 'center',
