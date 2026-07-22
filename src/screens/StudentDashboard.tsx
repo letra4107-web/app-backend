@@ -1002,7 +1002,7 @@ export default function StudentDashboard({ navigation }: any) {
           {/* Stat pills with motivating empty states */}
           <View style={styles.homeStatsRow}>
             <View style={[styles.homeStatPill, { backgroundColor: '#FFF3DC' }]}>
-              <Text style={styles.homeStatEmoji}>🔥</Text>
+              <Ionicons name="flame" size={22} color={HOME_SUN} style={styles.homeStatIcon} />
               {stats.streak > 0 ? (
                 <>
                   <Text style={[styles.homeStatValue, { color: HOME_SUN }]}>{stats.streak}</Text>
@@ -1013,7 +1013,7 @@ export default function StudentDashboard({ navigation }: any) {
               )}
             </View>
             <View style={[styles.homeStatPill, { backgroundColor: '#FBE7DF' }]}>
-              <Text style={styles.homeStatEmoji}>⭐</Text>
+              <Ionicons name="star" size={22} color={HOME_CORAL} style={styles.homeStatIcon} />
               {stats.xp > 0 ? (
                 <>
                   <Text style={[styles.homeStatValue, { color: HOME_CORAL }]}>{stats.xp}</Text>
@@ -1024,7 +1024,7 @@ export default function StudentDashboard({ navigation }: any) {
               )}
             </View>
             <View style={[styles.homeStatPill, { backgroundColor: '#E9F1E2' }]}>
-              <Text style={styles.homeStatEmoji}>📖</Text>
+              <Ionicons name="book" size={22} color={HOME_SAGE} style={styles.homeStatIcon} />
               {stats.completed > 0 ? (
                 <>
                   <Text style={[styles.homeStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
@@ -1232,9 +1232,18 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={[styles.goalFill, { width: `${goalProgress}%` }]} />
           </View>
           <View style={styles.rewardRow}>
-            <View style={styles.rewardPill}><Text style={styles.rewardText}>⭐ {stats.xp} XP</Text></View>
-            <View style={styles.rewardPill}><Text style={styles.rewardText}>🔥 {stats.streak} streak</Text></View>
-            <View style={styles.rewardPill}><Text style={styles.rewardText}>🏅 {progress?.achievements?.length || 0} badges</Text></View>
+            <View style={styles.rewardPill}>
+              <Ionicons name="star" size={13} color="#92400e" />
+              <Text style={styles.rewardText}> {stats.xp} XP</Text>
+            </View>
+            <View style={styles.rewardPill}>
+              <Ionicons name="flame" size={13} color="#92400e" />
+              <Text style={styles.rewardText}> {stats.streak} streak</Text>
+            </View>
+            <View style={styles.rewardPill}>
+              <Ionicons name="ribbon" size={13} color="#92400e" />
+              <Text style={styles.rewardText}> {progress?.achievements?.length || 0} badges</Text>
+            </View>
           </View>
         </View>
 
@@ -1463,8 +1472,20 @@ export default function StudentDashboard({ navigation }: any) {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.sectionTitle}>Proseso</Text>
       <View style={styles.statsGrid}>
-        <View style={styles.statCard}><Text style={styles.statValue}>🔥 {stats.streak}</Text><Text style={styles.statLabel}>Streak</Text></View>
-        <View style={styles.statCard}><Text style={styles.statValue}>⭐ {stats.xp}</Text><Text style={styles.statLabel}>XP</Text></View>
+        <View style={styles.statCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="flame" size={18} color={XP_GOLD} />
+            <Text style={styles.statValue}>{stats.streak}</Text>
+          </View>
+          <Text style={styles.statLabel}>Streak</Text>
+        </View>
+        <View style={styles.statCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="star" size={18} color={XP_GOLD} />
+            <Text style={styles.statValue}>{stats.xp}</Text>
+          </View>
+          <Text style={styles.statLabel}>XP</Text>
+        </View>
         <View style={styles.statCard}><Text style={styles.statValue}>{stats.completed}</Text><Text style={styles.statLabel}>Words</Text></View>
         <View style={styles.statCard}><Text style={styles.statValue}>{stats.level}</Text><Text style={styles.statLabel}>Level</Text></View>
       </View>
@@ -1572,7 +1593,10 @@ export default function StudentDashboard({ navigation }: any) {
     <View style={styles.topHeader}>
       <TouchableOpacity onPress={openSidebar} style={{ padding: 8 }}><Ionicons name="menu-outline" size={28} color={PRIMARY} /></TouchableOpacity>
       <Text style={styles.appTitle}>LinawLetra</Text>
-      <View style={styles.streakPill}><Text style={{ color: '#fff', fontWeight: '900' }}>🔥 {stats.streak}</Text></View>
+      <View style={styles.streakPill}>
+        <Ionicons name="flame" size={14} color="#fff" />
+        <Text style={{ color: '#fff', fontWeight: '900', marginLeft: 4 }}>{stats.streak}</Text>
+      </View>
     </View>
   );
 
@@ -1757,7 +1781,7 @@ function PracticeResultCard({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC', paddingTop: 48 },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   centerBlock: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18 },
   header: { paddingHorizontal: 18, paddingBottom: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -1817,9 +1841,9 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 18 },
   modalCard: { backgroundColor: '#fff', borderRadius: 8, padding: 14 },
   close: { alignSelf: 'flex-end', padding: 8 },
-  topHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingBottom: 12 },
+  topHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 48, paddingBottom: 12 },
   appTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY },
-  streakPill: { backgroundColor: PRIMARY, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  streakPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: PRIMARY, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#000' },
   sidebar: {
     position: 'absolute', top: 0, bottom: 0, left: 0, width: 270,
@@ -1883,7 +1907,7 @@ const styles = StyleSheet.create({
     flex: 1, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 8,
     alignItems: 'center', minHeight: 78, justifyContent: 'center',
   },
-  homeStatEmoji: { fontSize: 20, marginBottom: 4 },
+  homeStatIcon: { marginBottom: 4 },
   homeStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 18 },
   homeStatLabel: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 1 },
   homeStatEmptyLabel: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700', textAlign: 'center', lineHeight: 15 },
@@ -1964,7 +1988,7 @@ const styles = StyleSheet.create({
   goalTrack: { backgroundColor: '#f1f5f9', borderRadius: 999, height: 12, overflow: 'hidden', marginTop: 10 },
   goalFill: { backgroundColor: PRIMARY, height: 12, borderRadius: 999 },
   rewardRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  rewardPill: { backgroundColor: '#fef3c7', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  rewardPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fef3c7', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
   rewardText: { color: '#92400e', fontWeight: '900', fontSize: 12 },
   wordCardHint: { color: TEXT_SECONDARY, fontSize: 11, marginTop: 6, fontWeight: '700' },
   practiceHero: {
