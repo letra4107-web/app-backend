@@ -989,11 +989,7 @@ export default function StudentDashboard({ navigation }: any) {
   const renderWordOfDay = () => {
     const xpPct = Math.max(4, Math.min(100, Math.round((levelInfo.current / levelInfo.max) * 100)));
     return (
-      <ImageBackground
-        source={require('../../assets/sdbg.jpg')}
-        style={[styles.homeBg, { backgroundColor: HOME_CREAM }]}
-        resizeMode={homeBgResizeMode}
-      >
+      <>
         <View style={styles.homeTopScrim} pointerEvents="none" />
         <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
           {!!error && (
@@ -1147,7 +1143,7 @@ export default function StudentDashboard({ navigation }: any) {
             )}
           </View>
         </ScrollView>
-      </ImageBackground>
+      </>
     );
   };
 
@@ -1583,22 +1579,35 @@ export default function StudentDashboard({ navigation }: any) {
     <DashboardSettingsScreen role="student" navigation={navigation} embedded />
   );
 
+  const topHeaderNode = (
+    <View style={styles.topHeader}>
+      <TouchableOpacity onPress={openSidebar} style={{ padding: 8 }}><Ionicons name="menu-outline" size={28} color={PRIMARY} /></TouchableOpacity>
+      <Text style={styles.appTitle}>LinawLetra</Text>
+      <View style={styles.streakPill}><Text style={{ color: '#fff', fontWeight: '900' }}>🔥 {stats.streak}</Text></View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      {/* Top header */}
-      <View style={styles.topHeader}>
-        <TouchableOpacity onPress={openSidebar} style={{ padding: 8 }}><Ionicons name="menu-outline" size={28} color={PRIMARY} /></TouchableOpacity>
-        <Text style={styles.appTitle}>LinawLetra</Text>
-        <View style={styles.streakPill}><Text style={{ color: '#fff', fontWeight: '900' }}>🔥 {stats.streak}</Text></View>
-      </View>
-
-      {/* Section content */}
-      {section === 'home' && renderWordOfDay()}
-      {section === 'learn' && renderActivities()}
-      {section === 'practice' && renderPractice()}
-      {section === 'progress' && renderProgress()}
-      {section === 'achievements' && renderAchievements()}
-      {section === 'settings' && renderSettings()}
+      {section === 'home' ? (
+        <ImageBackground
+          source={require('../../assets/sdbg.jpg')}
+          style={[styles.homeBg, { backgroundColor: HOME_CREAM }]}
+          resizeMode={homeBgResizeMode}
+        >
+          {topHeaderNode}
+          {renderWordOfDay()}
+        </ImageBackground>
+      ) : (
+        <>
+          {topHeaderNode}
+          {section === 'learn' && renderActivities()}
+          {section === 'practice' && renderPractice()}
+          {section === 'progress' && renderProgress()}
+          {section === 'achievements' && renderAchievements()}
+          {section === 'settings' && renderSettings()}
+        </>
+      )}
 
       {/* Sidebar overlay + animated sidebar */}
       {sidebarOpen && (
@@ -1863,7 +1872,7 @@ const styles = StyleSheet.create({
   // --- Home tab (redesigned around assets/sdbg.jpg) ---
   homeBg: { flex: 1, width: '100%' },
   homeTopScrim: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 90,
+    position: 'absolute', top: 0, left: 0, right: 0, height: 170,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   homeContent: { padding: 18, paddingBottom: 48 },
