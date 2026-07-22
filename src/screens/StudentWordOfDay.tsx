@@ -56,6 +56,7 @@ export default function StudentWordOfDay({
   updateDailyLog?: boolean;
 }) {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [starting, setStarting] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState('');
   const [lastScore, setLastScore] = useState<number | null>(null);
@@ -63,6 +64,14 @@ export default function StudentWordOfDay({
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const pulse = useSharedValue(1);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mirrors `recording` state but updates synchronously, so async code (and the
+  // unmount cleanup below) always sees the latest Recording object instead of a
+  // value captured by a stale closure.
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  // Closes the gap between a tap and `starting` state actually re-rendering the
+  // disabled button — state updates aren't synchronous, so a fast double-tap can
+  // fire startRecording() twice before the button visually disables.
+  const isStartingRef = useRef(false);
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
@@ -77,25 +86,74 @@ export default function StudentWordOfDay({
     };
   }, [recording]);
 
+  // Unmount-only cleanup: if the screen is left while a recording is prepared or
+  // active (e.g. the student navigates away mid-recording), unload it so it
+  // doesn't hold the audio session and block the next attempt.
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
+      }
+    };
+  }, []);
+
   const startRecording = async () => {
+    const alreadyBusy = isStartingRef.current || !!recordingRef.current || processing;
+    if (alreadyBusy) return;
+    isStartingRef.current = true;
+    setStarting(true);
     setMessage('');
-    const permission = await Audio.requestPermissionsAsync();
-    if (permission.status !== 'granted') {
-      setMessage('Kailangan ng mikropono. I-enable ito sa device settings.');
-      return;
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status !== 'granted') {
+        setMessage('Kailangan ng mikropono. I-enable ito sa device settings.');
+        return;
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+
+      const prepareRecording = async () => {
+        const candidate = new Audio.Recording();
+        await candidate.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        return candidate;
+      };
+
+      let nextRecording: Audio.Recording;
+      try {
+        nextRecording = await prepareRecording();
+      } catch {
+        // A stale Recording object still holding the audio session (e.g. from a
+        // previous attempt that didn't fully unload) makes prepareToRecordAsync
+        // throw "Only one Recording object can be prepared at a given time."
+        // Force-unload any leftover reference and retry once.
+        if (recordingRef.current) {
+          try {
+            await recordingRef.current.stopAndUnloadAsync();
+          } catch {
+            // already unloaded/invalid — nothing to clean up
+          }
+          recordingRef.current = null;
+        }
+        nextRecording = await prepareRecording();
+      }
+
+      await nextRecording.startAsync();
+      recordingRef.current = nextRecording;
+      setRecording(nextRecording);
+      timeoutRef.current = setTimeout(() => void stopRecording(nextRecording), 5000);
+    } catch {
+      setMessage('Hindi ma-simulan ang pag-record. Subukan muli.');
+    } finally {
+      isStartingRef.current = false;
+      setStarting(false);
     }
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-    const nextRecording = new Audio.Recording();
-    await nextRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-    await nextRecording.startAsync();
-    setRecording(nextRecording);
-    timeoutRef.current = setTimeout(() => void stopRecording(nextRecording), 5000);
   };
 
-  const stopRecording = async (active = recording) => {
+  const stopRecording = async (active = recordingRef.current) => {
     if (!active) return;
     setProcessing(true);
     setRecording(null);
+    recordingRef.current = null;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     try {
       await active.stopAndUnloadAsync();
@@ -164,16 +222,18 @@ export default function StudentWordOfDay({
           <View style={[styles.micGlowInner, recording && styles.micGlowInnerRecording]}>
             <TouchableOpacity
               style={[styles.mic, recording && styles.micRecording, isDone && styles.disabled]}
-              disabled={processing || isDone}
+              disabled={starting || processing || isDone}
               onPress={() => recording ? stopRecording() : startRecording()}
             >
-              {processing ? <ActivityIndicator color="#fff" /> : <Ionicons name={recording ? 'stop' : 'mic'} size={36} color="#fff" />}
+              {(starting || processing) ? <ActivityIndicator color="#fff" /> : <Ionicons name={recording ? 'stop' : 'mic'} size={36} color="#fff" />}
             </TouchableOpacity>
           </View>
         </View>
       </Animated.View>
 
-      <Text style={styles.micHint}>{recording ? 'Pindutin muli para ihinto...' : 'Pindutin ang mikropono at bigkasin'}</Text>
+      <Text style={styles.micHint}>
+        {starting ? 'Naghahanda...' : recording ? 'Pindutin muli para ihinto...' : 'Pindutin ang mikropono at bigkasin'}
+      </Text>
 
       {!!message && !isDone && (
         <View style={[styles.resultBubble, (message.startsWith('Tama') || message.includes('Napakagaling')) ? styles.correctBubble : styles.wrongBubble]}>
