@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Image, ImageBackground, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View,
+  ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import {
   ExpoSpeechRecognitionModule,
@@ -54,8 +54,8 @@ const WARNING = '#f59e0b';
 const DANGER = '#ef4444';
 const XP_GOLD = '#f59e0b';
 
-// Home tab tokens — derived from assets/sdbg.jpg's storybook palette (cream center,
-// pastel lavender/coral/sage/sun accents). Scoped to Home; other tabs keep PRIMARY etc.
+// Home tab tokens — a warm, "reading journey" pastel palette
+// (cream/lavender/coral/sage/sun). Scoped to Home; other tabs keep PRIMARY etc.
 const HOME_CREAM = '#FBF3E2';
 const HOME_INK = '#3B322C';
 const HOME_INK_SOFT = '#8A7B6C';
@@ -181,16 +181,6 @@ export default function StudentDashboard({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [achievement, setAchievement] = useState<{ image: any; title: string } | null>(null);
-
-  // sdbg.jpg is a tall (1080x1920) portrait illustration with its decorative
-  // frame (stars/books/leaves) concentrated at the corners. "cover" fits phone
-  // screens nicely, but on tablets/landscape (much squarer or wider aspect)
-  // it crops most of that frame away. Past a threshold, switch to "contain" —
-  // paired with a matching cream fallback background so the letterboxing
-  // blends in instead of showing bars — to keep the full illustration visible.
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const isHomeBgPhoneAspect = windowWidth / windowHeight <= 0.62;
-  const homeBgResizeMode = isHomeBgPhoneAspect ? 'cover' : 'contain';
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
   const [practiceListening, setPracticeListening] = useState(false);
@@ -990,7 +980,6 @@ export default function StudentDashboard({ navigation }: any) {
     const xpPct = Math.max(4, Math.min(100, Math.round((levelInfo.current / levelInfo.max) * 100)));
     return (
       <>
-        <View style={styles.homeTopScrim} pointerEvents="none" />
         <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
           {!!error && (
             <View style={styles.homeErrorBanner}>
@@ -1590,14 +1579,10 @@ export default function StudentDashboard({ navigation }: any) {
   return (
     <View style={styles.container}>
       {section === 'home' ? (
-        <ImageBackground
-          source={require('../../assets/sdbg.jpg')}
-          style={[styles.homeBg, { backgroundColor: HOME_CREAM }]}
-          resizeMode={homeBgResizeMode}
-        >
+        <View style={styles.homeBg}>
           {topHeaderNode}
           {renderWordOfDay()}
-        </ImageBackground>
+        </View>
       ) : (
         <>
           {topHeaderNode}
@@ -1869,12 +1854,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  // --- Home tab (redesigned around assets/sdbg.jpg) ---
-  homeBg: { flex: 1, width: '100%' },
-  homeTopScrim: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 170,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
+  // --- Home tab ---
+  homeBg: { flex: 1, width: '100%', backgroundColor: '#EEF0FA' },
   homeContent: { padding: 18, paddingBottom: 48 },
   homeErrorBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
