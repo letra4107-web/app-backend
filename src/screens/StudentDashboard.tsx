@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, Animated, Image, ImageBackground, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import {
   ExpoSpeechRecognitionModule,
@@ -53,6 +53,19 @@ const SUCCESS = '#10b981';
 const WARNING = '#f59e0b';
 const DANGER = '#ef4444';
 const XP_GOLD = '#f59e0b';
+
+// Home tab tokens — derived from assets/sdbg.jpg's storybook palette (cream center,
+// pastel lavender/coral/sage/sun accents). Scoped to Home; other tabs keep PRIMARY etc.
+const HOME_CREAM = '#FBF3E2';
+const HOME_INK = '#3B322C';
+const HOME_INK_SOFT = '#8A7B6C';
+const HOME_SUN = '#E3971A';
+const HOME_CORAL = '#E06B4C';
+const HOME_SAGE = '#5C8047';
+const HOME_LAVENDER = '#7C6FCF';
+const HOME_LAVENDER_DARK = '#5F52B0';
+const FONT_DISPLAY = 'Baloo2_800ExtraBold';
+const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 const XP_CORRECT = 50;
 const XP_WRONG = 30;
 const DAILY_GOAL = 5;
@@ -963,110 +976,166 @@ export default function StudentDashboard({ navigation }: any) {
 
   const levelInfo = getNextLevelInfo(stats.xp, stats.level);
 
-  const renderWordOfDay = () => (
-    <ScrollView contentContainerStyle={styles.content}>
-      {!!error && (
-        <View style={styles.errorBlock}>
-          <Text style={styles.error}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => setRetryKey((prev) => prev + 1)}
-          >
-            <Text style={styles.retryButtonText}>Subukan muli</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Welcome banner */}
-      <View style={styles.welcomeBanner}>
-        <Text style={styles.welcomeHello}>Kumusta, {getFirstName(child?.name || '')}! 👋</Text>
-        <Text style={styles.welcomeSub}>Handa ka na bang matuto ngayon?</Text>
-        <View style={styles.chipsRow}>
-          <View style={styles.chip}><Text style={styles.chipText}>🔥 {stats.streak}</Text></View>
-          <View style={styles.chip}><Text style={styles.chipText}>⭐ {stats.xp}</Text></View>
-          <View style={styles.chip}><Text style={styles.chipText}>📖 {stats.completed}</Text></View>
-        </View>
-      </View>
-
-      {/* Word of the Day — main focus */}
-      {wordOfDay ? (
-        <View style={styles.wordOfDayCard}>
-          <Text style={styles.sectionTitle}>Salita Ngayon 📅</Text>
-          <Text style={styles.sectionSubtitle}>Bigkasin ang salitang ito nang tama!</Text>
-          <StudentWordOfDay log={wordOfDay} onResult={handleWordOfDayResult} />
-        </View>
-      ) : (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>📅</Text>
-          <Text style={styles.empty}>Wala pang salita ngayon. Subukan muli mamaya.</Text>
-        </View>
-      )}
-
-      {/* XP bar below word of the day */}
-      <View style={styles.levelCard}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <Text style={styles.levelLabel}>📚 {stats.level}</Text>
-          {levelInfo.next && (
-            <Text style={{ color: TEXT_SECONDARY, fontSize: 12 }}>
-              {Math.max(0, levelInfo.need - levelInfo.current)} XP → {levelInfo.next}
-            </Text>
-          )}
-        </View>
-        <View style={styles.xpBarTrack}>
-          <View style={[styles.xpBarFill, { width: `${Math.round((levelInfo.current / levelInfo.max) * 100)}%` }]} />
-        </View>
-      </View>
-
-      {/* Quick actions */}
-      <View style={styles.quickRow}>
-        <TouchableOpacity style={styles.quickAction} onPress={() => setSection('learn')}>
-          <Ionicons name="library-outline" size={20} color={PRIMARY} />
-          <Text style={styles.quickLabel}>Learn</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.quickAction} onPress={() => setSection('practice')}>
-          <Ionicons name="mic-outline" size={20} color={PRIMARY} />
-          <Text style={styles.quickLabel}>Practice</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')}>
-          <Ionicons name="analytics-outline" size={20} color={PRIMARY} />
-          <Text style={styles.quickLabel}>Progress</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Calendar widget */}
-      <View style={styles.homeCalendarWidget}>
-        <View style={styles.homeCalendarHeader}>
-          <Text style={styles.homeCalendarTitle}>📅 Upcoming Deadlines</Text>
-          <TouchableOpacity onPress={() => setSection('learn')}>
-            <Text style={styles.homeCalendarLink}>View lessons</Text>
-          </TouchableOpacity>
-        </View>
-        {activities.length ? (
-          activities.slice(0, 3).map((activity) => (
-            <TouchableOpacity
-              key={activity.id}
-              style={styles.homeActivityRow}
-              onPress={() => {
-                setSelectedCalendarDate(getActivityDateKey(activity));
-                setSection('learn');
-              }}
-            >
-              <View style={[styles.homeStatusDot, { backgroundColor: getStatusColor(activity.status) }]} />
+  const renderWordOfDay = () => {
+    const xpPct = Math.max(4, Math.min(100, Math.round((levelInfo.current / levelInfo.max) * 100)));
+    return (
+      <ImageBackground source={require('../../assets/sdbg.jpg')} style={styles.homeBg} resizeMode="cover">
+        <View style={styles.homeTopScrim} pointerEvents="none" />
+        <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
+          {!!error && (
+            <View style={styles.homeErrorBanner}>
+              <Text style={styles.homeBannerEmoji}>💛</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.homeActivityTitle}>{activity.title}</Text>
-                <Text style={styles.homeActivityMeta}>
-                  {activity.subject || 'Activity'} • {new Date(activity.deadline).toLocaleDateString()}
+                <Text style={styles.homeErrorText}>{error}</Text>
+                <TouchableOpacity style={styles.homeBannerButton} onPress={() => setRetryKey((prev) => prev + 1)}>
+                  <Text style={styles.homeBannerButtonText}>Subukan muli</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Greeting header — sits directly on the background image */}
+          <View style={styles.homeGreeting}>
+            <Text style={styles.homeGreetingHello}>Kumusta, {getFirstName(child?.name || '')}! 👋</Text>
+            <Text style={styles.homeGreetingSub}>Handa ka na bang matuto ngayon?</Text>
+          </View>
+
+          {/* Stat pills with motivating empty states */}
+          <View style={styles.homeStatsRow}>
+            <View style={[styles.homeStatPill, { backgroundColor: '#FFF3DC' }]}>
+              <Text style={styles.homeStatEmoji}>🔥</Text>
+              {stats.streak > 0 ? (
+                <>
+                  <Text style={[styles.homeStatValue, { color: HOME_SUN }]}>{stats.streak}</Text>
+                  <Text style={styles.homeStatLabel}>araw na streak</Text>
+                </>
+              ) : (
+                <Text style={styles.homeStatEmptyLabel}>Simulan ang streak mo!</Text>
+              )}
+            </View>
+            <View style={[styles.homeStatPill, { backgroundColor: '#FBE7DF' }]}>
+              <Text style={styles.homeStatEmoji}>⭐</Text>
+              {stats.xp > 0 ? (
+                <>
+                  <Text style={[styles.homeStatValue, { color: HOME_CORAL }]}>{stats.xp}</Text>
+                  <Text style={styles.homeStatLabel}>XP</Text>
+                </>
+              ) : (
+                <Text style={styles.homeStatEmptyLabel}>Kumita ng unang XP!</Text>
+              )}
+            </View>
+            <View style={[styles.homeStatPill, { backgroundColor: '#E9F1E2' }]}>
+              <Text style={styles.homeStatEmoji}>📖</Text>
+              {stats.completed > 0 ? (
+                <>
+                  <Text style={[styles.homeStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
+                  <Text style={styles.homeStatLabel}>salitang natutunan</Text>
+                </>
+              ) : (
+                <Text style={styles.homeStatEmptyLabel}>Simulan ang unang salita!</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Word of the Day — the hero of Home */}
+          {wordOfDay ? (
+            <View style={styles.homeHeroCard}>
+              <View style={styles.homeHeroBadge}>
+                <Text style={styles.homeHeroBadgeText}>📅 SALITA NGAYON</Text>
+              </View>
+              <Text style={styles.homeHeroSub}>Bigkasin ang salitang ito nang tama!</Text>
+              <StudentWordOfDay log={wordOfDay} onResult={handleWordOfDayResult} />
+            </View>
+          ) : (
+            <View style={styles.homeHeroCard}>
+              <Text style={styles.homeHeroEmptyEmoji}>📅</Text>
+              <Text style={styles.homeHeroEmptyText}>Wala pang salita ngayon. Subukan muli mamaya.</Text>
+            </View>
+          )}
+
+          {/* XP progress toward next level */}
+          <View style={styles.homeXpCard}>
+            <View style={styles.homeXpTopRow}>
+              <Text style={styles.homeXpLevel}>📚 {stats.level}</Text>
+              {levelInfo.next && (
+                <Text style={styles.homeXpNext}>
+                  {Math.max(0, levelInfo.need - levelInfo.current)} XP → {levelInfo.next}
+                </Text>
+              )}
+            </View>
+            <View style={styles.homeXpTrack}>
+              <View style={[styles.homeXpFill, { width: `${xpPct}%` }]}>
+                <View style={styles.homeXpFillShine} />
+              </View>
+              <View style={[styles.homeXpMarker, { left: `${xpPct}%` }]}>
+                <Text style={styles.homeXpMarkerEmoji}>🌟</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick actions */}
+          <View style={styles.homeQuickRow}>
+            <TouchableOpacity style={[styles.homeQuickCard, { backgroundColor: '#EFECFB' }]} onPress={() => setSection('learn')}>
+              <View style={[styles.homeQuickIconWrap, { backgroundColor: HOME_LAVENDER }]}>
+                <Ionicons name="library-outline" size={20} color="#fff" />
+              </View>
+              <Text style={styles.homeQuickLabel}>Learn</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.homeQuickCard, { backgroundColor: '#FBE7DF' }]} onPress={() => setSection('practice')}>
+              <View style={[styles.homeQuickIconWrap, { backgroundColor: HOME_CORAL }]}>
+                <Ionicons name="mic-outline" size={20} color="#fff" />
+              </View>
+              <Text style={styles.homeQuickLabel}>Practice</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.homeQuickCard, { backgroundColor: '#E9F1E2' }]} onPress={() => setSection('progress')}>
+              <View style={[styles.homeQuickIconWrap, { backgroundColor: HOME_SAGE }]}>
+                <Ionicons name="analytics-outline" size={20} color="#fff" />
+              </View>
+              <Text style={styles.homeQuickLabel}>Progress</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Deadlines widget */}
+          <View style={styles.homeDeadlinesCard}>
+            <View style={styles.homeDeadlinesHeader}>
+              <Text style={styles.homeDeadlinesTitle}>📅 Upcoming Deadlines</Text>
+              <TouchableOpacity onPress={() => setSection('learn')}>
+                <Text style={styles.homeDeadlinesLink}>View lessons</Text>
+              </TouchableOpacity>
+            </View>
+            {activities.length ? (
+              activities.slice(0, 3).map((activity) => (
+                <TouchableOpacity
+                  key={activity.id}
+                  style={styles.homeActivityRow}
+                  onPress={() => {
+                    setSelectedCalendarDate(getActivityDateKey(activity));
+                    setSection('learn');
+                  }}
+                >
+                  <View style={[styles.homeStatusDot, { backgroundColor: getStatusColor(activity.status) }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.homeActivityTitle}>{activity.title}</Text>
+                    <Text style={styles.homeActivityMeta}>
+                      {activity.subject || 'Activity'} • {new Date(activity.deadline).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.homeDeadlinesEmpty}>
+                <Text style={styles.homeDeadlinesEmptyEmoji}>🌱</Text>
+                <Text style={styles.homeDeadlinesEmptyText}>
+                  Malinis ang schedule mo ngayon. Magpatuloy sa pagsasanay!
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={TEXT_SECONDARY} />
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.empty}>No upcoming activities yet.</Text>
-        )}
-      </View>
-    </ScrollView>
-  );
+            )}
+          </View>
+        </ScrollView>
+      </ImageBackground>
+    );
+  };
 
   const renderPractice = () => {
     const words = practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS;
@@ -1777,23 +1846,88 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  welcomeBanner: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 14 },
-  welcomeHello: { fontSize: 20, fontWeight: '900', color: '#111827' },
-  welcomeSub: { color: '#6B7280', marginTop: 6 },
-  chipsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  chip: { backgroundColor: '#eef2ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, marginRight: 8 },
-  chipText: { color: PRIMARY, fontWeight: '800' },
-  levelCard: { backgroundColor: '#fff', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  levelLabel: { color: '#6B7280', fontWeight: '700' },
-  levelName: { fontSize: 18, fontWeight: '900', color: '#111827' },
-  levelBadge: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8 },
-  xpBarTrack: { backgroundColor: '#F3F4F6', height: 10, borderRadius: 8, marginTop: 10, overflow: 'hidden' },
-  xpBarFill: { backgroundColor: '#4f46e5', height: 10 },
-  levelNote: { color: '#6B7280', marginTop: 8 },
-  wordOfDayCard: { backgroundColor: '#fff', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  quickRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
-  quickAction: { backgroundColor: '#fff', borderRadius: 12, padding: 12, alignItems: 'center', width: '32%', borderWidth: 1, borderColor: '#E5E7EB' },
-  quickLabel: { marginTop: 8, fontWeight: '800', color: PRIMARY },
+  // --- Home tab (redesigned around assets/sdbg.jpg) ---
+  homeBg: { flex: 1, width: '100%' },
+  homeTopScrim: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 140,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  homeContent: { padding: 18, paddingBottom: 48 },
+  homeErrorBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: 'rgba(240,150,125,0.16)', borderWidth: 1.5, borderColor: HOME_CORAL,
+    borderRadius: 20, padding: 14, marginBottom: 16,
+  },
+  homeBannerEmoji: { fontSize: 20 },
+  homeErrorText: { color: HOME_INK, fontWeight: '700', marginBottom: 8 },
+  homeBannerButton: {
+    alignSelf: 'flex-start', backgroundColor: HOME_CORAL,
+    paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
+  },
+  homeBannerButtonText: { color: '#fff', fontWeight: '800' },
+  homeGreeting: { marginBottom: 16 },
+  homeGreetingHello: {
+    fontFamily: FONT_DISPLAY, fontSize: 26, color: HOME_INK,
+    textShadowColor: 'rgba(255,255,255,0.6)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 },
+  },
+  homeGreetingSub: { color: HOME_INK_SOFT, fontWeight: '600', marginTop: 4, fontSize: 14 },
+  homeStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  homeStatPill: {
+    flex: 1, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 8,
+    alignItems: 'center', minHeight: 78, justifyContent: 'center',
+  },
+  homeStatEmoji: { fontSize: 20, marginBottom: 4 },
+  homeStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 18 },
+  homeStatLabel: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 1 },
+  homeStatEmptyLabel: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700', textAlign: 'center', lineHeight: 15 },
+  homeHeroCard: {
+    backgroundColor: HOME_CREAM, borderRadius: 24, padding: 18, marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(124,111,207,0.18)',
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+  },
+  homeHeroBadge: {
+    alignSelf: 'center', backgroundColor: HOME_LAVENDER, borderRadius: 999,
+    paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8,
+  },
+  homeHeroBadgeText: { color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  homeHeroSub: { color: HOME_INK_SOFT, fontWeight: '600', textAlign: 'center', marginBottom: 4, fontSize: 13 },
+  homeHeroEmptyEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
+  homeHeroEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600' },
+  homeXpCard: {
+    backgroundColor: 'rgba(255,255,255,0.85)', padding: 16, borderRadius: 20, marginBottom: 16,
+  },
+  homeXpTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  homeXpLevel: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
+  homeXpNext: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600' },
+  homeXpTrack: {
+    backgroundColor: 'rgba(124,111,207,0.15)', height: 16, borderRadius: 999, overflow: 'visible',
+  },
+  homeXpFill: {
+    backgroundColor: HOME_LAVENDER, height: 16, borderRadius: 999, overflow: 'hidden', justifyContent: 'flex-start',
+  },
+  homeXpFillShine: { height: 6, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.35)', margin: 2 },
+  homeXpMarker: {
+    position: 'absolute', top: -6, marginLeft: -14, alignItems: 'center', justifyContent: 'center',
+    width: 28, height: 28,
+  },
+  homeXpMarkerEmoji: { fontSize: 20 },
+  homeQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
+  homeQuickCard: {
+    flex: 1, borderRadius: 20, paddingVertical: 16, alignItems: 'center', minHeight: 88, justifyContent: 'center',
+  },
+  homeQuickIconWrap: {
+    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+  },
+  homeQuickLabel: { fontWeight: '800', color: HOME_INK, fontSize: 13 },
+  homeDeadlinesCard: {
+    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 20, padding: 16,
+  },
+  homeDeadlinesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  homeDeadlinesTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
+  homeDeadlinesLink: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
+  homeDeadlinesEmpty: { alignItems: 'center', paddingVertical: 14 },
+  homeDeadlinesEmptyEmoji: { fontSize: 28, marginBottom: 6 },
+  homeDeadlinesEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600', fontSize: 13 },
   bigWord: { fontSize: 48, fontWeight: '900', color: PRIMARY, marginVertical: 10 },
   listenButton: { marginTop: 8, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: PRIMARY },
   // Practice feedback styles
@@ -1973,33 +2107,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   openSettingsText: { color: '#fff', fontWeight: '900' },
-  homeCalendarWidget: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  homeCalendarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  homeCalendarTitle: { color: TEXT_PRIMARY, fontWeight: '900', fontSize: 16 },
-  homeCalendarLink: { color: PRIMARY, fontWeight: '800' },
   homeActivityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: 'rgba(59,50,44,0.08)',
   },
   homeStatusDot: { width: 10, height: 10, borderRadius: 5 },
-  homeActivityTitle: { color: TEXT_PRIMARY, fontWeight: '900' },
-  homeActivityMeta: { color: TEXT_SECONDARY, fontSize: 12, marginTop: 2 },
+  homeActivityTitle: { color: HOME_INK, fontWeight: '900' },
+  homeActivityMeta: { color: HOME_INK_SOFT, fontSize: 12, marginTop: 2 },
   profileHero: {
     backgroundColor: '#fff',
     borderRadius: 12,

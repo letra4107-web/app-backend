@@ -16,6 +16,12 @@ const TEXT_PRIMARY = '#111827';
 const DANGER = '#ef4444';
 const SUCCESS = '#10b981';
 const WARNING = '#f59e0b';
+// Matches the Home tab hero card palette (assets/sdbg.jpg storybook theme)
+const HOME_INK = '#3B322C';
+const HOME_INK_SOFT = '#8A7B6C';
+const HOME_LAVENDER = '#7C6FCF';
+const HOME_LAVENDER_DARK = '#5F52B0';
+const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 
 const SUCCESS_PHRASES = [
   'Napakagaling! Tama ang bigkas mo!',
@@ -154,13 +160,17 @@ export default function StudentWordOfDay({
       </View>
 
       <Animated.View style={animatedStyle}>
-        <TouchableOpacity
-          style={[styles.mic, recording && styles.micRecording, isDone && styles.disabled]}
-          disabled={processing || isDone}
-          onPress={() => recording ? stopRecording() : startRecording()}
-        >
-          {processing ? <ActivityIndicator color="#fff" /> : <Ionicons name={recording ? 'stop' : 'mic'} size={36} color="#fff" />}
-        </TouchableOpacity>
+        <View style={[styles.micGlowOuter, recording && styles.micGlowOuterRecording]}>
+          <View style={[styles.micGlowInner, recording && styles.micGlowInnerRecording]}>
+            <TouchableOpacity
+              style={[styles.mic, recording && styles.micRecording, isDone && styles.disabled]}
+              disabled={processing || isDone}
+              onPress={() => recording ? stopRecording() : startRecording()}
+            >
+              {processing ? <ActivityIndicator color="#fff" /> : <Ionicons name={recording ? 'stop' : 'mic'} size={36} color="#fff" />}
+            </TouchableOpacity>
+          </View>
+        </View>
       </Animated.View>
 
       <Text style={styles.micHint}>{recording ? 'Pindutin muli para ihinto...' : 'Pindutin ang mikropono at bigkasin'}</Text>
@@ -183,25 +193,36 @@ export default function StudentWordOfDay({
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingVertical: 8 },
-  wordLabel: { color: TEXT_SECONDARY, fontSize: 14, marginBottom: 8 },
-  word: { fontSize: 42, fontWeight: '900', color: PRIMARY, letterSpacing: 4, marginBottom: 16 },
+  wordLabel: { color: HOME_INK_SOFT, fontSize: 14, marginBottom: 8, fontWeight: '600' },
+  word: { fontFamily: FONT_DISPLAY, fontSize: 46, color: HOME_LAVENDER_DARK, letterSpacing: 2, marginBottom: 16 },
   listenButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: PRIMARY, borderRadius: 999,
+    borderWidth: 1.5, borderColor: HOME_LAVENDER, borderRadius: 999,
     paddingHorizontal: 16, paddingVertical: 8, marginBottom: 20,
+    backgroundColor: '#fff',
   },
-  listenText: { color: PRIMARY, fontWeight: '700', marginLeft: 8 },
+  listenText: { color: HOME_LAVENDER_DARK, fontWeight: '700', marginLeft: 8 },
   dotsRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
   dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: BORDER },
-  dotFilled: { backgroundColor: PRIMARY },
+  dotFilled: { backgroundColor: HOME_LAVENDER },
+  micGlowOuter: {
+    width: 118, height: 118, borderRadius: 59, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(124,111,207,0.12)',
+  },
+  micGlowOuterRecording: { backgroundColor: 'rgba(239,68,68,0.12)' },
+  micGlowInner: {
+    width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(124,111,207,0.22)',
+  },
+  micGlowInnerRecording: { backgroundColor: 'rgba(239,68,68,0.22)' },
   mic: {
-    width: 90, height: 90, borderRadius: 45,
-    backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center',
-    shadowColor: PRIMARY, shadowOpacity: 0.4, shadowRadius: 16, elevation: 8,
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: HOME_LAVENDER, alignItems: 'center', justifyContent: 'center',
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
   },
   micRecording: { backgroundColor: DANGER, shadowColor: DANGER },
   disabled: { backgroundColor: '#D1D5DB' },
-  micHint: { color: TEXT_SECONDARY, fontSize: 12, marginTop: 12, marginBottom: 8 },
+  micHint: { color: HOME_INK_SOFT, fontSize: 12, marginTop: 12, marginBottom: 8, fontWeight: '600' },
   resultBubble: { marginTop: 16, borderRadius: 14, padding: 14, width: '100%' },
   correctBubble: { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: SUCCESS },
   wrongBubble: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: WARNING },

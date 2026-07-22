@@ -37,6 +37,7 @@ module.exports = ({ config }) => {
     plugins: [
       ...(config.plugins ?? []),
       expoBuildPropertiesPlugin,
+      'expo-font',
     ],
     assetBundlePatterns: config.assetBundlePatterns ?? ['**/*'],
     android: {
