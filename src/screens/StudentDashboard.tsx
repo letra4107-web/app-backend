@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Image, ImageBackground, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, Animated, Image, ImageBackground, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View,
 } from 'react-native';
 import {
   ExpoSpeechRecognitionModule,
@@ -181,6 +181,16 @@ export default function StudentDashboard({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [achievement, setAchievement] = useState<{ image: any; title: string } | null>(null);
+
+  // sdbg.jpg is a tall (1080x1920) portrait illustration with its decorative
+  // frame (stars/books/leaves) concentrated at the corners. "cover" fits phone
+  // screens nicely, but on tablets/landscape (much squarer or wider aspect)
+  // it crops most of that frame away. Past a threshold, switch to "contain" —
+  // paired with a matching cream fallback background so the letterboxing
+  // blends in instead of showing bars — to keep the full illustration visible.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isHomeBgPhoneAspect = windowWidth / windowHeight <= 0.62;
+  const homeBgResizeMode = isHomeBgPhoneAspect ? 'cover' : 'contain';
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
   const [practiceListening, setPracticeListening] = useState(false);
@@ -979,7 +989,11 @@ export default function StudentDashboard({ navigation }: any) {
   const renderWordOfDay = () => {
     const xpPct = Math.max(4, Math.min(100, Math.round((levelInfo.current / levelInfo.max) * 100)));
     return (
-      <ImageBackground source={require('../../assets/sdbg.jpg')} style={styles.homeBg} resizeMode="cover">
+      <ImageBackground
+        source={require('../../assets/sdbg.jpg')}
+        style={[styles.homeBg, { backgroundColor: HOME_CREAM }]}
+        resizeMode={homeBgResizeMode}
+      >
         <View style={styles.homeTopScrim} pointerEvents="none" />
         <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
           {!!error && (
