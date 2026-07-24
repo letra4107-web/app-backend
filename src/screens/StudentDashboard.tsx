@@ -198,6 +198,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [achievement, setAchievement] = useState<{ image: any; title: string } | null>(null);
+  const [expandedBadgeId, setExpandedBadgeId] = useState<string | null>(null);
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
   const [practiceListening, setPracticeListening] = useState(false);
@@ -1784,39 +1785,78 @@ export default function StudentDashboard({ navigation }: any) {
     );
   };
 
-  const renderAchievements = () => (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.sectionTitle}>Mga Badge Mo 🏆</Text>
-      <Text style={styles.sectionSubtitle}>
-        {progress?.achievements?.length || 0} / {ACHIEVEMENTS.length} na-unlock
-      </Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-        {ACHIEVEMENTS.map((badge) => {
-          const unlocked = progress?.achievements?.some((a) => a.id === badge.id);
-          return (
-            <View key={badge.id} style={[styles.badgeCard, !unlocked && styles.lockedBadge, { width: '48%' }]}>
-              {!unlocked && (
-                <View style={styles.badgeLockIcon}>
-                  <Ionicons name="lock-closed" size={14} color="#fff" />
-                </View>
-              )}
-              <Image
-                source={badge.image}
-                style={[styles.badgeImage, !unlocked && styles.badgeImageLocked]}
-                resizeMode="contain"
-              />
-              <Text style={styles.badgeTitle}>{badge.title}</Text>
-              {unlocked ? (
-                <Text style={{ color: SUCCESS, fontWeight: '700' }}>✅ Na-unlock</Text>
-              ) : (
-                <Text style={styles.badgeCondition}>{badge.description}</Text>
-              )}
-            </View>
-          );
-        })}
-      </View>
-    </ScrollView>
-  );
+  const renderAchievements = () => {
+    const unlockedCount = progress?.achievements?.length || 0;
+    const totalCount = ACHIEVEMENTS.length;
+    const unlockPct = Math.round((unlockedCount / totalCount) * 100);
+
+    return (
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.badgesSectionHeader}>
+          <View style={styles.badgesBadgePill}>
+            <Ionicons name="ribbon" size={16} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.badgesBadgeText}>MGA BADGE</Text>
+          </View>
+          <Text style={styles.badgesSectionSubtitle}>Tapikin ang isang badge para makita ang detalye</Text>
+        </View>
+
+        <View style={styles.badgesSummaryCard}>
+          <View style={styles.badgesSummaryTopRow}>
+            <Text style={styles.badgesSummaryLabel}>Progress</Text>
+            <Text style={styles.badgesSummaryCount}>{unlockedCount}/{totalCount}</Text>
+          </View>
+          <View style={styles.badgesSummaryTrack}>
+            <View style={[styles.badgesSummaryFill, { width: `${Math.max(4, unlockPct)}%` }]} />
+          </View>
+        </View>
+
+        <View style={styles.badgesGrid}>
+          {ACHIEVEMENTS.map((badge) => {
+            const record = progress?.achievements?.find((a) => a.id === badge.id);
+            const unlocked = !!record;
+            const expanded = expandedBadgeId === badge.id;
+            return (
+              <TouchableOpacity
+                key={badge.id}
+                style={[styles.badgeCard, !unlocked && styles.badgeCardLocked]}
+                activeOpacity={0.8}
+                onPress={() => setExpandedBadgeId((prev) => (prev === badge.id ? null : badge.id))}
+              >
+                {!unlocked && (
+                  <View style={styles.badgeLockIcon}>
+                    <Ionicons name="lock-closed" size={12} color="#fff" />
+                  </View>
+                )}
+                <Image
+                  source={badge.image}
+                  style={[styles.badgeImage, !unlocked && styles.badgeImageLocked]}
+                  resizeMode="contain"
+                />
+                <Text style={styles.badgeTitle} numberOfLines={2}>{badge.title}</Text>
+                {unlocked ? (
+                  <View style={styles.badgeUnlockedPill}>
+                    <Ionicons name="checkmark" size={11} color="#fff" />
+                    <Text style={styles.badgeUnlockedPillText}>Nakuha na!</Text>
+                  </View>
+                ) : (
+                  <View style={styles.badgeLockedPill}>
+                    <Text style={styles.badgeLockedPillText}>{expanded ? 'Itago' : 'Tingnan'}</Text>
+                  </View>
+                )}
+                {expanded && (
+                  <Text style={styles.badgeCondition}>
+                    {unlocked && record
+                      ? `Nakuha noong ${new Date(record.unlockedAt).toLocaleDateString()}`
+                      : badge.description}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ScrollView>
+    );
+  };
 
   const renderNotifications = () => (
     <ScrollView contentContainerStyle={styles.content}>
@@ -2108,17 +2148,43 @@ const styles = StyleSheet.create({
   progressWordsEmpty: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
-  badgeCard: { width: 128, backgroundColor: '#fff', borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12 },
-  lockedBadge: { backgroundColor: '#F3F4F6' },
-  badgeLockIcon: {
-    position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11,
-    backgroundColor: 'rgba(17,24,39,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+  // --- Badges tab (accent: lavender, ties into Home's achievement showcase) ---
+  badgesSectionHeader: { marginBottom: 14 },
+  badgesBadgePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
   },
-  badgeEmoji: { fontSize: 28 },
+  badgesBadgeText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  badgesSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  badgesSummaryCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16 },
+  badgesSummaryTopRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  badgesSummaryLabel: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
+  badgesSummaryCount: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 15 },
+  badgesSummaryTrack: { backgroundColor: 'rgba(124,111,207,0.15)', height: 14, borderRadius: 999, overflow: 'hidden' },
+  badgesSummaryFill: { backgroundColor: HOME_LAVENDER, height: 14, borderRadius: 999 },
+  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  badgeCard: {
+    width: '48%', backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14,
+    alignItems: 'center', marginBottom: 14,
+  },
+  badgeCardLocked: { backgroundColor: '#F3F4F6' },
+  badgeLockIcon: {
+    position: 'absolute', top: 10, right: 10, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(59,50,44,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+  },
   badgeImage: { width: 72, height: 72 },
-  badgeImageLocked: { opacity: 0.9 },
-  badgeTitle: { textAlign: 'center', fontWeight: '800', color: '#374151', marginTop: 6 },
-  badgeCondition: { textAlign: 'center', color: TEXT_SECONDARY, fontSize: 12, marginTop: 4 },
+  badgeImageLocked: { opacity: 0.45 },
+  badgeTitle: { textAlign: 'center', fontWeight: '800', color: HOME_INK, marginTop: 8, fontSize: 13 },
+  badgeCondition: { textAlign: 'center', color: HOME_INK_SOFT, fontSize: 12, marginTop: 8, lineHeight: 16 },
+  badgeUnlockedPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: SUCCESS,
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8,
+  },
+  badgeUnlockedPillText: { color: '#fff', fontWeight: '800', fontSize: 11 },
+  badgeLockedPill: {
+    backgroundColor: 'rgba(59,50,44,0.08)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8,
+  },
+  badgeLockedPillText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 11 },
   uploadBody: { flex: 1 },
   // --- Learn tab (assignments = lavender family, PDF lessons = sage family) ---
   learnSectionHeader: { marginTop: 8, marginBottom: 14 },
