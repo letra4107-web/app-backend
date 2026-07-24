@@ -190,6 +190,8 @@ export default function StudentDashboard({ navigation }: any) {
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
   const [practiceListening, setPracticeListening] = useState(false);
+  const [practiceMode, setPracticeMode] = useState<'say' | 'listen'>('say');
+  const [todaySessions, setTodaySessions] = useState<{ word: string; accuracy_percentage: number; is_correct: boolean; duration_seconds: number | null; created_at: string }[]>([]);
   const [practiceStatus, setPracticeStatus] = useState('Pindutin ang mikropono kapag handa ka na.');
   const [confettiVisible, setConfettiVisible] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState<boolean>(true);
@@ -205,12 +207,14 @@ export default function StudentDashboard({ navigation }: any) {
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const mascotPulse = useRef(new Animated.Value(1)).current;
   const handledTranscriptRef = useRef('');
+  const practiceStartRef = useRef<number | null>(null);
 
   const UPLOADS_BUCKET = 'teacher-uploads'; // Update if your Supabase bucket name differs
 
   useSpeechRecognitionEvent('start', () => {
     setPracticeListening(true);
     setPracticeStatus('Nakikinig ako. Sabihin ang salita!');
+    practiceStartRef.current = Date.now();
   });
 
   useSpeechRecognitionEvent('end', () => {
@@ -325,6 +329,28 @@ export default function StudentDashboard({ navigation }: any) {
     } catch (error: any) {
       console.warn('[StudentDashboard] recent sessions load failed:', error?.message || error);
       setRecentSessions([]);
+      return [];
+    }
+  };
+
+  const loadTodaySessions = async (childId?: string) => {
+    if (!childId) return [];
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
+        .from('pronunciation_practice_sessions')
+        .select('word, accuracy_percentage, is_correct, duration_seconds, created_at')
+        .eq('student_id', childId)
+        .gte('created_at', startOfDay.toISOString())
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const rows = data || [];
+      setTodaySessions(rows);
+      return rows;
+    } catch (error: any) {
+      console.warn('[StudentDashboard] today sessions load failed:', error?.message || error);
+      setTodaySessions([]);
       return [];
     }
   };
@@ -467,6 +493,7 @@ export default function StudentDashboard({ navigation }: any) {
       loadRecentSessions(profile.id),
       loadNotifications(profile.auth_uid),
       loadLessonProgress(profile.id),
+      loadTodaySessions(profile.id),
     ]);
 
     if (wordLog) {
@@ -805,7 +832,7 @@ export default function StudentDashboard({ navigation }: any) {
     speakWord(word.replace(/-/g, ' '), { onError: (message) => setPracticeStatus(message) });
   };
 
-  const savePronunciationSession = async (result: PracticeResult, word: string) => {
+  const savePronunciationSession = async (result: PracticeResult, word: string, durationSeconds: number | null) => {
     if (!child?.id) return false;
     const payload = {
       student_id: child.id,
@@ -813,6 +840,7 @@ export default function StudentDashboard({ navigation }: any) {
       spoken_text: result.transcript,
       accuracy_percentage: result.score,
       is_correct: result.correct,
+      duration_seconds: durationSeconds,
       created_at: new Date().toISOString(),
     };
 
@@ -936,11 +964,17 @@ export default function StudentDashboard({ navigation }: any) {
         },
       });
 
-      const sessionSaved = await savePronunciationSession(result, selectedWord);
+      const durationSeconds = practiceStartRef.current
+        ? Math.max(1, Math.round((Date.now() - practiceStartRef.current) / 1000))
+        : null;
+      practiceStartRef.current = null;
+
+      const sessionSaved = await savePronunciationSession(result, selectedWord, durationSeconds);
       if (!sessionSaved) {
         console.warn('[Practice] progress skipped because pronunciation session was not saved.');
         return;
       }
+      void loadTodaySessions(child?.id);
 
       if (!correct) {
         console.debug('[Practice] invalid pronunciation; skipping progress, XP, streak, achievements, and notifications.', {
@@ -1272,6 +1306,64 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderPractice = () => {
     const words = practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS;
+    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
+
+    const startWord = (word: string, mode: 'say' | 'listen') => {
+      setPracticeMode(mode);
+      setSelectedWord(word);
+      setPracticeResult(null);
+      setPracticeAttempts(0);
+      setPracticeTranscript('');
+      setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
+      speakPracticeWord(word);
+    };
+
+    if (selectedWord && child && practiceMode === 'listen') {
+      return (
+        <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.content}>
+            <TouchableOpacity
+              onPress={() => {
+                stopSpeaking();
+                setSelectedWord(null);
+              }}
+              style={styles.backButton}
+            >
+              <Ionicons name="arrow-back" size={20} color={HOME_LAVENDER_DARK} />
+              <Text style={styles.backText}>Bumalik</Text>
+            </TouchableOpacity>
+
+            <View style={styles.practiceHero}>
+              <Text style={styles.practicePrompt}>Pakinggan at Basahin</Text>
+              <Text style={styles.practiceWordDisplay}>{selectedWord}</Text>
+              <Text style={styles.practiceSyllables}>{selectedWord.split('-').join('  •  ')}</Text>
+
+              <TouchableOpacity
+                style={[styles.sayWordButton, { backgroundColor: HOME_SAGE, shadowColor: HOME_SAGE }]}
+                onPress={() => speakPracticeWord(selectedWord)}
+              >
+                <Ionicons name="volume-high" size={26} color="#fff" />
+                <Text style={styles.sayWordButtonText}>Pakinggan</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.practiceStatus}>Pakinggan ang salita habang sinusundan mo ito sa mata.</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.listenNextButton}
+              onPress={() => {
+                const currentIndex = words.indexOf(selectedWord);
+                const next = words[(currentIndex + 1) % words.length];
+                startWord(next, 'listen');
+              }}
+            >
+              <Text style={styles.listenNextButtonText}>Susunod na Salita</Text>
+              <Ionicons name="arrow-forward" size={16} color={HOME_SAGE} />
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      );
+    }
 
     if (selectedWord && child) {
       return (
@@ -1288,7 +1380,7 @@ export default function StudentDashboard({ navigation }: any) {
               }}
               style={styles.backButton}
             >
-              <Ionicons name="arrow-back" size={20} color={PRIMARY} />
+              <Ionicons name="arrow-back" size={20} color={HOME_LAVENDER_DARK} />
               <Text style={styles.backText}>Bumalik</Text>
             </TouchableOpacity>
 
@@ -1296,12 +1388,12 @@ export default function StudentDashboard({ navigation }: any) {
               <Animated.Text style={[styles.practiceMascot, { transform: [{ scale: mascotPulse }] }]}>
                 {practiceResult?.correct ? '🌟' : practiceListening ? '🎧' : '😊'}
               </Animated.Text>
-              <Text style={styles.practicePrompt}>Say the Word</Text>
+              <Text style={styles.practicePrompt}>Sabihin ang Salita</Text>
               <Text style={styles.practiceWordDisplay}>{selectedWord}</Text>
               <Text style={styles.practiceSyllables}>{selectedWord.split('-').join('  •  ')}</Text>
 
               <TouchableOpacity style={styles.listenCoachButton} onPress={() => speakPracticeWord(selectedWord)}>
-                <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
+                <Ionicons name="volume-high-outline" size={18} color={HOME_LAVENDER_DARK} />
                 <Text style={styles.listenCoachText}>Pakinggan muna</Text>
               </TouchableOpacity>
 
@@ -1310,7 +1402,7 @@ export default function StudentDashboard({ navigation }: any) {
                 onPress={practiceListening ? stopPracticeListening : startPracticeListening}
               >
                 <Ionicons name={practiceListening ? 'stop-circle-outline' : 'mic-outline'} size={28} color="#fff" />
-                <Text style={styles.sayWordButtonText}>{practiceListening ? 'Tapos na' : 'Say the Word'}</Text>
+                <Text style={styles.sayWordButtonText}>{practiceListening ? 'Tapos na' : 'Sabihin ang Salita'}</Text>
               </TouchableOpacity>
 
               <Text style={styles.practiceStatus}>{practiceStatus}</Text>
@@ -1332,12 +1424,7 @@ export default function StudentDashboard({ navigation }: any) {
                 onNext={() => {
                   const currentIndex = words.indexOf(selectedWord);
                   const nextWord = words[(currentIndex + 1) % words.length];
-                  setSelectedWord(nextWord);
-                  setPracticeResult(null);
-                  setPracticeAttempts(0);
-                  setPracticeTranscript('');
-                  setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
-                  speakPracticeWord(nextWord);
+                  startWord(nextWord, 'say');
                 }}
               />
             )}
@@ -1347,41 +1434,54 @@ export default function StudentDashboard({ navigation }: any) {
     }
 
     const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
-    const nextWord = words.find((word) => !progress?.completed_words?.includes(word));
+    const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
+    const nextWord = words.find((word) => !progress?.completed_words?.includes(word)) || words[0];
+
+    const wordsPracticedToday = todaySessions.length;
+    const correctToday = todaySessions.filter((s) => s.is_correct).length;
+    const accuracyToday = todaySessions.length
+      ? Math.round(todaySessions.reduce((sum, s) => sum + (s.accuracy_percentage || 0), 0) / todaySessions.length)
+      : 0;
+    const practiceSecondsToday = todaySessions.reduce((sum, s) => sum + (s.duration_seconds || 0), 0);
+    const practiceTimeLabel = practiceSecondsToday < 60
+      ? `${practiceSecondsToday}s`
+      : `${Math.round(practiceSecondsToday / 60)} min`;
 
     return (
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.practiceHeroBanner}>
-          <View style={styles.practiceHeroGlowOuter}>
-            <View style={styles.practiceHeroGlowInner}>
-              <Ionicons name="mic" size={30} color={HOME_LAVENDER_DARK} />
-            </View>
+        <View style={styles.homeHeaderRow}>
+          <View style={styles.homeHeaderAvatar}>
+            <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.practiceHeroTitle}>Handa ka na ba?</Text>
-            <Text style={styles.practiceHeroSub}>Piliin ang salita at simulan ang laro! 🎉</Text>
+            <Text style={styles.homeGreetingHello}>Practice</Text>
+            <Text style={styles.homeGreetingSub}>Magsanay tayong magbasa nang magkasama!</Text>
           </View>
+          <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
+            <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
+            {unreadNotifCount > 0 && (
+              <View style={styles.homeBellBadge}>
+                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={styles.goalCard}>
           <View style={styles.goalTopRow}>
-            <Text style={styles.goalTitle}>Daily Goal</Text>
+            <Text style={styles.goalTitle}>Today's Practice</Text>
             {goalDone > 0 ? (
               <Text style={styles.goalCount}>{goalDone}/{DAILY_GOAL}</Text>
             ) : (
               <Text style={styles.goalCountEmpty}>Bagong simula!</Text>
             )}
           </View>
-          <View style={styles.goalDotsRow}>
-            {Array.from({ length: DAILY_GOAL }).map((_, i) => (
-              <View key={i} style={[styles.goalDot, i < goalDone && styles.goalDotFilled]}>
-                {i < goalDone && <Ionicons name="star" size={14} color="#fff" />}
-              </View>
-            ))}
+          <View style={styles.goalTrack}>
+            <View style={[styles.goalTrackFill, { width: `${Math.max(4, goalPct)}%` }]} />
           </View>
-          {goalDone === 0 && (
-            <Text style={styles.goalEmptyNote}>Simulan ang unang pagsasanay ngayon! 🌱</Text>
-          )}
+          <Text style={styles.goalEmptyNote}>
+            {goalDone === 0 ? 'Simulan ang unang pagsasanay ngayon! 🌱' : '✨ Ang galing! Ipagpatuloy mo!'}
+          </Text>
           <View style={styles.rewardRow}>
             <View style={[styles.rewardPill, { backgroundColor: '#FBE7DF' }]}>
               <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
@@ -1410,6 +1510,55 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         </View>
 
+        <Text style={styles.practiceSectionTitle}>Piliin ang Iyong Pagsasanay</Text>
+
+        <TouchableOpacity style={styles.practiceModeCard} onPress={() => startWord(nextWord, 'say')}>
+          <View style={[styles.practiceModeIconWrap, { backgroundColor: '#EFECFB' }]}>
+            <Ionicons name="mic" size={24} color={HOME_LAVENDER_DARK} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.practiceModeTitle}>Sabihin ang Salita</Text>
+            <Text style={styles.practiceModeSub}>Pakinggan ang salita, pagkatapos sabihin ito nang malakas.</Text>
+            <View style={[styles.practiceModeTag, { backgroundColor: '#EFECFB' }]}>
+              <Text style={[styles.practiceModeTagText, { color: HOME_LAVENDER_DARK }]}>AI Pronunciation Practice</Text>
+            </View>
+          </View>
+          <View style={styles.practiceModeStartPill}>
+            <Text style={styles.practiceModeStartText}>Simulan</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.practiceModeCard} onPress={() => startWord(nextWord, 'listen')}>
+          <View style={[styles.practiceModeIconWrap, { backgroundColor: '#E9F1E2' }]}>
+            <Ionicons name="volume-high" size={24} color={HOME_SAGE} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.practiceModeTitle}>Pakinggan at Basahin</Text>
+            <Text style={styles.practiceModeSub}>Pakinggan ang salita at sundan ito habang binabasa.</Text>
+            <View style={[styles.practiceModeTag, { backgroundColor: '#E9F1E2' }]}>
+              <Text style={[styles.practiceModeTagText, { color: HOME_SAGE }]}>Text-to-Speech Support</Text>
+            </View>
+          </View>
+          <View style={[styles.practiceModeStartPill, { backgroundColor: HOME_SAGE }]}>
+            <Text style={styles.practiceModeStartText}>Simulan</Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.practiceModeCard, styles.practiceModeCardDisabled]}>
+          <View style={[styles.practiceModeIconWrap, { backgroundColor: '#FFF3DC' }]}>
+            <Ionicons name="book" size={24} color={HOME_SUN} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.practiceModeTitle}>Basahin nang Malakas</Text>
+            <Text style={styles.practiceModeSub}>Magsanay bumasa ng mga pangungusap nang malakas.</Text>
+            <View style={[styles.practiceModeTag, { backgroundColor: '#FFF3DC' }]}>
+              <Text style={[styles.practiceModeTagText, { color: HOME_SUN }]}>Sa Madaling Panahon</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.practiceSectionTitle}>O Pumili ng Partikular na Salita</Text>
+
         <View style={styles.wordGrid}>
           {words.map((word) => {
             const done = progress?.completed_words?.includes(word);
@@ -1418,14 +1567,7 @@ export default function StudentDashboard({ navigation }: any) {
               <TouchableOpacity
                 key={word}
                 style={[styles.wordCard, done && styles.wordCardDone, isNext && styles.wordCardNext]}
-                onPress={() => {
-                  setSelectedWord(word);
-                  setPracticeResult(null);
-                  setPracticeAttempts(0);
-                  setPracticeTranscript('');
-                  setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
-                  speakPracticeWord(word);
-                }}
+                onPress={() => startWord(word, 'say')}
               >
                 {done && (
                   <View style={styles.wordCardCheckBadge}>
@@ -1441,6 +1583,32 @@ export default function StudentDashboard({ navigation }: any) {
               </TouchableOpacity>
             );
           })}
+        </View>
+
+        <View style={styles.practiceStatsCard}>
+          <Text style={styles.practiceSectionTitle}>Practice Session</Text>
+          <View style={styles.practiceStatsRow}>
+            <View style={styles.practiceStatsCol}>
+              <Ionicons name="bar-chart" size={20} color={HOME_LAVENDER_DARK} />
+              <Text style={styles.practiceStatsValue}>{wordsPracticedToday}</Text>
+              <Text style={styles.practiceStatsLabel}>Words Practiced</Text>
+            </View>
+            <View style={styles.practiceStatsCol}>
+              <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
+              <Text style={styles.practiceStatsValue}>{correctToday}</Text>
+              <Text style={styles.practiceStatsLabel}>Correct</Text>
+            </View>
+            <View style={styles.practiceStatsCol}>
+              <Ionicons name="locate" size={20} color={HOME_CORAL} />
+              <Text style={styles.practiceStatsValue}>{accuracyToday}%</Text>
+              <Text style={styles.practiceStatsLabel}>Accuracy</Text>
+            </View>
+            <View style={styles.practiceStatsCol}>
+              <Ionicons name="time" size={20} color={HOME_SUN} />
+              <Text style={styles.practiceStatsValue}>{practiceTimeLabel}</Text>
+              <Text style={styles.practiceStatsLabel}>Practice Time</Text>
+            </View>
+          </View>
         </View>
       </ScrollView>
     );
@@ -2703,105 +2871,111 @@ const styles = StyleSheet.create({
   bigWord: { fontSize: 48, fontWeight: '900', color: PRIMARY, marginVertical: 10 },
   listenButton: { marginTop: 8, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: PRIMARY },
   // Practice feedback styles
-  practiceHeroBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: HOME_LAVENDER,
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
-  },
-  practiceHeroGlowOuter: {
-    width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
-  practiceHeroGlowInner: {
-    width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  practiceHeroTitle: { color: '#fff', fontWeight: '900', fontSize: 22 },
-  practiceHeroSub: { color: 'rgba(255,255,255,0.9)', fontWeight: '700', marginTop: 4 },
   goalCard: {
     backgroundColor: HOME_CREAM,
     borderRadius: 20,
     padding: 16,
-    marginBottom: 14,
+    marginBottom: 20,
   },
   goalTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  goalTitle: { color: HOME_INK, fontWeight: '900' },
+  goalTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 17 },
   goalCount: { color: HOME_LAVENDER_DARK, fontWeight: '900' },
   goalCountEmpty: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
-  goalDotsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  goalDot: {
-    flex: 1, height: 32, borderRadius: 16, backgroundColor: 'rgba(124,111,207,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  goalDotFilled: { backgroundColor: HOME_LAVENDER },
+  goalTrack: { height: 12, borderRadius: 6, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginTop: 14 },
+  goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: HOME_LAVENDER },
   goalEmptyNote: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10 },
+  practiceSectionTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 12, marginTop: 4 },
+  practiceModeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
+    borderRadius: 20, padding: 14, marginBottom: 12,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+  },
+  practiceModeCardDisabled: { opacity: 0.6 },
+  practiceModeIconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  practiceModeTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15 },
+  practiceModeSub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 3, lineHeight: 17 },
+  practiceModeTag: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: 8 },
+  practiceModeTagText: { fontWeight: '800', fontSize: 11 },
+  practiceModeStartPill: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 11 },
+  practiceModeStartText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  listenNextButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    alignSelf: 'center', backgroundColor: '#E9F1E2', borderRadius: 999,
+    paddingHorizontal: 20, paddingVertical: 12, marginTop: 16,
+  },
+  listenNextButtonText: { color: HOME_SAGE, fontWeight: '900', fontSize: 14 },
+  practiceStatsCard: { backgroundColor: '#F5F3FC', borderRadius: 24, padding: 18, marginTop: 8, marginBottom: 8 },
+  practiceStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  practiceStatsCol: { alignItems: 'center', flex: 1, gap: 4 },
+  practiceStatsValue: { color: HOME_INK, fontWeight: '900', fontSize: 16 },
+  practiceStatsLabel: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 11, textAlign: 'center' },
   rewardRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   rewardPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 6, paddingRight: 12 },
   rewardIconWrap: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   rewardText: { fontWeight: '900', fontSize: 12 },
   practiceHero: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 18,
+    borderRadius: 24,
+    padding: 20,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   practiceMascot: { fontSize: 58, marginBottom: 6 },
-  practicePrompt: { color: TEXT_SECONDARY, fontWeight: '900', textTransform: 'uppercase', fontSize: 12, marginBottom: 4 },
+  practicePrompt: { color: HOME_INK_SOFT, fontWeight: '900', textTransform: 'uppercase', fontSize: 12, marginBottom: 4 },
   practiceCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 24,
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
   practiceWordDisplay: {
-    fontSize: 56, fontWeight: '900', color: PRIMARY,
+    fontSize: 56, fontWeight: '900', color: HOME_LAVENDER_DARK,
     letterSpacing: 0, textAlign: 'center', marginBottom: 6,
     fontFamily: 'System',
   },
-  practiceSyllables: { color: '#7c3aed', fontSize: 16, fontWeight: '900', marginBottom: 14 },
+  practiceSyllables: { color: HOME_LAVENDER_DARK, fontSize: 16, fontWeight: '900', marginBottom: 14 },
   practiceWordLevel: {
-    textAlign: 'center', color: TEXT_SECONDARY, fontSize: 13,
+    textAlign: 'center', color: HOME_INK_SOFT, fontSize: 13,
     marginBottom: 20,
   },
   listenCoachButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: PRIMARY_LIGHT,
+    backgroundColor: '#EFECFB',
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginBottom: 14,
   },
-  listenCoachText: { color: PRIMARY, fontWeight: '900' },
+  listenCoachText: { color: HOME_LAVENDER_DARK, fontWeight: '900' },
   sayWordButton: {
     width: '100%',
     minHeight: 68,
-    borderRadius: 8,
-    backgroundColor: PRIMARY,
+    borderRadius: 20,
+    backgroundColor: HOME_LAVENDER,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: PRIMARY,
+    shadowColor: HOME_LAVENDER,
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 4,
   },
-  sayWordButtonListening: { backgroundColor: '#dc2626' },
+  sayWordButtonListening: { backgroundColor: DANGER },
   sayWordButtonText: { color: '#fff', fontWeight: '900', fontSize: 20 },
-  practiceStatus: { color: TEXT_PRIMARY, textAlign: 'center', fontWeight: '800', marginTop: 14 },
-  practiceTranscript: { color: TEXT_SECONDARY, textAlign: 'center', marginTop: 8, fontWeight: '700' },
-  
+  practiceStatus: { color: HOME_INK, textAlign: 'center', fontWeight: '800', marginTop: 14 },
+  practiceTranscript: { color: HOME_INK_SOFT, textAlign: 'center', marginTop: 8, fontWeight: '700' },
+
   backButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingVertical: 8,
   },
-  backText: { color: PRIMARY, fontWeight: '700', fontSize: 15 },
+  backText: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 15 },
 
   resultBigEmoji: { fontSize: 72, marginBottom: 8 },
   resultSubtitle: { fontSize: 15, color: TEXT_SECONDARY, marginBottom: 20, textAlign: 'center' },
