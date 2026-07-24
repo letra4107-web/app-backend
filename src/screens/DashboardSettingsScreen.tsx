@@ -32,14 +32,24 @@ import {
   updateDashboardSettings,
 } from '../services/settingsService';
 
-const PRIMARY = '#4f46e5';
-const BG = '#f8fafc';
+const BG = '#F4F1FB';
 const SURFACE = '#ffffff';
-const BORDER = '#e5e7eb';
-const TEXT = '#111827';
 const MUTED = '#6b7280';
-const DANGER = '#dc2626';
-const SUCCESS = '#059669';
+// Shared token set — matches the palette established across the Home/Learn/
+// Practice/Progress/Badges tabs, so Settings doesn't feel like a different app.
+const INK = '#3B322C';
+const INK_SOFT = '#8A7B6C';
+const LAVENDER = '#7C6FCF';
+const LAVENDER_DARK = '#5F52B0';
+const CORAL = '#E06B4C';
+const SUN = '#E3971A';
+const SAGE = '#5C8047';
+const DANGER = '#ef4444';
+const SUCCESS = '#10b981';
+const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
+// Cycled per-section (never per-row) so adjacent sections read as visually
+// distinct while staying inside the same 4-color family used elsewhere.
+const SECTION_ACCENTS = [LAVENDER, CORAL, SUN, SAGE];
 
 type Props = {
   role: SettingsRole;
@@ -285,8 +295,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       value={!!value}
       onValueChange={(next) => updateSetting(key, next as any)}
       disabled={savingKey === String(key)}
-      trackColor={{ false: '#cbd5e1', true: '#c7d2fe' }}
-      thumbColor={value ? PRIMARY : '#f8fafc'}
+      trackColor={{ false: '#cbd5e1', true: 'rgba(124,111,207,0.4)' }}
+      thumbColor={value ? LAVENDER : '#f8fafc'}
     />
   );
 
@@ -308,17 +318,23 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     </View>
   );
 
-  const Section = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => (
-    <View style={[styles.card, dark && styles.cardDark]}>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionIcon}>
-          <MaterialIcons name={icon as any} size={20} color={PRIMARY} />
+  let sectionAccentIndex = -1;
+
+  const Section = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => {
+    sectionAccentIndex += 1;
+    const accent = SECTION_ACCENTS[sectionAccentIndex % SECTION_ACCENTS.length];
+    return (
+      <View style={[styles.card, dark && styles.cardDark]}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionIcon, { backgroundColor: `${accent}22` }]}>
+            <MaterialIcons name={icon as any} size={20} color={accent} />
+          </View>
+          <Text style={[styles.sectionTitle, dark && styles.textDark]}>{title}</Text>
         </View>
-        <Text style={[styles.sectionTitle, dark && styles.textDark]}>{title}</Text>
+        {children}
       </View>
-      {children}
-    </View>
-  );
+    );
+  };
 
   const Row = ({
     icon,
@@ -336,7 +352,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     danger?: boolean;
   }) => (
     <TouchableOpacity style={styles.row} activeOpacity={onPress ? 0.72 : 1} onPress={onPress}>
-      <MaterialIcons name={icon as any} size={22} color={danger ? DANGER : PRIMARY} />
+      <MaterialIcons name={icon as any} size={22} color={danger ? DANGER : LAVENDER_DARK} />
       <View style={styles.rowText}>
         <Text style={[styles.rowTitle, dark && styles.textDark, danger && { color: DANGER }]}>{title}</Text>
         {!!subtitle && <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{subtitle}</Text>}
@@ -348,7 +364,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   if (loading || !settings) {
     return (
       <View style={[styles.center, dark && styles.containerDark]}>
-        <ActivityIndicator size="large" color={PRIMARY} />
+        <ActivityIndicator size="large" color={LAVENDER} />
         <Text style={styles.loadingText}>Loading settings...</Text>
       </View>
     );
@@ -360,7 +376,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
         <View style={styles.header}>
           {!embedded && (
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={22} color={PRIMARY} />
+              <MaterialIcons name="arrow-back" size={22} color={LAVENDER} />
             </TouchableOpacity>
           )}
           <View>
@@ -525,65 +541,63 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 12, color: MUTED, fontWeight: '700' },
   content: { padding: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 18, paddingBottom: 10 },
-  backButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#eef2ff', alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 24, fontWeight: '900', color: TEXT },
-  subtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
+  backButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 24, color: INK },
+  subtitle: { fontSize: 13, color: INK_SOFT, fontWeight: '600', marginTop: 2 },
   card: {
     backgroundColor: SURFACE,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: BORDER,
-    padding: 14,
+    borderRadius: 20,
+    padding: 16,
     marginTop: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
+    shadowColor: LAVENDER_DARK,
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
   cardDark: { backgroundColor: '#0b1220', borderColor: '#1f2937' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  sectionIcon: { width: 34, height: 34, borderRadius: 8, backgroundColor: '#eef2ff', alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '900', color: TEXT },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  sectionIcon: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 16, color: INK },
   row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   rowText: { flex: 1 },
-  rowTitle: { color: TEXT, fontSize: 15, fontWeight: '800' },
-  rowSubtitle: { color: MUTED, fontSize: 12, marginTop: 3 },
+  rowTitle: { color: INK, fontSize: 15, fontWeight: '800' },
+  rowSubtitle: { color: INK_SOFT, fontSize: 12, marginTop: 3 },
   textDark: { color: '#f8fafc' },
   mutedDark: { color: '#94a3b8' },
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
   avatarWrap: { position: 'relative' },
-  avatar: { width: 72, height: 72, borderRadius: 8 },
-  avatarPlaceholder: { backgroundColor: '#eef2ff', alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { color: PRIMARY, fontSize: 28, fontWeight: '900' },
-  avatarEdit: { position: 'absolute', right: -4, bottom: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
-  profileName: { fontSize: 18, fontWeight: '900', color: TEXT },
+  avatar: { width: 72, height: 72, borderRadius: 36 },
+  avatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { color: LAVENDER, fontSize: 28, fontWeight: '900' },
+  avatarEdit: { position: 'absolute', right: -4, bottom: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center' },
+  profileName: { fontSize: 18, fontWeight: '900', color: INK },
   input: {
     minHeight: 48,
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: '#EEE9F9',
+    borderRadius: 14,
+    paddingHorizontal: 14,
     marginTop: 10,
     backgroundColor: '#fff',
-    color: TEXT,
+    color: INK,
   },
   inputDark: { backgroundColor: '#111827', borderColor: '#334155', color: '#f8fafc' },
-  readOnlyInput: { backgroundColor: '#f1f5f9' },
-  primaryButton: { minHeight: 48, borderRadius: 8, marginTop: 12, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
-  primaryButtonSmall: { minHeight: 44, borderRadius: 8, paddingHorizontal: 18, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center', flex: 1 },
+  readOnlyInput: { backgroundColor: '#F8F7FC' },
+  primaryButton: { minHeight: 48, borderRadius: 999, marginTop: 12, backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonSmall: { minHeight: 44, borderRadius: 999, paddingHorizontal: 18, backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center', flex: 1 },
   primaryButtonText: { color: '#fff', fontWeight: '900' },
-  secondaryButton: { minHeight: 44, borderRadius: 8, paddingHorizontal: 18, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', flex: 1 },
-  secondaryButtonText: { color: '#334155', fontWeight: '900' },
-  successBanner: { color: SUCCESS, backgroundColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1, padding: 10, borderRadius: 8, marginTop: 8, fontWeight: '800' },
-  errorBanner: { color: DANGER, backgroundColor: '#fee2e2', borderColor: '#fecaca', borderWidth: 1, padding: 10, borderRadius: 8, marginTop: 8, fontWeight: '800' },
-  segment: { flexDirection: 'row', backgroundColor: '#eef2ff', borderRadius: 8, padding: 2, maxWidth: 210 },
-  segmentButton: { minHeight: 34, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
-  segmentButtonActive: { backgroundColor: PRIMARY },
-  segmentText: { color: PRIMARY, fontWeight: '800', fontSize: 12, textTransform: 'capitalize' },
+  secondaryButton: { minHeight: 44, borderRadius: 999, paddingHorizontal: 18, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center', flex: 1 },
+  secondaryButtonText: { color: LAVENDER_DARK, fontWeight: '900' },
+  successBanner: { color: SUCCESS, backgroundColor: '#E9F7F1', borderRadius: 999, padding: 12, marginTop: 8, fontWeight: '800', textAlign: 'center' },
+  errorBanner: { color: DANGER, backgroundColor: 'rgba(224,107,76,0.12)', borderRadius: 999, padding: 12, marginTop: 8, fontWeight: '800', textAlign: 'center' },
+  segment: { flexDirection: 'row', backgroundColor: '#EFECFB', borderRadius: 999, padding: 3, maxWidth: 210 },
+  segmentButton: { minHeight: 34, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  segmentButtonActive: { backgroundColor: LAVENDER },
+  segmentText: { color: LAVENDER_DARK, fontWeight: '800', fontSize: 12, textTransform: 'capitalize' },
   segmentTextActive: { color: '#fff' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 8, padding: 18 },
-  modalTitle: { color: TEXT, fontSize: 18, fontWeight: '900', marginBottom: 4 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(30,23,66,0.55)', justifyContent: 'center', padding: 20 },
+  modalCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20 },
+  modalTitle: { fontFamily: FONT_DISPLAY_SEMI, color: INK, fontSize: 18, marginBottom: 4 },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
 });
