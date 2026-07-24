@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
@@ -15,11 +16,11 @@ import ConfettiOverlay from '../components/ConfettiOverlay';
 import AchievementModal from './AchievementModal';
 import { getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
 import { buildNextProgress, ChildProgress, saveProgress } from '../services/progressService';
-import { ACHIEVEMENTS, AchievementDefinition, unlockAchievements } from '../services/achievementService';
+import { ACHIEVEMENTS, unlockAchievements } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, speakWord, stopSpeaking } from '../services/ttsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
-import { createParentNotification } from '../services/notificationService';
+import { createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 
 type ChildProfile = {
@@ -65,22 +66,6 @@ const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
 const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
-// Mirrors the real streak-badge thresholds in achievementService.ts, so the
-// Home tab's Streaks card targets an actual next badge instead of a made-up max.
-const STREAK_MILESTONES = [
-  { threshold: 3, id: 'tuloy_tuloy' },
-  { threshold: 7, id: 'lingguhang_bayani' },
-  { threshold: 30, id: 'buwan_ng_pagsisikap' },
-];
-// Mirrors the real lesson-count badge thresholds (activities_completed),
-// used by the Home tab's "next badge" motivational banner.
-const LESSON_MILESTONES = [
-  { threshold: 1, id: 'unang_hakbang' },
-  { threshold: 5, id: 'batang_mambabasa' },
-  { threshold: 10, id: 'masigasig_na_mambabasa' },
-  { threshold: 25, id: 'kampeon_sa_pagbasa' },
-  { threshold: 50, id: 'dalubhasa_sa_pagbasa' },
-];
 const XP_CORRECT = 50;
 const XP_WRONG = 30;
 const DAILY_GOAL = 5;
@@ -182,6 +167,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
   const [practiceWords, setPracticeWords] = useState<string[]>([]);
   const [recentSessions, setRecentSessions] = useState<{ word: string; accuracy_percentage: number; created_at: string }[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [activities, setActivities] = useState<StudentActivity[]>([]);
@@ -192,7 +178,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [activitiesError, setActivitiesError] = useState<string>('');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
-  type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'settings';
+  type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -340,6 +326,19 @@ export default function StudentDashboard({ navigation }: any) {
     }
   };
 
+  const loadNotifications = async (authUid?: string) => {
+    if (!authUid) return [];
+    try {
+      const rows = await fetchNotifications(authUid);
+      setNotifications(rows);
+      return rows;
+    } catch (error: any) {
+      console.warn('[StudentDashboard] notifications load failed:', error?.message || error);
+      setNotifications([]);
+      return [];
+    }
+  };
+
   const retryLessons = () => {
     if (child) void loadPublishedLessons(child.grade_level);
   };
@@ -450,6 +449,7 @@ export default function StudentDashboard({ navigation }: any) {
       loadPublishedLessons(Number(profile.grade_level || 1)),
       loadStudentActivities(profile.auth_uid, profile.id),
       loadRecentSessions(profile.id),
+      loadNotifications(profile.auth_uid),
     ]);
 
     if (wordLog) {
@@ -1015,31 +1015,14 @@ export default function StudentDashboard({ navigation }: any) {
   const levelInfo = getNextLevelInfo(stats.xp, stats.level);
 
   const renderWordOfDay = () => {
-    const xpPct = Math.max(4, Math.min(100, Math.round((levelInfo.current / levelInfo.max) * 100)));
+    const words = practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS;
+    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
+    const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
 
-    const nextStreakMilestone = STREAK_MILESTONES.find((m) => m.threshold > stats.streak);
-    const streakGoal = nextStreakMilestone?.threshold ?? STREAK_MILESTONES[STREAK_MILESTONES.length - 1].threshold;
-    const streakPct = Math.max(4, Math.min(100, Math.round((stats.streak / streakGoal) * 100)));
-    const nextStreakBadge = nextStreakMilestone ? ACHIEVEMENTS.find((a) => a.id === nextStreakMilestone.id) : null;
+    const continueLearningDone = words.filter((w) => progress?.completed_words?.includes(w)).length;
+    const continueLearningPct = words.length ? Math.round((continueLearningDone / words.length) * 100) : 0;
 
-    const completedCount = activities.filter((a) => a.status === 'completed' || a.status === 'completed_late').length;
-    const pendingCount = activities.filter((a) => a.status === 'pending').length;
-    const overdueCount = activities.filter((a) => a.status === 'overdue').length;
-
-    const unlockedIds = new Set((progress?.achievements || []).map((a) => a.id));
-    const recentUnlocked = [...(progress?.achievements || [])]
-      .sort((a, b) => new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime())
-      .map((a) => ACHIEVEMENTS.find((ad) => ad.id === a.id))
-      .filter((a): a is AchievementDefinition => !!a);
-    const lockedNext = ACHIEVEMENTS.filter((a) => !unlockedIds.has(a.id));
-    const showcaseBadges = [...recentUnlocked, ...lockedNext].slice(0, 5);
-
-    const activitiesCompletedCount = progress?.activities_completed || 0;
-    const nextLessonMilestone = LESSON_MILESTONES.find((m) => m.threshold > activitiesCompletedCount);
-    const nextLessonBadge = nextLessonMilestone ? ACHIEVEMENTS.find((a) => a.id === nextLessonMilestone.id) : null;
-    const lessonBannerPct = nextLessonMilestone
-      ? Math.max(4, Math.min(100, Math.round((activitiesCompletedCount / nextLessonMilestone.threshold) * 100)))
-      : 100;
+    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
 
     return (
       <>
@@ -1056,13 +1039,88 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
-          {/* Greeting header — sits directly on the background image */}
-          <View style={styles.homeGreeting}>
-            <Text style={styles.homeGreetingHello}>Kumusta, {getFirstName(child?.name || '')}! 👋</Text>
-            <Text style={styles.homeGreetingSub}>Handa ka na bang matuto ngayon?</Text>
+          {/* Header row: avatar + greeting + notification bell */}
+          <View style={styles.homeHeaderRow}>
+            <View style={styles.homeHeaderAvatar}>
+              <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.homeGreetingHello}>Kumusta, {getFirstName(child?.name || '')}! 👋</Text>
+              <Text style={styles.homeGreetingSub}>Handa ka na bang matuto ngayon?</Text>
+            </View>
+            <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
+              <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
+              {unreadNotifCount > 0 && (
+                <View style={styles.homeBellBadge}>
+                  <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Word of the Day — the hero of Home */}
+          {/* Today's Reading Progress — real daily-goal data (same mechanic as
+              the Practice tab's step-dots; resets every 5 attempts, not at
+              midnight, since there's no calendar-day tracking yet) */}
+          <View style={styles.homeTodayCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.homeTodayTitle}>Today's Reading{'\n'}Progress</Text>
+              <Text style={styles.homeTodayStatLine}>{goalDone} of {DAILY_GOAL} pagsasanay ngayon</Text>
+              <TouchableOpacity style={styles.homeTodayButton} onPress={() => setSection('practice')}>
+                <Text style={styles.homeTodayButtonText}>Continue Practice</Text>
+              </TouchableOpacity>
+            </View>
+            <ProgressRing percent={goalPct} color={HOME_LAVENDER} trackColor="rgba(124,111,207,0.15)">
+              <Text style={styles.homeTodayRingPct}>{goalPct}%</Text>
+              <Text style={styles.homeTodayRingLabel}>Complete</Text>
+            </ProgressRing>
+          </View>
+
+          {/* 2x2 stat grid — same color mapping used on Progress tab
+              (streak=sun, xp=coral, words=sage, badges=lavender) */}
+          <View style={styles.homeStatGrid}>
+            <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
+              <Ionicons name="star" size={22} color={HOME_CORAL} />
+              <Text style={[styles.homeGridValue, { color: HOME_CORAL }]}>{stats.xp}</Text>
+              <Text style={styles.homeGridLabel}>XP Earned</Text>
+            </View>
+            <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
+              <Ionicons name="book" size={22} color={HOME_SAGE} />
+              <Text style={[styles.homeGridValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
+              <Text style={styles.homeGridLabel}>Words Practiced</Text>
+            </View>
+            <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
+              <Ionicons name="flame" size={22} color={HOME_SUN} />
+              <Text style={[styles.homeGridValue, { color: HOME_SUN }]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
+              <Text style={styles.homeGridLabel}>Reading Streak</Text>
+            </View>
+            <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
+              <Ionicons name="ribbon" size={22} color={HOME_LAVENDER_DARK} />
+              <Text style={[styles.homeGridValue, { color: HOME_LAVENDER_DARK }]}>{progress?.achievements?.length || 0}</Text>
+              <Text style={styles.homeGridLabel}>Badges Earned</Text>
+            </View>
+          </View>
+
+          {/* Continue Learning — real substitute: % of this grade's practice
+              word list completed so far (Lesson has no sequence/progress
+              field, so there's no real "next lesson" concept to show here) */}
+          <View style={styles.homeContinueCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.homeContinueTitle}>Continue Learning</Text>
+              <Text style={styles.homeContinueSubtitle}>Tagalog Reading Practice</Text>
+              <View style={styles.homeContinueTrackRow}>
+                <View style={styles.homeContinueTrack}>
+                  <View style={[styles.homeContinueFill, { width: `${Math.max(4, continueLearningPct)}%` }]} />
+                </View>
+                <Text style={styles.homeContinuePct}>{continueLearningPct}%</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.homeContinueButton} onPress={() => setSection('practice')}>
+              <Text style={styles.homeContinueButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Word of the Day — kept intact, a real distinct feature the new
+              reference layout has no equivalent slot for */}
           {wordOfDay ? (
             <View style={styles.homeHeroCard}>
               <View style={styles.homeHeroTopRow}>
@@ -1084,111 +1142,32 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
-          {/* Streaks card — targets the real next streak badge, not a made-up max */}
-          <View style={styles.homeStreakCard}>
-            <View style={styles.homeStreakTopRow}>
-              <Text style={styles.homeStreakTitle}>Streaks</Text>
-              <View style={styles.homeStreakFlameWrap}>
-                <Ionicons name="flame" size={20} color={HOME_SUN} />
-              </View>
+          {/* Practice Your Reading — both tiles point to real features */}
+          <Text style={styles.homePracticeSectionTitle}>Practice Your Reading</Text>
+          <TouchableOpacity style={styles.homePracticeRow} onPress={() => setSection('practice')}>
+            <View style={[styles.homePracticeIconWrap, { backgroundColor: '#EFECFB' }]}>
+              <Ionicons name="mic" size={20} color={HOME_LAVENDER_DARK} />
             </View>
-            <View style={styles.homeStreakTrack}>
-              <View style={[styles.homeStreakFill, { width: `${streakPct}%` }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.homePracticeRowTitle}>Say the Word</Text>
+              <Text style={styles.homePracticeRowSubtitle}>Practice pronunciation</Text>
             </View>
-            <Text style={styles.homeStreakCaption}>
-              {nextStreakBadge
-                ? `${stats.streak}/${streakGoal} araw — ${streakGoal - stats.streak} pang araw para sa ${nextStreakBadge.title} badge!`
-                : `${stats.streak} araw! Naabot mo na ang Buwan ng Pagsisikap badge — legend ka na! 🏆`}
-            </Text>
-          </View>
+            <Ionicons name="chevron-forward" size={20} color={HOME_INK_SOFT} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.homePracticeRow} onPress={() => setSection('practice')}>
+            <View style={[styles.homePracticeIconWrap, { backgroundColor: '#FBE7DF' }]}>
+              <Ionicons name="volume-high" size={20} color={HOME_CORAL} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.homePracticeRowTitle}>Listen & Read</Text>
+              <Text style={styles.homePracticeRowSubtitle}>Listen to the word and follow along</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={HOME_INK_SOFT} />
+          </TouchableOpacity>
 
-          {/* Assignment status row — Completed / Pending / Overdue (real data;
-              there's no "in progress" state since assignments are binary) */}
-          <View style={styles.homeStatsRow}>
-            <View style={[styles.homeStatPill, { backgroundColor: '#E9F1E2' }]}>
-              <Ionicons name="checkmark-circle" size={22} color={SUCCESS} style={styles.homeStatIcon} />
-              <Text style={[styles.homeStatValue, { color: SUCCESS }]}>{completedCount}</Text>
-              <Text style={styles.homeStatLabel}>Completed</Text>
-            </View>
-            <View style={[styles.homeStatPill, { backgroundColor: '#FFF3DC' }]}>
-              <Ionicons name="time" size={22} color={WARNING} style={styles.homeStatIcon} />
-              <Text style={[styles.homeStatValue, { color: WARNING }]}>{pendingCount}</Text>
-              <Text style={styles.homeStatLabel}>Pending</Text>
-            </View>
-            <View style={[styles.homeStatPill, { backgroundColor: '#FBE7DF' }]}>
-              <Ionicons name="alert-circle" size={22} color={DANGER} style={styles.homeStatIcon} />
-              <Text style={[styles.homeStatValue, { color: DANGER }]}>{overdueCount}</Text>
-              <Text style={styles.homeStatLabel}>Overdue</Text>
-            </View>
-          </View>
-
-          {/* Achievement showcase — real badge assets, recently-unlocked first,
-              filled out with the next locked badges (no invented % progress) */}
-          <View style={styles.homeAchievementsCard}>
-            <View style={styles.homeAchievementsHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.homeAchievementsTitle}>🏆 Mga Achievement</Text>
-                <View style={styles.homeAchievementsCountPill}>
-                  <Text style={styles.homeAchievementsCountText}>{progress?.achievements?.length || 0}/{ACHIEVEMENTS.length}</Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => setSection('achievements')}>
-                <Text style={styles.homeAchievementsLink}>Tingnan lahat</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-              {showcaseBadges.map((badge) => {
-                const isUnlockedBadge = unlockedIds.has(badge.id);
-                return (
-                  <View key={badge.id} style={styles.homeBadgeShowcaseItem}>
-                    <Image
-                      source={badge.image}
-                      style={[styles.homeBadgeShowcaseImage, !isUnlockedBadge && styles.homeBadgeShowcaseImageLocked]}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.homeBadgeShowcaseLabel} numberOfLines={2}>{badge.title}</Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* XP progress toward next level */}
-          <View style={styles.homeXpCard}>
-            <View style={styles.homeXpTopRow}>
-              <Text style={styles.homeXpLevel}>📚 {stats.level}</Text>
-              {levelInfo.next && (
-                <Text style={styles.homeXpNext}>
-                  {Math.max(0, levelInfo.need - levelInfo.current)} XP → {levelInfo.next}
-                </Text>
-              )}
-            </View>
-            <View style={styles.homeXpTrack}>
-              <View style={[styles.homeXpFill, { width: `${xpPct}%` }]}>
-                <View style={styles.homeXpFillShine} />
-              </View>
-              <View style={[styles.homeXpMarker, { left: `${xpPct}%` }]}>
-                <Text style={styles.homeXpMarkerEmoji}>🌟</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Motivational banner — real progress toward the next lesson-count badge */}
-          <View style={styles.homeMotivationBanner}>
-            <View style={styles.homeMotivationTextRow}>
-              <Text style={styles.homeMotivationEmoji}>{nextLessonMilestone ? '🔥' : '🏆'}</Text>
-              <Text style={styles.homeMotivationText}>
-                {nextLessonBadge
-                  ? `Kumpletuhin ang ${nextLessonMilestone!.threshold - activitiesCompletedCount} pang aralin para sa ${nextLessonBadge.title} badge!`
-                  : 'Natapos mo na ang lahat ng lesson milestone — ikaw na ang Dalubhasa sa Pagbasa! 🎉'}
-              </Text>
-            </View>
-            <View style={styles.homeMotivationTrack}>
-              <View style={[styles.homeMotivationFill, { width: `${lessonBannerPct}%` }]} />
-            </View>
-            {!!nextLessonMilestone && (
-              <Text style={styles.homeMotivationCount}>{activitiesCompletedCount}/{nextLessonMilestone.threshold}</Text>
-            )}
+          {/* Motivational quote */}
+          <View style={styles.homeQuoteBanner}>
+            <Text style={styles.homeQuoteText}>"Bawat salitang nababasa mo, lumalakas ka!"</Text>
           </View>
 
           {/* Quick actions */}
@@ -1859,18 +1838,44 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderNotifications = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.sectionTitle}>Messages / Notifications</Text>
-      <View style={styles.profileCard}>
-        <View style={styles.profileRow}>
-          <Ionicons name="notifications-outline" size={22} color={PRIMARY} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.profileLabel}>Learning updates</Text>
-            <Text style={styles.profileValue}>
-              Assignment reminders and teacher messages will appear here.
-            </Text>
-          </View>
+      <View style={styles.notifSectionHeader}>
+        <View style={styles.notifBadgePill}>
+          <Ionicons name="notifications" size={16} color={HOME_LAVENDER_DARK} />
+          <Text style={styles.notifBadgeText}>MENSAHE</Text>
         </View>
+        <Text style={styles.notifSectionSubtitle}>Mga update at paalala para sa iyo</Text>
       </View>
+
+      {notifications.length ? (
+        <View style={{ gap: 10 }}>
+          {notifications.map((item) => {
+            const unread = !(item.is_read ?? item.read);
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.notifCard, unread && styles.notifCardUnread]}
+                onPress={async () => {
+                  if (!unread) return;
+                  await markNotificationRead(item.id).catch(() => {});
+                  setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true, read: true } : n)));
+                }}
+              >
+                {unread && <View style={styles.notifDot} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.notifTitle}>{item.title}</Text>
+                  {!!(item.message || item.body) && <Text style={styles.notifBody}>{item.message || item.body}</Text>}
+                  <Text style={styles.notifDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.notifEmptyCard}>
+          <Ionicons name="notifications-outline" size={40} color={HOME_LAVENDER} />
+          <Text style={styles.notifEmptyText}>Wala ka pang mensahe. Dito lalabas ang mga update at paalala.</Text>
+        </View>
+      )}
     </ScrollView>
   );
 
@@ -1943,6 +1948,7 @@ export default function StudentDashboard({ navigation }: any) {
           {section === 'practice' && renderPractice()}
           {section === 'progress' && renderProgress()}
           {section === 'achievements' && renderAchievements()}
+          {section === 'notifications' && renderNotifications()}
           {section === 'settings' && renderSettings()}
         </>
       )}
@@ -2015,6 +2021,47 @@ export default function StudentDashboard({ navigation }: any) {
   );
 }
 
+function ProgressRing({
+  percent,
+  size = 92,
+  strokeWidth = 10,
+  color,
+  trackColor,
+  children,
+}: {
+  percent: number;
+  size?: number;
+  strokeWidth?: number;
+  color: string;
+  trackColor: string;
+  children?: React.ReactNode;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, percent));
+  const dashOffset = circumference * (1 - clamped / 100);
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${size / 2}, ${size / 2}`}
+        />
+      </Svg>
+      {children}
+    </View>
+  );
+}
 
 function PracticeResultCard({
   result,
@@ -2359,23 +2406,55 @@ const styles = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
   },
   homeBannerButtonText: { color: '#fff', fontWeight: '800' },
-  homeGreeting: { marginBottom: 16 },
   homeGreetingHello: {
-    fontFamily: FONT_DISPLAY, fontSize: 26, color: HOME_INK,
-    textShadowColor: 'rgba(255,255,255,0.85)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 },
+    fontFamily: FONT_DISPLAY, fontSize: 20, color: HOME_INK,
   },
-  homeGreetingSub: {
-    color: HOME_INK_SOFT, fontWeight: '600', marginTop: 4, fontSize: 14,
-    textShadowColor: 'rgba(255,255,255,0.85)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 },
+  homeGreetingSub: { color: HOME_INK_SOFT, fontWeight: '600', marginTop: 2, fontSize: 13 },
+  homeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  homeHeaderAvatar: {
+    width: 52, height: 52, borderRadius: 26, backgroundColor: HOME_LAVENDER,
+    alignItems: 'center', justifyContent: 'center',
   },
-  homeStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  homeStatPill: {
-    flex: 1, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 8,
-    alignItems: 'center', minHeight: 78, justifyContent: 'center',
+  homeHeaderAvatarText: { color: '#fff', fontWeight: '900', fontSize: 18 },
+  homeBellButton: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
-  homeStatIcon: { marginBottom: 4 },
-  homeStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 18 },
-  homeStatLabel: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 1 },
+  homeBellBadge: {
+    position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  homeBellBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9 },
+  homeTodayCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 16,
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3,
+  },
+  homeTodayTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 19, lineHeight: 24 },
+  homeTodayStatLine: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, marginTop: 8, marginBottom: 14 },
+  homeTodayButton: {
+    backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 18, alignSelf: 'flex-start',
+  },
+  homeTodayButtonText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  homeTodayRingPct: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_LAVENDER_DARK, fontSize: 18 },
+  homeTodayRingLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 10 },
+  homeStatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  homeGridCard: {
+    width: '48%', borderRadius: 20, padding: 14, minHeight: 92, justifyContent: 'center',
+  },
+  homeGridValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 8 },
+  homeGridLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginTop: 2 },
+  homeContinueCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: 20, padding: 16, marginBottom: 16, gap: 12,
+  },
+  homeContinueTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
+  homeContinueSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2, marginBottom: 10 },
+  homeContinueTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  homeContinueTrack: { flex: 1, backgroundColor: 'rgba(124,111,207,0.2)', height: 8, borderRadius: 999, overflow: 'hidden' },
+  homeContinueFill: { backgroundColor: HOME_LAVENDER, height: 8, borderRadius: 999 },
+  homeContinuePct: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  homeContinueButton: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 16 },
+  homeContinueButtonText: { color: '#fff', fontWeight: '900', fontSize: 13 },
   homeHeroCard: {
     backgroundColor: HOME_CREAM, borderRadius: 24, padding: 18, marginBottom: 16,
     borderWidth: 1, borderColor: 'rgba(124,111,207,0.18)',
@@ -2395,58 +2474,18 @@ const styles = StyleSheet.create({
   homeHeroSub: { color: HOME_INK_SOFT, fontWeight: '600', textAlign: 'center', marginBottom: 4, fontSize: 13 },
   homeHeroEmptyEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
   homeHeroEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600' },
-  homeStreakCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16,
+  homePracticeSectionTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 10 },
+  homePracticeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
+    borderRadius: 18, padding: 14, marginBottom: 10, minHeight: 60,
   },
-  homeStreakTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  homeStreakTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
-  homeStreakFlameWrap: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFF3DC', alignItems: 'center', justifyContent: 'center',
+  homePracticeIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  homePracticeRowTitle: { fontWeight: '800', color: HOME_INK, fontSize: 14 },
+  homePracticeRowSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2 },
+  homeQuoteBanner: {
+    backgroundColor: '#FFF3DC', borderRadius: 20, padding: 18, marginTop: 4, marginBottom: 16,
   },
-  homeStreakTrack: { backgroundColor: 'rgba(227,151,26,0.15)', height: 14, borderRadius: 999, overflow: 'hidden' },
-  homeStreakFill: { backgroundColor: HOME_SUN, height: 14, borderRadius: 999 },
-  homeStreakCaption: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10, lineHeight: 17 },
-  homeAchievementsCard: {
-    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 20, padding: 16, marginBottom: 16,
-  },
-  homeAchievementsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  homeAchievementsTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
-  homeAchievementsCountPill: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  homeAchievementsCountText: { color: '#fff', fontWeight: '900', fontSize: 11 },
-  homeAchievementsLink: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
-  homeBadgeShowcaseItem: { width: 76, alignItems: 'center' },
-  homeBadgeShowcaseImage: { width: 56, height: 56 },
-  homeBadgeShowcaseImageLocked: { opacity: 0.35 },
-  homeBadgeShowcaseLabel: {
-    color: HOME_INK_SOFT, fontWeight: '700', fontSize: 10.5, textAlign: 'center', marginTop: 4, lineHeight: 13,
-  },
-  homeXpCard: {
-    backgroundColor: 'rgba(255,255,255,0.85)', padding: 16, borderRadius: 20, marginBottom: 16,
-  },
-  homeXpTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  homeXpLevel: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
-  homeXpNext: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600' },
-  homeXpTrack: {
-    backgroundColor: 'rgba(124,111,207,0.15)', height: 16, borderRadius: 999, overflow: 'visible',
-  },
-  homeXpFill: {
-    backgroundColor: HOME_LAVENDER, height: 16, borderRadius: 999, overflow: 'hidden', justifyContent: 'flex-start',
-  },
-  homeXpFillShine: { height: 6, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.35)', margin: 2 },
-  homeXpMarker: {
-    position: 'absolute', top: -6, marginLeft: -14, alignItems: 'center', justifyContent: 'center',
-    width: 28, height: 28,
-  },
-  homeXpMarkerEmoji: { fontSize: 20 },
-  homeMotivationBanner: {
-    backgroundColor: HOME_CORAL, borderRadius: 20, padding: 16, marginBottom: 16,
-  },
-  homeMotivationTextRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  homeMotivationEmoji: { fontSize: 22 },
-  homeMotivationText: { color: '#fff', fontWeight: '800', fontSize: 13, flex: 1, lineHeight: 18 },
-  homeMotivationTrack: { backgroundColor: 'rgba(255,255,255,0.3)', height: 10, borderRadius: 999, overflow: 'hidden' },
-  homeMotivationFill: { backgroundColor: '#fff', height: 10, borderRadius: 999 },
-  homeMotivationCount: { color: 'rgba(255,255,255,0.9)', fontWeight: '800', fontSize: 11, marginTop: 6, textAlign: 'right' },
+  homeQuoteText: { color: '#8A6416', fontWeight: '800', fontSize: 14, textAlign: 'center', lineHeight: 20, fontStyle: 'italic' },
   homeQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   homeQuickCard: {
     flex: 1, borderRadius: 20, paddingVertical: 16, alignItems: 'center', minHeight: 88, justifyContent: 'center',
@@ -2464,6 +2503,24 @@ const styles = StyleSheet.create({
   homeDeadlinesEmpty: { alignItems: 'center', paddingVertical: 14 },
   homeDeadlinesEmptyEmoji: { fontSize: 28, marginBottom: 6 },
   homeDeadlinesEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600', fontSize: 13 },
+  // --- Notifications (reachable via the Home tab bell) ---
+  notifSectionHeader: { marginBottom: 14 },
+  notifBadgePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
+  },
+  notifBadgeText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  notifSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  notifCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#fff', borderRadius: 16, padding: 14,
+  },
+  notifCardUnread: { backgroundColor: '#F5F3FC' },
+  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: HOME_LAVENDER, marginTop: 6 },
+  notifTitle: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
+  notifBody: { color: HOME_INK_SOFT, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  notifDate: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '600', marginTop: 6 },
+  notifEmptyCard: { alignItems: 'center', paddingVertical: 40 },
+  notifEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 12, lineHeight: 18 },
   bigWord: { fontSize: 48, fontWeight: '900', color: PRIMARY, marginVertical: 10 },
   listenButton: { marginTop: 8, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: PRIMARY },
   // Practice feedback styles
