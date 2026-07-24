@@ -2,7 +2,8 @@ import { supabase } from '../config/supabase';
 
 export type SettingsRole = 'parent' | 'student';
 export type FontSize = 'small' | 'medium' | 'large';
-export type ReadingTheme = 'light' | 'dark' | 'sepia';
+export type ReadingTheme = 'light' | 'dark' | 'sepia' | 'system';
+export type SpeechRate = 'slow' | 'normal' | 'fast';
 
 export type DashboardSettings = {
   auth_uid: string;
@@ -25,6 +26,9 @@ export type DashboardSettings = {
   daily_activity_summary?: boolean;
   teacher_updates?: boolean;
   milestone_alerts?: boolean;
+  speech_rate?: SpeechRate;
+  show_accuracy_score?: boolean;
+  auto_read_words?: boolean;
 };
 
 const tableForRole = (role: SettingsRole) => (role === 'parent' ? 'parents_settings' : 'student_settings');
@@ -91,6 +95,9 @@ const STUDENT_SETTINGS_COLUMNS = [
 const STUDENT_OPTIONAL_SETTINGS_COLUMNS = [
   'reading_theme',
   'reading_guide',
+  'speech_rate',
+  'show_accuracy_score',
+  'auto_read_words',
 ] as const;
 
 const OPTIONAL_SETTINGS_COLUMNS = [
@@ -102,6 +109,9 @@ const OPTIONAL_SETTINGS_COLUMNS = [
   'daily_activity_summary',
   'teacher_updates',
   'milestone_alerts',
+  'speech_rate',
+  'show_accuracy_score',
+  'auto_read_words',
 ] as const;
 
 const sanitizePayload = (
@@ -196,13 +206,16 @@ export const defaultSettings = (authUid: string, role: SettingsRole): DashboardS
   dark_mode: false,
   font_size: 'medium',
   dyslexia_font: true,
-  tts_enabled: false,
+  tts_enabled: true,
   stt_enabled: false,
   high_contrast: false,
   push_notifications: true,
   reading_theme: 'light',
   reading_guide: false,
   two_factor_enabled: false,
+  speech_rate: 'normal',
+  show_accuracy_score: true,
+  auto_read_words: true,
   ...(role === 'parent'
     ? {
         weekly_progress_reports: true,

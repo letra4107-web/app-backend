@@ -13,11 +13,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { supabase } from '../config/supabase';
 import { fetchProfile, updateProfile, uploadAvatar } from '../services/profileService';
 import {
@@ -27,10 +29,12 @@ import {
   fetchDashboardSettings,
   FontSize,
   ReadingTheme,
+  SpeechRate,
   SettingsRole,
   signOut,
   updateDashboardSettings,
 } from '../services/settingsService';
+import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 
 const BG = '#F4F1FB';
 const SURFACE = '#ffffff';
@@ -55,7 +59,11 @@ type Props = {
   role: SettingsRole;
   navigation: any;
   embedded?: boolean;
+  gradeLevel?: number;
+  readingLevel?: string;
 };
+
+type MicPermissionState = 'checking' | 'granted' | 'denied';
 
 type ProfileState = {
   id?: string;
@@ -68,7 +76,7 @@ type ProfileState = {
 
 type AccountModal = 'password' | 'email' | null;
 
-export default function DashboardSettingsScreen({ role, navigation, embedded = false }: Props) {
+export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
   const [settings, setSettings] = useState<DashboardSettings | null>(null);
@@ -80,11 +88,43 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   const [modal, setModal] = useState<AccountModal>(null);
   const [newPassword, setNewPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [micPermission, setMicPermission] = useState<MicPermissionState>('checking');
   const fade = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
+  const profileSectionY = useRef(0);
 
   const isParent = role === 'parent';
   const appVersion = Constants.expoConfig?.version || '1.0.0';
-  const dark = !!settings?.dark_mode;
+  const systemScheme = useColorScheme();
+  const theme: ReadingTheme = settings?.reading_theme === 'sepia' ? 'light' : (settings?.reading_theme || 'light');
+  const dark = theme === 'system' ? systemScheme === 'dark' : theme === 'dark';
+
+  useEffect(() => {
+    let mounted = true;
+    ExpoSpeechRecognitionModule.getPermissionsAsync()
+      .then((res) => {
+        if (mounted) setMicPermission(res.granted ? 'granted' : 'denied');
+      })
+      .catch(() => {
+        if (mounted) setMicPermission('denied');
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const requestMicPermission = async () => {
+    try {
+      const res = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      setMicPermission(res.granted ? 'granted' : 'denied');
+    } catch {
+      setMicPermission('denied');
+    }
+  };
+
+  const scrollToProfile = () => {
+    scrollRef.current?.scrollTo({ y: Math.max(0, profileSectionY.current - 12), animated: true });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +154,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           avatar_url: profileData?.avatar_url || null,
         });
         setSettings(settingsData);
+        setTtsEnabled(settingsData.tts_enabled);
+        setSpeechRateSetting(settingsData.speech_rate || 'normal');
         setNewEmail(user.email || '');
         Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
       } catch (e: any) {
@@ -200,6 +242,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     if (!authUid || !settings) return;
     const previous = settings;
     setSettings({ ...settings, [key]: value });
+    if (key === 'tts_enabled') setTtsEnabled(!!value);
+    if (key === 'speech_rate') setSpeechRateSetting(value as SpeechRate);
     setSavingKey(String(key));
     try {
       const saved = await updateDashboardSettings(authUid, role, { [key]: value } as Partial<DashboardSettings>);
@@ -208,6 +252,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     } catch (e: any) {
       setSettings(previous);
       showError(e?.message || 'Could not save setting. Changes were reverted.');
+      if (key === 'tts_enabled') setTtsEnabled(!!previous.tts_enabled);
+      if (key === 'speech_rate') setSpeechRateSetting((previous.speech_rate || 'normal') as SpeechRate);
     } finally {
       setSavingKey(null);
     }
@@ -372,74 +418,102 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
 
   return (
     <Animated.View style={[styles.container, dark && styles.containerDark, { opacity: fade }]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           {!embedded && (
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
               <MaterialIcons name="arrow-back" size={22} color={LAVENDER} />
             </TouchableOpacity>
           )}
-          <View>
-            <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Parent Settings' : 'Student Settings'}</Text>
-            <Text style={[styles.subtitle, dark && styles.mutedDark]}>Saved securely with Supabase</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Parent Settings' : 'Settings'}</Text>
+            <Text style={[styles.subtitle, dark && styles.mutedDark]}>Make LinawLetra work best for you.</Text>
           </View>
+          <TouchableOpacity onPress={scrollToProfile}>
+            {profile.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.headerAvatar} />
+            ) : (
+              <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
+                <Text style={styles.headerAvatarInitial}>{initials}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {!!message && <Text style={styles.successBanner}>{message}</Text>}
         {!!error && <Text style={styles.errorBanner}>{error}</Text>}
 
-        <Section title="Profile" icon="person">
+        <View style={[styles.card, dark && styles.cardDark, styles.summaryCard]}>
           <View style={styles.profileTop}>
-            <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrap} disabled={savingProfile}>
-              {profile.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <Text style={styles.avatarInitial}>{initials}</Text>
-                </View>
-              )}
-              <View style={styles.avatarEdit}>
-                <MaterialIcons name="photo-camera" size={16} color="#fff" />
+            {profile.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarInitial}>{initials}</Text>
               </View>
-            </TouchableOpacity>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
-              <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{profile.email}</Text>
+              <View style={styles.summaryBadgeRow}>
+                {!!gradeLevel && (
+                  <View style={styles.gradeBadge}>
+                    <Text style={styles.gradeBadgeText}>Grade {gradeLevel}</Text>
+                  </View>
+                )}
+                {!!readingLevel && (
+                  <View style={styles.levelBadge}>
+                    <Text style={styles.levelBadgeText}>{readingLevel}</Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
-
-          <TextInput
-            style={[styles.input, dark && styles.inputDark]}
-            value={profile.full_name || ''}
-            onChangeText={(full_name) => setProfile((prev) => ({ ...prev, full_name }))}
-            placeholder="Full name"
-            placeholderTextColor="#94a3b8"
-          />
-          <TextInput
-            style={[styles.input, styles.readOnlyInput, dark && styles.inputDark]}
-            value={profile.email || ''}
-            editable={false}
-            placeholder="Email"
-            placeholderTextColor="#94a3b8"
-          />
-          <TextInput
-            style={[styles.input, dark && styles.inputDark]}
-            value={profile.phone_number || profile.phone || ''}
-            onChangeText={(phone_number) => setProfile((prev) => ({ ...prev, phone_number, phone: phone_number }))}
-            keyboardType="phone-pad"
-            placeholder="Phone number"
-            placeholderTextColor="#94a3b8"
-          />
-          <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={savingProfile}>
-            {savingProfile ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
+          <TouchableOpacity style={styles.viewProfileButton} onPress={scrollToProfile}>
+            <Text style={styles.viewProfileButtonText}>View Profile</Text>
           </TouchableOpacity>
-        </Section>
+        </View>
 
-        <Section title="Account" icon="manage-accounts">
-          <Row icon="lock" title="Change password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
-          <Row icon="email" title="Change email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
-          <Row icon="delete-outline" title="Delete account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
-        </Section>
+        {!isParent && (
+          <>
+            <Section title="Reading Accessibility" icon="accessibility-new">
+              <Row icon="text-fields" title="Dyslexia-friendly font" subtitle="Use an easier-to-read font" right={renderSwitch('dyslexia_font', settings.dyslexia_font)} />
+              <Row icon="format-size" title="Text Size" subtitle={settings.font_size} right={renderSegment<FontSize>('font_size', settings.font_size, ['small', 'medium', 'large'])} />
+              <Row icon="contrast" title="High contrast mode" right={renderSwitch('high_contrast', settings.high_contrast)} />
+              <Row icon="view-day" title="Reading guide overlay" right={renderSwitch('reading_guide', settings.reading_guide)} />
+            </Section>
+
+            <Section title="Reading & Audio" icon="volume-up">
+              <Row icon="record-voice-over" title="Text-to-Speech" subtitle="Listen to words and lessons being read aloud" right={renderSwitch('tts_enabled', settings.tts_enabled)} />
+              <Row icon="speed" title="Speech Speed" subtitle={settings.speech_rate || 'normal'} right={renderSegment<SpeechRate>('speech_rate', settings.speech_rate || 'normal', ['slow', 'normal', 'fast'])} />
+              <Row icon="repeat" title="Auto Read Words" subtitle="Automatically speak a word when selected" right={renderSwitch('auto_read_words', settings.auto_read_words)} />
+            </Section>
+
+            <Section title="Speech Practice" icon="mic">
+              <Row
+                icon="mic"
+                title="Microphone Access"
+                subtitle={micPermission === 'granted' ? 'Enabled for speech practice' : micPermission === 'checking' ? 'Checking...' : 'Not yet allowed'}
+                right={
+                  micPermission === 'granted' ? (
+                    <View style={styles.grantedPill}>
+                      <MaterialIcons name="check-circle" size={13} color={SUCCESS} />
+                      <Text style={styles.grantedPillText}>Enabled</Text>
+                    </View>
+                  ) : micPermission === 'checking' ? (
+                    <ActivityIndicator size="small" color={LAVENDER} />
+                  ) : (
+                    <TouchableOpacity style={styles.permissionButton} onPress={requestMicPermission}>
+                      <Text style={styles.permissionButtonText}>Allow</Text>
+                    </TouchableOpacity>
+                  )
+                }
+              />
+              <Row icon="translate" title="Language" subtitle="Tagalog (Filipino)" />
+              <Row icon="feedback" title="Pronunciation Feedback" subtitle="Get feedback on spoken pronunciation" />
+              <Row icon="pie-chart" title="Show Accuracy Score" subtitle="Display score after each practice" right={renderSwitch('show_accuracy_score', settings.show_accuracy_score)} />
+            </Section>
+          </>
+        )}
 
         <Section title="Notifications" icon="notifications-active">
           <Row icon="notifications" title="Notifications enabled" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
@@ -455,22 +529,39 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           )}
         </Section>
 
-        <Section title="App Preferences" icon="palette">
-          <Row icon="dark-mode" title="Dark mode" right={renderSwitch('dark_mode', settings.dark_mode)} />
-          <Row icon="format-size" title="Font size" subtitle={settings.font_size} right={renderSegment<FontSize>('font_size', settings.font_size, ['small', 'medium', 'large'])} />
-          <Row icon="text-fields" title="Dyslexia-friendly font" right={renderSwitch('dyslexia_font', settings.dyslexia_font)} />
-          <Row icon="wb-sunny" title="Reading theme" subtitle={settings.reading_theme || 'light'} right={renderSegment<ReadingTheme>('reading_theme', settings.reading_theme || 'light', ['light', 'dark', 'sepia'])} />
+        <Section title="Appearance" icon="brightness-6">
+          <View style={styles.themeRow}>
+            {(['light', 'system', 'dark'] as ReadingTheme[]).map((opt) => {
+              const active = theme === opt;
+              const iconName = opt === 'light' ? 'wb-sunny' : opt === 'dark' ? 'nightlight-round' : 'smartphone';
+              const label = opt === 'light' ? 'Light' : opt === 'dark' ? 'Dark' : 'System';
+              return (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.themeCard, active && styles.themeCardActive]}
+                  onPress={() => updateSetting('reading_theme', opt)}
+                >
+                  {active && (
+                    <View style={styles.themeCheck}>
+                      <MaterialIcons name="check" size={11} color="#fff" />
+                    </View>
+                  )}
+                  <MaterialIcons name={iconName as any} size={22} color={active ? LAVENDER_DARK : INK_SOFT} />
+                  <Text style={[styles.themeCardText, active && { color: LAVENDER_DARK }]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={[styles.themeNote, dark && styles.mutedDark]}>* Light mode is recommended for comfortable reading.</Text>
         </Section>
 
-        <Section title="Accessibility" icon="accessibility-new">
-          <Row icon="record-voice-over" title="Text-to-speech" right={renderSwitch('tts_enabled', settings.tts_enabled)} />
-          <Row icon="mic" title="Speech-to-text" right={renderSwitch('stt_enabled', settings.stt_enabled)} />
-          <Row icon="contrast" title="High contrast mode" right={renderSwitch('high_contrast', settings.high_contrast)} />
-          <Row icon="view-day" title="Reading guide overlay" right={renderSwitch('reading_guide', settings.reading_guide)} />
+        <Section title="Account" icon="manage-accounts">
+          <Row icon="lock" title="Change password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
+          <Row icon="email" title="Change email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
+          <Row icon="delete-outline" title="Delete account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
         </Section>
 
         <Section title="Security" icon="verified-user">
-          <Row icon="logout" title="Logout" subtitle="End this session" onPress={confirmLogout} />
           <Row icon="devices" title="Active sessions" subtitle="Current device session managed by Supabase Auth" />
           <Row icon="security" title="Two-factor authentication" subtitle="Preference saved for future verification flow" right={renderSwitch('two_factor_enabled', settings.two_factor_enabled)} />
         </Section>
@@ -484,11 +575,68 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           </Section>
         )}
 
-        <Section title="About" icon="info">
-          <Row icon="app-settings-alt" title="App version" subtitle={appVersion} />
-          <Row icon="gavel" title="Terms and Privacy" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
-          <Row icon="support-agent" title="Contact support" subtitle="Open your email app" onPress={contactSupport} />
-        </Section>
+        <View
+          onLayout={(e) => {
+            profileSectionY.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <Section title="Profile" icon="person">
+            <View style={styles.profileTop}>
+              <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrap} disabled={savingProfile}>
+                {profile.avatar_url ? (
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                    <Text style={styles.avatarInitial}>{initials}</Text>
+                  </View>
+                )}
+                <View style={styles.avatarEdit}>
+                  <MaterialIcons name="photo-camera" size={16} color="#fff" />
+                </View>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
+                <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{profile.email}</Text>
+              </View>
+            </View>
+
+            <TextInput
+              style={[styles.input, dark && styles.inputDark]}
+              value={profile.full_name || ''}
+              onChangeText={(full_name) => setProfile((prev) => ({ ...prev, full_name }))}
+              placeholder="Full name"
+              placeholderTextColor="#94a3b8"
+            />
+            <TextInput
+              style={[styles.input, styles.readOnlyInput, dark && styles.inputDark]}
+              value={profile.email || ''}
+              editable={false}
+              placeholder="Email"
+              placeholderTextColor="#94a3b8"
+            />
+            <TextInput
+              style={[styles.input, dark && styles.inputDark]}
+              value={profile.phone_number || profile.phone || ''}
+              onChangeText={(phone_number) => setProfile((prev) => ({ ...prev, phone_number, phone: phone_number }))}
+              keyboardType="phone-pad"
+              placeholder="Phone number"
+              placeholderTextColor="#94a3b8"
+            />
+            <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={savingProfile}>
+              {savingProfile ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
+            </TouchableOpacity>
+          </Section>
+        </View>
+
+        <View style={[styles.card, dark && styles.cardDark]}>
+          <Row icon="person" title="My Profile" subtitle="Manage your personal details" onPress={scrollToProfile} />
+          <Row icon="support-agent" title="Help & Support" subtitle="Contact us for assistance" onPress={contactSupport} />
+          <Row icon="info" title="About LinawLetra" subtitle={`Version ${appVersion}`} />
+          <Row icon="gavel" title="Privacy & Safety" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
+          <Row icon="logout" title="Log Out" onPress={confirmLogout} danger />
+        </View>
+
+        <Text style={[styles.versionFooter, dark && styles.mutedDark]}>LinawLetra Version {appVersion}</Text>
       </ScrollView>
 
       <Modal visible={!!modal} transparent animationType="fade" onRequestClose={() => setModal(null)}>
@@ -544,6 +692,39 @@ const styles = StyleSheet.create({
   backButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 24, color: INK },
   subtitle: { fontSize: 13, color: INK_SOFT, fontWeight: '600', marginTop: 2 },
+  headerAvatar: { width: 44, height: 44, borderRadius: 22 },
+  headerAvatarInitial: { color: LAVENDER, fontSize: 16, fontWeight: '900' },
+  summaryCard: { flexDirection: 'column' },
+  summaryBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  gradeBadge: { backgroundColor: '#F1F0F4', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+  gradeBadgeText: { color: INK_SOFT, fontWeight: '800', fontSize: 12 },
+  levelBadge: { backgroundColor: LAVENDER, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+  levelBadgeText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  viewProfileButton: {
+    minHeight: 44, borderRadius: 999, borderWidth: 1.5, borderColor: LAVENDER,
+    alignItems: 'center', justifyContent: 'center', marginTop: 14,
+  },
+  viewProfileButtonText: { color: LAVENDER_DARK, fontWeight: '900', fontSize: 14 },
+  grantedPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E9F7F1',
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  grantedPillText: { color: SUCCESS, fontWeight: '800', fontSize: 11 },
+  permissionButton: { backgroundColor: LAVENDER, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, minHeight: 32 },
+  permissionButtonText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  themeRow: { flexDirection: 'row', gap: 10 },
+  themeCard: {
+    flex: 1, borderRadius: 16, borderWidth: 1.5, borderColor: '#EEE9F9', backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 6, minHeight: 76,
+  },
+  themeCardActive: { borderColor: LAVENDER, backgroundColor: '#F5F3FC' },
+  themeCheck: {
+    position: 'absolute', top: 8, right: 8, width: 16, height: 16, borderRadius: 8,
+    backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center',
+  },
+  themeCardText: { color: INK_SOFT, fontWeight: '800', fontSize: 13 },
+  themeNote: { color: INK_SOFT, fontSize: 11, fontWeight: '600', marginTop: 10, textAlign: 'center' },
+  versionFooter: { textAlign: 'center', color: INK_SOFT, fontSize: 12, fontWeight: '600', marginTop: 18, marginBottom: 8 },
   card: {
     backgroundColor: SURFACE,
     borderRadius: 20,

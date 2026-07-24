@@ -21,7 +21,8 @@ import {
   MIN_ATTEMPTS_FOR_AVERAGE_BADGE, CHALLENGING_WORDS_REQUIRED, IMPROVEMENT_POINTS_REQUIRED, averageAccuracy,
 } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
-import { speakPhrase, speakWord, stopSpeaking } from '../services/ttsService';
+import { speakPhrase, speakWord, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
+import { fetchDashboardSettings, DashboardSettings } from '../services/settingsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
@@ -211,6 +212,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [achievement, setAchievement] = useState<{ image: any; title: string } | null>(null);
   const [expandedBadgeId, setExpandedBadgeId] = useState<string | null>(null);
   const [pronunciationStats, setPronunciationStats] = useState<PronunciationStats | null>(null);
+  const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings | null>(null);
   const [badgeFilter, setBadgeFilter] = useState<'all' | AchievementCategory>('all');
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
@@ -393,6 +395,20 @@ export default function StudentDashboard({ navigation }: any) {
     }
   };
 
+  const loadDashboardSettings = async (authUid?: string) => {
+    if (!authUid) return null;
+    try {
+      const result = await fetchDashboardSettings(authUid, 'student');
+      setDashboardSettings(result);
+      setTtsEnabled(result.tts_enabled);
+      setSpeechRateSetting(result.speech_rate || 'normal');
+      return result;
+    } catch (error: any) {
+      console.warn('[StudentDashboard] settings load failed:', error?.message || error);
+      return null;
+    }
+  };
+
   const loadPronunciationStats = async (childId?: string) => {
     if (!childId) return null;
     try {
@@ -533,6 +549,7 @@ export default function StudentDashboard({ navigation }: any) {
       loadLessonProgress(profile.id),
       loadTodaySessions(profile.id),
       loadPronunciationStats(profile.id),
+      loadDashboardSettings(profile.auth_uid),
     ]);
 
     if (wordLog) {
@@ -1367,7 +1384,11 @@ export default function StudentDashboard({ navigation }: any) {
       setPracticeAttempts(0);
       setPracticeTranscript('');
       setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
-      speakPracticeWord(word);
+      // "Listen & Read" always speaks - that's the mode's whole purpose.
+      // "Say the Word" only auto-speaks on select if Auto Read Words is on.
+      if (mode === 'listen' || dashboardSettings?.auto_read_words !== false) {
+        speakPracticeWord(word);
+      }
     };
 
     if (selectedWord && child && practiceMode === 'listen') {
@@ -1467,6 +1488,7 @@ export default function StudentDashboard({ navigation }: any) {
               <PracticeResultCard
                 result={practiceResult}
                 word={selectedWord}
+                showScore={dashboardSettings?.show_accuracy_score !== false}
                 onReplay={() => speakPracticeWord(selectedWord)}
                 onRetry={() => {
                   setPracticeResult(null);
@@ -2627,7 +2649,13 @@ export default function StudentDashboard({ navigation }: any) {
   );
 
   const renderSettings = () => (
-    <DashboardSettingsScreen role="student" navigation={navigation} embedded />
+    <DashboardSettingsScreen
+      role="student"
+      navigation={navigation}
+      embedded
+      gradeLevel={child?.grade_level}
+      readingLevel={progress?.level}
+    />
   );
 
   const navPendingCount = activities.filter((a) => a.status === 'pending' || a.status === 'overdue').length;
@@ -2779,12 +2807,14 @@ function PracticeResultCard({
   onReplay,
   onRetry,
   onNext,
+  showScore = true,
 }: {
   result: PracticeResult;
   word: string;
   onReplay: () => void;
   onRetry: () => void;
   onNext: () => void;
+  showScore?: boolean;
 }) {
   const scaleAnim = useRef(new Animated.Value(0.7)).current;
 
@@ -2808,10 +2838,12 @@ function PracticeResultCard({
         <Text style={styles.resultTitle}>{feedback}</Text>
         <Text style={styles.resultSubtitle}>Tama ang bigkas mo!</Text>
 
-        <View style={[styles.accuracyRing, { borderColor: ringColor }]}>
-          <Text style={styles.accuracyPercent}>{score}%</Text>
-          <Text style={styles.accuracyLabel}>accuracy</Text>
-        </View>
+        {showScore && (
+          <View style={[styles.accuracyRing, { borderColor: ringColor }]}>
+            <Text style={styles.accuracyPercent}>{score}%</Text>
+            <Text style={styles.accuracyLabel}>accuracy</Text>
+          </View>
+        )}
         <View style={styles.starRow}>
           {Array.from({ length: 3 }).map((_unused, index) => (
             <Text key={index} style={[styles.pronunciationStar, index >= stars && styles.pronunciationStarDim]}>★</Text>
@@ -2838,10 +2870,12 @@ function PracticeResultCard({
       <Text style={styles.resultTitle}>{feedback}</Text>
       <Text style={styles.resultSubtitle}>Pakinggan ang tamang bigkas ng AI.</Text>
 
-      <View style={[styles.accuracyRing, { borderColor: ringColor }]}>
-        <Text style={[styles.accuracyPercent, { color: ringColor }]}>{score}%</Text>
-        <Text style={styles.accuracyLabel}>accuracy</Text>
-      </View>
+      {showScore && (
+        <View style={[styles.accuracyRing, { borderColor: ringColor }]}>
+          <Text style={[styles.accuracyPercent, { color: ringColor }]}>{score}%</Text>
+          <Text style={styles.accuracyLabel}>accuracy</Text>
+        </View>
+      )}
       <Text style={styles.scoreCoachText}>{scoreMessage(score)}</Text>
 
       <View style={styles.comparisonBox}>

@@ -15,6 +15,22 @@ const VOICE_INSTALL_MESSAGE =
   'Para mas malinaw ang boses, i-download ang Filipino/Tagalog voice sa Settings → System → Languages → Text-to-speech output → Install voice data.';
 const AUDIO_FAILED_MESSAGE = 'Hindi ma-play ang audio.';
 
+// Real settings wiring: Settings' "Text-to-speech" toggle and "Speech Speed"
+// control both read/write these module-level values (set once on app load
+// and again live whenever the setting changes), so every speakWord/
+// speakPhrase call in the app actually respects them.
+const RATE_MULTIPLIERS: Record<'slow' | 'normal' | 'fast', number> = { slow: 0.75, normal: 1, fast: 1.3 };
+let ttsEnabled = true;
+let rateMultiplier = 1;
+
+export function setTtsEnabled(enabled: boolean) {
+  ttsEnabled = enabled;
+}
+
+export function setSpeechRateSetting(rate: 'slow' | 'normal' | 'fast') {
+  rateMultiplier = RATE_MULTIPLIERS[rate] ?? 1;
+}
+
 let voiceCheckPromise: Promise<boolean> | null = null;
 let hasShownInstallPrompt = false;
 
@@ -53,6 +69,9 @@ type SpeakOptions = {
 
 async function speakWithSettings(text: string, { rate, pitch, onDone, onError }: SpeakOptions) {
   if (!text) return;
+  if (!ttsEnabled) return;
+
+  const effectiveRate = rate * rateMultiplier;
 
   try {
     const hasTagalogVoice = await ensureVoiceChecked();
@@ -67,7 +86,7 @@ async function speakWithSettings(text: string, { rate, pitch, onDone, onError }:
     // rather than us failing silently.
     Speech.speak(text, {
       language: TTS_LANGUAGE,
-      rate,
+      rate: effectiveRate,
       pitch,
       onDone,
       onError: (error) => {
