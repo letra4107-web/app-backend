@@ -182,6 +182,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [progress, setProgress] = useState<ChildProgress | null>(null);
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
   const [practiceWords, setPracticeWords] = useState<string[]>([]);
+  const [recentSessions, setRecentSessions] = useState<{ word: string; accuracy_percentage: number; created_at: string }[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [activities, setActivities] = useState<StudentActivity[]>([]);
@@ -319,6 +320,26 @@ export default function StudentDashboard({ navigation }: any) {
     }
   };
 
+  const loadRecentSessions = async (childId?: string) => {
+    if (!childId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('pronunciation_practice_sessions')
+        .select('word, accuracy_percentage, created_at')
+        .eq('student_id', childId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      const rows = (data || []).slice().reverse();
+      setRecentSessions(rows);
+      return rows;
+    } catch (error: any) {
+      console.warn('[StudentDashboard] recent sessions load failed:', error?.message || error);
+      setRecentSessions([]);
+      return [];
+    }
+  };
+
   const retryLessons = () => {
     if (child) void loadPublishedLessons(child.grade_level);
   };
@@ -428,6 +449,7 @@ export default function StudentDashboard({ navigation }: any) {
       fetchTeacherUploads(Number(profile.grade_level || 1)),
       loadPublishedLessons(Number(profile.grade_level || 1)),
       loadStudentActivities(profile.auth_uid, profile.id),
+      loadRecentSessions(profile.id),
     ]);
 
     if (wordLog) {
@@ -1642,34 +1664,125 @@ export default function StudentDashboard({ navigation }: any) {
     );
   };
 
-  const renderProgress = () => (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.sectionTitle}>Proseso</Text>
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="flame" size={18} color={XP_GOLD} />
-            <Text style={styles.statValue}>{stats.streak}</Text>
+  const renderProgress = () => {
+    const avgAccuracy = (progress?.total_attempts || 0) > 0
+      ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
+      : null;
+    const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
+    const maxBarHeight = 90;
+    const completedWords = progress?.completed_words || [];
+
+    return (
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.progressSectionHeader}>
+          <View style={styles.progressBadgePill}>
+            <Ionicons name="trending-up" size={16} color={SUCCESS} />
+            <Text style={styles.progressBadgeText}>PROSESO</Text>
           </View>
-          <Text style={styles.statLabel}>Streak</Text>
+          <Text style={styles.progressSectionSubtitle}>Panoorin ang paglago mo sa paglipas ng panahon</Text>
         </View>
-        <View style={styles.statCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="star" size={18} color={XP_GOLD} />
-            <Text style={styles.statValue}>{stats.xp}</Text>
+
+        <View style={styles.progressStatsGrid}>
+          <View style={[styles.progressStatCard, { backgroundColor: '#FFF3DC' }]}>
+            <Ionicons name="flame" size={22} color={HOME_SUN} />
+            <Text style={[styles.progressStatValue, { color: HOME_SUN }]}>{stats.streak}</Text>
+            <Text style={styles.progressStatLabel}>Streak</Text>
           </View>
-          <Text style={styles.statLabel}>XP</Text>
+          <View style={[styles.progressStatCard, { backgroundColor: '#FBE7DF' }]}>
+            <Ionicons name="star" size={22} color={HOME_CORAL} />
+            <Text style={[styles.progressStatValue, { color: HOME_CORAL }]}>{stats.xp}</Text>
+            <Text style={styles.progressStatLabel}>XP</Text>
+          </View>
+          <View style={[styles.progressStatCard, { backgroundColor: '#E9F1E2' }]}>
+            <Ionicons name="book" size={22} color={HOME_SAGE} />
+            <Text style={[styles.progressStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
+            <Text style={styles.progressStatLabel}>Salita</Text>
+          </View>
+          <View style={[styles.progressStatCard, { backgroundColor: '#EFECFB' }]}>
+            <Ionicons name="school" size={22} color={HOME_LAVENDER_DARK} />
+            <Text style={[styles.progressStatValue, { color: HOME_LAVENDER_DARK }]}>{stats.level}</Text>
+            <Text style={styles.progressStatLabel}>Level</Text>
+          </View>
         </View>
-        <View style={styles.statCard}><Text style={styles.statValue}>{stats.completed}</Text><Text style={styles.statLabel}>Words</Text></View>
-        <View style={styles.statCard}><Text style={styles.statValue}>{stats.level}</Text><Text style={styles.statLabel}>Level</Text></View>
-      </View>
-      <Text style={{ marginTop: 12 }}>Mga Salitang Natapos</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-        {(progress?.completed_words || []).slice(0,5).map((w) => (<View key={w} style={{ backgroundColor: '#eef2ff', padding: 8, borderRadius: 12, marginRight: 8 }}><Text>{w}</Text></View>))}
-        {progress && (progress.completed_words?.length || 0) > 5 && <Text style={{ alignSelf: 'center' }}>+{(progress.completed_words?.length || 0) - 5} pa</Text>}
-      </View>
-    </ScrollView>
-  );
+
+        {/* Accuracy trend — real data from pronunciation_practice_sessions */}
+        <View style={styles.progressChartCard}>
+          <View style={styles.progressChartHeader}>
+            <Text style={styles.progressChartTitle}>Accuracy Trend</Text>
+            {avgAccuracy !== null && (
+              <Text style={styles.progressChartHeadline}>
+                {avgAccuracy}% <Text style={styles.progressChartHeadlineSub}>avg</Text>
+              </Text>
+            )}
+          </View>
+          {recentSessions.length >= 3 ? (
+            <>
+              <View style={styles.progressChartBars}>
+                {recentSessions.map((session, i) => {
+                  const pct = Math.max(0, Math.min(100, Math.round(Number(session.accuracy_percentage) || 0)));
+                  const isLast = i === recentSessions.length - 1;
+                  const color = tierColor(pct);
+                  return (
+                    <View key={`${session.created_at}-${i}`} style={styles.progressChartBarCol}>
+                      {isLast && <Text style={[styles.progressChartBarValue, { color }]}>{pct}%</Text>}
+                      <View
+                        style={[
+                          styles.progressChartBar,
+                          { height: Math.max(6, Math.round((pct / 100) * maxBarHeight)), backgroundColor: color },
+                        ]}
+                        accessible
+                        accessibilityLabel={`${session.word}: ${pct}% accuracy`}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.progressChartLegend}>
+                <View style={styles.progressLegendItem}>
+                  <View style={[styles.progressLegendDot, { backgroundColor: SUCCESS }]} />
+                  <Text style={styles.progressLegendText}>Magaling (80%+)</Text>
+                </View>
+                <View style={styles.progressLegendItem}>
+                  <View style={[styles.progressLegendDot, { backgroundColor: WARNING }]} />
+                  <Text style={styles.progressLegendText}>Sige lang (60-79%)</Text>
+                </View>
+                <View style={styles.progressLegendItem}>
+                  <View style={[styles.progressLegendDot, { backgroundColor: DANGER }]} />
+                  <Text style={styles.progressLegendText}>Mas mababa sa 60%</Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.progressChartEmpty}>
+              <Ionicons name="analytics-outline" size={32} color={HOME_LAVENDER} />
+              <Text style={styles.progressChartEmptyText}>
+                Magsanay pa ng ilang beses para makita ang iyong progress chart dito!
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Completed words */}
+        <View style={styles.progressWordsCard}>
+          <Text style={styles.progressWordsTitle}>Mga Salitang Natapos</Text>
+          {completedWords.length ? (
+            <View style={styles.progressWordsWrap}>
+              {completedWords.slice(0, 8).map((w) => (
+                <View key={w} style={styles.progressWordChip}>
+                  <Text style={styles.progressWordChipText}>{w}</Text>
+                </View>
+              ))}
+              {completedWords.length > 8 && (
+                <Text style={styles.progressWordsMore}>+{completedWords.length - 8} pa</Text>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.progressWordsEmpty}>Wala ka pang natatapos na salita. Simulan na sa Practice tab!</Text>
+          )}
+        </View>
+      </ScrollView>
+    );
+  };
 
   const renderAchievements = () => (
     <ScrollView contentContainerStyle={styles.content}>
@@ -1841,15 +1954,6 @@ export default function StudentDashboard({ navigation }: any) {
   );
 }
 
-function Stat({ icon, label, value }: { icon: any; label: string; value: string }) {
-  return (
-    <View style={styles.statCard}>
-      <Ionicons name={icon} size={20} color={PRIMARY} />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
 
 function PracticeResultCard({
   result,
@@ -1963,10 +2067,45 @@ const styles = StyleSheet.create({
   subtitle: { color: '#6B7280', marginTop: 4 },
   logout: { backgroundColor: '#E74C3C', width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 18, paddingBottom: 48 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  statCard: { width: '48%', backgroundColor: '#fff', borderRadius: 8, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
-  statValue: { fontSize: 18, fontWeight: '900', color: '#111827', marginTop: 8 },
-  statLabel: { color: '#6B7280', fontSize: 12, marginTop: 4 },
+  // --- Progress tab (accent: SUCCESS green — "growth over time") ---
+  progressSectionHeader: { marginBottom: 14 },
+  progressBadgePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: '#E9F7F1', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
+  },
+  progressBadgeText: { color: SUCCESS, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  progressSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  progressStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  progressStatCard: {
+    width: '48%', borderRadius: 20, padding: 14, alignItems: 'flex-start', minHeight: 84, justifyContent: 'center',
+  },
+  progressStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 8 },
+  progressStatLabel: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  progressChartCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16 },
+  progressChartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  progressChartTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
+  progressChartHeadline: { color: SUCCESS, fontWeight: '900', fontSize: 20 },
+  progressChartHeadlineSub: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12 },
+  progressChartBars: {
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
+    height: 130, gap: 6, paddingHorizontal: 4,
+  },
+  progressChartBarCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  progressChartBarValue: { fontSize: 10, fontWeight: '900', marginBottom: 4 },
+  progressChartBar: { width: '100%', borderRadius: 4, minWidth: 10 },
+  progressChartLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16 },
+  progressLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  progressLegendDot: { width: 8, height: 8, borderRadius: 4 },
+  progressLegendText: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700' },
+  progressChartEmpty: { alignItems: 'center', paddingVertical: 24 },
+  progressChartEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 18 },
+  progressWordsCard: { backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: 20, padding: 16 },
+  progressWordsTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15, marginBottom: 10 },
+  progressWordsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  progressWordChip: { backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
+  progressWordChipText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
+  progressWordsMore: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginLeft: 2 },
+  progressWordsEmpty: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
   badgeCard: { width: 128, backgroundColor: '#fff', borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12 },
