@@ -43,7 +43,6 @@ type Upload = {
 const PRIMARY = '#4f46e5';
 const PRIMARY_DARK = '#4338ca';
 const PRIMARY_LIGHT = '#eef2ff';
-const PRIMARY_TEXT = '#3730a3';
 const SURFACE = '#ffffff';
 const BACKGROUND = '#f5f3ff';
 const BORDER = '#e5e7eb';
@@ -1916,6 +1915,9 @@ export default function StudentDashboard({ navigation }: any) {
     <DashboardSettingsScreen role="student" navigation={navigation} embedded />
   );
 
+  const navPendingCount = activities.filter((a) => a.status === 'pending' || a.status === 'overdue').length;
+  const navBadgeFraction = `${progress?.achievements?.length || 0}/${ACHIEVEMENTS.length}`;
+
   const topHeaderNode = (
     <View style={styles.topHeader}>
       <TouchableOpacity onPress={openSidebar} style={{ padding: 8 }}><Ionicons name="menu-outline" size={28} color={PRIMARY} /></TouchableOpacity>
@@ -1953,8 +1955,12 @@ export default function StudentDashboard({ navigation }: any) {
       )}
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: sidebarAnim }] }]}>
         <View style={styles.sidebarProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View style={styles.sidebarAvatarGlowOuter}>
+            <View style={styles.sidebarAvatarGlowInner}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+            </View>
           </View>
           <Text style={styles.sidebarName}>{child?.name || 'Estudyante'}</Text>
           <Text style={styles.sidebarEmail}>{child?.username || 'student account'}</Text>
@@ -1962,21 +1968,36 @@ export default function StudentDashboard({ navigation }: any) {
         <ScrollView style={styles.sidebarNav} showsVerticalScrollIndicator={false}>
           {[
             { k: 'home', l: 'Home', i: 'home-outline' },
-            { k: 'learn', l: 'Learn', i: 'library-outline' },
+            { k: 'learn', l: 'Learn', i: 'library-outline', count: navPendingCount },
             { k: 'practice', l: 'Practice', i: 'mic-outline' },
             { k: 'progress', l: 'Progress', i: 'analytics-outline' },
-            { k: 'achievements', l: 'Badges', i: 'ribbon-outline' },
+            { k: 'achievements', l: 'Badges', i: 'ribbon-outline', fraction: navBadgeFraction },
             { k: 'settings', l: 'Settings', i: 'settings-outline' },
-          ].map((it: any) => (
-            <TouchableOpacity
-              key={it.k}
-              style={[styles.navItem, section === it.k && styles.navItemActive]}
-              onPress={() => navigateTo(it.k)}
-            >
-              <Ionicons name={it.i as any} size={20} color={section === it.k ? PRIMARY_TEXT : '#fff'} />
-              <Text style={[styles.navLabel, section === it.k && styles.navLabelActive]}>{it.l}</Text>
-            </TouchableOpacity>
-          ))}
+          ].map((it: any) => {
+            const active = section === it.k;
+            return (
+              <TouchableOpacity
+                key={it.k}
+                style={[styles.navItem, active && styles.navItemActive]}
+                onPress={() => navigateTo(it.k)}
+              >
+                <View style={[styles.navIconWrap, active && styles.navIconWrapActive]}>
+                  <Ionicons name={it.i as any} size={17} color={active ? HOME_LAVENDER_DARK : 'rgba(255,255,255,0.85)'} />
+                </View>
+                <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.l}</Text>
+                {!!it.count && (
+                  <View style={styles.navCountBadge}>
+                    <Text style={styles.navCountBadgeText}>{it.count}</Text>
+                  </View>
+                )}
+                {!!it.fraction && (
+                  <View style={styles.navFractionPill}>
+                    <Text style={styles.navFractionPillText}>{it.fraction}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
         <TouchableOpacity style={styles.sidebarLogout} onPress={async () => { await signOutUser(); navigation.replace('Login'); }}>
           <Ionicons name="log-out-outline" size={20} color="#fff" />
@@ -2265,38 +2286,62 @@ const styles = StyleSheet.create({
   topHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 48, paddingBottom: 12 },
   appTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY },
   streakPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: PRIMARY, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#000' },
+  // Tinted indigo scrim (matches the drawer's own palette) instead of flat black
+  overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(30,23,66,0.6)' },
   sidebar: {
     position: 'absolute', top: 0, bottom: 0, left: 0, width: 270,
-    backgroundColor: PRIMARY, paddingTop: 48, zIndex: 100,
+    backgroundColor: HOME_LAVENDER_DARK, paddingTop: 48, zIndex: 100,
     shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.18, shadowRadius: 20, elevation: 20,
+    shadowOpacity: 0.25, shadowRadius: 24, elevation: 20,
   },
   sidebarProfile: {
     alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20,
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)',
   },
+  sidebarAvatarGlowOuter: {
+    width: 92, height: 92, borderRadius: 46, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 12,
+  },
+  sidebarAvatarGlowInner: {
+    width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
   avatar: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    backgroundColor: HOME_LAVENDER,
+    alignItems: 'center', justifyContent: 'center',
   },
   avatarText: { fontSize: 26, fontWeight: '900', color: '#fff' },
   sidebarName: { fontSize: 17, fontWeight: '800', color: '#fff', textAlign: 'center' },
   sidebarEmail: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4, textAlign: 'center' },
   sidebarNav: { flex: 1, paddingHorizontal: 14, paddingTop: 16 },
   navItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 13, paddingHorizontal: 16, borderRadius: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14,
     marginBottom: 4,
   },
-  navItemActive: { backgroundColor: '#fff' },
-  navLabel: { fontSize: 14, fontWeight: '700', color: '#fff', flex: 1 },
-  navLabelActive: { color: PRIMARY_TEXT },
+  navItemActive: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  navIconWrap: {
+    width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  navIconWrapActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  },
+  navLabel: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.85)', flex: 1 },
+  navLabelActive: { color: '#fff', fontWeight: '900' },
+  navCountBadge: {
+    backgroundColor: DANGER, borderRadius: 999, minWidth: 20, height: 20, paddingHorizontal: 5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  navCountBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+  navFractionPill: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  navFractionPillText: { color: '#fff', fontWeight: '800', fontSize: 10.5 },
   sidebarLogout: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     margin: 20, padding: 16, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   // --- Home tab ---
