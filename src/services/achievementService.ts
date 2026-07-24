@@ -17,11 +17,14 @@ const EMPTY_STATS: PronunciationStats = {
   challengingWordsMastered: 0,
 };
 
+export type AchievementCategory = 'reading' | 'practice' | 'progress' | 'consistency' | 'meta';
+
 export type AchievementDefinition = {
   id: string;
   title: string;
   description: string;
   image: any;
+  category: AchievementCategory;
   isUnlocked: (progress: ChildProgress, stats: PronunciationStats) => boolean;
 };
 
@@ -30,17 +33,17 @@ const DIFFICULT_WORD_ATTEMPTS = 5;
 // A word counts as "challenging but conquered" once it needed this many
 // attempts and was eventually gotten right.
 const CHALLENGING_WORD_ATTEMPTS = 3;
-const CHALLENGING_WORDS_REQUIRED = 5;
+export const CHALLENGING_WORDS_REQUIRED = 5;
 // Floors so "average accuracy" badges can't be won/lost off a single lucky or
 // unlucky attempt.
-const MIN_ATTEMPTS_FOR_AVERAGE_BADGE = 10;
-const MIN_ATTEMPTS_FOR_IMPROVEMENT_BADGE = 5;
-const IMPROVEMENT_POINTS_REQUIRED = 20;
+export const MIN_ATTEMPTS_FOR_AVERAGE_BADGE = 10;
+export const MIN_ATTEMPTS_FOR_IMPROVEMENT_BADGE = 5;
+export const IMPROVEMENT_POINTS_REQUIRED = 20;
 
-const averageAccuracy = (progress: ChildProgress) =>
+export const averageAccuracy = (progress: ChildProgress) =>
   (progress.total_attempts || 0) > 0 ? (progress.accuracy_sum || 0) / (progress.total_attempts || 1) : 0;
 
-async function getPronunciationStats(childId?: string): Promise<PronunciationStats> {
+export async function getPronunciationStats(childId?: string): Promise<PronunciationStats> {
   if (!childId) return EMPTY_STATS;
 
   try {
@@ -93,6 +96,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Unang Hakbang',
     description: 'Tapusin ang unang lesson',
     image: require('../../assets/badges/unang_hakbang.png'),
+    category: 'reading',
     isUnlocked: (p) => (p.activities_completed || 0) >= 1,
   },
   {
@@ -100,6 +104,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Batang Mambabasa',
     description: 'Tapusin ang 5 lessons',
     image: require('../../assets/badges/batang_mambabasa.png'),
+    category: 'reading',
     isUnlocked: (p) => (p.activities_completed || 0) >= 5,
   },
   {
@@ -107,6 +112,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Masigasig na Mambabasa',
     description: 'Tapusin ang 10 lessons',
     image: require('../../assets/badges/masigasig_na_mambabasa.png'),
+    category: 'reading',
     isUnlocked: (p) => (p.activities_completed || 0) >= 10,
   },
   {
@@ -114,6 +120,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Kampeon sa Pagbasa',
     description: 'Tapusin ang 25 lessons',
     image: require('../../assets/badges/kampeon_sa_pagbasa.png'),
+    category: 'reading',
     isUnlocked: (p) => (p.activities_completed || 0) >= 25,
   },
   {
@@ -121,6 +128,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Dalubhasa sa Pagbasa',
     description: 'Tapusin ang 50 lessons',
     image: require('../../assets/badges/dalubhasa_sa_pagbasa.png'),
+    category: 'reading',
     isUnlocked: (p) => (p.activities_completed || 0) >= 50,
   },
   {
@@ -128,6 +136,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Unang Bigkas',
     description: 'Subukan ang unang pagsasanay sa pagbigkas',
     image: require('../../assets/badges/unang_bigkas.png'),
+    category: 'practice',
     isUnlocked: (p) => (p.total_attempts || 0) >= 1,
   },
   {
@@ -135,6 +144,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Malinaw Magsalita',
     description: 'Makakuha ng 90%+ accuracy sa isang pagsasanay',
     image: require('../../assets/badges/malinaw_magsalita.png'),
+    category: 'practice',
     isUnlocked: (_p, stats) => stats.maxSingleAccuracy >= 90,
   },
   {
@@ -142,6 +152,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Tamang Bigkas',
     description: 'Makakuha ng 100% accuracy sa 5 salita',
     image: require('../../assets/badges/tamang_bigkas.png'),
+    category: 'practice',
     isUnlocked: (_p, stats) => stats.perfectWordCount >= 5,
   },
   {
@@ -149,6 +160,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Boses ng Tagumpay',
     description: 'Tapusin ang 25 pagsasanay sa pagbigkas',
     image: require('../../assets/badges/boses_ng_tagumpay.png'),
+    category: 'practice',
     isUnlocked: (p) => (p.total_attempts || 0) >= 25,
   },
   {
@@ -156,6 +168,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Bigkas Champion',
     description: 'Makamit ang 90%+ average accuracy',
     image: require('../../assets/badges/bigkas_champion.png'),
+    category: 'practice',
     isUnlocked: (p) => (p.total_attempts || 0) >= MIN_ATTEMPTS_FOR_AVERAGE_BADGE && averageAccuracy(p) >= 90,
   },
   {
@@ -163,6 +176,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Unang Araw',
     description: 'Tapusin ang unang araw ng pag-aaral',
     image: require('../../assets/badges/unang_araw.png'),
+    category: 'consistency',
     isUnlocked: (p) => !!p.last_practice_date,
   },
   {
@@ -170,6 +184,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Tuloy-Tuloy!',
     description: 'Mag-practice ng 3 araw nang sunud-sunod',
     image: require('../../assets/badges/tuloy_tuloy.png'),
+    category: 'consistency',
     isUnlocked: (p) => (p.streak || 0) >= 3,
   },
   {
@@ -177,6 +192,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Lingguhang Bayani',
     description: 'Mag-practice ng 7 araw nang sunud-sunod',
     image: require('../../assets/badges/lingguhang_bayani.png'),
+    category: 'consistency',
     isUnlocked: (p) => (p.streak || 0) >= 7,
   },
   {
@@ -184,6 +200,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Buwan ng Pagsisikap',
     description: 'Mag-practice ng 30 araw nang sunud-sunod',
     image: require('../../assets/badges/buwan_ng_pagsisikap.png'),
+    category: 'consistency',
     isUnlocked: (p) => (p.streak || 0) >= 30,
   },
   {
@@ -191,6 +208,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Hindi Ako Susuko',
     description: 'Ulitin ang isang mahirap na salita ng 5 beses',
     image: require('../../assets/badges/hindi_ako_susuko.png'),
+    category: 'practice',
     isUnlocked: (_p, stats) => stats.hasDifficultWordRetried,
   },
   {
@@ -198,6 +216,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Lakas ng Loob',
     description: 'Matutunan ang 5 mahihirap na salita',
     image: require('../../assets/badges/lakas_ng_loob.png'),
+    category: 'practice',
     isUnlocked: (_p, stats) => stats.challengingWordsMastered >= CHALLENGING_WORDS_REQUIRED,
   },
   {
@@ -205,6 +224,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Matalinong Mag-aaral',
     description: 'Pagbutihin ang accuracy nang 20 points',
     image: require('../../assets/badges/matalinong_mag_aaral.png'),
+    category: 'progress',
     isUnlocked: (p) => {
       if ((p.total_attempts || 0) < MIN_ATTEMPTS_FOR_IMPROVEMENT_BADGE) return false;
       if (p.baseline_accuracy == null) return false;
@@ -216,6 +236,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Patuloy na Umuunlad',
     description: 'Umakyat sa susunod na reading level',
     image: require('../../assets/badges/patuloy_na_umuunlad.png'),
+    category: 'progress',
     isUnlocked: (p) => p.level !== 'Beginner',
   },
   {
@@ -223,6 +244,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Aking Unang Tagumpay',
     description: 'Awtomatikong makukuha kapag nakuha mo ang una mong badge',
     image: require('../../assets/badges/aking_unang_tagumpay.png'),
+    category: 'meta',
     isUnlocked: () => false,
   },
   {
@@ -230,6 +252,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: 'Alamat ng Pagbasa',
     description: 'I-unlock ang lahat ng 19 na badge',
     image: require('../../assets/badges/alamat_ng_pagbasa.png'),
+    category: 'meta',
     isUnlocked: () => false,
   },
 ];

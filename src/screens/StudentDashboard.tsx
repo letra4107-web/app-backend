@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
@@ -16,7 +16,10 @@ import ConfettiOverlay from '../components/ConfettiOverlay';
 import AchievementModal from './AchievementModal';
 import { getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
 import { buildNextProgress, ChildProgress, saveProgress } from '../services/progressService';
-import { ACHIEVEMENTS, unlockAchievements } from '../services/achievementService';
+import {
+  ACHIEVEMENTS, unlockAchievements, getPronunciationStats, PronunciationStats, AchievementCategory, AchievementDefinition,
+  MIN_ATTEMPTS_FOR_AVERAGE_BADGE, CHALLENGING_WORDS_REQUIRED, IMPROVEMENT_POINTS_REQUIRED, averageAccuracy,
+} from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, speakWord, stopSpeaking } from '../services/ttsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
@@ -207,6 +210,8 @@ export default function StudentDashboard({ navigation }: any) {
   const [error, setError] = useState('');
   const [achievement, setAchievement] = useState<{ image: any; title: string } | null>(null);
   const [expandedBadgeId, setExpandedBadgeId] = useState<string | null>(null);
+  const [pronunciationStats, setPronunciationStats] = useState<PronunciationStats | null>(null);
+  const [badgeFilter, setBadgeFilter] = useState<'all' | AchievementCategory>('all');
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
   const [practiceListening, setPracticeListening] = useState(false);
@@ -388,6 +393,19 @@ export default function StudentDashboard({ navigation }: any) {
     }
   };
 
+  const loadPronunciationStats = async (childId?: string) => {
+    if (!childId) return null;
+    try {
+      const result = await getPronunciationStats(childId);
+      setPronunciationStats(result);
+      return result;
+    } catch (error: any) {
+      console.warn('[StudentDashboard] pronunciation stats load failed:', error?.message || error);
+      setPronunciationStats(null);
+      return null;
+    }
+  };
+
   const loadLessonProgress = async (childId?: string) => {
     if (!childId) return [];
     try {
@@ -514,6 +532,7 @@ export default function StudentDashboard({ navigation }: any) {
       loadNotifications(profile.auth_uid),
       loadLessonProgress(profile.id),
       loadTodaySessions(profile.id),
+      loadPronunciationStats(profile.id),
     ]);
 
     if (wordLog) {
@@ -647,6 +666,14 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const getFirstName = (full = '') => (full ? String(full).split(' ')[0] : 'Ka');
+
+  const relativeBadgeDate = (iso: string) => {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    if (days <= 0) return 'Today';
+    if (days === 1) return 'Kahapon';
+    if (days < 7) return `${days} araw na ang nakalipas`;
+    return new Date(iso).toLocaleDateString();
+  };
 
   const getNextLevelInfo = (xp: number, level: string) => {
     if (level === 'Beginner') return { next: 'Intermediate', need: 100, current: xp, max: 100 };
@@ -995,6 +1022,7 @@ export default function StudentDashboard({ navigation }: any) {
         return;
       }
       void loadTodaySessions(child?.id);
+      void loadPronunciationStats(child?.id);
 
       if (!correct) {
         console.debug('[Practice] invalid pronunciation; skipping progress, XP, streak, achievements, and notifications.', {
@@ -2267,74 +2295,253 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderAchievements = () => {
-    const unlockedCount = progress?.achievements?.length || 0;
+    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
+    const unlockedIds = new Set((progress?.achievements || []).map((a) => a.id));
+    const unlockedCount = unlockedIds.size;
     const totalCount = ACHIEVEMENTS.length;
     const unlockPct = Math.round((unlockedCount / totalCount) * 100);
+    const avgAcc = progress ? averageAccuracy(progress) : 0;
+
+    type BadgeProgress = { hasFraction: boolean; current?: number; target?: number; pct?: number };
+    const frac = (current: number, target: number): BadgeProgress => ({
+      hasFraction: true,
+      current: Math.max(0, Math.min(current, target)),
+      target,
+      pct: Math.max(0, Math.min(100, Math.round((current / target) * 100))),
+    });
+    const noFraction: BadgeProgress = { hasFraction: false };
+
+    const getBadgeProgress = (badge: AchievementDefinition): BadgeProgress => {
+      switch (badge.id) {
+        case 'unang_hakbang': return frac(progress?.activities_completed || 0, 1);
+        case 'batang_mambabasa': return frac(progress?.activities_completed || 0, 5);
+        case 'masigasig_na_mambabasa': return frac(progress?.activities_completed || 0, 10);
+        case 'kampeon_sa_pagbasa': return frac(progress?.activities_completed || 0, 25);
+        case 'dalubhasa_sa_pagbasa': return frac(progress?.activities_completed || 0, 50);
+        case 'unang_bigkas': return frac(progress?.total_attempts || 0, 1);
+        case 'boses_ng_tagumpay': return frac(progress?.total_attempts || 0, 25);
+        case 'bigkas_champion': {
+          const attempts = progress?.total_attempts || 0;
+          if (attempts < MIN_ATTEMPTS_FOR_AVERAGE_BADGE) return frac(attempts, MIN_ATTEMPTS_FOR_AVERAGE_BADGE);
+          return frac(Math.round(avgAcc), 90);
+        }
+        case 'malinaw_magsalita': return pronunciationStats ? frac(Math.round(pronunciationStats.maxSingleAccuracy), 90) : noFraction;
+        case 'tamang_bigkas': return pronunciationStats ? frac(pronunciationStats.perfectWordCount, 5) : noFraction;
+        case 'lakas_ng_loob': return pronunciationStats ? frac(pronunciationStats.challengingWordsMastered, CHALLENGING_WORDS_REQUIRED) : noFraction;
+        case 'tuloy_tuloy': return frac(progress?.streak || 0, 3);
+        case 'lingguhang_bayani': return frac(progress?.streak || 0, 7);
+        case 'buwan_ng_pagsisikap': return frac(progress?.streak || 0, 30);
+        case 'matalinong_mag_aaral':
+          if (progress?.baseline_accuracy == null) return noFraction;
+          return frac(Math.max(0, Math.round(avgAcc - progress.baseline_accuracy)), IMPROVEMENT_POINTS_REQUIRED);
+        case 'alamat_ng_pagbasa': return frac(unlockedIds.size, totalCount - 1);
+        default: return noFraction;
+      }
+    };
+
+    const metaBadges = ACHIEVEMENTS.filter((b) => b.category === 'meta');
+    const filteredBadges = ACHIEVEMENTS.filter((b) => b.category !== 'meta' && (badgeFilter === 'all' || b.category === badgeFilter));
+    const unlockedBadges = filteredBadges.filter((b) => unlockedIds.has(b.id));
+    const lockedBadges = filteredBadges.filter((b) => !unlockedIds.has(b.id));
+
+    const spotlightCandidates = ACHIEVEMENTS.filter((b) => !unlockedIds.has(b.id))
+      .map((b) => ({ badge: b, progress: getBadgeProgress(b) }))
+      .filter((c) => c.progress.hasFraction && (c.progress.pct || 0) < 100)
+      .sort((a, b) => (b.progress.pct || 0) - (a.progress.pct || 0));
+    const spotlight = spotlightCandidates[0];
+
+    const filterTabs: { key: 'all' | AchievementCategory; label: string }[] = [
+      { key: 'all', label: 'All' },
+      { key: 'reading', label: 'Reading' },
+      { key: 'practice', label: 'Practice' },
+      { key: 'progress', label: 'Progress' },
+      { key: 'consistency', label: 'Consistency' },
+    ];
+
+    const renderBadgeCard = (badge: AchievementDefinition) => {
+      const record = progress?.achievements?.find((a) => a.id === badge.id);
+      const unlocked = !!record;
+      const expanded = expandedBadgeId === badge.id;
+      const bp = !unlocked ? getBadgeProgress(badge) : null;
+      return (
+        <TouchableOpacity
+          key={badge.id}
+          style={[styles.badgeCard, !unlocked && styles.badgeCardLocked]}
+          activeOpacity={0.8}
+          onPress={() => setExpandedBadgeId((prev) => (prev === badge.id ? null : badge.id))}
+        >
+          {!unlocked && (
+            <View style={styles.badgeLockIcon}>
+              <Ionicons name="lock-closed" size={12} color="#fff" />
+            </View>
+          )}
+          <Image
+            source={badge.image}
+            style={[styles.badgeImage, !unlocked && styles.badgeImageLocked]}
+            resizeMode="contain"
+          />
+          <Text style={styles.badgeTitle} numberOfLines={2}>{badge.title}</Text>
+          {unlocked && record ? (
+            <>
+              <View style={styles.badgeUnlockedPill}>
+                <Ionicons name="checkmark" size={11} color="#fff" />
+                <Text style={styles.badgeUnlockedPillText}>Nakuha na!</Text>
+              </View>
+              <Text style={styles.badgeEarnedDate}>{relativeBadgeDate(record.unlockedAt)}</Text>
+            </>
+          ) : (
+            <>
+              {bp?.hasFraction ? (
+                <View style={styles.badgeProgressWrap}>
+                  <View style={styles.badgeProgressTrack}>
+                    <View style={[styles.badgeProgressFill, { width: `${Math.max(4, bp.pct || 0)}%` }]} />
+                  </View>
+                  <Text style={styles.badgeProgressText}>{bp.current}/{bp.target}</Text>
+                </View>
+              ) : (
+                <View style={styles.badgeLockedPill}>
+                  <Text style={styles.badgeLockedPillText}>{expanded ? 'Itago' : 'Tingnan'}</Text>
+                </View>
+              )}
+            </>
+          )}
+          {expanded && !unlocked && (
+            <Text style={styles.badgeCondition}>{badge.description}</Text>
+          )}
+        </TouchableOpacity>
+      );
+    };
 
     return (
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.badgesSectionHeader}>
-          <View style={styles.badgesBadgePill}>
-            <Ionicons name="ribbon" size={16} color={HOME_LAVENDER_DARK} />
-            <Text style={styles.badgesBadgeText}>MGA BADGE</Text>
+        <View style={styles.homeHeaderRow}>
+          <View style={styles.homeHeaderAvatar}>
+            <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
           </View>
-          <Text style={styles.badgesSectionSubtitle}>Tapikin ang isang badge para makita ang detalye</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.homeGreetingHello}>My Badges</Text>
+            <Text style={styles.homeGreetingSub}>Ipagdiwang ang tagumpay mo sa pagbasa!</Text>
+          </View>
+          <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
+            <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
+            {unreadNotifCount > 0 && (
+              <View style={styles.homeBellBadge}>
+                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.badgesSummaryCard}>
-          <View style={styles.badgesSummaryTopRow}>
-            <Text style={styles.badgesSummaryLabel}>Progress</Text>
-            <Text style={styles.badgesSummaryCount}>{unlockedCount}/{totalCount}</Text>
+        <View style={styles.badgesHeroCard}>
+          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="badgesHeroGrad" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={HOME_LAVENDER_DARK} />
+                <Stop offset="1" stopColor={HOME_LAVENDER} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#badgesHeroGrad)" rx={24} />
+          </Svg>
+          <View style={styles.badgesHeroTrophyWrap}>
+            <Ionicons name="trophy" size={30} color={XP_GOLD} />
           </View>
-          <View style={styles.badgesSummaryTrack}>
-            <View style={[styles.badgesSummaryFill, { width: `${Math.max(4, unlockPct)}%` }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.badgesHeroTitle}>My Achievements</Text>
+            <Text style={styles.badgesHeroCount}>{unlockedCount} of {totalCount} Badges Unlocked</Text>
+            <View style={styles.badgesHeroTrack}>
+              <View style={[styles.badgesHeroFill, { width: `${Math.max(4, unlockPct)}%` }]} />
+            </View>
+            <Text style={styles.badgesHeroMsg}>
+              {unlockedCount === 0 ? 'Simulan ang pagsasanay para makakuha ng unang badge!' : 'Keep practicing to unlock more achievements!'}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.badgesGrid}>
-          {ACHIEVEMENTS.map((badge) => {
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesFilterRow} contentContainerStyle={{ gap: 8 }}>
+          {filterTabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.badgesFilterChip, badgeFilter === tab.key && styles.badgesFilterChipActive]}
+              onPress={() => setBadgeFilter(tab.key)}
+            >
+              <Text style={[styles.badgesFilterChipText, badgeFilter === tab.key && styles.badgesFilterChipTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.practiceSectionTitle}>Natatanging Tagumpay</Text>
+        <View style={styles.metaBadgeRow}>
+          {metaBadges.map((badge) => {
             const record = progress?.achievements?.find((a) => a.id === badge.id);
             const unlocked = !!record;
-            const expanded = expandedBadgeId === badge.id;
+            const bp = !unlocked ? getBadgeProgress(badge) : null;
             return (
-              <TouchableOpacity
-                key={badge.id}
-                style={[styles.badgeCard, !unlocked && styles.badgeCardLocked]}
-                activeOpacity={0.8}
-                onPress={() => setExpandedBadgeId((prev) => (prev === badge.id ? null : badge.id))}
-              >
-                {!unlocked && (
-                  <View style={styles.badgeLockIcon}>
-                    <Ionicons name="lock-closed" size={12} color="#fff" />
-                  </View>
-                )}
-                <Image
-                  source={badge.image}
-                  style={[styles.badgeImage, !unlocked && styles.badgeImageLocked]}
-                  resizeMode="contain"
-                />
-                <Text style={styles.badgeTitle} numberOfLines={2}>{badge.title}</Text>
-                {unlocked ? (
-                  <View style={styles.badgeUnlockedPill}>
-                    <Ionicons name="checkmark" size={11} color="#fff" />
-                    <Text style={styles.badgeUnlockedPillText}>Nakuha na!</Text>
+              <View key={badge.id} style={[styles.metaBadgeCard, !unlocked && styles.metaBadgeCardLocked]}>
+                <Image source={badge.image} style={[styles.metaBadgeImage, !unlocked && styles.badgeImageLocked]} resizeMode="contain" />
+                <Text style={styles.metaBadgeTitle}>{badge.title}</Text>
+                {unlocked && record ? (
+                  <>
+                    <View style={styles.badgeUnlockedPill}>
+                      <Ionicons name="checkmark" size={11} color="#fff" />
+                      <Text style={styles.badgeUnlockedPillText}>Nakuha na!</Text>
+                    </View>
+                    <Text style={styles.badgeEarnedDate}>{relativeBadgeDate(record.unlockedAt)}</Text>
+                  </>
+                ) : badge.id === 'aking_unang_tagumpay' ? (
+                  <Text style={styles.metaBadgeCondition}>Awtomatikong makukuha sa una mong badge</Text>
+                ) : bp?.hasFraction ? (
+                  <View style={styles.badgeProgressWrap}>
+                    <View style={styles.badgeProgressTrack}>
+                      <View style={[styles.badgeProgressFill, { width: `${Math.max(4, bp.pct || 0)}%`, backgroundColor: HOME_LAVENDER_DARK }]} />
+                    </View>
+                    <Text style={styles.badgeProgressText}>{bp.current}/{bp.target} na badge</Text>
                   </View>
                 ) : (
-                  <View style={styles.badgeLockedPill}>
-                    <Text style={styles.badgeLockedPillText}>{expanded ? 'Itago' : 'Tingnan'}</Text>
-                  </View>
+                  <Text style={styles.metaBadgeCondition}>{badge.description}</Text>
                 )}
-                {expanded && (
-                  <Text style={styles.badgeCondition}>
-                    {unlocked && record
-                      ? `Nakuha noong ${new Date(record.unlockedAt).toLocaleDateString()}`
-                      : badge.description}
-                  </Text>
-                )}
-              </TouchableOpacity>
+              </View>
             );
           })}
         </View>
+
+        <Text style={styles.practiceSectionTitle}>Unlocked Badges</Text>
+        {unlockedBadges.length ? (
+          <View style={styles.badgesGrid}>{unlockedBadges.map(renderBadgeCard)}</View>
+        ) : (
+          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
+            <Text style={styles.learnEmptySubtext}>Wala ka pang nakukuhang badge sa kategoryang ito.</Text>
+          </View>
+        )}
+
+        <Text style={styles.practiceSectionTitle}>Badges to Unlock</Text>
+        {lockedBadges.length ? (
+          <View style={styles.badgesGrid}>{lockedBadges.map(renderBadgeCard)}</View>
+        ) : (
+          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
+            <Text style={styles.learnEmptySubtext}>Nakuha mo na ang lahat ng badge sa kategoryang ito! 🎉</Text>
+          </View>
+        )}
+
+        {spotlight && (
+          <View style={styles.spotlightCard}>
+            <Text style={styles.spotlightTitle}>Your Next Achievement</Text>
+            <View style={styles.spotlightRow}>
+              <Image source={spotlight.badge.image} style={styles.spotlightImage} resizeMode="contain" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.spotlightBadgeTitle}>{spotlight.badge.title}</Text>
+                <Text style={styles.spotlightProgressText}>{spotlight.progress.current}/{spotlight.progress.target}</Text>
+                <View style={styles.spotlightTrack}>
+                  <View style={[styles.spotlightFill, { width: `${Math.max(4, spotlight.progress.pct || 0)}%` }]} />
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.spotlightButton} onPress={() => setSection('practice')}>
+              <Text style={styles.spotlightButtonText}>Practice Now</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     );
   };
@@ -2749,19 +2956,34 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
   // --- Badges tab (accent: lavender, ties into Home's achievement showcase) ---
-  badgesSectionHeader: { marginBottom: 14 },
-  badgesBadgePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
+  badgesHeroCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 24, padding: 18, marginBottom: 20, overflow: 'hidden',
   },
-  badgesBadgeText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-  badgesSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
-  badgesSummaryCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16 },
-  badgesSummaryTopRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  badgesSummaryLabel: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
-  badgesSummaryCount: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 15 },
-  badgesSummaryTrack: { backgroundColor: 'rgba(124,111,207,0.15)', height: 14, borderRadius: 999, overflow: 'hidden' },
-  badgesSummaryFill: { backgroundColor: HOME_LAVENDER, height: 14, borderRadius: 999 },
+  badgesHeroTrophyWrap: {
+    width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  badgesHeroTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 18, marginBottom: 6 },
+  badgesHeroCount: { color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 8 },
+  badgesHeroTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', marginBottom: 8 },
+  badgesHeroFill: { height: '100%', borderRadius: 4, backgroundColor: '#fff' },
+  badgesHeroMsg: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 12 },
+  badgesFilterRow: { marginBottom: 16 },
+  badgesFilterChip: {
+    backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginRight: 8,
+  },
+  badgesFilterChipActive: { backgroundColor: HOME_LAVENDER },
+  badgesFilterChipText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 13 },
+  badgesFilterChipTextActive: { color: '#fff' },
+  metaBadgeRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  metaBadgeCard: {
+    flex: 1, backgroundColor: '#FFF3DC', borderRadius: 20, padding: 14, alignItems: 'center',
+    borderWidth: 2, borderColor: XP_GOLD,
+  },
+  metaBadgeCardLocked: { backgroundColor: '#F3F4F6', borderColor: 'rgba(59,50,44,0.15)' },
+  metaBadgeImage: { width: 64, height: 64, marginBottom: 6 },
+  metaBadgeTitle: { textAlign: 'center', fontWeight: '900', color: HOME_INK, fontSize: 13, marginBottom: 6 },
+  metaBadgeCondition: { textAlign: 'center', color: HOME_INK_SOFT, fontSize: 11, lineHeight: 15 },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   badgeCard: {
     width: '48%', backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14,
@@ -2781,10 +3003,27 @@ const styles = StyleSheet.create({
     borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8,
   },
   badgeUnlockedPillText: { color: '#fff', fontWeight: '800', fontSize: 11 },
+  badgeEarnedDate: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 11, marginTop: 5 },
   badgeLockedPill: {
     backgroundColor: 'rgba(59,50,44,0.08)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8,
   },
   badgeLockedPillText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 11 },
+  badgeProgressWrap: { width: '100%', marginTop: 8, alignItems: 'center' },
+  badgeProgressTrack: {
+    width: '100%', height: 6, borderRadius: 3, backgroundColor: 'rgba(59,50,44,0.12)', overflow: 'hidden', marginBottom: 4,
+  },
+  badgeProgressFill: { height: '100%', borderRadius: 3, backgroundColor: HOME_SAGE },
+  badgeProgressText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 11 },
+  spotlightCard: { backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 20 },
+  spotlightTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 12 },
+  spotlightRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
+  spotlightImage: { width: 56, height: 56 },
+  spotlightBadgeTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15, marginBottom: 4 },
+  spotlightProgressText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12, marginBottom: 6 },
+  spotlightTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
+  spotlightFill: { height: '100%', borderRadius: 4, backgroundColor: HOME_LAVENDER },
+  spotlightButton: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 13, alignItems: 'center' },
+  spotlightButtonText: { color: '#fff', fontWeight: '900', fontSize: 14 },
   uploadBody: { flex: 1 },
   // --- Learn tab (assignments = lavender family, PDF lessons = sage family) ---
   learnSectionHeader: { marginTop: 8, marginBottom: 14 },
