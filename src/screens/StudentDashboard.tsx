@@ -20,6 +20,7 @@ import { ACHIEVEMENTS, unlockAchievements } from '../services/achievementService
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, speakWord, stopSpeaking } from '../services/ttsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
+import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 
@@ -170,6 +171,8 @@ export default function StudentDashboard({ navigation }: any) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessonProgress, setLessonProgress] = useState<LessonProgressRow[]>([]);
+  const [lessonFilter, setLessonFilter] = useState<string>('Lahat');
   const [activities, setActivities] = useState<StudentActivity[]>([]);
   const [uploadsError, setUploadsError] = useState<string>('');
   const [lessonsLoading, setLessonsLoading] = useState(false);
@@ -339,6 +342,19 @@ export default function StudentDashboard({ navigation }: any) {
     }
   };
 
+  const loadLessonProgress = async (childId?: string) => {
+    if (!childId) return [];
+    try {
+      const rows = await fetchLessonProgress(childId);
+      setLessonProgress(rows);
+      return rows;
+    } catch (error: any) {
+      console.warn('[StudentDashboard] lesson progress load failed:', error?.message || error);
+      setLessonProgress([]);
+      return [];
+    }
+  };
+
   const retryLessons = () => {
     if (child) void loadPublishedLessons(child.grade_level);
   };
@@ -450,6 +466,7 @@ export default function StudentDashboard({ navigation }: any) {
       loadStudentActivities(profile.auth_uid, profile.id),
       loadRecentSessions(profile.id),
       loadNotifications(profile.auth_uid),
+      loadLessonProgress(profile.id),
     ]);
 
     if (wordLog) {
@@ -694,9 +711,28 @@ export default function StudentDashboard({ navigation }: any) {
       }
       await Linking.openURL(lesson.pdf_url);
       await notifyParent('Lesson Opened', `${child?.name || 'Student'} opened "${lesson.title}".`, 'lesson');
+      if (child?.id) {
+        await markLessonOpened(child.id, lesson.id);
+        void loadLessonProgress(child.id);
+      }
     } catch (err: any) {
       console.error('[Lessons] openLesson failed:', err?.message || err);
       Alert.alert('Error', 'Hindi ma-open ang lesson. Siguraduhing may internet connection.');
+    }
+  };
+
+  const getLessonState = (lessonId: string): 'not_started' | 'in_progress' | 'completed' => {
+    const row = lessonProgress.find((p) => p.lesson_id === lessonId);
+    return row?.status || 'not_started';
+  };
+
+  const finishLesson = async (lesson: Lesson) => {
+    if (!child?.id) return;
+    try {
+      await markLessonCompleted(child.id, lesson.id);
+      void loadLessonProgress(child.id);
+    } catch {
+      Alert.alert('Error', 'Hindi na-save ang progress. Subukan muli.');
     }
   };
 
@@ -1410,8 +1446,51 @@ export default function StudentDashboard({ navigation }: any) {
     );
   };
 
-  const renderActivities = () => (
+  const renderActivities = () => {
+    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
+
+    const lessonSubjects = Array.from(new Set(lessons.map((l) => l.subject).filter(Boolean))) as string[];
+
+    const filteredLessons = lessonFilter === 'Lahat' ? lessons : lessons.filter((l) => l.subject === lessonFilter);
+
+    const inProgressRows = lessonProgress
+      .filter((p) => p.status === 'in_progress')
+      .slice()
+      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime());
+    const continueReadingLesson = inProgressRows.length
+      ? lessons.find((l) => l.id === inProgressRows[0].lesson_id) || null
+      : null;
+
+    const lessonStateColor = (state: 'not_started' | 'in_progress' | 'completed') =>
+      state === 'completed' ? SUCCESS : state === 'in_progress' ? WARNING : HOME_INK_SOFT;
+    const lessonStateLabel = (state: 'not_started' | 'in_progress' | 'completed') =>
+      state === 'completed' ? 'Nabasa na' : state === 'in_progress' ? 'Binabasa' : 'Hindi pa binuksan';
+
+    const levelNextThreshold = progress?.level === 'Advanced' ? null : progress?.level === 'Intermediate' ? 250 : 100;
+    const journeyPct = levelNextThreshold
+      ? Math.min(100, Math.round(((progress?.xp || 0) / levelNextThreshold) * 100))
+      : 100;
+
+    return (
     <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.homeHeaderRow}>
+        <View style={styles.homeHeaderAvatar}>
+          <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.homeGreetingHello}>Learn</Text>
+          <Text style={styles.homeGreetingSub}>Galugarin ang iyong mga aralin at pagsasanay</Text>
+        </View>
+        <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
+          <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
+          {unreadNotifCount > 0 && (
+            <View style={styles.homeBellBadge}>
+              <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
           <Ionicons name="library" size={16} color={HOME_LAVENDER_DARK} />
@@ -1469,6 +1548,21 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
       )}
 
+      {continueReadingLesson && (
+        <View style={styles.learnContinueCard}>
+          <View style={styles.learnContinuePill}>
+            <Text style={styles.learnContinuePillText}>IPAGPATULOY ANG PAGBASA</Text>
+          </View>
+          <Text style={styles.learnContinueTitle}>{continueReadingLesson.title}</Text>
+          {!!continueReadingLesson.description && (
+            <Text style={styles.learnContinueSub}>{continueReadingLesson.description}</Text>
+          )}
+          <TouchableOpacity style={styles.learnContinueButton} onPress={() => openLesson(continueReadingLesson)}>
+            <Text style={styles.learnContinueButtonText}>Ipagpatuloy ang Pagbasa</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#E9F1E2' }]}>
           <Ionicons name="book" size={16} color={HOME_SAGE} />
@@ -1476,6 +1570,27 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
         <Text style={styles.learnSectionSubtitle}>Mga babasahin at aralin para sa iyo</Text>
       </View>
+
+      {lessonSubjects.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.learnFilterRow}
+          contentContainerStyle={{ gap: 8 }}
+        >
+          {['Lahat', ...lessonSubjects].map((subj) => (
+            <TouchableOpacity
+              key={subj}
+              style={[styles.learnFilterChip, lessonFilter === subj && styles.learnFilterChipActive]}
+              onPress={() => setLessonFilter(subj)}
+            >
+              <Text style={[styles.learnFilterChipText, lessonFilter === subj && styles.learnFilterChipTextActive]}>
+                {subj}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {lessonsLoading && (
         <View style={styles.centerBlock}>
@@ -1491,28 +1606,47 @@ export default function StudentDashboard({ navigation }: any) {
           </TouchableOpacity>
         </View>
       )}
-      {!lessonsLoading && !lessonsError && lessons.length ? (
+      {!lessonsLoading && !lessonsError && filteredLessons.length ? (
         <View style={styles.learnCardList}>
-          {lessons.map((lesson) => (
-            <View key={lesson.id} style={styles.learnLessonCard}>
-              <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
-                <Ionicons name="document-text" size={22} color={HOME_SAGE} />
+          {filteredLessons.map((lesson) => {
+            const state = getLessonState(lesson.id);
+            return (
+              <View key={lesson.id} style={styles.learnLessonCard}>
+                <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
+                  <Ionicons name="document-text" size={22} color={HOME_SAGE} />
+                </View>
+                <View style={styles.uploadBody}>
+                  <Text style={styles.learnItemTitle}>{lesson.title}</Text>
+                  <View style={styles.learnItemMetaRow}>
+                    <View style={[styles.learnStatusDot, { backgroundColor: lessonStateColor(state) }]} />
+                    <Text style={styles.learnItemMeta}>
+                      {lesson.subject || 'Lesson'} • {lessonStateLabel(state)}
+                    </Text>
+                  </View>
+                  {!!lesson.description && <Text style={styles.learnItemDescription}>{lesson.description}</Text>}
+                </View>
+                {state === 'completed' ? (
+                  <Text style={[styles.learnStatusBadge, { color: SUCCESS }]}>Tapos na ✓</Text>
+                ) : state === 'in_progress' ? (
+                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                    <TouchableOpacity style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]} onPress={() => openLesson(lesson)}>
+                      <Text style={styles.learnActionButtonText}>Ipagpatuloy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => void finishLesson(lesson)}>
+                      <Text style={styles.learnMarkDoneText}>Tapos na</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]} onPress={() => openLesson(lesson)}>
+                    <Text style={styles.learnActionButtonText}>Buksan</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <View style={styles.uploadBody}>
-                <Text style={styles.learnItemTitle}>{lesson.title}</Text>
-                <Text style={styles.learnItemMeta}>
-                  {lesson.subject || 'Lesson'} • {lesson.grade_level || 'All grades'} • {new Date(lesson.created_at).toLocaleDateString()}
-                </Text>
-                {!!lesson.description && <Text style={styles.learnItemDescription}>{lesson.description}</Text>}
-              </View>
-              <TouchableOpacity style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]} onPress={() => openLesson(lesson)}>
-                <Text style={styles.learnActionButtonText}>Open</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+            );
+          })}
         </View>
       ) : null}
-      {!lessonsLoading && !lessonsError && !lessons.length && (
+      {!lessonsLoading && !lessonsError && !filteredLessons.length && (
         <View style={[styles.learnEmptyCard, { backgroundColor: '#F1F6ED' }]}>
           <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="book-outline" size={40} color={HOME_SAGE} />
@@ -1548,8 +1682,22 @@ export default function StudentDashboard({ navigation }: any) {
           })}
         </View>
       )}
+
+      <View style={styles.learnJourneyCard}>
+        <Text style={styles.learnJourneyTitle}>Iyong Paglalakbay sa Pagbasa</Text>
+        <Text style={styles.learnJourneyLevel}>{progress?.level || 'Beginner'}</Text>
+        <View style={styles.learnJourneyTrack}>
+          <View style={[styles.learnJourneyFill, { width: `${Math.max(4, journeyPct)}%` }]} />
+        </View>
+        <Text style={styles.learnJourneyMsg}>
+          {levelNextThreshold
+            ? `${Math.max(0, levelNextThreshold - (progress?.xp || 0))} XP na lang papunta sa susunod na level!`
+            : 'Dalubhasa ka na sa pagbasa! 🎉'}
+        </Text>
+      </View>
     </ScrollView>
-  );
+    );
+  };
 
   const renderCalendar = () => {
     const selectedActivities = getActivitiesForDate(selectedCalendarDate);
@@ -2288,6 +2436,37 @@ const styles = StyleSheet.create({
   },
   learnEmptyTitle: { color: HOME_INK, fontWeight: '900', fontSize: 16, marginBottom: 6, textAlign: 'center' },
   learnEmptySubtext: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  learnMarkDoneText: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, textDecorationLine: 'underline' },
+  learnContinueCard: {
+    backgroundColor: HOME_SAGE, borderRadius: 24, padding: 18, marginBottom: 20,
+    shadowColor: HOME_SAGE, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+  },
+  learnContinuePill: {
+    alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10,
+  },
+  learnContinuePillText: { color: '#fff', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  learnContinueTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 19, marginBottom: 4 },
+  learnContinueSub: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 13, marginBottom: 14, lineHeight: 18 },
+  learnContinueButton: {
+    alignSelf: 'flex-start', backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 11,
+  },
+  learnContinueButtonText: { color: HOME_SAGE, fontWeight: '900', fontSize: 14 },
+  learnFilterRow: { marginBottom: 14 },
+  learnFilterChip: {
+    backgroundColor: '#F1F6ED', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginRight: 8,
+  },
+  learnFilterChipActive: { backgroundColor: HOME_SAGE },
+  learnFilterChipText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 13 },
+  learnFilterChipTextActive: { color: '#fff' },
+  learnJourneyCard: {
+    backgroundColor: '#F5F3FC', borderRadius: 24, padding: 18, marginTop: 8, marginBottom: 8,
+  },
+  learnJourneyTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15, marginBottom: 6 },
+  learnJourneyLevel: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 20, marginBottom: 10 },
+  learnJourneyTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginBottom: 8 },
+  learnJourneyFill: { height: '100%', borderRadius: 5, backgroundColor: HOME_LAVENDER },
+  learnJourneyMsg: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
   wordGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   wordCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 14, minWidth: '30%', minHeight: 64,

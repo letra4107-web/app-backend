@@ -256,6 +256,7 @@ mountRoute('/api/reading', () => require('./routes/reading'));
 mountRoute('/api/pronunciation', () => require('./routes/pronunciation'));
 mountRoute('/api/progress', () => require('./routes/progress'));
 mountRoute('/api/lessons', () => require('./routes/lessons'));
+mountRoute('/api/lesson-progress', () => require('./routes/lessonProgress'));
 mountRoute('/api/activities', () => require('./routes/activities'));
 mountRoute('/api/notifications', () => require('./routes/notifications'));
 mountRoute('/api/practice', () => require('./routes/practice'));
