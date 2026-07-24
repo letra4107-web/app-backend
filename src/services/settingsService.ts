@@ -95,6 +95,7 @@ const STUDENT_SETTINGS_COLUMNS = [
 const STUDENT_OPTIONAL_SETTINGS_COLUMNS = [
   'reading_theme',
   'reading_guide',
+  'two_factor_enabled',
   'speech_rate',
   'show_accuracy_score',
   'auto_read_words',
