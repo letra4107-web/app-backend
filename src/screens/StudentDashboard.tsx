@@ -88,6 +88,26 @@ const DEFAULT_PHONETIC_WORDS = [
   'Pu-sa', 'Sa-ya', 'Su-si', 'Ta-ma', 'Tu-bo',
   'Wa-la', 'Ya-ya',
 ];
+
+// Extra content added to give the Progress tab's "My Reading Skills"
+// breakdown real, distinct categories to score — before this, every
+// practice word was the same 2-syllable shape, so there was no honest
+// way to tell "letter recognition" apart from "word reading."
+const SKILL_LETTERS = ['A', 'E', 'I', 'O', 'U', 'B', 'K', 'D', 'G', 'H', 'L', 'M', 'N', 'P', 'S', 'T'];
+const SKILL_LONG_WORDS = [
+  'Ka-ba-yo', 'Ta-la-ba', 'Ma-ta-mis', 'Bu-la-klak',
+  'Ka-ra-bao', 'Sam-pa-gui-ta', 'Ba-la-hi-bo', 'Pa-la-ka-san',
+];
+
+type SkillCategory = 'letters' | 'syllables' | 'words';
+
+const categorizeWord = (word: string): SkillCategory => {
+  const clean = word.replace(/-/g, '');
+  if (clean.length <= 1) return 'letters';
+  const syllables = word.split('-').filter(Boolean);
+  if (syllables.length <= 2) return 'syllables';
+  return 'words';
+};
 const PRAISE_FEEDBACK = ['Magaling!', 'Napakahusay!', 'Ayos!', 'Ang galing mo!', 'Perfect!'];
 const SUPPORT_FEEDBACK = [
   'Magaling! Ulitin natin.',
@@ -321,9 +341,9 @@ export default function StudentDashboard({ navigation }: any) {
         .select('word, accuracy_percentage, created_at')
         .eq('student_id', childId)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(300);
       if (error) throw error;
-      const rows = (data || []).slice().reverse();
+      const rows = data || [];
       setRecentSessions(rows);
       return rows;
     } catch (error: any) {
@@ -1305,7 +1325,11 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderPractice = () => {
-    const words = practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS;
+    const words = [
+      ...(practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS),
+      ...SKILL_LETTERS,
+      ...SKILL_LONG_WORDS,
+    ];
     const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
 
     const startWord = (word: string, mode: 'say' | 'listen') => {
@@ -1960,77 +1984,167 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderProgress = () => {
+    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
     const avgAccuracy = (progress?.total_attempts || 0) > 0
       ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
       : null;
     const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
+    const tierMessage = (pct: number) =>
+      pct >= 80 ? "You're making great progress!" : pct >= 60 ? 'Sige lang, umaangat ka!' : 'Ipagpatuloy ang pagsasanay!';
     const maxBarHeight = 90;
     const completedWords = progress?.completed_words || [];
+    const lessonsCompletedCount = lessonProgress.filter((p) => p.status === 'completed').length;
+
+    // Weekly accuracy trend — real sessions grouped by calendar day (last 7 days)
+    const dayLabels = ['Lin', 'Lun', 'Mar', 'Miy', 'Huw', 'Biy', 'Sab'];
+    const last7Days = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+    const weeklyTrend = last7Days.map((day) => {
+      const dayKey = day.toISOString().slice(0, 10);
+      const daySessions = recentSessions.filter((s) => (s.created_at || '').slice(0, 10) === dayKey);
+      const avg = daySessions.length
+        ? Math.round(daySessions.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / daySessions.length)
+        : null;
+      return { label: dayLabels[day.getDay()], pct: avg };
+    });
+    const daysWithData = weeklyTrend.filter((d) => d.pct !== null);
+    const trendImproving = daysWithData.length >= 2 && (daysWithData[daysWithData.length - 1].pct || 0) >= (daysWithData[0].pct || 0);
+
+    // My Reading Skills — real categories derived from actual word shape
+    // (see categorizeWord), scored from actual pronunciation session rows
+    const skillGroups: Record<SkillCategory, { count: number; sum: number }> = {
+      letters: { count: 0, sum: 0 },
+      syllables: { count: 0, sum: 0 },
+      words: { count: 0, sum: 0 },
+    };
+    recentSessions.forEach((s) => {
+      const cat = categorizeWord(s.word);
+      skillGroups[cat].count += 1;
+      skillGroups[cat].sum += Number(s.accuracy_percentage) || 0;
+    });
+    const skillMeta: { key: SkillCategory; label: string; icon: string }[] = [
+      { key: 'letters', label: 'Letter Recognition', icon: 'text' },
+      { key: 'syllables', label: 'Syllable Reading', icon: 'reader' },
+      { key: 'words', label: 'Word Reading', icon: 'book' },
+    ];
+    const skillTag = (avg: number | null) =>
+      avg === null
+        ? { label: 'Wala Pang Sinubukan', color: HOME_INK_SOFT }
+        : avg >= 80
+        ? { label: 'Strong', color: SUCCESS }
+        : avg >= 60
+        ? { label: 'Improving', color: WARNING }
+        : { label: 'Keep Practicing', color: DANGER };
+
+    // Days practiced this month — real, from distinct session dates
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const daysPracticedThisMonth = new Set(
+      recentSessions.filter((s) => (s.created_at || '').slice(0, 7) === monthKey).map((s) => s.created_at.slice(0, 10))
+    ).size;
+
+    const recentActivity = recentSessions.slice(0, 2);
+    const relativeDay = (iso: string) => {
+      const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+      if (days <= 0) return 'Ngayon';
+      if (days === 1) return 'Kahapon';
+      return `${days} araw na ang nakalipas`;
+    };
 
     return (
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.progressSectionHeader}>
-          <View style={styles.progressBadgePill}>
-            <Ionicons name="trending-up" size={16} color={SUCCESS} />
-            <Text style={styles.progressBadgeText}>PROSESO</Text>
+        <View style={styles.homeHeaderRow}>
+          <View style={styles.homeHeaderAvatar}>
+            <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
           </View>
-          <Text style={styles.progressSectionSubtitle}>Panoorin ang paglago mo sa paglipas ng panahon</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.homeGreetingHello}>My Progress</Text>
+            <Text style={styles.homeGreetingSub}>Tingnan kung gaano ka na umunlad!</Text>
+          </View>
+          <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
+            <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
+            {unreadNotifCount > 0 && (
+              <View style={styles.homeBellBadge}>
+                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
+        <View style={styles.progressHeroCard}>
+          <Text style={styles.progressHeroTitle}>Kabuuang Progreso sa Pagbasa</Text>
+          <View style={{ alignItems: 'center', marginVertical: 14 }}>
+            <ProgressRing percent={avgAccuracy ?? 0} color={HOME_LAVENDER_DARK} trackColor="rgba(124,111,207,0.15)">
+              <Text style={styles.progressHeroRingPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+            </ProgressRing>
+          </View>
+          <Text style={styles.progressHeroLabel}>Average Reading Accuracy</Text>
+          {avgAccuracy !== null ? (
+            <View style={styles.progressHeroStatusPill}>
+              <Ionicons name="checkmark-circle" size={14} color={tierColor(avgAccuracy)} />
+              <Text style={[styles.progressHeroStatusText, { color: tierColor(avgAccuracy) }]}>{tierMessage(avgAccuracy)}</Text>
+            </View>
+          ) : (
+            <Text style={styles.progressHeroEmptyText}>Magsanay para makita ang iyong progress dito!</Text>
+          )}
+        </View>
+
+        <Text style={styles.practiceSectionTitle}>Quick Progress Stats</Text>
         <View style={styles.progressStatsGrid}>
-          <View style={[styles.progressStatCard, { backgroundColor: '#FFF3DC' }]}>
-            <Ionicons name="flame" size={22} color={HOME_SUN} />
-            <Text style={[styles.progressStatValue, { color: HOME_SUN }]}>{stats.streak}</Text>
-            <Text style={styles.progressStatLabel}>Streak</Text>
-          </View>
-          <View style={[styles.progressStatCard, { backgroundColor: '#FBE7DF' }]}>
-            <Ionicons name="star" size={22} color={HOME_CORAL} />
-            <Text style={[styles.progressStatValue, { color: HOME_CORAL }]}>{stats.xp}</Text>
-            <Text style={styles.progressStatLabel}>XP</Text>
-          </View>
           <View style={[styles.progressStatCard, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="book" size={22} color={HOME_SAGE} />
             <Text style={[styles.progressStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
-            <Text style={styles.progressStatLabel}>Salita</Text>
+            <Text style={styles.progressStatLabel}>Words Practiced</Text>
+          </View>
+          <View style={[styles.progressStatCard, { backgroundColor: '#FBE7DF' }]}>
+            <Ionicons name="locate" size={22} color={HOME_CORAL} />
+            <Text style={[styles.progressStatValue, { color: HOME_CORAL }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+            <Text style={styles.progressStatLabel}>Reading Accuracy</Text>
           </View>
           <View style={[styles.progressStatCard, { backgroundColor: '#EFECFB' }]}>
             <Ionicons name="school" size={22} color={HOME_LAVENDER_DARK} />
-            <Text style={[styles.progressStatValue, { color: HOME_LAVENDER_DARK }]}>{stats.level}</Text>
-            <Text style={styles.progressStatLabel}>Level</Text>
+            <Text style={[styles.progressStatValue, { color: HOME_LAVENDER_DARK }]}>{lessonsCompletedCount}</Text>
+            <Text style={styles.progressStatLabel}>Lessons Completed</Text>
+          </View>
+          <View style={[styles.progressStatCard, { backgroundColor: '#FFF3DC' }]}>
+            <Ionicons name="mic" size={22} color={HOME_SUN} />
+            <Text style={[styles.progressStatValue, { color: HOME_SUN }]}>{progress?.total_attempts || 0}</Text>
+            <Text style={styles.progressStatLabel}>Practice Sessions</Text>
           </View>
         </View>
 
-        {/* Accuracy trend — real data from pronunciation_practice_sessions */}
+        {/* Weekly accuracy trend — real sessions grouped by day */}
         <View style={styles.progressChartCard}>
           <View style={styles.progressChartHeader}>
-            <Text style={styles.progressChartTitle}>Accuracy Trend</Text>
-            {avgAccuracy !== null && (
-              <Text style={styles.progressChartHeadline}>
-                {avgAccuracy}% <Text style={styles.progressChartHeadlineSub}>avg</Text>
-              </Text>
-            )}
+            <Text style={styles.progressChartTitle}>Reading Accuracy</Text>
           </View>
-          {recentSessions.length >= 3 ? (
+          {daysWithData.length >= 2 ? (
             <>
               <View style={styles.progressChartBars}>
-                {recentSessions.map((session, i) => {
-                  const pct = Math.max(0, Math.min(100, Math.round(Number(session.accuracy_percentage) || 0)));
-                  const isLast = i === recentSessions.length - 1;
-                  const color = tierColor(pct);
+                {weeklyTrend.map((day, i) => {
+                  const color = day.pct !== null ? tierColor(day.pct) : 'rgba(124,111,207,0.12)';
                   return (
-                    <View key={`${session.created_at}-${i}`} style={styles.progressChartBarCol}>
-                      {isLast && <Text style={[styles.progressChartBarValue, { color }]}>{pct}%</Text>}
+                    <View key={i} style={styles.progressChartBarCol}>
+                      {day.pct !== null && <Text style={[styles.progressChartBarValue, { color }]}>{day.pct}%</Text>}
                       <View
                         style={[
                           styles.progressChartBar,
-                          { height: Math.max(6, Math.round((pct / 100) * maxBarHeight)), backgroundColor: color },
+                          { height: day.pct !== null ? Math.max(6, Math.round((day.pct / 100) * maxBarHeight)) : 6, backgroundColor: color },
                         ]}
                         accessible
-                        accessibilityLabel={`${session.word}: ${pct}% accuracy`}
+                        accessibilityLabel={day.pct !== null ? `${day.label}: ${day.pct}%` : `${day.label}: walang datos`}
                       />
                     </View>
                   );
                 })}
+              </View>
+              <View style={styles.progressChartDayRow}>
+                {weeklyTrend.map((day, i) => (
+                  <Text key={i} style={styles.progressChartDayLabel}>{day.label}</Text>
+                ))}
               </View>
               <View style={styles.progressChartLegend}>
                 <View style={styles.progressLegendItem}>
@@ -2046,6 +2160,12 @@ export default function StudentDashboard({ navigation }: any) {
                   <Text style={styles.progressLegendText}>Mas mababa sa 60%</Text>
                 </View>
               </View>
+              <View style={styles.progressTrendMsgRow}>
+                <Ionicons name="checkmark-circle" size={14} color={SUCCESS} />
+                <Text style={styles.progressTrendMsgText}>
+                  {trendImproving ? 'Your accuracy is improving!' : 'Magpatuloy sa pagsasanay!'}
+                </Text>
+              </View>
             </>
           ) : (
             <View style={styles.progressChartEmpty}>
@@ -2057,7 +2177,74 @@ export default function StudentDashboard({ navigation }: any) {
           )}
         </View>
 
-        {/* Completed words */}
+        <Text style={styles.practiceSectionTitle}>My Reading Skills</Text>
+        <View style={styles.skillsCard}>
+          {skillMeta.map(({ key, label, icon }, idx) => {
+            const group = skillGroups[key];
+            const avg = group.count > 0 ? Math.round(group.sum / group.count) : null;
+            const tag = skillTag(avg);
+            return (
+              <View key={key} style={[styles.skillRow, idx === skillMeta.length - 1 && { marginBottom: 0 }]}>
+                <View style={[styles.skillIconWrap, { backgroundColor: `${tag.color}22` }]}>
+                  <Ionicons name={icon as any} size={18} color={tag.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.skillTopRow}>
+                    <Text style={styles.skillLabel}>{label}</Text>
+                    <View style={[styles.skillTagPill, { backgroundColor: `${tag.color}22` }]}>
+                      <Text style={[styles.skillTagText, { color: tag.color }]}>{tag.label}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.skillTrackRow}>
+                    <View style={styles.skillTrack}>
+                      <View style={[styles.skillTrackFill, { width: `${avg ? Math.max(4, avg) : 0}%`, backgroundColor: tag.color }]} />
+                    </View>
+                    <Text style={styles.skillPct}>{avg !== null ? `${avg}%` : '—'}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <Text style={styles.practiceSectionTitle}>Recent Activity</Text>
+        {recentActivity.length ? (
+          <View style={styles.learnCardList}>
+            {recentActivity.map((session, i) => (
+              <View key={`${session.created_at}-${i}`} style={styles.recentActivityCard}>
+                <View style={[styles.learnIconWrap, { backgroundColor: '#EFECFB' }]}>
+                  <Ionicons name="mic" size={20} color={HOME_LAVENDER_DARK} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.learnItemTitle}>Tagalog Word Practice</Text>
+                  <Text style={styles.learnItemMeta}>{session.word} • {relativeDay(session.created_at)}</Text>
+                </View>
+                <Text style={[styles.recentActivityScore, { color: tierColor(Math.round(Number(session.accuracy_percentage) || 0)) }]}>
+                  {Math.round(Number(session.accuracy_percentage) || 0)}%
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
+            <Text style={styles.learnEmptySubtext}>Wala ka pang practice session. Simulan na sa Practice tab!</Text>
+          </View>
+        )}
+
+        <View style={styles.progressMonthBanner}>
+          <Ionicons name="calendar" size={22} color={HOME_LAVENDER_DARK} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.progressMonthTitle}>
+              {daysPracticedThisMonth > 0 ? "You're Improving!" : 'Simulan ang Buwan na Ito!'}
+            </Text>
+            <Text style={styles.progressMonthSub}>
+              {daysPracticedThisMonth > 0
+                ? `You've practiced ${daysPracticedThisMonth} day${daysPracticedThisMonth === 1 ? '' : 's'} this month. Keep reading and growing!`
+                : 'Simulan ang iyong unang pagsasanay ngayong buwan!'}
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.progressWordsCard}>
           <Text style={styles.progressWordsTitle}>Mga Salitang Natapos</Text>
           {completedWords.length ? (
@@ -2492,24 +2679,27 @@ const styles = StyleSheet.create({
   logout: { backgroundColor: '#E74C3C', width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 18, paddingBottom: 48 },
   // --- Progress tab (accent: SUCCESS green — "growth over time") ---
-  progressSectionHeader: { marginBottom: 14 },
-  progressBadgePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    backgroundColor: '#E9F7F1', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
-  },
-  progressBadgeText: { color: SUCCESS, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-  progressSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
-  progressStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  progressStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   progressStatCard: {
     width: '48%', borderRadius: 20, padding: 14, alignItems: 'flex-start', minHeight: 84, justifyContent: 'center',
   },
   progressStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 8 },
   progressStatLabel: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '700', marginTop: 2 },
-  progressChartCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16 },
+  progressHeroCard: {
+    backgroundColor: '#EFECFB', borderRadius: 24, padding: 20, alignItems: 'center', marginBottom: 20,
+  },
+  progressHeroTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 18, textAlign: 'center' },
+  progressHeroRingPct: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 28 },
+  progressHeroLabel: { color: HOME_INK, fontWeight: '800', fontSize: 14, marginBottom: 8 },
+  progressHeroStatusPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
+    borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7,
+  },
+  progressHeroStatusText: { fontWeight: '800', fontSize: 13 },
+  progressHeroEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center' },
+  progressChartCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 20 },
   progressChartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   progressChartTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
-  progressChartHeadline: { color: SUCCESS, fontWeight: '900', fontSize: 20 },
-  progressChartHeadlineSub: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12 },
   progressChartBars: {
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
     height: 130, gap: 6, paddingHorizontal: 4,
@@ -2517,12 +2707,38 @@ const styles = StyleSheet.create({
   progressChartBarCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   progressChartBarValue: { fontSize: 10, fontWeight: '900', marginBottom: 4 },
   progressChartBar: { width: '100%', borderRadius: 4, minWidth: 10 },
+  progressChartDayRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginTop: 6 },
+  progressChartDayLabel: { flex: 1, textAlign: 'center', color: HOME_INK_SOFT, fontSize: 10, fontWeight: '700' },
   progressChartLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16 },
   progressLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   progressLegendDot: { width: 8, height: 8, borderRadius: 4 },
   progressLegendText: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700' },
+  progressTrendMsgRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+  progressTrendMsgText: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12 },
   progressChartEmpty: { alignItems: 'center', paddingVertical: 24 },
   progressChartEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 18 },
+  skillsCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 20 },
+  skillRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  skillIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  skillTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  skillLabel: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
+  skillTagPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  skillTagText: { fontWeight: '800', fontSize: 11 },
+  skillTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  skillTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
+  skillTrackFill: { height: '100%', borderRadius: 4 },
+  skillPct: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 12, minWidth: 34, textAlign: 'right' },
+  recentActivityCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14, marginBottom: 12,
+  },
+  recentActivityScore: { fontWeight: '900', fontSize: 15 },
+  progressMonthBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FFF3DC', borderRadius: 20, padding: 16, marginBottom: 20,
+  },
+  progressMonthTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14, marginBottom: 3 },
+  progressMonthSub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 17 },
   progressWordsCard: { backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: 20, padding: 16 },
   progressWordsTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15, marginBottom: 10 },
   progressWordsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
