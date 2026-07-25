@@ -76,7 +76,7 @@ WITH CHECK (
     SELECT 1
     FROM public.children c
     WHERE c.id = public.pronunciation_practice_sessions.student_id
-      AND c.auth_uid = auth.uid()::text
+      AND c.auth_uid = auth.uid()
   )
 );
 
@@ -90,7 +90,7 @@ USING (
     SELECT 1
     FROM public.children c
     WHERE c.id = public.pronunciation_practice_sessions.student_id
-      AND c.auth_uid = auth.uid()::text
+      AND c.auth_uid = auth.uid()
   )
 );
 
@@ -104,7 +104,7 @@ USING (
     SELECT 1
     FROM public.children c
     WHERE c.id = public.pronunciation_practice_sessions.student_id
-      AND c.parent_id = auth.uid()::text
+      AND c.parent_id = auth.uid()
   )
 );
 

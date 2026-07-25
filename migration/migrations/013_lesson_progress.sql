@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS public.lesson_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id TEXT NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
   lesson_id UUID NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'completed')),
   opened_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
@@ -31,7 +31,7 @@ USING (
   EXISTS (
     SELECT 1 FROM public.children c
     WHERE c.id = public.lesson_progress.student_id
-      AND c.auth_uid = auth.uid()::text
+      AND c.auth_uid = auth.uid()
   )
 );
 
@@ -44,7 +44,7 @@ WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.children c
     WHERE c.id = public.lesson_progress.student_id
-      AND c.auth_uid = auth.uid()::text
+      AND c.auth_uid = auth.uid()
   )
 );
 
@@ -57,14 +57,14 @@ USING (
   EXISTS (
     SELECT 1 FROM public.children c
     WHERE c.id = public.lesson_progress.student_id
-      AND c.auth_uid = auth.uid()::text
+      AND c.auth_uid = auth.uid()
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.children c
     WHERE c.id = public.lesson_progress.student_id
-      AND c.auth_uid = auth.uid()::text
+      AND c.auth_uid = auth.uid()
   )
 );
 
@@ -77,7 +77,7 @@ USING (
   EXISTS (
     SELECT 1 FROM public.children c
     WHERE c.id = public.lesson_progress.student_id
-      AND c.parent_id = auth.uid()::text
+      AND c.parent_id = auth.uid()
   )
 );
 
