@@ -42,14 +42,15 @@ export default function AchievementModal({
 }) {
   const isMeta = category === 'meta';
   const [confettiActive, setConfettiActive] = useState(false);
-  const [contentVisible, setContentVisible] = useState(false);
 
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
   const rotation = useSharedValue(0);
   const glow = useSharedValue(0.35);
-  const contentOpacity = useSharedValue(0);
-  const contentTranslateY = useSharedValue(12);
+  const nameOpacity = useSharedValue(0);
+  const nameTranslateY = useSharedValue(12);
+  const xpOpacity = useSharedValue(0);
+  const xpTranslateY = useSharedValue(12);
 
   useEffect(() => {
     if (!visible) return;
@@ -57,10 +58,11 @@ export default function AchievementModal({
     scale.value = 0;
     opacity.value = 0;
     rotation.value = 0;
-    contentOpacity.value = 0;
-    contentTranslateY.value = 12;
+    nameOpacity.value = 0;
+    nameTranslateY.value = 12;
+    xpOpacity.value = 0;
+    xpTranslateY.value = 12;
     setConfettiActive(false);
-    setContentVisible(false);
 
     const peakScale = isMeta ? 1.22 : 1.15;
     const dipScale = isMeta ? 0.93 : 0.95;
@@ -74,25 +76,26 @@ export default function AchievementModal({
       withTiming(0, { duration: 100 }),
     );
 
+    // Everything after the pop settles is triggered from this single
+    // callback - confetti and the badge name start together, immediately,
+    // with the XP/button following on a short deliberate beat. Chaining
+    // through a separate React state + effect here was the source of the
+    // perceptible lag between the icon and the name appearing.
     scale.value = withSequence(
       withTiming(0, { duration: 0 }),
-      withSpring(peakScale, { damping: 9, stiffness: 220, mass: 0.8 }, (finished) => {
-        'worklet';
-        if (finished) runOnJS(setConfettiActive)(true);
-      }),
+      withSpring(peakScale, { damping: 9, stiffness: 220, mass: 0.8 }),
       withSpring(dipScale, { damping: 10, stiffness: 220, mass: 0.8 }),
       withSpring(1.0, { damping: 14, stiffness: 200, mass: 0.8 }, (finished) => {
         'worklet';
-        if (finished) runOnJS(setContentVisible)(true);
+        if (!finished) return;
+        runOnJS(setConfettiActive)(true);
+        nameOpacity.value = withTiming(1, { duration: 200 });
+        nameTranslateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.quad) });
+        xpOpacity.value = withDelay(180, withTiming(1, { duration: 220 }));
+        xpTranslateY.value = withDelay(180, withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) }));
       }),
     );
   }, [visible, title, isMeta]);
-
-  useEffect(() => {
-    if (!contentVisible) return;
-    contentOpacity.value = withDelay(80, withTiming(1, { duration: 260 }));
-    contentTranslateY.value = withDelay(80, withTiming(0, { duration: 260, easing: Easing.out(Easing.quad) }));
-  }, [contentVisible]);
 
   useEffect(() => {
     if (!visible || !isMeta) {
@@ -109,9 +112,14 @@ export default function AchievementModal({
 
   const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
 
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: contentTranslateY.value }],
+  const nameStyle = useAnimatedStyle(() => ({
+    opacity: nameOpacity.value,
+    transform: [{ translateY: nameTranslateY.value }],
+  }));
+
+  const xpStyle = useAnimatedStyle(() => ({
+    opacity: xpOpacity.value,
+    transform: [{ translateY: xpTranslateY.value }],
   }));
 
   const accentColor = isMeta ? HOME_LAVENDER_DARK : XP_GOLD;
@@ -128,10 +136,12 @@ export default function AchievementModal({
             <BadgeConfettiBurst active={confettiActive} particleCount={isMeta ? 30 : 22} colors={CONFETTI_COLORS} />
           </View>
 
-          <Animated.View style={contentStyle}>
+          <Animated.View style={nameStyle}>
             <Text style={styles.title}>{isMeta ? 'Dakilang Tagumpay! 🏆' : 'Bagong Badge! 🎉'}</Text>
             <Text style={[styles.badgeName, { color: accentColor }]}>{title}</Text>
+          </Animated.View>
 
+          <Animated.View style={xpStyle}>
             {!!xp && (
               <View style={[styles.xpPill, { backgroundColor: accentColor }]}>
                 <Text style={styles.xpText}>+{xp} XP 🌟</Text>
