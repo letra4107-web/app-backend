@@ -65,11 +65,17 @@ type SpeakOptions = {
   pitch: number;
   onDone?: () => void;
   onError?: (message: string) => void;
+  bypassToggle?: boolean;
 };
 
-async function speakWithSettings(text: string, { rate, pitch, onDone, onError }: SpeakOptions) {
+// The Settings TTS toggle only mutes ambient/automatic narration (welcome
+// greetings, praise phrases, badge announcements). It must never mute the
+// student's ability to hear the actual practice word - that speech always
+// goes through, whether from an explicit Listen button or the guided
+// practice flow saying the word itself.
+async function speakWithSettings(text: string, { rate, pitch, onDone, onError, bypassToggle }: SpeakOptions) {
   if (!text) return;
-  if (!ttsEnabled) return;
+  if (!bypassToggle && !ttsEnabled) return;
 
   const effectiveRate = rate * rateMultiplier;
 
@@ -100,14 +106,28 @@ async function speakWithSettings(text: string, { rate, pitch, onDone, onError }:
   }
 }
 
-/** Speak a single word (e.g. "Pakinggan" playback, practice feedback). */
-export function speakWord(word: string, options: { onDone?: () => void; onError?: (message: string) => void } = {}) {
-  return speakWithSettings(word, { rate: RATE_WORD, pitch: PITCH_WORD, ...options });
+/**
+ * Speak a single word (Listen button, guided practice auto-play, correct-word
+ * replay). Practice-specific - always speaks regardless of the TTS toggle.
+ */
+export function speakWord(
+  word: string,
+  options: { onDone?: () => void; onError?: (message: string) => void; bypassToggle?: boolean } = {},
+) {
+  return speakWithSettings(word, { rate: RATE_WORD, pitch: PITCH_WORD, bypassToggle: true, ...options });
 }
 
-/** Speak a full sentence/phrase (praise messages, welcome/instructions). */
-export function speakPhrase(text: string, options: { onDone?: () => void; onError?: (message: string) => void } = {}) {
-  return speakWithSettings(text, { rate: RATE_SENTENCE, pitch: PITCH_SENTENCE, ...options });
+/**
+ * Speak a full sentence/phrase (praise messages, welcome/instructions).
+ * Ambient narration - respects the TTS toggle by default. Pass
+ * `bypassToggle: true` for the rare case where the phrase is itself a
+ * deliberate user-requested word replay (e.g. a "Listen again" button).
+ */
+export function speakPhrase(
+  text: string,
+  options: { onDone?: () => void; onError?: (message: string) => void; bypassToggle?: boolean } = {},
+) {
+  return speakWithSettings(text, { rate: RATE_SENTENCE, pitch: PITCH_SENTENCE, bypassToggle: false, ...options });
 }
 
 export function stopSpeaking() {

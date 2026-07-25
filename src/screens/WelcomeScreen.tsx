@@ -67,7 +67,9 @@ const WelcomeScreen: React.FC = () => {
 
   const handleReplayWord = () => {
     if (wordOfTheDay) {
-      speakPhrase(`Ang salita ng araw ay ${wordOfTheDay.word}.`, { onError: setAudioError });
+      // Explicit user-tapped replay of the word - must work even with the
+      // ambient TTS toggle off, same as the practice screens' Listen buttons.
+      speakPhrase(`Ang salita ng araw ay ${wordOfTheDay.word}.`, { onError: setAudioError, bypassToggle: true });
     }
   };
 

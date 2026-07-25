@@ -48,23 +48,25 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
   const index = Math.abs(`${childId}-${date}`.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % words.length;
   const word = words[index];
 
-  const inserted = await supabase
+  // Upsert with ignoreDuplicates instead of a plain insert: if a concurrent
+  // call (e.g. the auth-state-change listener firing alongside the initial
+  // load) already created today's row between our SELECT and this write,
+  // Postgres resolves it server-side as ON CONFLICT DO NOTHING - no 409 is
+  // ever raised, unlike a raw insert racing against the unique constraint.
+  const upserted = await supabase
     .from('word_of_day_log')
-    .insert({ child_id: childId, word, date, attempts: 0 })
+    .upsert({ child_id: childId, word, date, attempts: 0 }, { onConflict: 'child_id,date', ignoreDuplicates: true })
     .select()
-    .single();
+    .maybeSingle();
 
-  if (inserted.error) {
-    // 23505 = unique_violation. A concurrent call (e.g. the auth-state-change
-    // listener firing alongside the initial load) already created today's row
-    // between our SELECT and this INSERT — fetch and use that row instead.
-    if (inserted.error.code === '23505') {
-      const row = await fetchWordOfDayRow(childId, date);
-      if (row) return row;
-    }
-    throw inserted.error;
-  }
-  return inserted.data as WordOfDayLog;
+  if (upserted.error) throw upserted.error;
+  if (upserted.data) return upserted.data as WordOfDayLog;
+
+  // ignoreDuplicates means a concurrent call already won the race and our
+  // write was a no-op - the row exists, just fetch it.
+  const row = await fetchWordOfDayRow(childId, date);
+  if (row) return row;
+  throw new Error("Unable to load or create today's word.");
 };
 
 export const updateWordOfDayLog = async (id: string, attempts: number, correct: boolean) => {
