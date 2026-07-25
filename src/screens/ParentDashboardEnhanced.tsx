@@ -1622,7 +1622,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       case 'notifications':
         return (
           <ErrorBoundary title="Notifications unavailable" message="Notifications could not load right now. The rest of the dashboard is still ready.">
-            <NotificationsView userId={parentId} onUnreadChange={setUnreadNotifications} />
+            <NotificationsView
+              userId={parentId}
+              childList={children.map((child) => ({ id: child.id, name: child.name }))}
+              onUnreadChange={setUnreadNotifications}
+              onNavigate={setSection}
+            />
           </ErrorBoundary>
         );
       case 'settings':

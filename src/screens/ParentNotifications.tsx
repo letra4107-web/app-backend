@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../config/supabase';
 import {
   fetchNotifications,
   markNotificationRead,
@@ -8,16 +9,71 @@ import {
   subscribeToParentNotifications,
 } from '../services/notificationService';
 
+// Same palette as the rest of the Parent Dashboard redesign, duplicated
+// locally since this file doesn't share module scope with
+// ParentDashboardEnhanced.tsx.
+const HOME_INK = '#3B322C';
+const HOME_INK_SOFT = '#8A8078';
+const HOME_SUN = '#E3971A';
+const HOME_CORAL = '#E06B4C';
+const HOME_SAGE = '#5C8047';
+const HOME_LAVENDER_DARK = '#5F52B0';
+const SURFACE = '#FFFFFF';
+const BORDER = '#E7DFD0';
+const DANGER = '#E0574C';
+
+type Section = 'welcome' | 'progress' | 'calendar' | 'notifications' | 'settings';
+type ChildOption = { id: string; name: string };
+type FilterKey = 'all' | 'unread' | 'learning' | 'progress';
+
+// Grouped from the real notification `type` values actually created in the
+// app today (StudentDashboard.tsx / achievementService.ts) - there is no
+// backend-generated "reminder" type yet, so that category is omitted rather
+// than shown empty.
+const LEARNING_TYPES = ['lesson', 'assignment', 'word'];
+const PROGRESS_TYPES = ['xp', 'streak', 'achievement', 'practice'];
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'unread', label: 'Unread' },
+  { key: 'learning', label: 'Learning' },
+  { key: 'progress', label: 'Progress' },
+];
+
+const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; actionLabel: string; section: Section }> = {
+  lesson: { icon: 'book-outline', color: HOME_LAVENDER_DARK, actionLabel: 'View Progress', section: 'progress' },
+  assignment: { icon: 'clipboard-outline', color: HOME_SUN, actionLabel: 'View Calendar', section: 'calendar' },
+  word: { icon: 'text-outline', color: HOME_CORAL, actionLabel: 'View Progress', section: 'progress' },
+  xp: { icon: 'flash-outline', color: HOME_SUN, actionLabel: 'View Progress', section: 'progress' },
+  streak: { icon: 'flame-outline', color: HOME_CORAL, actionLabel: 'View Progress', section: 'progress' },
+  achievement: { icon: 'ribbon-outline', color: HOME_SAGE, actionLabel: 'View Progress', section: 'progress' },
+  practice: { icon: 'mic-outline', color: HOME_LAVENDER_DARK, actionLabel: 'View Progress', section: 'progress' },
+};
+const DEFAULT_META = {
+  icon: 'notifications-outline' as keyof typeof Ionicons.glyphMap,
+  color: HOME_LAVENDER_DARK,
+  actionLabel: 'View Progress',
+  section: 'progress' as Section,
+};
+
+type WeeklyStats = { avgLast7: number | null; avgPrior7: number | null; sessionsLast7: number };
+
 export function NotificationsView({
   userId,
+  childList = [],
   onUnreadChange,
+  onNavigate,
 }: {
   userId: string;
+  childList?: ChildOption[];
   onUnreadChange?: (count: number) => void;
+  onNavigate?: (section: Section) => void;
 }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<FilterKey>('all');
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStats | null>(null);
 
   const loadItems = async () => {
     if (!userId) return;
@@ -34,11 +90,52 @@ export function NotificationsView({
     }
   };
 
+  const childIdsKey = childList.map((child) => child.id).filter(Boolean).join(',');
+
   useEffect(() => {
     void loadItems();
     const unsubscribe = subscribeToParentNotifications(userId, () => void loadItems());
     return unsubscribe;
   }, [userId]);
+
+  useEffect(() => {
+    const childIds = childIdsKey ? childIdsKey.split(',') : [];
+    if (!childIds.length) {
+      setWeeklyStats(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error: queryError } = await supabase
+          .from('pronunciation_practice_sessions')
+          .select('accuracy_percentage, created_at')
+          .in('student_id', childIds)
+          .order('created_at', { ascending: false })
+          .limit(500);
+        if (cancelled) return;
+        if (queryError || !data) {
+          setWeeklyStats(null);
+          return;
+        }
+        const now = Date.now();
+        const day = 24 * 60 * 60 * 1000;
+        const last7 = data.filter((row: any) => now - new Date(row.created_at).getTime() <= 7 * day);
+        const prior7 = data.filter((row: any) => {
+          const age = now - new Date(row.created_at).getTime();
+          return age > 7 * day && age <= 14 * day;
+        });
+        const avg = (rows: any[]) =>
+          rows.length ? rows.reduce((sum, row) => sum + (row.accuracy_percentage || 0), 0) / rows.length : null;
+        setWeeklyStats({ avgLast7: avg(last7), avgPrior7: avg(prior7), sessionsLast7: last7.length });
+      } catch {
+        if (!cancelled) setWeeklyStats(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [childIdsKey]);
 
   const openItem = async (item: NotificationItem) => {
     if (!(item.is_read ?? item.read)) {
@@ -66,40 +163,164 @@ export function NotificationsView({
     }
   };
 
+  const unreadCount = items.filter((item) => !(item.is_read ?? item.read)).length;
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (filter === 'unread') return !(item.is_read ?? item.read);
+      if (filter === 'learning') return LEARNING_TYPES.includes(item.type || '');
+      if (filter === 'progress') return PROGRESS_TYPES.includes(item.type || '');
+      return true;
+    });
+  }, [items, filter]);
+
+  const grouped = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const todayItems: NotificationItem[] = [];
+    const earlierItems: NotificationItem[] = [];
+    filteredItems.forEach((item) => {
+      const dateKey = item.created_at ? item.created_at.slice(0, 10) : '';
+      (dateKey === today ? todayItems : earlierItems).push(item);
+    });
+    return { todayItems, earlierItems };
+  }, [filteredItems]);
+
+  const getChildName = (item: NotificationItem) =>
+    childList.find((child) => child.id === item.student_id)?.name || null;
+
+  const renderCard = (item: NotificationItem) => {
+    const isUnread = !(item.is_read ?? item.read);
+    const meta = TYPE_META[item.type || ''] || DEFAULT_META;
+    const body = item.message || item.body || '';
+    const date = item.created_at ? new Date(item.created_at) : null;
+    const childName = childList.length > 1 ? getChildName(item) : null;
+    return (
+      <TouchableOpacity key={item.id} style={styles.card} onPress={() => void openItem(item)} activeOpacity={0.9}>
+        <View style={[styles.cardIconWrap, { backgroundColor: `${meta.color}1A` }]}>
+          <Ionicons name={meta.icon} size={20} color={meta.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            {isUnread && <View style={styles.unreadDot} />}
+          </View>
+          <Text style={styles.cardBody}>{childName ? `${childName}: ${body}` : body}</Text>
+          <View style={styles.cardFooterRow}>
+            <Text style={styles.cardDate}>{date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : ''}</Text>
+            {!!onNavigate && (
+              <TouchableOpacity style={styles.actionButton} onPress={() => onNavigate(meta.section)}>
+                <Text style={styles.actionButtonText}>{meta.actionLabel}</Text>
+                <Ionicons name="chevron-forward" size={13} color={HOME_LAVENDER_DARK} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const showSpotlight = !!weeklyStats && weeklyStats.avgLast7 !== null;
+  const delta =
+    showSpotlight && weeklyStats!.avgPrior7 !== null ? weeklyStats!.avgLast7! - weeklyStats!.avgPrior7! : null;
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Mga Notification</Text>
-        {!!items.filter((item) => !(item.is_read ?? item.read)).length && (
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Notifications</Text>
+          <Text style={styles.subtitle}>Stay updated on your child's learning journey.</Text>
+        </View>
+        {!!unreadCount && (
           <TouchableOpacity style={styles.markAllButton} onPress={markAllRead}>
-            <Text style={styles.markAllText}>Mark all read</Text>
+            <Text style={styles.markAllText}>Mark all as read</Text>
           </TouchableOpacity>
         )}
       </View>
-      {loading && <ActivityIndicator color="#4f46e5" />}
+
+      {!!unreadCount && (
+        <View style={styles.summaryBanner}>
+          <View style={styles.summaryIconWrap}>
+            <Ionicons name="notifications" size={20} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.summaryTitle}>
+              You have {unreadCount} new notification{unreadCount === 1 ? '' : 's'}
+            </Text>
+            <Text style={styles.summarySub}>Here are the latest updates about your child's learning progress.</Text>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.filterRow}>
+        {FILTERS.map((f) => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading && <ActivityIndicator color={HOME_LAVENDER_DARK} style={{ marginVertical: 12 }} />}
       {!!error && <Text style={styles.error}>{error}</Text>}
-      <ScrollView contentContainerStyle={styles.list}>
-        {items.map((item) => {
-          const isUnread = !(item.is_read ?? item.read);
-          const body = item.message || item.body || '';
-          const date = item.created_at ? new Date(item.created_at) : null;
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.card, isUnread && styles.unread]}
-              onPress={() => void openItem(item)}
-              activeOpacity={0.9}
-            >
-              <Text style={[styles.cardTitle, isUnread && styles.cardTitleUnread]}>{item.title}</Text>
-              <Text style={styles.body}>{body}</Text>
-              <Text style={styles.date}>{date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : ''}</Text>
-            </TouchableOpacity>
-          );
-        })}
-        {!loading && !items.length && (
+
+      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        {!!grouped.todayItems.length && (
+          <>
+            <Text style={styles.groupLabel}>Today</Text>
+            {grouped.todayItems.map(renderCard)}
+          </>
+        )}
+        {!!grouped.earlierItems.length && (
+          <>
+            <Text style={styles.groupLabel}>Earlier</Text>
+            {grouped.earlierItems.map(renderCard)}
+          </>
+        )}
+        {!loading && !filteredItems.length && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🔔</Text>
+            <Ionicons name="notifications-off-outline" size={40} color={HOME_INK_SOFT} />
             <Text style={styles.emptyText}>Wala pang notification.</Text>
+          </View>
+        )}
+
+        {showSpotlight && (
+          <View style={styles.spotlightCard}>
+            <View style={styles.spotlightBadge}>
+              <Text style={styles.spotlightBadgeText}>THIS WEEK</Text>
+            </View>
+            <Text style={styles.spotlightTitle}>Weekly Progress</Text>
+            <Text style={styles.spotlightSub}>
+              {weeklyStats!.sessionsLast7} practice session{weeklyStats!.sessionsLast7 === 1 ? '' : 's'} in the last 7
+              days.
+            </Text>
+            <View style={styles.spotlightStatsRow}>
+              {weeklyStats!.avgPrior7 !== null && (
+                <View style={styles.spotlightStatCell}>
+                  <Text style={styles.spotlightStatLabel}>Previous accuracy</Text>
+                  <Text style={styles.spotlightStatValue}>{Math.round(weeklyStats!.avgPrior7)}%</Text>
+                </View>
+              )}
+              <View style={styles.spotlightStatCell}>
+                <Text style={styles.spotlightStatLabel}>Current accuracy</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.spotlightStatValue}>{Math.round(weeklyStats!.avgLast7!)}%</Text>
+                  {delta !== null && (
+                    <Text style={[styles.spotlightDelta, { color: delta >= 0 ? HOME_SAGE : DANGER }]}>
+                      {delta >= 0 ? '+' : ''}
+                      {Math.round(delta)}%
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+            {!!onNavigate && (
+              <TouchableOpacity style={styles.spotlightButton} onPress={() => onNavigate('progress')}>
+                <Text style={styles.spotlightButtonText}>View Full Progress</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </ScrollView>
@@ -114,7 +335,7 @@ export default function ParentNotifications({ visible, userId, onClose }: { visi
         <View style={styles.modalHeader}>
           <Text style={styles.title}>Notifications</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#111827" />
+            <Ionicons name="close" size={24} color={HOME_INK} />
           </TouchableOpacity>
         </View>
         <NotificationsView userId={userId} />
@@ -124,23 +345,73 @@ export default function ParentNotifications({ visible, userId, onClose }: { visi
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16 },
+  container: { flex: 1 },
   modalWrapper: { flex: 1, backgroundColor: '#F8FAFC', padding: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 22, fontWeight: '800', color: '#111827' },
-  markAllButton: { backgroundColor: '#4f46e5', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12 },
-  markAllText: { color: '#fff', fontWeight: '700' },
-  error: { color: '#ef4444', marginBottom: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '900', color: HOME_INK },
+  subtitle: { fontSize: 13, color: HOME_INK_SOFT, marginTop: 4 },
+  markAllButton: {
+    borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20,
+  },
+  markAllText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  error: { color: DANGER, marginBottom: 12 },
+
+  summaryBanner: {
+    flexDirection: 'row', gap: 12, backgroundColor: SURFACE, borderRadius: 16, padding: 14,
+    marginBottom: 14, borderWidth: 1, borderColor: BORDER, alignItems: 'center',
+  },
+  summaryIconWrap: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: HOME_LAVENDER_DARK,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  summaryTitle: { fontWeight: '900', color: HOME_INK, fontSize: 14 },
+  summarySub: { color: HOME_INK_SOFT, fontSize: 12, marginTop: 2 },
+
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  filterChip: {
+    borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingVertical: 7, paddingHorizontal: 14,
+    backgroundColor: SURFACE,
+  },
+  filterChipActive: { backgroundColor: HOME_LAVENDER_DARK, borderColor: HOME_LAVENDER_DARK },
+  filterChipText: { color: HOME_INK, fontWeight: '700', fontSize: 12 },
+  filterChipTextActive: { color: '#fff' },
+
   list: { paddingBottom: 20 },
-  card: { backgroundColor: '#fff', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12 },
-  unread: { backgroundColor: '#eef2ff', borderColor: '#4f46e5' },
-  cardTitle: { fontWeight: '800', color: '#111827', marginBottom: 6 },
-  cardTitleUnread: { color: '#111827' },
-  body: { color: '#374151', lineHeight: 20 },
-  date: { color: '#6B7280', fontSize: 12, marginTop: 10 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 40 },
-  emptyEmoji: { fontSize: 40, marginBottom: 14 },
-  emptyText: { color: '#6B7280', fontSize: 15 },
+  groupLabel: { fontWeight: '900', color: HOME_INK, fontSize: 13, marginBottom: 8, marginTop: 4 },
+  card: {
+    flexDirection: 'row', gap: 12, backgroundColor: SURFACE, padding: 14, borderRadius: 16,
+    borderWidth: 1, borderColor: BORDER, marginBottom: 10,
+  },
+  cardIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitle: { fontWeight: '800', color: HOME_INK, flexShrink: 1 },
+  unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: HOME_LAVENDER_DARK },
+  cardBody: { color: HOME_INK_SOFT, marginTop: 3, lineHeight: 19, fontSize: 13 },
+  cardFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  cardDate: { color: HOME_INK_SOFT, fontSize: 11 },
+  actionButton: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  actionButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+
+  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 40, gap: 10 },
+  emptyText: { color: HOME_INK_SOFT, fontSize: 14 },
   closeButton: { padding: 6 },
+
+  spotlightCard: {
+    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 20, padding: 18, marginTop: 8,
+  },
+  spotlightBadge: {
+    alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 12,
+    paddingVertical: 3, paddingHorizontal: 10, marginBottom: 8,
+  },
+  spotlightBadgeText: { color: '#fff', fontWeight: '900', fontSize: 10, letterSpacing: 0.5 },
+  spotlightTitle: { color: '#fff', fontWeight: '900', fontSize: 17 },
+  spotlightSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4, marginBottom: 14 },
+  spotlightStatsRow: { flexDirection: 'row', gap: 24, marginBottom: 16 },
+  spotlightStatCell: {},
+  spotlightStatLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginBottom: 4 },
+  spotlightStatValue: { color: '#fff', fontWeight: '900', fontSize: 22 },
+  spotlightDelta: { fontWeight: '900', fontSize: 13 },
+  spotlightButton: { backgroundColor: '#fff', borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
+  spotlightButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 14 },
 });
