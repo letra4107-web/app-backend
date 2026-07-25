@@ -822,6 +822,7 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       await markLessonCompleted(child.id, lesson.id);
       void loadLessonProgress(child.id);
+      await notifyParent('Lesson Completed', `${child?.name || 'Student'} completed "${lesson.title}".`, 'lesson');
     } catch {
       Alert.alert('Error', 'Hindi na-save ang progress. Subukan muli.');
     }

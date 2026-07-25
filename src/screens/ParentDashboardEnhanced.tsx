@@ -9,6 +9,7 @@ import { fetchParentProfile } from '../services/profileService';
 import { ACHIEVEMENTS } from '../services/achievementService';
 import { fetchNotifications, subscribeToParentNotifications } from '../services/notificationService';
 import { fetchPublishedLessons } from '../services/lessonService';
+import { fetchLessonProgress } from '../services/lessonProgressService';
 import { NotificationsView } from './ParentNotifications';
 import EnrollChildModal from './EnrollChildModal';
 import AddScheduledActivityModal from './AddScheduledActivityModal';
@@ -218,6 +219,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [progressPeriod, setProgressPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [childLessonsTotal, setChildLessonsTotal] = useState<number | null>(null);
+  const [childCompletedLessons, setChildCompletedLessons] = useState<number | null>(null);
   const [childCurrentLesson, setChildCurrentLesson] = useState<{ title: string; status: string } | null>(null);
   const [childInsightsLoading, setChildInsightsLoading] = useState(false);
   const [parentPhone, setParentPhone] = useState('');
@@ -343,7 +345,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       // an equal-length "previous period" for the improvement delta).
       // Row-count capped instead, which is generous for a single child's
       // practice history.
-      const [sessionsResult, lessonsResult, currentLessonResult] = await Promise.allSettled([
+      const [sessionsResult, lessonsResult, currentLessonResult, lessonProgressResult] = await Promise.allSettled([
         supabase
           .from('pronunciation_practice_sessions')
           .select('word, accuracy_percentage, is_correct, duration_seconds, created_at')
@@ -358,6 +360,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           .order('opened_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
+        fetchLessonProgress(child.id),
       ]);
 
       setChildSessions(
@@ -366,6 +369,16 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           : [],
       );
       setChildLessonsTotal(lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : null);
+
+      // Real completed-lesson count (lesson_progress rows with status
+      // 'completed') - previously the Home tab mistakenly used
+      // progress.activities_completed here, which actually counts turned-in
+      // assignments, not lesson completions.
+      setChildCompletedLessons(
+        lessonProgressResult.status === 'fulfilled'
+          ? lessonProgressResult.value.filter((row) => row.status === 'completed').length
+          : null,
+      );
 
       if (
         currentLessonResult.status === 'fulfilled' &&
@@ -399,6 +412,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (!child) {
       setChildSessions([]);
       setChildLessonsTotal(null);
+      setChildCompletedLessons(null);
       setChildCurrentLesson(null);
       return;
     }
@@ -544,6 +558,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     return () => data.subscription.unsubscribe();
   }, [navigation]);
 
+  const selectedChildIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedChildIdRef.current = selectedChildId;
+  }, [selectedChildId]);
+
   useEffect(() => {
     if (!parentId) return undefined;
     return subscribeToParentNotifications(parentId, () => {
@@ -552,6 +571,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         void loadActivitiesForChildren(rows);
         void loadScheduledActivitiesForChildren(rows);
         void loadPracticeSessionsForChildren(rows);
+        // child_progress-derived numbers refresh via the loadChildren() join
+        // above, but the Progress tab's own session history/lesson totals/
+        // current-lesson card only otherwise reload when selectedChildId
+        // changes - re-run it here too so a lesson/practice event updates
+        // that view promptly while the parent has it open, not just on next
+        // child switch.
+        const currentChild = rows.find((row) => row.id === selectedChildIdRef.current);
+        if (currentChild) void loadChildInsights(currentChild);
       });
     });
   }, [parentId]);
@@ -761,7 +788,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       : null;
     const isActivelyLearning = !!progress?.last_practice_date && progress.last_practice_date.slice(0, 10) === new Date().toISOString().slice(0, 10);
     const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
-    const lessonsCompleted = progress?.activities_completed || 0;
+    const lessonsCompleted = childCompletedLessons ?? 0;
     const practiceSessions = progress?.total_attempts || 0;
 
     const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
