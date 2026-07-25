@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { supabase } from '../config/supabase';
 import { getUserProfileById, onAuthStateChanged, signOutUser } from '../services/supabaseService';
@@ -11,11 +12,19 @@ import { fetchPublishedLessons } from '../services/lessonService';
 import { NotificationsView } from './ParentNotifications';
 import EnrollChildModal from './EnrollChildModal';
 import AddScheduledActivityModal from './AddScheduledActivityModal';
-import DashboardSettingsScreen from './DashboardSettingsScreen';
+import EditParentProfileModal from './EditParentProfileModal';
 import { StudentActivity } from '../services/activityService';
 import { fetchScheduledActivities, completeScheduledActivity, ScheduledActivity } from '../services/scheduledActivityService';
 import { buildApiUrl, getJson } from '../config/api';
 import ErrorBoundary from '../components/ErrorBoundary';
+import {
+  fetchDashboardSettings,
+  updateDashboardSettings,
+  changeEmail,
+  DashboardSettings,
+  SpeechRate,
+} from '../services/settingsService';
+import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 
 // Same palette as the Student Dashboard redesign, duplicated locally since
 // this file doesn't share module scope - keeps the Parent Dashboard visually
@@ -213,6 +222,16 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [childLessonsTotal, setChildLessonsTotal] = useState<number | null>(null);
   const [childCurrentLesson, setChildCurrentLesson] = useState<{ title: string; status: string } | null>(null);
   const [childInsightsLoading, setChildInsightsLoading] = useState(false);
+  const [parentPhone, setParentPhone] = useState('');
+  const [parentAvatarUrl, setParentAvatarUrl] = useState<string | null>(null);
+  const [parentSettings, setParentSettings] = useState<DashboardSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [savingSettingKey, setSavingSettingKey] = useState<string | null>(null);
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
+  const [newEmailInput, setNewEmailInput] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailModalError, setEmailModalError] = useState('');
 
   const sidebarAnim = useRef(new Animated.Value(-270)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
@@ -398,6 +417,65 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     }
   };
 
+  const loadParentSettings = async (id: string) => {
+    setSettingsLoading(true);
+    try {
+      const data = await fetchDashboardSettings(id, 'parent');
+      setParentSettings(data);
+      setTtsEnabled(data.tts_enabled);
+      setSpeechRateSetting(data.speech_rate || 'normal');
+    } catch (error: any) {
+      console.warn('[ParentDashboard] settings load failed:', error?.message || error);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (section === 'settings' && parentId && !parentSettings && !settingsLoading) {
+      void loadParentSettings(parentId);
+    }
+  }, [section, parentId]);
+
+  const updateParentSetting = async <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => {
+    if (!parentId || !parentSettings) return;
+    const previous = parentSettings;
+    setParentSettings({ ...parentSettings, [key]: value });
+    if (key === 'tts_enabled') setTtsEnabled(!!value);
+    if (key === 'speech_rate') setSpeechRateSetting(value as SpeechRate);
+    setSavingSettingKey(String(key));
+    try {
+      const saved = await updateDashboardSettings(parentId, 'parent', { [key]: value } as Partial<DashboardSettings>);
+      setParentSettings(saved);
+    } catch (error: any) {
+      console.warn('[ParentDashboard] setting update failed:', error?.message || error);
+      setParentSettings(previous);
+      if (key === 'tts_enabled') setTtsEnabled(!!previous.tts_enabled);
+      if (key === 'speech_rate') setSpeechRateSetting((previous.speech_rate || 'normal') as SpeechRate);
+    } finally {
+      setSavingSettingKey(null);
+    }
+  };
+
+  const submitEmailChange = async () => {
+    const trimmed = newEmailInput.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailModalError('Ilagay ang tamang email address.');
+      return;
+    }
+    setEmailModalError('');
+    setSavingEmail(true);
+    try {
+      await changeEmail(trimmed);
+      setEmailModalVisible(false);
+      setError('');
+    } catch (err: any) {
+      setEmailModalError(err?.message || 'Hindi ma-update ang email.');
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   const loadParent = async (id: string, email?: string) => {
     if (loadingParentRef.current === id) {
       console.log('[ParentDashboard] duplicate load skipped:', { auth_uid: id });
@@ -412,6 +490,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       if (parentData) {
         setParentName(parentData.full_name || parentData.name || 'Magulang');
         setParentEmail(parentData.email || email || '');
+        setParentPhone(parentData.phone_number || parentData.phone || '');
+        setParentAvatarUrl(parentData.avatar_url || null);
         const rows = await loadChildren(id);
         await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
         loadedParentRef.current = id;
@@ -506,6 +586,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const handleLogout = async () => {
     await signOutUser();
     navigation.replace('Login');
+  };
+
+  const contactSupport = async () => {
+    const subject = encodeURIComponent('LinawLetra support - Parent account');
+    const body = encodeURIComponent(`User ID: ${parentId}\n\nHow can we help?`);
+    const url = `mailto:support@linawletra.app?subject=${subject}&body=${body}`;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) await Linking.openURL(url);
   };
 
   const getLevelColor = (level: Level) => LEVEL_COLORS[level] || PRIMARY;
@@ -1607,8 +1695,195 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     );
   };
 
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+
+  const renderToggleRow = (
+    icon: keyof typeof Ionicons.glyphMap,
+    title: string,
+    subtitle: string,
+    key: keyof DashboardSettings,
+    value: boolean | undefined,
+    isLast = false,
+  ) => (
+    <View style={[styles.settingsToggleRow, isLast && { borderBottomWidth: 0 }]}>
+      <Ionicons name={icon} size={20} color={HOME_LAVENDER_DARK} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.settingsRowTitle}>{title}</Text>
+        <Text style={styles.settingsRowSub}>{subtitle}</Text>
+      </View>
+      <Switch
+        value={!!value}
+        onValueChange={(next) => updateParentSetting(key, next as any)}
+        disabled={savingSettingKey === String(key)}
+        trackColor={{ false: '#cbd5e1', true: 'rgba(95,82,176,0.4)' }}
+        thumbColor={value ? HOME_LAVENDER_DARK : '#f8fafc'}
+      />
+    </View>
+  );
+
   const renderSettings = () => (
-    <DashboardSettingsScreen role="parent" navigation={navigation} embedded />
+    <>
+      <View style={styles.sectionHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionHeaderTitle}>Settings</Text>
+          <Text style={styles.sectionHeaderSub}>Manage your account and preferences.</Text>
+        </View>
+      </View>
+
+      <View style={styles.accountCard}>
+        <View style={styles.accountCardTop}>
+          {parentAvatarUrl ? (
+            <Image source={{ uri: parentAvatarUrl }} style={styles.accountAvatar} />
+          ) : (
+            <View style={[styles.accountAvatar, styles.accountAvatarPlaceholder]}>
+              <Text style={styles.accountAvatarInitial}>{initials}</Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.accountName}>{parentName}</Text>
+            <Text style={styles.accountEmail}>{parentEmail}</Text>
+            <View style={styles.accountBadge}>
+              <Text style={styles.accountBadgeText}>Parent Account</Text>
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.editProfileButton} onPress={() => setEditProfileVisible(true)}>
+          <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.settingsGroupTitle}>My Children</Text>
+      {children.map((child) => {
+        const childInitials = child.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+        const level = child.child_progress?.[0]?.level;
+        return (
+          <View key={child.id} style={styles.childSettingsCard}>
+            <View style={[styles.accountAvatar, styles.accountAvatarPlaceholder, styles.childAvatarSize]}>
+              <Text style={styles.accountAvatarInitial}>{childInitials}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.accountName}>{child.name}</Text>
+              <Text style={styles.accountEmail}>
+                Grade {child.grade_level}
+                {level ? ` - ${level}` : ''}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.manageChildButton}
+              onPress={() => {
+                setSelectedChildId(child.id);
+                setSection('progress');
+              }}
+            >
+              <Text style={styles.manageChildButtonText}>Manage Child</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })}
+      <TouchableOpacity style={styles.enrollChildRow} onPress={() => setShowEnroll(true)}>
+        <Ionicons name="add" size={18} color={HOME_LAVENDER_DARK} />
+        <Text style={styles.enrollChildRowText}>Enroll New Child</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.settingsGroupTitle}>Account Settings</Text>
+      <View style={styles.settingsListCard}>
+        <TouchableOpacity style={styles.settingsRow} onPress={() => setEditProfileVisible(true)}>
+          <Ionicons name="person-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsRowTitle}>Personal Information</Text>
+            <Text style={styles.settingsRowSub}>Update your name and phone number</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.settingsRow}
+          onPress={() => {
+            setNewEmailInput(parentEmail);
+            setEmailModalError('');
+            setEmailModalVisible(true);
+          }}
+        >
+          <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsRowTitle}>Email Address</Text>
+            <Text style={styles.settingsRowSub}>{parentEmail}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+        </TouchableOpacity>
+
+        {!parentSettings ? (
+          <ActivityIndicator color={HOME_LAVENDER_DARK} style={{ marginVertical: 16 }} />
+        ) : (
+          <>
+            {renderToggleRow('book-outline', 'Lesson Updates', 'When your child opens a lesson', 'lesson_notifications', parentSettings.lesson_notifications)}
+            {renderToggleRow('stats-chart-outline', 'Progress Updates', "Get notified about your child's reading progress", 'progress_notifications', parentSettings.progress_notifications)}
+            {renderToggleRow('ribbon-outline', 'Achievement Updates', 'Celebrate milestones and achievements', 'milestone_alerts', parentSettings.milestone_alerts)}
+            {renderToggleRow('calendar-outline', 'Weekly Progress Reports', "Weekly summary of your child's reading", 'weekly_progress_reports', parentSettings.weekly_progress_reports, true)}
+          </>
+        )}
+      </View>
+
+      <Text style={styles.settingsGroupTitle}>Reading Support Preferences</Text>
+      <View style={styles.settingsListCard}>
+        {!parentSettings ? (
+          <ActivityIndicator color={HOME_LAVENDER_DARK} style={{ marginVertical: 16 }} />
+        ) : (
+          <>
+            {renderToggleRow('text-outline', 'Dyslexia-Friendly Font', 'Use a font designed to improve readability', 'dyslexia_font', parentSettings.dyslexia_font)}
+            {renderToggleRow('volume-high-outline', 'Text-to-Speech', 'Listen to text read aloud in the app', 'tts_enabled', parentSettings.tts_enabled)}
+            <View style={[styles.settingsToggleRow, { borderBottomWidth: 0 }]}>
+              <Ionicons name="speedometer-outline" size={20} color={HOME_LAVENDER_DARK} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingsRowTitle}>Speech Speed</Text>
+                <Text style={styles.settingsRowSub}>{parentSettings.speech_rate || 'normal'}</Text>
+              </View>
+              <View style={styles.speedSegment}>
+                {(['slow', 'normal', 'fast'] as SpeechRate[]).map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.speedSegmentButton, parentSettings.speech_rate === opt && styles.speedSegmentButtonActive]}
+                    onPress={() => updateParentSetting('speech_rate', opt)}
+                  >
+                    <Text style={[styles.speedSegmentText, parentSettings.speech_rate === opt && styles.speedSegmentTextActive]}>
+                      {opt}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
+      </View>
+
+      <Text style={styles.settingsGroupTitle}>Help & Support</Text>
+      <View style={styles.settingsListCard}>
+        <TouchableOpacity style={styles.settingsRow} onPress={contactSupport}>
+          <Ionicons name="headset-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsRowTitle}>Contact Support</Text>
+            <Text style={styles.settingsRowSub}>Get help from our team</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.settingsRow}
+          onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => {})}
+        >
+          <Ionicons name="shield-checkmark-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsRowTitle}>Privacy Policy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+        </TouchableOpacity>
+        <View style={[styles.settingsRow, { borderBottomWidth: 0 }]}>
+          <Ionicons name="information-circle-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsRowTitle}>App Version</Text>
+            <Text style={styles.settingsRowSub}>{appVersion} - Up to date</Text>
+          </View>
+        </View>
+      </View>
+    </>
   );
 
   const renderSection = () => {
@@ -1728,6 +2003,47 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           await loadScheduledActivitiesForChildren(children);
         }}
       />
+
+      <EditParentProfileModal
+        visible={editProfileVisible}
+        parentId={parentId}
+        initialName={parentName}
+        initialPhone={parentPhone}
+        initialAvatarUrl={parentAvatarUrl}
+        onClose={() => setEditProfileVisible(false)}
+        onSaved={(profile) => {
+          setParentName(profile.full_name);
+          setParentPhone(profile.phone_number);
+          setParentAvatarUrl(profile.avatar_url);
+          setEditProfileVisible(false);
+        }}
+      />
+
+      <Modal visible={emailModalVisible} animationType="slide" transparent onRequestClose={() => setEmailModalVisible(false)}>
+        <View style={styles.emailModalBackdrop}>
+          <View style={styles.emailModalSheet}>
+            <View style={styles.emailModalHeader}>
+              <Text style={styles.emailModalTitle}>Baguhin ang Email</Text>
+              <TouchableOpacity onPress={() => setEmailModalVisible(false)} disabled={savingEmail}>
+                <Ionicons name="close" size={24} color={HOME_INK} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.emailModalInput}
+              value={newEmailInput}
+              onChangeText={setNewEmailInput}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder="Bagong email"
+              placeholderTextColor={HOME_INK_SOFT}
+            />
+            {!!emailModalError && <Text style={styles.emailModalError}>{emailModalError}</Text>}
+            <TouchableOpacity style={[styles.emailModalSubmit, savingEmail && { opacity: 0.6 }]} onPress={submitEmailChange} disabled={savingEmail}>
+              {savingEmail ? <ActivityIndicator color="#fff" /> : <Text style={styles.emailModalSubmitText}>I-save</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2088,4 +2404,67 @@ const styles = StyleSheet.create({
   emptyButtonText: { color: '#fff', fontWeight: '800' },
   rewardsChip: { backgroundColor: PRIMARY_LIGHT, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
   rewardsChipText: { color: PRIMARY_TEXT, fontWeight: '800', fontSize: 11 },
+
+  accountCard: {
+    backgroundColor: SURFACE, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: BORDER, marginBottom: 20,
+  },
+  accountCardTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  accountAvatar: { width: 60, height: 60, borderRadius: 30 },
+  accountAvatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
+  accountAvatarInitial: { color: HOME_LAVENDER_DARK, fontSize: 20, fontWeight: '900' },
+  accountName: { fontSize: 16, fontWeight: '900', color: HOME_INK },
+  accountEmail: { fontSize: 12, color: HOME_INK_SOFT, marginTop: 2 },
+  accountBadge: {
+    alignSelf: 'flex-start', backgroundColor: '#EFECFB', borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 3, marginTop: 6,
+  },
+  accountBadgeText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 11 },
+  editProfileButton: {
+    borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderRadius: 999,
+    paddingVertical: 11, alignItems: 'center', marginTop: 14,
+  },
+  editProfileButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 13 },
+
+  settingsGroupTitle: { fontSize: 15, fontWeight: '900', color: HOME_INK, marginBottom: 10, marginTop: 4 },
+  childSettingsCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: SURFACE, borderRadius: 18,
+    padding: 14, borderWidth: 1, borderColor: BORDER, marginBottom: 10,
+  },
+  childAvatarSize: { width: 52, height: 52, borderRadius: 26 },
+  manageChildButton: { borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 },
+  manageChildButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  enrollChildRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderStyle: 'dashed', borderRadius: 16,
+    paddingVertical: 14, marginBottom: 20,
+  },
+  enrollChildRowText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 14 },
+
+  settingsListCard: {
+    backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1, borderColor: BORDER, marginBottom: 20, overflow: 'hidden',
+  },
+  settingsRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14,
+    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+  },
+  settingsToggleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14,
+    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+  },
+  settingsRowTitle: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
+  settingsRowSub: { color: HOME_INK_SOFT, fontSize: 11, marginTop: 2 },
+  speedSegment: { flexDirection: 'row', backgroundColor: '#EFECFB', borderRadius: 999, padding: 3 },
+  speedSegmentButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
+  speedSegmentButtonActive: { backgroundColor: HOME_LAVENDER_DARK },
+  speedSegmentText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 11, textTransform: 'capitalize' },
+  speedSegmentTextActive: { color: '#fff' },
+
+  emailModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  emailModalSheet: { backgroundColor: '#fff', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  emailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  emailModalTitle: { fontSize: 20, fontWeight: '800', color: HOME_INK },
+  emailModalInput: { borderWidth: 1, borderColor: BORDER, borderRadius: 10, padding: 12, fontSize: 15, color: HOME_INK },
+  emailModalError: { color: '#E0574C', marginTop: 10, fontWeight: '600' },
+  emailModalSubmit: { backgroundColor: HOME_LAVENDER_DARK, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  emailModalSubmitText: { color: '#fff', fontWeight: '800' },
 });
