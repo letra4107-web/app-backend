@@ -1,9 +1,16 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, ImageBackground, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, ImageBackground, Image, Dimensions, Platform } from 'react-native';
 
 interface SplashScreenProps {
   navigation: any;
 }
+
+// react-native-web has no native animated module at all (there's nothing to
+// autolink - the browser has no native driver concept), so useNativeDriver:
+// true always logs this warning there while silently falling back to a JS
+// driven animation. It's real native-module autolinking on iOS/Android, so
+// native builds keep the native driver; only web is downgraded.
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -11,8 +18,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 900, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 6, tension: 80, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 900, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.spring(scale, { toValue: 1, friction: 6, tension: 80, useNativeDriver: USE_NATIVE_DRIVER }),
     ]).start();
 
     const timer = setTimeout(() => navigation.replace('Login'), 2200);

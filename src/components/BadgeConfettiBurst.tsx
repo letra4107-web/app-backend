@@ -68,7 +68,7 @@ export default function BadgeConfettiBurst({
   if (!active) return null;
 
   return (
-    <View style={styles.anchor} pointerEvents="none">
+    <View style={[styles.anchor, { pointerEvents: 'none' }]}>
       {Array.from({ length: particleCount }, (_, i) => (
         <Particle key={i} index={i} particleCount={particleCount} colors={colors} />
       ))}

@@ -2704,7 +2704,7 @@ export default function StudentDashboard({ navigation }: any) {
 
       {/* Sidebar overlay + animated sidebar */}
       {sidebarOpen && (
-        <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} pointerEvents={sidebarOpen ? 'auto' : 'none'}>
+        <Animated.View style={[styles.overlay, { opacity: overlayAnim, pointerEvents: sidebarOpen ? 'auto' : 'none' }]}>
           <TouchableOpacity style={{ flex: 1 }} onPress={closeSidebar} />
         </Animated.View>
       )}

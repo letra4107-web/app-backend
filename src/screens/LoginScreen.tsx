@@ -371,7 +371,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <View style={styles.circleRight} />
           </View>
           <View style={styles.topHeader}>
-            <Image source={require('../../assets/Logo.jpg')} style={styles.logo} />
+            <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Login to continue your learning journey.</Text>
           </View>
@@ -515,12 +515,15 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: '#112b17',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.12,
-    shadowRadius: 34,
     elevation: 10,
     marginTop: 14,
+    // "shadow*" props are deprecated on web in favor of a real CSS boxShadow
+    // string, but remain the correct (and only) cross-platform way to draw a
+    // shadow on native iOS/Android, so the two are split per-platform here.
+    ...Platform.select({
+      web: { boxShadow: '0px 16px 34px rgba(17,43,23,0.12)' },
+      default: { shadowColor: '#112b17', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.12, shadowRadius: 34 },
+    }),
   },
   title: {
     fontSize: 30,
@@ -534,7 +537,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 165,
     height: 80,
-    resizeMode: 'contain',
     alignSelf: 'center',
     marginBottom: 10,
   },
@@ -644,10 +646,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     elevation: 3,
-    shadowColor: '#163E1A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(22,62,26,0.18)' },
+      default: { shadowColor: '#163E1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12 },
+    }),
   },
   backgroundImage: {
     flex: 1,
@@ -657,7 +659,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#BEC2C4',
     opacity: 0.7,
     elevation: 0,
-    shadowOpacity: 0,
+    ...Platform.select({
+      web: { boxShadow: 'none' },
+      default: { shadowOpacity: 0 },
+    }),
   },
   buttonText: {
     color: '#FFFFFF',

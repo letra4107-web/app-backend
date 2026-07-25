@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Audio } from 'expo-av';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,7 +55,13 @@ export default function StudentWordOfDay({
   onResult: (correct: boolean, attempts: number, score?: number, transcript?: string) => Promise<void>;
   updateDailyLog?: boolean;
 }) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  // useAudioRecorder gives one persistent AudioRecorder instance for this
+  // component's whole lifetime (auto-disposed on unmount) instead of the old
+  // expo-av pattern of constructing a fresh `Audio.Recording()` per attempt -
+  // that's what made the old "stale Recording object" retry logic necessary
+  // in the first place, so it's no longer needed here.
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [isRecording, setIsRecording] = useState(false);
   const [starting, setStarting] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState('');
@@ -64,10 +70,6 @@ export default function StudentWordOfDay({
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const pulse = useSharedValue(1);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Mirrors `recording` state but updates synchronously, so async code (and the
-  // unmount cleanup below) always sees the latest Recording object instead of a
-  // value captured by a stale closure.
-  const recordingRef = useRef<Audio.Recording | null>(null);
   // Closes the gap between a tap and `starting` state actually re-rendering the
   // disabled button — state updates aren't synchronous, so a fast double-tap can
   // fire startRecording() twice before the button visually disables.
@@ -76,7 +78,7 @@ export default function StudentWordOfDay({
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
   useEffect(() => {
-    if (recording) {
+    if (isRecording) {
       pulse.value = withRepeat(withSequence(withTiming(1.08, { duration: 450 }), withTiming(1, { duration: 450 })), -1);
     } else {
       pulse.value = withTiming(1);
@@ -84,63 +86,37 @@ export default function StudentWordOfDay({
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [recording]);
+  }, [isRecording]);
 
-  // Unmount-only cleanup: if the screen is left while a recording is prepared or
-  // active (e.g. the student navigates away mid-recording), unload it so it
-  // doesn't hold the audio session and block the next attempt.
+  // Unmount-only cleanup: if the screen is left while a recording is active
+  // (e.g. the student navigates away mid-recording), stop it so it doesn't
+  // hold the audio session and block the next attempt.
   useEffect(() => {
     return () => {
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-        recordingRef.current = null;
+      if (recorder.isRecording) {
+        recorder.stop().catch(() => {});
       }
     };
   }, []);
 
   const startRecording = async () => {
-    const alreadyBusy = isStartingRef.current || !!recordingRef.current || processing;
+    const alreadyBusy = isStartingRef.current || recorder.isRecording || processing;
     if (alreadyBusy) return;
     isStartingRef.current = true;
     setStarting(true);
     setMessage('');
     try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (permission.status !== 'granted') {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
         setMessage('Kailangan ng mikropono. I-enable ito sa device settings.');
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
 
-      const prepareRecording = async () => {
-        const candidate = new Audio.Recording();
-        await candidate.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-        return candidate;
-      };
-
-      let nextRecording: Audio.Recording;
-      try {
-        nextRecording = await prepareRecording();
-      } catch {
-        // A stale Recording object still holding the audio session (e.g. from a
-        // previous attempt that didn't fully unload) makes prepareToRecordAsync
-        // throw "Only one Recording object can be prepared at a given time."
-        // Force-unload any leftover reference and retry once.
-        if (recordingRef.current) {
-          try {
-            await recordingRef.current.stopAndUnloadAsync();
-          } catch {
-            // already unloaded/invalid — nothing to clean up
-          }
-          recordingRef.current = null;
-        }
-        nextRecording = await prepareRecording();
-      }
-
-      await nextRecording.startAsync();
-      recordingRef.current = nextRecording;
-      setRecording(nextRecording);
-      timeoutRef.current = setTimeout(() => void stopRecording(nextRecording), 5000);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setIsRecording(true);
+      timeoutRef.current = setTimeout(() => void stopRecording(), 5000);
     } catch {
       setMessage('Hindi ma-simulan ang pag-record. Subukan muli.');
     } finally {
@@ -149,15 +125,14 @@ export default function StudentWordOfDay({
     }
   };
 
-  const stopRecording = async (active = recordingRef.current) => {
-    if (!active) return;
+  const stopRecording = async () => {
+    if (!recorder.isRecording) return;
     setProcessing(true);
-    setRecording(null);
-    recordingRef.current = null;
+    setIsRecording(false);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     try {
-      await active.stopAndUnloadAsync();
-      const uri = active.getURI();
+      await recorder.stop();
+      const uri = recorder.uri;
       if (!uri) throw new Error('No audio URI');
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       const response = await postJson<{ transcript: string }>(buildApiUrl('/speech/transcribe'), {
@@ -218,21 +193,21 @@ export default function StudentWordOfDay({
       </View>
 
       <Animated.View style={animatedStyle}>
-        <View style={[styles.micGlowOuter, recording && styles.micGlowOuterRecording]}>
-          <View style={[styles.micGlowInner, recording && styles.micGlowInnerRecording]}>
+        <View style={[styles.micGlowOuter, isRecording && styles.micGlowOuterRecording]}>
+          <View style={[styles.micGlowInner, isRecording && styles.micGlowInnerRecording]}>
             <TouchableOpacity
-              style={[styles.mic, recording && styles.micRecording, isDone && styles.disabled]}
+              style={[styles.mic, isRecording && styles.micRecording, isDone && styles.disabled]}
               disabled={starting || processing || isDone}
-              onPress={() => recording ? stopRecording() : startRecording()}
+              onPress={() => isRecording ? stopRecording() : startRecording()}
             >
-              {(starting || processing) ? <ActivityIndicator color="#fff" /> : <Ionicons name={recording ? 'stop' : 'mic'} size={36} color="#fff" />}
+              {(starting || processing) ? <ActivityIndicator color="#fff" /> : <Ionicons name={isRecording ? 'stop' : 'mic'} size={36} color="#fff" />}
             </TouchableOpacity>
           </View>
         </View>
       </Animated.View>
 
       <Text style={styles.micHint}>
-        {starting ? 'Naghahanda...' : recording ? 'Pindutin muli para ihinto...' : 'Pindutin ang mikropono at bigkasin'}
+        {starting ? 'Naghahanda...' : isRecording ? 'Pindutin muli para ihinto...' : 'Pindutin ang mikropono at bigkasin'}
       </Text>
 
       {!!message && !isDone && (
@@ -278,9 +253,23 @@ const styles = StyleSheet.create({
   mic: {
     width: 84, height: 84, borderRadius: 42,
     backgroundColor: HOME_LAVENDER, alignItems: 'center', justifyContent: 'center',
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
+    elevation: 8,
+    // "shadow*" props are deprecated on web (react-native-web wants a real
+    // CSS boxShadow string) but are still the correct/only cross-platform
+    // way to draw a shadow on native iOS/Android, so the two are split here
+    // rather than picking one at the cost of the other platform.
+    ...Platform.select({
+      web: { boxShadow: `0px 0px 14px rgba(95,82,176,0.35)` },
+      default: { shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.35, shadowRadius: 14 },
+    }),
   },
-  micRecording: { backgroundColor: DANGER, shadowColor: DANGER },
+  micRecording: {
+    backgroundColor: DANGER,
+    ...Platform.select({
+      web: { boxShadow: `0px 0px 14px rgba(239,68,68,0.35)` },
+      default: { shadowColor: DANGER },
+    }),
+  },
   disabled: { backgroundColor: '#D1D5DB' },
   micHint: { color: HOME_INK_SOFT, fontSize: 12, marginTop: 12, marginBottom: 8, fontWeight: '600' },
   resultBubble: { marginTop: 16, borderRadius: 14, padding: 14, width: '100%' },

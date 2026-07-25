@@ -38,6 +38,12 @@ module.exports = ({ config }) => {
       ...(config.plugins ?? []),
       expoBuildPropertiesPlugin,
       'expo-font',
+      [
+        'expo-audio',
+        {
+          microphonePermission: 'Kinakailangan ang mikropono para sa voice practice at pagkilala ng boses.',
+        },
+      ],
     ],
     assetBundlePatterns: config.assetBundlePatterns ?? ['**/*'],
     android: {

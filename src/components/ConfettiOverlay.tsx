@@ -59,7 +59,7 @@ export default function ConfettiOverlay({ visible }: { visible: boolean }) {
   if (!visible) return null;
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'none' }]}>
       {pieces.map((p, i) => (
         <Animated.Text
           key={i}
