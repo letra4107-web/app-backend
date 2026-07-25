@@ -209,7 +209,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [achievement, setAchievement] = useState<{ image: any; title: string } | null>(null);
+  const [achievement, setAchievement] = useState<{ image: any; title: string; category?: AchievementCategory; xp?: number } | null>(null);
   const [expandedBadgeId, setExpandedBadgeId] = useState<string | null>(null);
   const [pronunciationStats, setPronunciationStats] = useState<PronunciationStats | null>(null);
   const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings | null>(null);
@@ -883,7 +883,12 @@ export default function StudentDashboard({ navigation }: any) {
       if (newlyUnlocked?.length) {
         await saveProgress(updatedProgress);
         setProgress(updatedProgress);
-        setAchievement({ image: newlyUnlocked[0].image, title: newlyUnlocked[0].title });
+        setAchievement({
+          image: newlyUnlocked[0].image,
+          title: newlyUnlocked[0].title,
+          category: newlyUnlocked[0].category,
+          xp: newlyUnlocked[0].xpReward,
+        });
       }
     } catch (e) {
       console.warn('wordOfDay result handling failed', e);
@@ -1074,7 +1079,12 @@ export default function StudentDashboard({ navigation }: any) {
       if (newlyUnlocked?.length) {
         await saveProgress(updatedProgress);
         setProgress(updatedProgress);
-        setAchievement({ image: newlyUnlocked[0].image, title: newlyUnlocked[0].title });
+        setAchievement({
+          image: newlyUnlocked[0].image,
+          title: newlyUnlocked[0].title,
+          category: newlyUnlocked[0].category,
+          xp: newlyUnlocked[0].xpReward,
+        });
       }
     } catch (e) {
       console.warn('practice result handler failed', e);
@@ -2753,6 +2763,8 @@ export default function StudentDashboard({ navigation }: any) {
         visible={!!achievement}
         image={achievement?.image}
         title={achievement?.title || ''}
+        category={achievement?.category}
+        xp={achievement?.xp || 0}
         onClose={() => setAchievement(null)}
       />
     </View>

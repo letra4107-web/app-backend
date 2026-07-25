@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase';
 import { createParentNotification } from './notificationService';
 import { speakPhrase } from './ttsService';
-import { ChildProgress } from './progressService';
+import { ChildProgress, levelForXp } from './progressService';
 
 export type PronunciationStats = {
   maxSingleAccuracy: number;
@@ -25,6 +25,10 @@ export type AchievementDefinition = {
   description: string;
   image: any;
   category: AchievementCategory;
+  // XP actually granted (added to the student's real xp/level) the moment
+  // this badge unlocks - shown in the celebration modal, so it must stay a
+  // real, applied value rather than a display-only number.
+  xpReward: number;
   isUnlocked: (progress: ChildProgress, stats: PronunciationStats) => boolean;
 };
 
@@ -97,6 +101,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Tapusin ang unang lesson',
     image: require('../../assets/badges/unang_hakbang.png'),
     category: 'reading',
+    xpReward: 20,
     isUnlocked: (p) => (p.activities_completed || 0) >= 1,
   },
   {
@@ -105,6 +110,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Tapusin ang 5 lessons',
     image: require('../../assets/badges/batang_mambabasa.png'),
     category: 'reading',
+    xpReward: 30,
     isUnlocked: (p) => (p.activities_completed || 0) >= 5,
   },
   {
@@ -113,6 +119,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Tapusin ang 10 lessons',
     image: require('../../assets/badges/masigasig_na_mambabasa.png'),
     category: 'reading',
+    xpReward: 40,
     isUnlocked: (p) => (p.activities_completed || 0) >= 10,
   },
   {
@@ -121,6 +128,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Tapusin ang 25 lessons',
     image: require('../../assets/badges/kampeon_sa_pagbasa.png'),
     category: 'reading',
+    xpReward: 60,
     isUnlocked: (p) => (p.activities_completed || 0) >= 25,
   },
   {
@@ -129,6 +137,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Tapusin ang 50 lessons',
     image: require('../../assets/badges/dalubhasa_sa_pagbasa.png'),
     category: 'reading',
+    xpReward: 80,
     isUnlocked: (p) => (p.activities_completed || 0) >= 50,
   },
   {
@@ -137,6 +146,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Subukan ang unang pagsasanay sa pagbigkas',
     image: require('../../assets/badges/unang_bigkas.png'),
     category: 'practice',
+    xpReward: 20,
     isUnlocked: (p) => (p.total_attempts || 0) >= 1,
   },
   {
@@ -145,6 +155,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Makakuha ng 90%+ accuracy sa isang pagsasanay',
     image: require('../../assets/badges/malinaw_magsalita.png'),
     category: 'practice',
+    xpReward: 30,
     isUnlocked: (_p, stats) => stats.maxSingleAccuracy >= 90,
   },
   {
@@ -153,6 +164,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Makakuha ng 100% accuracy sa 5 salita',
     image: require('../../assets/badges/tamang_bigkas.png'),
     category: 'practice',
+    xpReward: 40,
     isUnlocked: (_p, stats) => stats.perfectWordCount >= 5,
   },
   {
@@ -161,6 +173,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Tapusin ang 25 pagsasanay sa pagbigkas',
     image: require('../../assets/badges/boses_ng_tagumpay.png'),
     category: 'practice',
+    xpReward: 60,
     isUnlocked: (p) => (p.total_attempts || 0) >= 25,
   },
   {
@@ -169,6 +182,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Makamit ang 90%+ average accuracy',
     image: require('../../assets/badges/bigkas_champion.png'),
     category: 'practice',
+    xpReward: 60,
     isUnlocked: (p) => (p.total_attempts || 0) >= MIN_ATTEMPTS_FOR_AVERAGE_BADGE && averageAccuracy(p) >= 90,
   },
   {
@@ -177,6 +191,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Tapusin ang unang araw ng pag-aaral',
     image: require('../../assets/badges/unang_araw.png'),
     category: 'consistency',
+    xpReward: 20,
     isUnlocked: (p) => !!p.last_practice_date,
   },
   {
@@ -185,6 +200,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Mag-practice ng 3 araw nang sunud-sunod',
     image: require('../../assets/badges/tuloy_tuloy.png'),
     category: 'consistency',
+    xpReward: 30,
     isUnlocked: (p) => (p.streak || 0) >= 3,
   },
   {
@@ -193,6 +209,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Mag-practice ng 7 araw nang sunud-sunod',
     image: require('../../assets/badges/lingguhang_bayani.png'),
     category: 'consistency',
+    xpReward: 40,
     isUnlocked: (p) => (p.streak || 0) >= 7,
   },
   {
@@ -201,6 +218,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Mag-practice ng 30 araw nang sunud-sunod',
     image: require('../../assets/badges/buwan_ng_pagsisikap.png'),
     category: 'consistency',
+    xpReward: 60,
     isUnlocked: (p) => (p.streak || 0) >= 30,
   },
   {
@@ -209,6 +227,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Ulitin ang isang mahirap na salita ng 5 beses',
     image: require('../../assets/badges/hindi_ako_susuko.png'),
     category: 'practice',
+    xpReward: 30,
     isUnlocked: (_p, stats) => stats.hasDifficultWordRetried,
   },
   {
@@ -217,6 +236,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Matutunan ang 5 mahihirap na salita',
     image: require('../../assets/badges/lakas_ng_loob.png'),
     category: 'practice',
+    xpReward: 40,
     isUnlocked: (_p, stats) => stats.challengingWordsMastered >= CHALLENGING_WORDS_REQUIRED,
   },
   {
@@ -225,6 +245,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Pagbutihin ang accuracy nang 20 points',
     image: require('../../assets/badges/matalinong_mag_aaral.png'),
     category: 'progress',
+    xpReward: 40,
     isUnlocked: (p) => {
       if ((p.total_attempts || 0) < MIN_ATTEMPTS_FOR_IMPROVEMENT_BADGE) return false;
       if (p.baseline_accuracy == null) return false;
@@ -237,6 +258,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Umakyat sa susunod na reading level',
     image: require('../../assets/badges/patuloy_na_umuunlad.png'),
     category: 'progress',
+    xpReward: 60,
     isUnlocked: (p) => p.level !== 'Beginner',
   },
   {
@@ -245,6 +267,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'Awtomatikong makukuha kapag nakuha mo ang una mong badge',
     image: require('../../assets/badges/aking_unang_tagumpay.png'),
     category: 'meta',
+    xpReward: 25,
     isUnlocked: () => false,
   },
   {
@@ -253,6 +276,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     description: 'I-unlock ang lahat ng 19 na badge',
     image: require('../../assets/badges/alamat_ng_pagbasa.png'),
     category: 'meta',
+    xpReward: 200,
     isUnlocked: () => false,
   },
 ];
@@ -301,8 +325,13 @@ export const unlockAchievements = async (
   }
 
   const unlockedAt = new Date().toISOString();
+  const xpFromBadges = newlyUnlocked.reduce((sum, achievement) => sum + (achievement.xpReward || 0), 0);
+  const nextXp = (progress.xp || 0) + xpFromBadges;
+
   const updatedProgress: ChildProgress = {
     ...progress,
+    xp: nextXp,
+    level: levelForXp(nextXp),
     achievements: [
       ...(progress.achievements || []),
       ...newlyUnlocked.map((achievement) => ({ id: achievement.id, unlockedAt })),
