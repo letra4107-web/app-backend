@@ -45,14 +45,25 @@ export const markNotificationRead = async (id: string) => {
   }, 15000);
 };
 
+let notificationSubscriptionSeq = 0;
+
 export const subscribeToParentNotifications = (
   parentId: string,
   onChange: () => void,
 ) => {
   if (!parentId) return () => {};
 
+  // Unique per call, not per parentId: two independent subscribers (e.g. the
+  // dashboard's own listener and the Notifications view opened on top of it)
+  // can legitimately be alive at the same time. supabase.channel() returns
+  // the SAME instance for a topic that already exists in its registry, and
+  // calling .on() on an already-subscribed channel throws - so every call
+  // here must get its own channel, never a name any other caller could share.
+  notificationSubscriptionSeq += 1;
+  const topic = `parent-notifications-${parentId}-${notificationSubscriptionSeq}-${Date.now()}`;
+
   const channel = supabase
-    .channel(`parent-notifications-${parentId}`)
+    .channel(topic)
     .on(
       'postgres_changes',
       {

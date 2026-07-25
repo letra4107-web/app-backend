@@ -37,11 +37,19 @@ export const fetchPublishedLessons = async (gradeLevel?: number | string | null)
   }
 };
 
+let lessonSubscriptionSeq = 0;
+
 export const subscribeToPublishedLessons = (
   onChange: () => void,
 ) => {
+  // Unique per call so a fast remount (React Strict Mode double-invoke, or
+  // navigating away and back before cleanup finishes) can never collide with
+  // a channel of the same name that's still registered on the client.
+  lessonSubscriptionSeq += 1;
+  const topic = `student-lessons-feed-${lessonSubscriptionSeq}-${Date.now()}`;
+
   const channel = supabase
-    .channel('student-lessons-feed')
+    .channel(topic)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'lessons' },
