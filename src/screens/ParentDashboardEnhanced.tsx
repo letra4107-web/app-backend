@@ -10,8 +10,10 @@ import { fetchNotifications, subscribeToParentNotifications } from '../services/
 import { fetchPublishedLessons } from '../services/lessonService';
 import { NotificationsView } from './ParentNotifications';
 import EnrollChildModal from './EnrollChildModal';
+import AddScheduledActivityModal from './AddScheduledActivityModal';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 import { StudentActivity } from '../services/activityService';
+import { fetchScheduledActivities, completeScheduledActivity, ScheduledActivity } from '../services/scheduledActivityService';
 import { buildApiUrl, getJson } from '../config/api';
 import ErrorBoundary from '../components/ErrorBoundary';
 
@@ -185,6 +187,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [parentEmail, setParentEmail] = useState('');
   const [children, setChildren] = useState<ChildRow[]>([]);
   const [activities, setActivities] = useState<StudentActivity[]>([]);
+  const [scheduledActivities, setScheduledActivities] = useState<ScheduledActivity[]>([]);
+  const [activityModalVisible, setActivityModalVisible] = useState(false);
+  const [editingScheduledActivity, setEditingScheduledActivity] = useState<ScheduledActivity | null>(null);
   const [practiceSessions, setPracticeSessions] = useState<PracticeSessionRow[]>([]);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date().toISOString().slice(0, 10));
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -261,6 +266,21 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         console.warn('[ParentDashboard] Supabase fallback for activities failed:', supabaseErr?.message);
         setActivities([]);
       }
+    }
+  };
+
+  const loadScheduledActivitiesForChildren = async (rows: ChildRow[]) => {
+    const childIds = rows.map((child) => child.id).filter(Boolean);
+    if (!childIds.length) {
+      setScheduledActivities([]);
+      return;
+    }
+    try {
+      const lists = await Promise.all(childIds.map((id) => fetchScheduledActivities(id).catch(() => [])));
+      setScheduledActivities(lists.flat());
+    } catch (error: any) {
+      console.warn('[ParentDashboard] scheduled activities load failed:', error?.message || error);
+      setScheduledActivities([]);
     }
   };
 
@@ -393,7 +413,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         setParentName(parentData.full_name || parentData.name || 'Magulang');
         setParentEmail(parentData.email || email || '');
         const rows = await loadChildren(id);
-        await Promise.all([loadActivitiesForChildren(rows, id), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+        await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
         loadedParentRef.current = id;
         return;
       }
@@ -410,14 +430,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         setParentEmail(email || '');
       }
       const rows = await loadChildren(id);
-      await Promise.all([loadActivitiesForChildren(rows, id), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+      await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
       loadedParentRef.current = id;
     } catch (err) {
       console.error('Failed to load parent dashboard:', err);
       setError('Hindi ma-load ang parent profile.');
       try {
         const rows = await loadChildren(id);
-        await Promise.all([loadActivitiesForChildren(rows, id), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+        await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
       } catch (_) {}
     } finally {
       loadingParentRef.current = null;
@@ -452,6 +472,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       void refreshNotifications(parentId);
       void loadChildren(parentId).then((rows) => {
         void loadActivitiesForChildren(rows);
+        void loadScheduledActivitiesForChildren(rows);
         void loadPracticeSessionsForChildren(rows);
       });
     });
@@ -571,6 +592,30 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   };
   const getChildNameForActivity = (activity: StudentActivity) =>
     children.find((child) => child.id === activity.student_id || child.auth_uid === activity.student_id)?.name || 'Student';
+  const getScheduledForDate = (dateKey: string) =>
+    scheduledActivities.filter((item) => item.scheduled_date === dateKey);
+  const getChildNameForScheduled = (item: ScheduledActivity) =>
+    children.find((child) => child.id === item.child_id)?.name || 'Student';
+  const SCHEDULED_TYPE_ICON: Record<ScheduledActivity['activity_type'], keyof typeof Ionicons.glyphMap> = {
+    reading_lesson: 'book-outline',
+    practice: 'mic-outline',
+    reminder: 'alarm-outline',
+    appointment: 'medical-outline',
+  };
+  const getScheduledStatusColor = (status: ScheduledActivity['status']) => {
+    if (status === 'completed') return SUCCESS;
+    if (status === 'missed') return DANGER;
+    if (status === 'in_progress') return WARNING;
+    return HOME_LAVENDER_DARK;
+  };
+  const toggleScheduledComplete = async (item: ScheduledActivity) => {
+    try {
+      await completeScheduledActivity(item.id);
+      await loadScheduledActivitiesForChildren(children);
+    } catch (error: any) {
+      console.warn('[ParentDashboard] complete scheduled activity failed:', error?.message || error);
+    }
+  };
   const getCalendarDays = () => {
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
@@ -1452,6 +1497,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               if (!cell.date) return <View key={cell.key} style={styles.dayCell} />;
               const key = cell.date.toISOString().slice(0, 10);
               const dayActivities = getActivitiesForDate(key);
+              const dayScheduled = getScheduledForDate(key);
               const selected = key === selectedCalendarDate;
               const hasOverdue = dayActivities.some((activity) => activity.status === 'overdue');
               const hasCompleted = dayActivities.some((activity) => activity.status === 'completed');
@@ -1462,10 +1508,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   onPress={() => setSelectedCalendarDate(key)}
                 >
                   <Text style={[styles.dayText, selected && styles.dayTextSelected]}>{cell.date.getDate()}</Text>
-                  {!!dayActivities.length && (
+                  {(!!dayActivities.length || !!dayScheduled.length) && (
                     <View style={styles.dayDots}>
-                      <View style={[styles.dayDot, { backgroundColor: hasOverdue ? DANGER : hasCompleted ? SUCCESS : WARNING }]} />
-                      {dayActivities.length > 1 && <Text style={styles.dayCount}>{dayActivities.length}</Text>}
+                      {!!dayActivities.length && (
+                        <View style={[styles.dayDot, { backgroundColor: hasOverdue ? DANGER : hasCompleted ? SUCCESS : WARNING }]} />
+                      )}
+                      {!!dayScheduled.length && <View style={[styles.dayDot, { backgroundColor: HOME_LAVENDER_DARK }]} />}
+                      {dayActivities.length + dayScheduled.length > 1 && (
+                        <Text style={styles.dayCount}>{dayActivities.length + dayScheduled.length}</Text>
+                      )}
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1475,9 +1526,21 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
 
         <View style={styles.selectedTasksCard}>
-          <Text style={styles.selectedTasksTitle}>
-            {new Date(selectedCalendarDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
-          </Text>
+          <View style={styles.selectedTasksHeaderRow}>
+            <Text style={styles.selectedTasksTitle}>
+              {new Date(`${selectedCalendarDate}T00:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
+            </Text>
+            <TouchableOpacity
+              style={styles.addPlanButton}
+              onPress={() => {
+                setEditingScheduledActivity(null);
+                setActivityModalVisible(true);
+              }}
+            >
+              <Ionicons name="add" size={16} color="#fff" />
+              <Text style={styles.addPlanButtonText}>Magdagdag</Text>
+            </TouchableOpacity>
+          </View>
           {selectedActivities.length ? (
             selectedActivities.map((activity) => (
               <View key={activity.id} style={styles.calendarTaskRow}>
@@ -1494,6 +1557,50 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             ))
           ) : (
             <Text style={styles.emptyDetail}>No activities on this date.</Text>
+          )}
+        </View>
+
+        <View style={styles.selectedTasksCard}>
+          <Text style={styles.selectedTasksTitle}>Mga Plano Mo</Text>
+          {getScheduledForDate(selectedCalendarDate).length ? (
+            getScheduledForDate(selectedCalendarDate).map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.scheduledRow}
+                onPress={() => {
+                  setEditingScheduledActivity(item);
+                  setActivityModalVisible(true);
+                }}
+              >
+                <View style={styles.scheduledIconWrap}>
+                  <Ionicons name={SCHEDULED_TYPE_ICON[item.activity_type]} size={18} color={HOME_LAVENDER_DARK} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activityChildName}>{item.title}</Text>
+                  <Text style={styles.activityTitle}>
+                    {getChildNameForScheduled(item)}
+                    {item.start_time ? ` - ${item.start_time.slice(0, 5)}` : ''}
+                  </Text>
+                  {!!item.description && <Text style={styles.activityDate}>{item.description}</Text>}
+                </View>
+                <TouchableOpacity
+                  style={styles.scheduledCompleteButton}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    void toggleScheduledComplete(item);
+                  }}
+                  disabled={item.status === 'completed'}
+                >
+                  <Ionicons
+                    name={item.status === 'completed' ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                    size={22}
+                    color={getScheduledStatusColor(item.status)}
+                  />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptyDetail}>Wala ka pang naka-schedule na plano sa araw na ito.</Text>
           )}
         </View>
       </>
@@ -1596,6 +1703,24 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           setShowEnroll(false);
           const rows = await loadChildren(parentId);
           await loadActivitiesForChildren(rows);
+          await loadScheduledActivitiesForChildren(rows);
+        }}
+      />
+
+      <AddScheduledActivityModal
+        visible={activityModalVisible}
+        date={selectedCalendarDate}
+        children={children.map((child) => ({ id: child.id, name: child.name }))}
+        defaultChildId={selectedChildId}
+        editing={editingScheduledActivity}
+        onClose={() => {
+          setActivityModalVisible(false);
+          setEditingScheduledActivity(null);
+        }}
+        onSaved={async () => {
+          setActivityModalVisible(false);
+          setEditingScheduledActivity(null);
+          await loadScheduledActivitiesForChildren(children);
         }}
       />
     </View>
@@ -1909,6 +2034,21 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   selectedTasksTitle: { color: TEXT_PRIMARY, fontWeight: '900', fontSize: 16, marginBottom: 10 },
+  selectedTasksHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  addPlanButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: HOME_LAVENDER_DARK,
+    borderRadius: 20, paddingVertical: 7, paddingHorizontal: 12,
+  },
+  addPlanButtonText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  scheduledRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: '#f3f4f6',
+  },
+  scheduledIconWrap: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFECFB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  scheduledCompleteButton: { padding: 4 },
   calendarTaskRow: {
     flexDirection: 'row',
     gap: 10,
