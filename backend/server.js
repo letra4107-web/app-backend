@@ -180,6 +180,7 @@ app.get('/api', (req, res) => {
       '/api/progress',
       '/api/lessons',
       '/api/activities',
+      '/api/scheduled-activities',
       '/api/notifications',
       '/api/practice',
     ],
@@ -209,6 +210,7 @@ app.get('/api/routes', (req, res) => {
       '/api/progress',
       '/api/lessons',
       '/api/activities',
+      '/api/scheduled-activities',
       '/api/notifications',
       '/api/practice',
     ],
@@ -258,6 +260,7 @@ mountRoute('/api/progress', () => require('./routes/progress'));
 mountRoute('/api/lessons', () => require('./routes/lessons'));
 mountRoute('/api/lesson-progress', () => require('./routes/lessonProgress'));
 mountRoute('/api/activities', () => require('./routes/activities'));
+mountRoute('/api/scheduled-activities', () => require('./routes/scheduledActivities'));
 mountRoute('/api/notifications', () => require('./routes/notifications'));
 mountRoute('/api/practice', () => require('./routes/practice'));
 

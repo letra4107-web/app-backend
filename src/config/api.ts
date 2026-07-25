@@ -275,3 +275,47 @@ export const getJson = async <T = any>(
     timeoutMs
   );
 };
+
+/* -------------------------
+   PATCH JSON
+-------------------------- */
+export const patchJson = async <T = any>(
+  url: string,
+  body: any,
+  timeoutMs = DEFAULT_TIMEOUT_MS
+): Promise<T> => {
+  const authHeaders = await getAuthHeaders();
+
+  return fetchJson<T>(
+    url,
+    {
+      method: 'PATCH',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify(body),
+    },
+    timeoutMs
+  );
+};
+
+/* -------------------------
+   DELETE JSON
+-------------------------- */
+export const deleteJson = async <T = any>(
+  url: string,
+  timeoutMs = DEFAULT_TIMEOUT_MS
+): Promise<T> => {
+  const authHeaders = await getAuthHeaders();
+
+  return fetchJson<T>(
+    url,
+    {
+      method: 'DELETE',
+      headers: { Accept: 'application/json', ...authHeaders },
+    },
+    timeoutMs
+  );
+};
