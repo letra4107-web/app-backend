@@ -359,15 +359,33 @@ export async function updateProfile(profile: Profile) {
   return (data || []) as Profile[];
 }
 
-export async function uploadAvatar(userId: string, uri: string) {
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+};
+
+export async function uploadAvatar(userId: string, uri: string, mimeType?: string) {
   try {
     const response = await fetch(uri);
     const blob = await response.blob();
-    const fileExt = uri.split('.').pop();
-    const filePath = `avatars/${userId}.${fileExt}`;
+    // `uri` is a blob: URL on web (and can lack a real extension on native too),
+    // so the extension must come from the asset's actual MIME type - never
+    // parsed out of the URI string, which the ImagePicker result's own
+    // `mimeType` (or the fetched blob's `.type` as a fallback) reliably gives us.
+    const resolvedMime = mimeType || blob.type || 'image/jpeg';
+    const fileExt = MIME_TO_EXT[resolvedMime.toLowerCase()] || 'jpg';
+    // No "avatars/" prefix here - the bucket passed to .from() below is
+    // already named "avatars", so prefixing it again just doubled the path.
+    const filePath = `${userId}.${fileExt}`;
     const { data, error: uploadError } = await supabase.storage.from('avatars').upload(filePath, blob, {
       upsert: true,
       cacheControl: '3600',
+      contentType: resolvedMime,
     });
     if (uploadError) throw uploadError;
     const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(data.path);

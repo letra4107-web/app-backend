@@ -60,16 +60,17 @@ export default function EditParentProfileModal({
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 0.75,
         allowsEditing: true,
         aspect: [1, 1],
       });
       const canceled = 'canceled' in result ? result.canceled : (result as any).cancelled;
       const uri = result.assets?.[0]?.uri || (result as any).uri;
+      const mimeType = result.assets?.[0]?.mimeType;
       if (canceled || !uri) return;
       setUploadingAvatar(true);
-      const publicUrl = await uploadAvatar(parentId, uri);
+      const publicUrl = await uploadAvatar(parentId, uri, mimeType);
       setAvatarUrl(publicUrl);
     } catch (err: any) {
       setError(err?.message || 'Hindi na-upload ang photo.');

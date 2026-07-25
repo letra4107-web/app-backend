@@ -219,16 +219,17 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 0.75,
         allowsEditing: true,
         aspect: [1, 1],
       });
       const canceled = 'canceled' in result ? result.canceled : (result as any).cancelled;
       const uri = result.assets?.[0]?.uri || (result as any).uri;
+      const mimeType = result.assets?.[0]?.mimeType;
       if (canceled || !uri) return;
       setSavingProfile(true);
-      const publicUrl = await uploadAvatar(authUid, uri);
+      const publicUrl = await uploadAvatar(authUid, uri, mimeType);
       setProfile((prev) => ({ ...prev, avatar_url: publicUrl }));
       showSuccess('Profile photo updated.');
     } catch (e: any) {
