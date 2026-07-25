@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Polyline } from 'react-native-svg';
 import { supabase } from '../config/supabase';
 import { getUserProfileById, onAuthStateChanged, signOutUser } from '../services/supabaseService';
 import { fetchParentProfile } from '../services/profileService';
@@ -79,6 +79,44 @@ function ProgressRing({
   );
 }
 
+// Reuses the same react-native-svg dependency the progress rings already
+// use (no charting library is installed anywhere in this project) to draw a
+// simple connected-dot line chart, closer to the reference than a bar chart.
+function TrendLineChart({
+  points,
+  width,
+  height = 120,
+  color,
+}: {
+  points: { label: string; pct: number | null }[];
+  width: number;
+  height?: number;
+  color: string;
+}) {
+  const padding = 14;
+  const usable = points.filter((p) => p.pct !== null) as { label: string; pct: number }[];
+  const step = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+  const yFor = (pct: number) => padding + (1 - pct / 100) * (height - padding * 2);
+  const coords = points.map((p, i) => (p.pct !== null ? { x: padding + step * i, y: yFor(p.pct) } : null));
+  const linePoints = coords.filter((c): c is { x: number; y: number } => !!c).map((c) => `${c.x},${c.y}`).join(' ');
+
+  return (
+    <View>
+      <Svg width={width} height={height}>
+        {usable.length >= 2 && <Polyline points={linePoints} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
+        {coords.map((c, i) =>
+          c ? <Circle key={i} cx={c.x} cy={c.y} r={4} fill={color} /> : null,
+        )}
+      </Svg>
+      <View style={styles.trendLineLabels}>
+        {points.map((p, i) => (
+          <Text key={i} style={styles.trendLineLabelText}>{p.label}</Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 type Section = 'welcome' | 'progress' | 'calendar' | 'notifications' | 'settings';
 type Level = 'Beginner' | 'Intermediate' | 'Advanced';
 
@@ -141,6 +179,7 @@ const LEVEL_COLORS: Record<Level, string> = {
 };
 
 export default function ParentDashboardEnhanced({ navigation }: any) {
+  const { width: screenWidth } = useWindowDimensions();
   const [parentId, setParentId] = useState('');
   const [parentName, setParentName] = useState('Magulang');
   const [parentEmail, setParentEmail] = useState('');
@@ -161,7 +200,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [childPickerOpen, setChildPickerOpen] = useState(false);
-  const [childSessions, setChildSessions] = useState<{ word: string; accuracy_percentage: number; created_at: string }[]>([]);
+  const [childSessions, setChildSessions] = useState<
+    { word: string; accuracy_percentage: number; is_correct: boolean | null; duration_seconds: number | null; created_at: string }[]
+  >([]);
+  const [progressPeriod, setProgressPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [childLessonsTotal, setChildLessonsTotal] = useState<number | null>(null);
   const [childCurrentLesson, setChildCurrentLesson] = useState<{ title: string; status: string } | null>(null);
   const [childInsightsLoading, setChildInsightsLoading] = useState(false);
@@ -258,16 +301,18 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const loadChildInsights = async (child: ChildRow) => {
     setChildInsightsLoading(true);
     try {
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-
+      // No date filter here - the Progress tab's own 7/30/90/All period
+      // filter needs the full history to slice client-side (and to compute
+      // an equal-length "previous period" for the improvement delta).
+      // Row-count capped instead, which is generous for a single child's
+      // practice history.
       const [sessionsResult, lessonsResult, currentLessonResult] = await Promise.allSettled([
         supabase
           .from('pronunciation_practice_sessions')
-          .select('word, accuracy_percentage, created_at')
+          .select('word, accuracy_percentage, is_correct, duration_seconds, created_at')
           .eq('student_id', child.id)
-          .gte('created_at', sixtyDaysAgo.toISOString())
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(2000),
         fetchPublishedLessons(child.grade_level),
         supabase
           .from('lesson_progress')
@@ -880,104 +925,396 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     );
   };
 
-  const renderProgress = () => (
-    <>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderTitle}>Progress ng mga Anak</Text>
-        <Text style={styles.sectionHeaderSub}>{new Date().toLocaleDateString()}</Text>
-      </View>
-      {children.length ? (
-        children.map((child) => {
-          const progress = child.child_progress?.[0];
-          const xp = progress?.xp || 0;
-          const attempts = progress?.total_attempts || 0;
-          const words = progress?.word_count ?? progress?.completed_words?.length ?? 0;
-          const accuracy = attempts ? Math.round((words / attempts) * 100) : 0;
-          const level = progress?.level || 'Beginner';
-          const nextTarget = level === 'Beginner' ? 100 : level === 'Intermediate' ? 250 : Math.max(300, xp);
-          const percent = Math.min(100, Math.round((xp / nextTarget) * 100));
-          const expanded = expandedChildId === child.id;
+  const renderProgress = () => {
+    const selectedChild = children.find((child) => child.id === selectedChildId) || children[0];
 
-          return (
-            <TouchableOpacity key={child.id} style={styles.childCard} onPress={() => setExpandedChildId(expanded ? null : child.id)}>
-              <View style={styles.childCardHeader}>
-                <View>
-                  <Text style={styles.childName}>{child.name}</Text>
-                  <Text style={styles.childMeta}>@{child.username} · Grade {child.grade_level}</Text>
-                </View>
-                <View style={[styles.levelBadge, { backgroundColor: getLevelColor(level as Level) }]}> 
-                  <Text style={styles.levelBadgeText}>{level}</Text>
-                </View>
-              </View>
-              <View style={styles.statsRow}>
-                <View style={styles.statChip}>
-                  <Text style={styles.statChipText}>Attempts: {attempts || 'N/A'}</Text>
-                </View>
-                <View style={styles.statChip}>
-                  <Text style={styles.statChipText}>Accuracy: {attempts ? `${accuracy}%` : 'N/A'}</Text>
-                </View>
-              </View>
-              <View style={styles.statsRow}>
-                <View style={styles.statChip}>
-                  <Text style={styles.statChipText}>XP: {xp}</Text>
-                </View>
-                <View style={styles.statChip}>
-                  <Text style={styles.statChipText}>Last Practice: {progress?.last_practice_date ? new Date(progress.last_practice_date).toLocaleDateString() : 'Wala'}</Text>
-                </View>
-              </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${percent}%` }]} />
-              </View>
-              <Text style={styles.progressLabel}>{percent}% hanggang {getNextLevel(level as Level)}</Text>
-              <Text style={styles.greeting}>Completed Words: {words}</Text>
-              {expanded && (
-                <View style={styles.childDetails}>
-                  {progress?.completed_words?.length ? (
-                    progress.completed_words.map((word) => (
-                      <View key={word} style={styles.rewardsChip}>
-                        <Text style={styles.rewardsChipText}>{word}</Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.emptyDetail}>Wala pang salita na naitala.</Text>
-                  )}
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })
-      ) : (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>📝</Text>
-          <Text style={styles.emptyText}>Wala pang anak na may progress.</Text>
+    const header = (
+      <View style={styles.homeHeaderRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.homeGreeting}>Child Progress</Text>
+          <Text style={styles.homeGreetingSub}>Track your child's reading development.</Text>
         </View>
-      )}
-    </>
-  );
+      </View>
+    );
 
-  const renderRecentPractice = () => (
-    <View style={styles.selectedTasksCard}>
-      <Text style={styles.selectedTasksTitle}>Recent Practice Results</Text>
-      {practiceSessions.length ? (
-        practiceSessions.slice(0, 6).map((session) => (
-          <View key={session.id} style={styles.activityRow}>
-            <View style={styles.activityEmoji}>
-              <Text style={styles.activityEmojiText}>🎤</Text>
+    if (!selectedChild) {
+      return (
+        <>
+          {header}
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>📝</Text>
+            <Text style={styles.emptyText}>Wala pang anak na may progress.</Text>
+          </View>
+        </>
+      );
+    }
+
+    const progress = selectedChild.child_progress?.[0];
+    const level = (progress?.level || 'Beginner') as Level;
+    const isActivelyLearning = !!progress?.last_practice_date && progress.last_practice_date.slice(0, 10) === new Date().toISOString().slice(0, 10);
+
+    const PERIOD_LABELS: { key: typeof progressPeriod; label: string }[] = [
+      { key: '7d', label: '7 Days' },
+      { key: '30d', label: '30 Days' },
+      { key: '90d', label: '3 Months' },
+      { key: 'all', label: 'All Time' },
+    ];
+    const periodDays = progressPeriod === '7d' ? 7 : progressPeriod === '30d' ? 30 : progressPeriod === '90d' ? 90 : null;
+    const nowMs = Date.now();
+    const dayMs = 86400000;
+
+    const inPeriod = periodDays === null
+      ? childSessions
+      : childSessions.filter((s) => nowMs - new Date(s.created_at).getTime() <= periodDays * dayMs);
+    const priorPeriod = periodDays === null
+      ? []
+      : childSessions.filter((s) => {
+          const age = nowMs - new Date(s.created_at).getTime();
+          return age > periodDays * dayMs && age <= periodDays * 2 * dayMs;
+        });
+
+    const avgOf = (rows: typeof childSessions) =>
+      rows.length ? Math.round(rows.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / rows.length) : null;
+    const periodAvg = avgOf(inPeriod);
+    const priorAvg = avgOf(priorPeriod);
+    const periodDelta = periodDays !== null && periodAvg !== null && priorAvg !== null ? periodAvg - priorAvg : null;
+
+    const totalWords = inPeriod.length;
+    const correctCount = inPeriod.filter((s) => s.is_correct).length;
+
+    const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
+    const tierMessage = (pct: number | null) =>
+      pct === null
+        ? 'No practice recorded in this period yet.'
+        : pct >= 80
+        ? `${selectedChild.name.split(' ')[0]} is making excellent progress in reading.`
+        : pct >= 60
+        ? `${selectedChild.name.split(' ')[0]} is making steady progress in reading.`
+        : `${selectedChild.name.split(' ')[0]} could use a bit more practice this period.`;
+
+    // Trend chart buckets - daily for 7d, weekly otherwise (bucket width
+    // widens for longer periods so the chart doesn't get overcrowded).
+    const bucketPoints = (() => {
+      if (progressPeriod === '7d') {
+        const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        return Array.from({ length: 7 }, (_, i) => {
+          const d = new Date();
+          d.setHours(0, 0, 0, 0);
+          d.setDate(d.getDate() - (6 - i));
+          const dayKey = d.toISOString().slice(0, 10);
+          const rows = childSessions.filter((s) => (s.created_at || '').slice(0, 10) === dayKey);
+          return { label: dayLabels[d.getDay()], pct: avgOf(rows) };
+        });
+      }
+      const bucketCount = progressPeriod === '30d' ? 4 : 6;
+      const bucketDays = progressPeriod === '30d' ? 7 : progressPeriod === '90d' ? 15 : 30;
+      return Array.from({ length: bucketCount }, (_, i) => {
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        end.setDate(end.getDate() - (bucketCount - 1 - i) * bucketDays);
+        const start = new Date(end);
+        start.setDate(start.getDate() - (bucketDays - 1));
+        start.setHours(0, 0, 0, 0);
+        const rows = childSessions.filter((s) => {
+          const t = new Date(s.created_at).getTime();
+          return t >= start.getTime() && t <= end.getTime();
+        });
+        const label = progressPeriod === '30d' ? `Week ${i + 1}` : end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return { label, pct: avgOf(rows) };
+      });
+    })();
+    const bucketsWithData = bucketPoints.filter((b) => b.pct !== null);
+
+    // Skill categories - same real per-word-shape grouping as the Home tab
+    // and the Student Dashboard, scoped to this period's sessions.
+    const skillGroups: Record<SkillCategory, { count: number; sum: number }> = {
+      letters: { count: 0, sum: 0 },
+      syllables: { count: 0, sum: 0 },
+      words: { count: 0, sum: 0 },
+    };
+    inPeriod.forEach((s) => {
+      const cat = categorizeWord(s.word);
+      skillGroups[cat].count += 1;
+      skillGroups[cat].sum += Number(s.accuracy_percentage) || 0;
+    });
+
+    // Reading Fluency - an approximate proxy from average response time
+    // (duration_seconds), not a real fluency measurement. Clearly labeled as
+    // such since it's a heuristic (<=3s treated as fully fluent, >=10s as not)
+    // rather than a validated metric, and only populates for sessions
+    // recorded after duration tracking was added.
+    const durations = inPeriod
+      .map((s) => s.duration_seconds)
+      .filter((d): d is number => typeof d === 'number' && d > 0);
+    const avgDuration = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
+    const FLUENCY_FAST_SECONDS = 3;
+    const FLUENCY_SLOW_SECONDS = 10;
+    const fluencyScore = avgDuration === null
+      ? null
+      : Math.round(Math.max(0, Math.min(100, (1 - (avgDuration - FLUENCY_FAST_SECONDS) / (FLUENCY_SLOW_SECONDS - FLUENCY_FAST_SECONDS)) * 100)));
+
+    const skillMeta: { key: string; label: string; icon: string; avg: number | null; approximate?: boolean }[] = [
+      { key: 'letters', label: 'Letter Recognition', icon: 'text', avg: skillGroups.letters.count ? Math.round(skillGroups.letters.sum / skillGroups.letters.count) : null },
+      { key: 'syllables', label: 'Syllable Reading', icon: 'reader', avg: skillGroups.syllables.count ? Math.round(skillGroups.syllables.sum / skillGroups.syllables.count) : null },
+      { key: 'words', label: 'Word Reading', icon: 'book', avg: skillGroups.words.count ? Math.round(skillGroups.words.sum / skillGroups.words.count) : null },
+      { key: 'fluency', label: 'Reading Fluency (approx.)', icon: 'speedometer', avg: fluencyScore, approximate: true },
+    ];
+    const skillStatus = (avg: number | null) =>
+      avg === null
+        ? { label: 'Not enough data', color: HOME_INK_SOFT }
+        : avg >= 80
+        ? { label: 'Strong', color: SUCCESS }
+        : avg >= 60
+        ? { label: 'Improving', color: WARNING }
+        : { label: 'Needs More Practice', color: DANGER };
+
+    const scoredSkills = skillMeta.filter((s) => s.avg !== null) as (typeof skillMeta[number] & { avg: number })[];
+    const weakestSkill = scoredSkills.length ? scoredSkills.reduce((a, b) => (a.avg <= b.avg ? a : b)) : null;
+
+    // Words practiced per day (last 7 calendar days, independent of the
+    // period filter - this specific mini-chart is always framed as "this week").
+    const miniDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const miniDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (6 - i));
+      const dayKey = d.toISOString().slice(0, 10);
+      const count = childSessions.filter((s) => (s.created_at || '').slice(0, 10) === dayKey).length;
+      const weekday = d.getDay() === 0 ? 6 : d.getDay() - 1;
+      return { label: miniDayLabels[weekday], count };
+    });
+    const maxMiniCount = Math.max(1, ...miniDays.map((d) => d.count));
+    const wordsThisWeek = miniDays.reduce((sum, d) => sum + d.count, 0);
+
+    const historySessions = [...inPeriod].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const visibleHistory = historyExpanded ? historySessions.slice(0, 30) : historySessions.slice(0, 6);
+
+    const chartWidth = Math.max(240, screenWidth - 32 - 32);
+
+    return (
+      <>
+        {header}
+
+        <TouchableOpacity
+          style={styles.viewingSelector}
+          onPress={() => children.length > 1 && setChildPickerOpen((open) => !open)}
+          activeOpacity={children.length > 1 ? 0.7 : 1}
+        >
+          <Text style={styles.viewingSelectorText}>Viewing: {selectedChild.name}</Text>
+          {children.length > 1 && <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={HOME_LAVENDER_DARK} />}
+        </TouchableOpacity>
+
+        {childPickerOpen && children.length > 1 && (
+          <View style={styles.childPickerList}>
+            {children.map((child) => (
+              <TouchableOpacity
+                key={child.id}
+                style={styles.childPickerRow}
+                onPress={() => {
+                  setSelectedChildId(child.id);
+                  setChildPickerOpen(false);
+                }}
+              >
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: HOME_LAVENDER_DARK, fontWeight: '800' }]}>
+                  {child.name}
+                </Text>
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={HOME_LAVENDER_DARK} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.childSummaryCard}>
+          <View style={styles.childAvatarLg}>
+            <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.childSummaryName}>{selectedChild.name}</Text>
+            <View style={styles.childSummaryBadgeRow}>
+              <View style={styles.gradeBadge}>
+                <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
+              </View>
+              <View style={[styles.levelBadgeOutline, { borderColor: getLevelColor(level) }]}>
+                <Text style={[styles.levelBadgeOutlineText, { color: getLevelColor(level) }]}>{level}</Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.activityChildName}>{children.find((child) => child.id === session.student_id)?.name || 'Student'}</Text>
-              <Text style={styles.activityTitle}>
-                {session.word} - {session.accuracy_percentage}% accuracy
-              </Text>
-              <Text style={styles.activityDate}>{new Date(session.created_at).toLocaleString()}</Text>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? SUCCESS : HOME_INK_SOFT }]} />
+              <Text style={styles.statusRowText}>{isActivelyLearning ? 'Actively Learning' : 'No activity today'}</Text>
             </View>
           </View>
-        ))
-      ) : (
-        <Text style={styles.emptyDetail}>No speech practice yet.</Text>
-      )}
-    </View>
-  );
+        </View>
+
+        <Text style={styles.homeSectionTitle}>Progress Overview</Text>
+        <Text style={styles.periodFilterLabel}>TIME PERIOD FILTER</Text>
+        <View style={styles.periodFilterRow}>
+          {PERIOD_LABELS.map((period) => (
+            <TouchableOpacity
+              key={period.key}
+              style={[styles.periodChip, progressPeriod === period.key && styles.periodChipActive]}
+              onPress={() => setProgressPeriod(period.key)}
+            >
+              <Text style={[styles.periodChipText, progressPeriod === period.key && styles.periodChipTextActive]}>{period.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.readingProgressCard}>
+          <View style={styles.readingProgressHeader}>
+            <Text style={styles.readingProgressTitle}>Overall Reading Progress</Text>
+            <Ionicons name="book" size={24} color={HOME_LAVENDER} />
+          </View>
+          <View style={{ alignItems: 'center', marginVertical: 12 }}>
+            <ProgressRing percent={periodAvg ?? 0} color={HOME_LAVENDER_DARK} trackColor="rgba(124,111,207,0.15)">
+              <Text style={styles.readingProgressPct}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
+              <Text style={styles.readingProgressPctSub}>Current Progress</Text>
+            </ProgressRing>
+          </View>
+          {periodDelta !== null && (
+            <View style={[styles.improvementBadge, { backgroundColor: periodDelta >= 0 ? '#E9F1E2' : '#FBE7DF' }]}>
+              <Ionicons name={periodDelta >= 0 ? 'trending-up' : 'trending-down'} size={13} color={periodDelta >= 0 ? SUCCESS : DANGER} />
+              <Text style={[styles.improvementBadgeText, { color: periodDelta >= 0 ? SUCCESS : DANGER }]}>
+                {periodDelta >= 0 ? '+' : ''}{periodDelta}% this period
+              </Text>
+            </View>
+          )}
+          <Text style={styles.readingProgressMessage}>{tierMessage(periodAvg)}</Text>
+        </View>
+
+        <Text style={styles.homeSectionTitle}>Reading Performance</Text>
+        <View style={styles.trendCard}>
+          {bucketsWithData.length >= 2 ? (
+            <>
+              <TrendLineChart points={bucketPoints} width={chartWidth} color={HOME_LAVENDER_DARK} />
+              <View style={styles.trendMsgRow}>
+                <Ionicons name="checkmark-circle" size={13} color={SUCCESS} />
+                <Text style={styles.trendMsgText}>
+                  {bucketsWithData[bucketsWithData.length - 1].pct! >= bucketsWithData[0].pct!
+                    ? 'Reading accuracy has improved over this period.'
+                    : 'Keep practicing to build on recent progress.'}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.trendEmpty}>
+              <Ionicons name="analytics-outline" size={28} color={HOME_LAVENDER} />
+              <Text style={styles.trendEmptyText}>Not enough practice sessions in this period to show a trend.</Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.homeSectionTitle}>Reading Skills</Text>
+        <View style={styles.overallStatsRow}>
+          <View style={styles.overallStatCell}>
+            <Text style={styles.overallStatValue}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
+            <Text style={styles.overallStatLabel}>Overall</Text>
+          </View>
+          <View style={styles.overallStatCell}>
+            <Text style={styles.overallStatValue}>{totalWords}</Text>
+            <Text style={styles.overallStatLabel}>Total Words</Text>
+          </View>
+          <View style={styles.overallStatCell}>
+            <Text style={styles.overallStatValue}>{correctCount}</Text>
+            <Text style={styles.overallStatLabel}>Correct</Text>
+          </View>
+          <View style={styles.overallStatCell}>
+            <Text style={[styles.overallStatValue, { color: periodDelta === null ? HOME_INK : periodDelta >= 0 ? SUCCESS : DANGER }]}>
+              {periodDelta === null ? '--' : `${periodDelta >= 0 ? '+' : ''}${periodDelta}%`}
+            </Text>
+            <Text style={styles.overallStatLabel}>Improvement</Text>
+          </View>
+        </View>
+
+        <View style={styles.skillsGrid}>
+          {skillMeta.map(({ key, label, icon, avg }) => {
+            const status = skillStatus(avg);
+            return (
+              <View key={key} style={styles.skillGridCard}>
+                <Ionicons name={icon as any} size={18} color={status.color} />
+                <View style={styles.skillGridTopRow}>
+                  <Text style={styles.skillGridLabel} numberOfLines={2}>{label}</Text>
+                  <Text style={[styles.skillGridPct, { color: status.color }]}>{avg !== null ? `${avg}%` : '--'}</Text>
+                </View>
+                <Text style={[styles.skillGridStatus, { color: status.color }]}>{status.label}</Text>
+                <View style={styles.skillCardTrack}>
+                  <View style={[styles.skillCardFill, { width: `${avg ? Math.max(4, avg) : 0}%`, backgroundColor: status.color }]} />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.miniChartCard}>
+          <Text style={styles.miniChartTitle}>{wordsThisWeek} words practiced this week</Text>
+          <View style={styles.miniChartBars}>
+            {miniDays.map((d, i) => (
+              <View key={i} style={styles.miniBarCol}>
+                <View style={[styles.miniBar, { height: Math.max(4, Math.round((d.count / maxMiniCount) * 60)) }]} />
+                <Text style={styles.miniBarLabel}>{d.label}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.miniChartSub}>
+            Average {Math.round(wordsThisWeek / 7)} word{Math.round(wordsThisWeek / 7) === 1 ? '' : 's'} per day this week
+          </Text>
+        </View>
+
+        {weakestSkill && (
+          <View style={styles.recommendCard}>
+            <View style={styles.recommendIconWrap}>
+              <Ionicons name="bulb" size={18} color={HOME_SUN} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.recommendTitle}>Recommended Next Step</Text>
+              <Text style={styles.recommendText}>
+                Continue practicing {weakestSkill.label.replace(' (approx.)', '')} - it's currently {selectedChild.name.split(' ')[0]}'s area with the most room to grow.
+              </Text>
+              <TouchableOpacity style={styles.recommendButton} onPress={() => setSection('welcome')}>
+                <Text style={styles.recommendButtonText}>View Recommended Activities</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {periodAvg !== null && (
+          <View style={styles.insightCardV2}>
+            <Ionicons name="sparkles" size={18} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.insightCardV2Text}>
+              {periodDelta !== null && periodDelta > 0
+                ? `${selectedChild.name.split(' ')[0]}'s reading accuracy has improved by ${periodDelta}% in this period. Consistent practice is helping build confidence.`
+                : `${selectedChild.name.split(' ')[0]} has completed ${totalWords} practice ${totalWords === 1 ? 'session' : 'sessions'} in this period. Keep encouraging regular practice.`}
+            </Text>
+          </View>
+        )}
+
+        <Text style={styles.homeSectionTitle}>Recent Learning History</Text>
+        <View style={styles.selectedTasksCard}>
+          {visibleHistory.length ? (
+            visibleHistory.map((session, i) => (
+              <View key={`${session.created_at}-${i}`} style={styles.activityRow}>
+                <View style={styles.activityEmoji}>
+                  <Ionicons name="mic" size={18} color={HOME_LAVENDER_DARK} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activityChildName}>Tagalog Word Practice</Text>
+                  <Text style={styles.activityTitle}>{session.word} · {new Date(session.created_at).toLocaleString()}</Text>
+                </View>
+                <Text style={[styles.recentActivityScore, { color: tierColor(Math.round(Number(session.accuracy_percentage) || 0)) }]}>
+                  {Math.round(Number(session.accuracy_percentage) || 0)}%
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyDetail}>No speech practice yet.</Text>
+          )}
+        </View>
+
+        <TouchableOpacity style={styles.detailedReportButton} onPress={() => setHistoryExpanded((v) => !v)}>
+          <Text style={styles.detailedReportButtonText}>{historyExpanded ? 'Show Less' : 'View Detailed Report'}</Text>
+        </TouchableOpacity>
+      </>
+    );
+  };
 
   const renderInsights = () => (
     <>
@@ -1172,12 +1509,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       case 'welcome':
         return renderWelcome();
       case 'progress':
-        return (
-          <>
-            {renderProgress()}
-            {renderRecentPractice()}
-          </>
-        );
+        return renderProgress();
       case 'calendar':
         return renderCalendar();
       case 'notifications':
@@ -1464,6 +1796,72 @@ const styles = StyleSheet.create({
   },
   tipBannerTitle: { fontSize: 13, fontWeight: '800', color: HOME_INK, marginBottom: 4 },
   tipBannerText: { fontSize: 12, color: HOME_INK_SOFT, lineHeight: 17 },
+
+  // Child Progress tab
+  trendLineLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  trendLineLabelText: { fontSize: 10, color: TEXT_SECONDARY, flex: 1, textAlign: 'center' },
+  periodFilterLabel: { fontSize: 10, fontWeight: '800', color: TEXT_SECONDARY, letterSpacing: 0.5, marginBottom: 8 },
+  periodFilterRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  periodChip: {
+    flex: 1, backgroundColor: SURFACE, borderRadius: 999, paddingVertical: 9,
+    alignItems: 'center', borderWidth: 1, borderColor: BORDER,
+  },
+  periodChipActive: { backgroundColor: HOME_LAVENDER_DARK, borderColor: HOME_LAVENDER_DARK },
+  periodChipText: { fontSize: 11, fontWeight: '700', color: TEXT_SECONDARY },
+  periodChipTextActive: { color: '#fff' },
+  readingProgressPctSub: { fontSize: 10, color: HOME_INK_SOFT, fontWeight: '700', textAlign: 'center', marginTop: 2 },
+  overallStatsRow: {
+    flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 16, padding: 14,
+    marginBottom: 12, borderWidth: 1, borderColor: BORDER,
+  },
+  overallStatCell: { flex: 1, alignItems: 'center' },
+  overallStatValue: { fontSize: 17, fontWeight: '900', color: HOME_INK },
+  overallStatLabel: { fontSize: 10, color: TEXT_SECONDARY, marginTop: 3, fontWeight: '700' },
+  skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+  skillGridCard: {
+    width: '47%', backgroundColor: SURFACE, borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: BORDER, gap: 6,
+  },
+  skillGridTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 },
+  skillGridLabel: { fontSize: 12, fontWeight: '800', color: HOME_INK, flex: 1 },
+  skillGridPct: { fontSize: 15, fontWeight: '900' },
+  skillGridStatus: { fontSize: 11, fontWeight: '700' },
+  miniChartCard: {
+    backgroundColor: SURFACE, borderRadius: 16, padding: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: BORDER,
+  },
+  miniChartTitle: { fontSize: 13, fontWeight: '800', color: HOME_INK, marginBottom: 10 },
+  miniChartBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 70 },
+  miniBarCol: { alignItems: 'center', gap: 4, flex: 1 },
+  miniBar: { width: 14, borderRadius: 4, backgroundColor: HOME_LAVENDER },
+  miniBarLabel: { fontSize: 9, color: TEXT_SECONDARY },
+  miniChartSub: { fontSize: 11, color: HOME_INK_SOFT, marginTop: 10, textAlign: 'center' },
+  recommendCard: {
+    flexDirection: 'row', gap: 12, backgroundColor: '#FFF3DC', borderRadius: 16,
+    padding: 16, marginBottom: 12, alignItems: 'flex-start',
+  },
+  recommendIconWrap: {
+    width: 34, height: 34, borderRadius: 17, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  recommendTitle: { fontSize: 13, fontWeight: '800', color: HOME_INK, marginBottom: 4 },
+  recommendText: { fontSize: 12, color: HOME_INK_SOFT, lineHeight: 17, marginBottom: 10 },
+  recommendButton: {
+    backgroundColor: HOME_SUN, borderRadius: 999, paddingVertical: 9,
+    paddingHorizontal: 14, alignSelf: 'flex-start',
+  },
+  recommendButtonText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  insightCardV2: {
+    flexDirection: 'row', gap: 10, backgroundColor: '#EFECFB', borderRadius: 16,
+    padding: 16, marginBottom: 16, alignItems: 'flex-start',
+  },
+  insightCardV2Text: { fontSize: 12, color: HOME_INK, lineHeight: 18, flex: 1 },
+  detailedReportButton: {
+    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 16, paddingVertical: 16,
+    alignItems: 'center', marginTop: 4, marginBottom: 8,
+  },
+  detailedReportButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  recentActivityScore: { fontSize: 15, fontWeight: '900' },
 
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   sectionHeaderTitle: { fontSize: 18, fontWeight: '900', color: TEXT_PRIMARY, flex: 1 },
