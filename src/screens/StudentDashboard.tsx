@@ -74,7 +74,12 @@ const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 const XP_CORRECT = 50;
 const XP_WRONG = 30;
 const DAILY_GOAL = 5;
-const PRACTICE_PASSING_SCORE = 70;
+// Raised from 70 alongside the scorePronunciation rewrite — see that
+// function's comment. 70 was passable by genuinely wrong words (e.g.
+// "balikaka" scored 73% against "kalikasan"); 75 keeps real STT-noise near
+// misses (dropped vowels, clipped final letters) passing while rejecting
+// mismatched words.
+const PRACTICE_PASSING_SCORE = 75;
 
 type PracticeResult = {
   correct: boolean;
@@ -155,10 +160,15 @@ const scorePronunciation = (expected: string, spoken: string) => {
   if (normalizedExpected === normalizedSpoken) return 100;
 
   const distance = levenshteinDistance(normalizedExpected, normalizedSpoken);
-  const base = Math.max(0, 100 - Math.round((distance / Math.max(normalizedExpected.length, normalizedSpoken.length)) * 100));
-  const startsRight = normalizedSpoken[0] === normalizedExpected[0] ? 8 : 0;
-  const lengthClose = Math.abs(normalizedExpected.length - normalizedSpoken.length) <= 1 ? 6 : 0;
-  return Math.min(99, base + startsRight + lengthClose);
+  const maxLen = Math.max(normalizedExpected.length, normalizedSpoken.length);
+  const ratio = distance / maxLen;
+  // Quadratic-ish falloff (exponent 1.6) instead of a linear ratio, and no
+  // "starts with the same letter" / "similar length" bonuses — those bonuses
+  // used to inflate scores for words that only coincidentally share letters
+  // (e.g. "balikaka" vs "kalikasan" scored 73% and was accepted as correct).
+  // Length mismatch is already captured by `ratio` itself; it doesn't need a
+  // separate reward on top.
+  return Math.min(99, Math.round(100 * Math.max(0, 1 - ratio) ** 1.6));
 };
 
 const scoreMessage = (score: number) => {
