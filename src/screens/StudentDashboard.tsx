@@ -1645,14 +1645,21 @@ export default function StudentDashboard({ navigation }: any) {
         <Text style={styles.practiceSectionTitle}>O Pumili ng Partikular na Salita</Text>
 
         <View style={styles.wordGrid}>
-          {words.map((word) => {
+          {words.map((word, wordIndex) => {
             const done = progress?.completed_words?.includes(word);
             const isNext = !done && word === nextWord;
+            const locked = !done && !isNext && wordIndex > words.indexOf(nextWord);
             return (
               <TouchableOpacity
                 key={word}
-                style={[styles.wordCard, done && styles.wordCardDone, isNext && styles.wordCardNext]}
-                onPress={() => startWord(word, 'say')}
+                style={[styles.wordCard, done && styles.wordCardDone, isNext && styles.wordCardNext, locked && styles.wordCardLocked]}
+                onPress={() => {
+                  if (locked) {
+                    Alert.alert('Tapusin muna', 'Tapusin muna ang kasalukuyang salita bago pumunta sa susunod na salita.');
+                    return;
+                  }
+                  startWord(word, 'say');
+                }}
               >
                 {done && (
                   <View style={styles.wordCardCheckBadge}>
@@ -1664,7 +1671,12 @@ export default function StudentDashboard({ navigation }: any) {
                     <Text style={styles.wordCardNextBadgeText}>SUSUNOD</Text>
                   </View>
                 )}
-                <Text style={[styles.wordText, done && { color: SUCCESS }]}>{word}</Text>
+                {locked && (
+                  <View style={styles.wordCardLockIcon}>
+                    <Ionicons name="lock-closed" size={12} color={HOME_INK_SOFT} />
+                  </View>
+                )}
+                <Text style={[styles.wordText, done && { color: SUCCESS }, locked && { color: HOME_INK_SOFT }]}>{word}</Text>
               </TouchableOpacity>
             );
           })}
@@ -3141,6 +3153,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#EEE9F9',
   },
   wordCardNext: { borderColor: HOME_LAVENDER, borderWidth: 2, backgroundColor: '#F5F3FC' },
+  wordCardLocked: { backgroundColor: '#F3F4F6', opacity: 0.6 },
+  wordCardLockIcon: { position: 'absolute', top: 8, right: 8 },
   wordCardCheckBadge: {
     position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10,
     backgroundColor: SUCCESS, alignItems: 'center', justifyContent: 'center',
