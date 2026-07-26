@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ImageBackground, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '../config/theme';
 import { buildApiUrl, postJson } from '../config/api';
 import { signInUser, getChildByUsername, getChildByAuthUid, getUserProfileById, mapSupabaseAuthErrorCode, upsertUserProfile } from '../services/supabaseService';
 import { supabase } from '../config/supabase';
@@ -10,6 +9,19 @@ import { supabase } from '../config/supabase';
 interface LoginScreenProps {
   navigation: any;
 }
+
+// Same warm "reading journey" identity tokens used across the redesigned
+// dashboard (Home/Practice/Badges/Settings) — extended here so the auth flow
+// feels like the same app instead of its own separate green theme.
+const HOME_CREAM = '#FBF3E2';
+const HOME_INK = '#3B322C';
+const HOME_INK_SOFT = '#8A7B6C';
+const HOME_CORAL = '#E06B4C';
+const HOME_LAVENDER = '#7C6FCF';
+const HOME_LAVENDER_DARK = '#5F52B0';
+const SUCCESS = '#10b981';
+const FONT_DISPLAY = 'Baloo2_800ExtraBold';
+const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [identifier, setIdentifier] = useState('');
@@ -170,7 +182,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setSubmitAttempted(true);
     setTouchedIdentifier(true);
     setTouchedPassword(true);
-    
+
     if (blockedUntil && Date.now() < blockedUntil) {
       setGlobalError('Too many login attempts. Try again in 1 hour.');
       return;
@@ -261,10 +273,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             : null,
         });
         profileData = profileResult.data;
-        
+
         // Try to determine role from profile
         const determinedRole = determineUserRole(loginIsUsername, profileData?.role, user.email || undefined);
-        
+
         // If role is null OR role might be wrong (no explicit role set), ALWAYS check children table
         // This handles web-enrolled students who have a users row but no role set
         if (!determinedRole || determinedRole === null) {
@@ -278,7 +290,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           }
         } else {
           profileRole = determinedRole;
-          
+
           // Even if profile says parent/teacher, double-check children table
           // (web enrollments sometimes create users with wrong role)
           if (profileRole !== 'student') {
@@ -360,114 +372,111 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ImageBackground
-        source={require('../../assets/bg.jpg')}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.backgroundDecor}>
-            <View style={styles.circleTopLeft} />
-            <View style={styles.circleRight} />
-          </View>
-          <View style={styles.topHeader}>
-            <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Login to continue your learning journey.</Text>
-          </View>
-          <View style={styles.card}>
-        {globalError ? <Text style={styles.globalError}>{globalError}</Text> : null}
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email </Text>
-          <View style={[
-            styles.inputWrapper,
-            (touchedIdentifier || submitAttempted) && identifierError && styles.inputError,
-            (touchedIdentifier || submitAttempted) && !identifierError && identifier && styles.inputValid,
-          ]}>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              placeholderTextColor="#888"
-              value={identifier}
-              onChangeText={(text) => {
-                setIdentifier(text);
-                validateIdentifier(text);
-              }}
-              onBlur={() => setTouchedIdentifier(true)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-              accessible={true}
-              accessibilityLabel="Email input"
-              accessibilityHint="Enter your email address to log in"
-            />
-          </View>
-          {(touchedIdentifier || submitAttempted) && identifier && !identifierError && (
-            <Ionicons name="checkmark-circle" size={20} color="#1D5E2B" style={styles.icon} />
-          )}
-          {(touchedIdentifier || submitAttempted) && identifierError ? <Text style={styles.errorText}>{identifierError}</Text> : null}
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.backgroundDecor}>
+          <View style={styles.circleTopLeft} />
+          <View style={styles.circleRight} />
         </View>
 
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
-          <View style={[
-            styles.inputWrapper,
-            (touchedPassword || submitAttempted) && passwordError && styles.inputError,
-            (touchedPassword || submitAttempted) && !passwordError && password && styles.inputValid,
-          ]}>
-            <TextInput
-              style={[styles.input, { paddingRight: 48 }]}
-              placeholder="Enter your password"
-              placeholderTextColor="#888"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                validatePassword(text);
-              }}
-              onBlur={() => setTouchedPassword(true)}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              editable={!loading}
-              accessible={true}
-              accessibilityLabel="Password input"
-              accessibilityHint="Enter your password. Password is hidden by default"
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.passwordToggle}
-              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-            >
-              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          {(touchedPassword || submitAttempted) && passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+        <View style={styles.topHeader}>
+          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Welcome back!</Text>
+          <Text style={styles.subtitle}>Login to continue your reading journey.</Text>
         </View>
 
-        <TouchableOpacity style={[styles.button, isButtonDisabled ? styles.buttonDisabled : {}]} onPress={handleLogin} disabled={!!isButtonDisabled}>
-          <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
-        </TouchableOpacity>
+        <View style={styles.card}>
+          {globalError ? <Text style={styles.globalError}>{globalError}</Text> : null}
 
-        <View style={styles.links}>
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email Address</Text>
+            <View style={[
+              styles.inputWrapper,
+              (touchedIdentifier || submitAttempted) && identifierError && styles.inputError,
+              (touchedIdentifier || submitAttempted) && !identifierError && identifier && styles.inputValid,
+            ]}>
+              <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor={HOME_INK_SOFT}
+                value={identifier}
+                onChangeText={(text) => {
+                  setIdentifier(text);
+                  validateIdentifier(text);
+                }}
+                onBlur={() => setTouchedIdentifier(true)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!loading}
+                accessible={true}
+                accessibilityLabel="Email input"
+                accessibilityHint="Enter your email address to log in"
+              />
+              {(touchedIdentifier || submitAttempted) && identifier && !identifierError && (
+                <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
+              )}
+            </View>
+            {(touchedIdentifier || submitAttempted) && identifierError ? <Text style={styles.errorText}>{identifierError}</Text> : null}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <View style={[
+              styles.inputWrapper,
+              (touchedPassword || submitAttempted) && passwordError && styles.inputError,
+              (touchedPassword || submitAttempted) && !passwordError && password && styles.inputValid,
+            ]}>
+              <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor={HOME_INK_SOFT}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  validatePassword(text);
+                }}
+                onBlur={() => setTouchedPassword(true)}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                editable={!loading}
+                accessible={true}
+                accessibilityLabel="Password input"
+                accessibilityHint="Enter your password. Password is hidden by default"
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.passwordToggle}
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={HOME_LAVENDER_DARK} />
+              </TouchableOpacity>
+            </View>
+            {(touchedPassword || submitAttempted) && passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+          </View>
+
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotPasswordRow}>
             <Text style={styles.link}>Forgot Password?</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('EmailVerification', { email: identifier })}>
-            <Text style={styles.link}>Resend Verification Code</Text>
+
+          <TouchableOpacity style={[styles.button, isButtonDisabled ? styles.buttonDisabled : {}]} onPress={handleLogin} disabled={!!isButtonDisabled}>
+            <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Log In'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('EmailVerification', { email: identifier })} style={styles.resendRow}>
+            <Text style={styles.resendLink}>Resend Verification Code</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.bottomDividerContainer}>
-          <View style={styles.bottomDivider} />
-        </View>
-
-        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-          <Text style={styles.signUpLink}>Don't have an account? Create one now</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.signUpRow}>
+          <Text style={styles.signUpLink}>Don't have an account? <Text style={styles.signUpLinkBold}>Sign Up</Text></Text>
         </TouchableOpacity>
-      </View>
-        </ScrollView>
-      </ImageBackground>
+
+        <View style={styles.trustNote}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -476,18 +485,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: '#EDF6F1',
+    backgroundColor: HOME_CREAM,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingVertical: 24,
+    paddingBottom: 40,
   },
   backgroundDecor: {
     ...StyleSheet.absoluteFillObject,
     zIndex: -1,
-  },
-  topHeader: {
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 8,
-    paddingTop: 18,
   },
   circleTopLeft: {
     position: 'absolute',
@@ -496,7 +504,7 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: '#EAF2DF',
+    backgroundColor: 'rgba(124,111,207,0.12)',
   },
   circleRight: {
     position: 'absolute',
@@ -505,77 +513,83 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     borderRadius: 120,
-    backgroundColor: '#EFF6EA',
+    backgroundColor: 'rgba(224,107,76,0.10)',
   },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.78)',
+  topHeader: {
+    alignItems: 'center',
     marginHorizontal: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.75)',
-    elevation: 10,
-    marginTop: 14,
-    // "shadow*" props are deprecated on web in favor of a real CSS boxShadow
-    // string, but remain the correct (and only) cross-platform way to draw a
-    // shadow on native iOS/Android, so the two are split per-platform here.
-    ...Platform.select({
-      web: { boxShadow: '0px 16px 34px rgba(17,43,23,0.12)' },
-      default: { shadowColor: '#112b17', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.12, shadowRadius: 34 },
-    }),
-  },
-  title: {
-    fontSize: 30,
-    textAlign: 'center',
-    marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif-medium',
-    fontWeight: '800',
-    color: '#163E1F',
-    letterSpacing: 0.4,
+    marginBottom: 8,
+    paddingTop: 18,
   },
   logo: {
-    width: 165,
-    height: 80,
+    width: 220,
+    height: 110,
     alignSelf: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  globalError: {
-    color: '#9F411E',
+  title: {
+    fontSize: 26,
     textAlign: 'center',
-    marginBottom: 16,
-    fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    backgroundColor: 'rgba(255, 239, 230, 0.95)',
-    padding: 14,
-    borderRadius: 18,
-    borderLeftWidth: 4,
-    borderLeftColor: '#E57A56',
+    marginBottom: 4,
+    fontFamily: FONT_DISPLAY,
+    color: HOME_INK,
+    letterSpacing: 0.2,
   },
   subtitle: {
     fontSize: 15,
     textAlign: 'center',
     marginBottom: 18,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    color: '#4D5D4B',
+    color: HOME_INK_SOFT,
     lineHeight: 22,
     letterSpacing: 0.2,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(124,111,207,0.14)',
+    elevation: 10,
+    marginTop: 14,
+    // "shadow*" props are deprecated on web in favor of a real CSS boxShadow
+    // string, but remain the correct (and only) cross-platform way to draw a
+    // shadow on native iOS/Android, so the two are split per-platform here.
+    ...Platform.select({
+      web: { boxShadow: '0px 16px 34px rgba(59,50,44,0.10)' },
+      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.08, shadowRadius: 34 },
+    }),
+  },
+  globalError: {
+    color: '#9A3412',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+    backgroundColor: 'rgba(224,107,76,0.12)',
+    padding: 14,
+    borderRadius: 18,
+    borderLeftWidth: 4,
+    borderLeftColor: HOME_CORAL,
   },
   inputGroup: {
     marginBottom: 18,
   },
   label: {
-    fontSize: 15,
+    fontSize: 12,
     marginBottom: 8,
-    fontWeight: '700',
+    fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#1B5E20',
-    letterSpacing: 0.2,
+    color: HOME_INK,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   inputWrapper: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: '#FAF8F3',
     borderWidth: 1,
-    borderColor: 'rgba(162, 172, 179, 0.4)',
+    borderColor: 'rgba(124,111,207,0.25)',
     borderRadius: 14,
     paddingHorizontal: 14,
     minHeight: 60,
@@ -584,80 +598,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
+  inputLeadingIcon: {
+    marginRight: 10,
+  },
   input: {
     flex: 1,
     fontSize: 16,
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#17212b',
+    color: HOME_INK,
     padding: 0,
     minHeight: 44,
   },
   inputValid: {
-    borderColor: '#1D7032',
+    borderColor: SUCCESS,
     backgroundColor: '#F2FBF4',
   },
   inputError: {
-    borderColor: '#E48C26',
-    backgroundColor: '#FFF8E8',
+    borderColor: HOME_CORAL,
+    backgroundColor: '#FDF3EF',
   },
   passwordToggle: {
-    position: 'absolute',
-    right: 12,
-    top: 0,
-    bottom: 0,
-    flexDirection: 'row',
+    paddingLeft: 8,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 24,
-  },
-  icon: {
-    position: 'absolute',
-    right: 16,
-    top: 44,
   },
   errorText: {
-    color: '#D84315',
+    color: '#B3441F',
     fontSize: 12,
     marginTop: 6,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
     fontWeight: '600',
   },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  eyeIcon: {
-    padding: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  eyeToggleText: {
-    display: 'none',
+  forgotPasswordRow: {
+    alignSelf: 'flex-end',
+    marginBottom: 18,
+    minHeight: 32,
+    justifyContent: 'center',
   },
   button: {
-    backgroundColor: colors.primary,
-    paddingVertical: 15,
+    backgroundColor: HOME_LAVENDER_DARK,
+    paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 24,
     alignItems: 'center',
-    marginTop: 16,
     elevation: 3,
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(22,62,26,0.18)' },
-      default: { shadowColor: '#163E1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12 },
+      web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
+      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
     }),
   },
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
-  },
   buttonDisabled: {
-    backgroundColor: '#BEC2C4',
-    opacity: 0.7,
+    backgroundColor: '#C7C2D6',
+    opacity: 0.8,
     elevation: 0,
     ...Platform.select({
       web: { boxShadow: 'none' },
@@ -666,52 +660,58 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+    fontFamily: FONT_DISPLAY_SEMI,
   },
-  bottomDividerContainer: {
-    marginTop: 14,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  bottomDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#DCE6D7',
-  },
-  links: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  resendRow: {
+    alignSelf: 'center',
     marginTop: 16,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
+    minHeight: 32,
+    justifyContent: 'center',
   },
-  link: {
-    color: '#1D5E2B',
+  resendLink: {
+    color: HOME_INK_SOFT,
     fontSize: 13,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    fontWeight: '400',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  link: {
+    color: HOME_LAVENDER_DARK,
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+    fontWeight: '700',
+  },
+  signUpRow: {
+    marginTop: 20,
+    alignSelf: 'center',
+    minHeight: 32,
+    justifyContent: 'center',
   },
   signUpLink: {
     textAlign: 'center',
-    marginTop: 10,
-    color: '#1D5E2B',
+    color: HOME_INK_SOFT,
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    fontWeight: '400',
+    fontWeight: '500',
   },
-  helpTextContainer: {
-    marginBottom: 15,
-    paddingHorizontal: 5,
+  signUpLinkBold: {
+    color: HOME_LAVENDER_DARK,
+    fontWeight: '800',
   },
-  helpText: {
-    fontSize: 13,
-    color: '#666',
-    textAlign: 'center',
-    fontStyle: 'italic',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    lineHeight: 20,
+  trustNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+    paddingHorizontal: 20,
+  },
+  trustNoteText: {
+    color: HOME_INK_SOFT,
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
 });
 
