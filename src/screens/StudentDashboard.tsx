@@ -26,6 +26,7 @@ import { fetchDashboardSettings, DashboardSettings } from '../services/settingsS
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
+import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 
 type ChildProfile = {
@@ -201,6 +202,8 @@ export default function StudentDashboard({ navigation }: any) {
   const [progress, setProgress] = useState<ChildProgress | null>(null);
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
   const [practiceWords, setPracticeWords] = useState<string[]>([]);
+  const [wordDefinitions, setWordDefinitions] = useState<Map<string, WordDefinition>>(new Map());
+  const getWordDefinition = (word: string) => wordDefinitions.get(normalizeWordKey(word));
   const [recentSessions, setRecentSessions] = useState<{ word: string; accuracy_percentage: number; created_at: string }[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -545,7 +548,7 @@ export default function StudentDashboard({ navigation }: any) {
       }
     })();
 
-    const [wordLog, readingActivities, uploads, lessonRows, assignedActivities] = await Promise.all([
+    const [wordLog, readingActivities, uploads, lessonRows, assignedActivities, , , , , , , definitions] = await Promise.all([
       getOrCreateWordOfDay(profile.id, Number(profile.grade_level || 1)).catch((err) => {
         console.warn('[StudentDashboard] word-of-day load failed:', err?.message || err);
         return null;
@@ -560,7 +563,14 @@ export default function StudentDashboard({ navigation }: any) {
       loadTodaySessions(profile.id),
       loadPronunciationStats(profile.id),
       loadDashboardSettings(profile.auth_uid),
+      loadWordDefinitions().catch((err) => {
+        // Supporting content only (subtitle text) - never block the dashboard
+        // over it, and an empty map just means no definition subtitle shows.
+        console.warn('[StudentDashboard] word definitions load failed:', err?.message || err);
+        return new Map<string, WordDefinition>();
+      }),
     ]);
+    setWordDefinitions(definitions);
 
     if (wordLog) {
       setWordOfDay(wordLog);
@@ -1289,7 +1299,7 @@ export default function StudentDashboard({ navigation }: any) {
                 </View>
               </View>
               <Text style={styles.homeHeroSub}>Bigkasin ang salitang ito nang tama!</Text>
-              <StudentWordOfDay log={wordOfDay} onResult={handleWordOfDayResult} />
+              <StudentWordOfDay log={wordOfDay} onResult={handleWordOfDayResult} definition={getWordDefinition(wordOfDay.word)} />
             </View>
           ) : (
             <View style={styles.homeHeroCard}>
@@ -1431,6 +1441,14 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.practicePrompt}>Pakinggan at Basahin</Text>
               <Text style={styles.practiceWordDisplay}>{selectedWord}</Text>
               <Text style={styles.practiceSyllables}>{selectedWord.split('-').join('  •  ')}</Text>
+              {!!getWordDefinition(selectedWord) && (
+                <View style={styles.wordMeaningBox}>
+                  {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
+                    <Text style={styles.wordMeaningAccented}>{getWordDefinition(selectedWord)!.display_word}</Text>
+                  )}
+                  <Text style={styles.wordMeaningText}>{getWordDefinition(selectedWord)!.meaning_fil}</Text>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={[styles.sayWordButton, { backgroundColor: HOME_SAGE, shadowColor: HOME_SAGE }]}
@@ -1485,6 +1503,14 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.practicePrompt}>Sabihin ang Salita</Text>
               <Text style={styles.practiceWordDisplay}>{selectedWord}</Text>
               <Text style={styles.practiceSyllables}>{selectedWord.split('-').join('  •  ')}</Text>
+              {!!getWordDefinition(selectedWord) && (
+                <View style={styles.wordMeaningBox}>
+                  {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
+                    <Text style={styles.wordMeaningAccented}>{getWordDefinition(selectedWord)!.display_word}</Text>
+                  )}
+                  <Text style={styles.wordMeaningText}>{getWordDefinition(selectedWord)!.meaning_fil}</Text>
+                </View>
+              )}
 
               <TouchableOpacity style={styles.listenCoachButton} onPress={() => speakPracticeWord(selectedWord)}>
                 <Ionicons name="volume-high-outline" size={18} color={HOME_LAVENDER_DARK} />
@@ -3461,6 +3487,9 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   practiceSyllables: { color: HOME_LAVENDER_DARK, fontSize: 16, fontWeight: '900', marginBottom: 14 },
+  wordMeaningBox: { alignItems: 'center', marginBottom: 14, paddingHorizontal: 12 },
+  wordMeaningAccented: { color: HOME_CORAL, fontSize: 14, fontWeight: '800', marginBottom: 2, textAlign: 'center' },
+  wordMeaningText: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 18 },
   practiceWordLevel: {
     textAlign: 'center', color: HOME_INK_SOFT, fontSize: 13,
     marginBottom: 20,

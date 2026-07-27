@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import levenshtein from 'fast-levenshtein';
 import { buildApiUrl, postJson } from '../config/api';
 import { WordOfDayLog, updateWordOfDayLog } from '../services/wordOfDayService';
+import { WordDefinition } from '../services/wordDefinitionsService';
 import { speakPhrase, speakWord } from '../services/ttsService';
 
 const PRIMARY = '#4f46e5';
@@ -49,11 +50,13 @@ export default function StudentWordOfDay({
   disabled,
   onResult,
   updateDailyLog = true,
+  definition,
 }: {
   log: WordOfDayLog;
   disabled?: boolean;
   onResult: (correct: boolean, attempts: number, score?: number, transcript?: string) => Promise<void>;
   updateDailyLog?: boolean;
+  definition?: WordDefinition;
 }) {
   // useAudioRecorder gives one persistent AudioRecorder instance for this
   // component's whole lifetime (auto-disposed on unmount) instead of the old
@@ -177,6 +180,14 @@ export default function StudentWordOfDay({
     <View style={styles.container}>
       <Text style={styles.wordLabel}>Bigkasin ang salitang ito:</Text>
       <Text style={styles.word}>{log.word}</Text>
+      {!!definition && (
+        <View style={styles.meaningBox}>
+          {definition.is_ambiguous && !!definition.display_word && (
+            <Text style={styles.meaningAccented}>{definition.display_word}</Text>
+          )}
+          <Text style={styles.meaningText}>{definition.meaning_fil}</Text>
+        </View>
+      )}
 
       <TouchableOpacity
         style={styles.listenButton}
@@ -230,6 +241,9 @@ const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingVertical: 8 },
   wordLabel: { color: HOME_INK_SOFT, fontSize: 14, marginBottom: 8, fontWeight: '600' },
   word: { fontFamily: FONT_DISPLAY, fontSize: 46, color: HOME_LAVENDER_DARK, letterSpacing: 2, marginBottom: 16 },
+  meaningBox: { alignItems: 'center', marginTop: -8, marginBottom: 16, paddingHorizontal: 12 },
+  meaningAccented: { color: HOME_LAVENDER_DARK, fontSize: 13, fontWeight: '800', marginBottom: 2, textAlign: 'center' },
+  meaningText: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600', textAlign: 'center', lineHeight: 16 },
   listenButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderWidth: 1.5, borderColor: HOME_LAVENDER, borderRadius: 999,
