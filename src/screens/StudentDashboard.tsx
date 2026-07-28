@@ -187,7 +187,21 @@ const scorePronunciation = (expected: string, spoken: string) => {
   // (e.g. "balikaka" vs "kalikasan" scored 73% and was accepted as correct).
   // Length mismatch is already captured by `ratio` itself; it doesn't need a
   // separate reward on top.
-  return Math.min(99, Math.round(100 * Math.max(0, 1 - ratio) ** 1.6));
+  let score = Math.min(99, Math.round(100 * Math.max(0, 1 - ratio) ** 1.6));
+
+  // A mismatched first 1-2 characters changes which Filipino word was said
+  // even when a long shared suffix keeps the whole-string ratio high (e.g.
+  // "pagkakaibigan" vs "magkakaibigan" - a single "pag-"/"mag-" prefix swap,
+  // two different real words with different meanings - scored 88% and
+  // passed before this penalty, since 12 of 13 characters matched). Tagalog
+  // prefixes like pag-/mag- are grammatically significant, so a mismatch
+  // right there is penalized directly instead of being washed out by ratio.
+  const prefixLen = Math.min(2, normalizedExpected.length, normalizedSpoken.length);
+  if (normalizedExpected.slice(0, prefixLen) !== normalizedSpoken.slice(0, prefixLen)) {
+    score = Math.round(score * 0.7);
+  }
+
+  return score;
 };
 
 const scoreMessage = (score: number) => {
@@ -1646,7 +1660,7 @@ export default function StudentDashboard({ navigation }: any) {
     if (selectedWord && child && practiceMode === 'listen') {
       return (
         <View style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
             <TouchableOpacity
               onPress={() => {
                 stopSpeaking();
@@ -1764,7 +1778,7 @@ export default function StudentDashboard({ navigation }: any) {
       return (
         <View style={{ flex: 1 }}>
           <ConfettiOverlay visible={confettiVisible} />
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
             <LinearGradient
               colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
               start={{ x: 0, y: 0 }}
@@ -1909,10 +1923,16 @@ export default function StudentDashboard({ navigation }: any) {
                         <Ionicons name="refresh" size={16} color={HOME_LAVENDER_DARK} />
                         <Text style={styles.encourageButtonGhostText}>Practice Again</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.encourageButtonSolid} onPress={handleNextWord}>
-                        <Text style={styles.encourageButtonSolidText}>Next Word</Text>
-                        <Ionicons name="arrow-forward" size={16} color="#fff" />
-                      </TouchableOpacity>
+                      {/* Next Word only appears once the attempt actually passed -
+                          matching PracticeResultCard's own gating (no "Susunod na
+                          Salita" button on a wrong result) so this card can't be
+                          used to skip ahead on a failed attempt. */}
+                      {practiceResult.correct && (
+                        <TouchableOpacity style={styles.encourageButtonSolid} onPress={handleNextWord}>
+                          <Text style={styles.encourageButtonSolidText}>Next Word</Text>
+                          <Ionicons name="arrow-forward" size={16} color="#fff" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -1930,7 +1950,7 @@ export default function StudentDashboard({ navigation }: any) {
     const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
 
     return (
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.homeHeaderRow}>
           <View style={styles.homeHeaderAvatar}>
             <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
@@ -3274,6 +3294,17 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.homeBg}>
           {renderActivities()}
         </View>
+      ) : section === 'practice' && selectedWord && practiceMode !== 'listen' ? (
+        // Same reasoning again, scoped narrowly: only the mic/"say" screen
+        // inside renderPractice() has its own hero banner (with a back
+        // button, not a menu, since it's a nested detail view reached from
+        // the grid, which still uses topHeaderNode for sidebar access) -
+        // this was missed when that banner was added, leaving the old
+        // header stacked above it. The word-selection grid and "listen"
+        // sub-view are unaffected and keep topHeaderNode as before.
+        <View style={styles.homeBg}>
+          {renderPractice()}
+        </View>
       ) : (
         <>
           {topHeaderNode}
@@ -3422,7 +3453,7 @@ function PracticeResultCard({
   }, []);
 
   const { correct, score, transcript, feedback, xpAward } = result;
-  const ringColor = score >= 85 ? SUCCESS : score >= 60 ? WARNING : '#fb7185';
+  const ringColor = score >= 85 ? SUCCESS : score >= 60 ? WARNING : DANGER;
   const stars = score >= 95 ? 3 : score >= 80 ? 2 : 1;
 
   if (correct) {
@@ -3482,17 +3513,17 @@ function PracticeResultCard({
         <View style={styles.comparisonRow}>
           <Text style={styles.comparisonIcon}>✅</Text>
           <Text style={styles.comparisonLabel}>Tamang bigkas:</Text>
-          <Text style={[styles.comparisonWord, { color: '#10b981', fontWeight: '900' }]}>{word.toUpperCase()}</Text>
+          <Text style={[styles.comparisonWord, { color: SUCCESS, fontWeight: '900' }]}>{word.toUpperCase()}</Text>
         </View>
       </View>
 
-      <View style={[styles.xpPill, { backgroundColor: '#f59e0b' }]}>
+      <View style={[styles.xpPill, { backgroundColor: WARNING }]}>
         <Text style={styles.xpPillText}>+{xpAward} XP 💛 (para sa pagsisikap!)</Text>
       </View>
 
       <View style={styles.resultButtons}>
         <TouchableOpacity style={styles.listenAgainButton} onPress={onReplay}>
-          <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
+          <Ionicons name="volume-high-outline" size={18} color={HOME_LAVENDER_DARK} />
           <Text style={styles.listenAgainText}>Pakinggan muli</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.retryMicButton} onPress={onRetry}>
@@ -3810,11 +3841,14 @@ const styles = StyleSheet.create({
   practiceClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
   practiceCloseText: { color: '#6B7280', fontWeight: '800' },
   practiceSubtitle: { color: '#6B7280', marginBottom: 12 },
-  resultCard: { marginTop: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 14, alignItems: 'center' },
-  correctCard: { backgroundColor: '#ecfdf5', borderColor: '#d1fae5' },
-  wrongCard: { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
+  resultCard: {
+    marginTop: 20, borderRadius: 24, padding: 20, alignItems: 'center',
+    shadowColor: HOME_INK, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
+  },
+  correctCard: { backgroundColor: '#EAF7EE' },
+  wrongCard: { backgroundColor: '#FFF3DC' },
   resultEmoji: { fontSize: 28, textAlign: 'center', marginBottom: 8 },
-  resultTitle: { fontSize: 16, fontWeight: '900', textAlign: 'center', color: '#111827' },
+  resultTitle: { fontFamily: FONT_DISPLAY, fontSize: 19, textAlign: 'center', color: HOME_INK },
   resultTranscript: { color: '#6B7280', fontSize: 13, marginTop: 10, textAlign: 'center' },
   resultScore: { marginTop: 8, color: PRIMARY, fontWeight: '700', textAlign: 'center' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 18 },
@@ -4117,27 +4151,27 @@ const styles = StyleSheet.create({
   practiceHero: {
     backgroundColor: '#fff',
     borderRadius: 24,
-    padding: 20,
+    padding: 22,
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowColor: HOME_INK,
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
   },
   practiceMoodBadge: {
     width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  practicePrompt: { color: HOME_INK_SOFT, fontWeight: '900', textTransform: 'uppercase', fontSize: 12, marginBottom: 4 },
+  practicePrompt: { color: HOME_INK_SOFT, fontWeight: '900', textTransform: 'uppercase', fontSize: 12, marginBottom: 4, letterSpacing: 0.5 },
   practiceCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 24,
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
   practiceWordDisplay: {
-    fontSize: 56, fontWeight: '900', color: HOME_LAVENDER_DARK,
+    fontSize: 52, color: HOME_LAVENDER_DARK,
     letterSpacing: 0, textAlign: 'center', marginBottom: 6,
-    fontFamily: 'System',
+    fontFamily: FONT_DISPLAY,
   },
   practiceSyllables: { color: HOME_LAVENDER_DARK, fontSize: 16, fontWeight: '900', marginBottom: 14 },
   wordMeaningBox: { alignItems: 'center', marginBottom: 14, paddingHorizontal: 12 },
@@ -4179,8 +4213,8 @@ const styles = StyleSheet.create({
 
   practiceDivider: { height: 1, width: '100%', backgroundColor: 'rgba(124,111,207,0.15)', marginVertical: 18 },
   micSection: {
-    width: '100%', alignItems: 'center', backgroundColor: 'rgba(124,111,207,0.05)',
-    borderRadius: 20, paddingVertical: 22, paddingHorizontal: 12,
+    width: '100%', alignItems: 'center', backgroundColor: 'rgba(124,111,207,0.08)',
+    borderRadius: 20, paddingVertical: 24, paddingHorizontal: 12,
   },
   micGlowOuter: {
     width: 118, height: 118, borderRadius: 59, alignItems: 'center', justifyContent: 'center',
@@ -4257,8 +4291,8 @@ const styles = StyleSheet.create({
   backText: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 15 },
 
   resultBigEmoji: { fontSize: 72, marginBottom: 8 },
-  resultSubtitle: { fontSize: 15, color: TEXT_SECONDARY, marginBottom: 20, textAlign: 'center' },
-  scoreCoachText: { color: TEXT_PRIMARY, fontWeight: '900', marginTop: -10, marginBottom: 12 },
+  resultSubtitle: { fontSize: 14, color: HOME_INK_SOFT, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
+  scoreCoachText: { color: HOME_INK, fontWeight: '800', marginTop: -10, marginBottom: 12 },
   starRow: { flexDirection: 'row', gap: 6, marginTop: -10, marginBottom: 14 },
   pronunciationStar: { color: XP_GOLD, fontSize: 28 },
   pronunciationStarDim: { color: '#d1d5db' },
@@ -4266,62 +4300,63 @@ const styles = StyleSheet.create({
   // Accuracy ring (simulated with a card)
   accuracyRing: {
     width: 110, height: 110, borderRadius: 55,
-    borderWidth: 8, borderColor: '#10b981',
+    borderWidth: 8, borderColor: SUCCESS,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 20, backgroundColor: '#fff',
+    shadowColor: HOME_INK, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
-  accuracyRingWrong: { borderColor: '#f59e0b' },
+  accuracyRingWrong: { borderColor: WARNING },
   accuracyPercent: {
-    fontSize: 28, fontWeight: '900', color: '#10b981',
+    fontFamily: FONT_DISPLAY, fontSize: 28, color: SUCCESS,
   },
-  accuracyLabel: { fontSize: 11, color: TEXT_SECONDARY },
+  accuracyLabel: { fontSize: 11, color: HOME_INK_SOFT, fontWeight: '600' },
 
   // Transcript row
   transcriptRow: {
     flexDirection: 'row', alignItems: 'center',
     marginBottom: 16,
   },
-  transcriptLabel: { color: TEXT_SECONDARY, fontSize: 13 },
-  transcriptValue: { color: TEXT_PRIMARY, fontWeight: '700', fontSize: 13 },
+  transcriptLabel: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600' },
+  transcriptValue: { color: HOME_INK, fontWeight: '800', fontSize: 13 },
 
   // Comparison box (wrong result)
   comparisonBox: {
-    width: '100%', backgroundColor: '#fff', borderRadius: 16,
+    width: '100%', backgroundColor: '#fff', borderRadius: 20,
     padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: '#e5e7eb',
   },
   comparisonRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6,
   },
-  comparisonDivider: { height: 1, backgroundColor: '#f3f4f6', marginVertical: 4 },
+  comparisonDivider: { height: 1, backgroundColor: 'rgba(124,111,207,0.15)', marginVertical: 4 },
   comparisonIcon: { fontSize: 18, width: 28 },
-  comparisonLabel: { color: TEXT_SECONDARY, fontSize: 13, flex: 1 },
+  comparisonLabel: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', flex: 1 },
   comparisonWord: { fontSize: 15, fontWeight: '800' },
 
   // XP pill
   xpPill: {
-    backgroundColor: '#4f46e5', borderRadius: 999,
+    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999,
     paddingHorizontal: 20, paddingVertical: 10, marginBottom: 20,
   },
   xpPillText: { color: '#fff', fontWeight: '900', fontSize: 15 },
 
   // Buttons in result card
   nextButton: {
-    backgroundColor: PRIMARY, borderRadius: 16,
+    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999,
     paddingHorizontal: 28, paddingVertical: 14,
     width: '100%', alignItems: 'center',
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
   nextButtonText: { color: '#fff', fontWeight: '900', fontSize: 16 },
   resultButtons: { flexDirection: 'row', gap: 10, width: '100%' },
   listenAgainButton: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, borderWidth: 1.5, borderColor: PRIMARY, borderRadius: 14,
+    gap: 6, borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderRadius: 999,
     paddingVertical: 12,
   },
-  listenAgainText: { color: PRIMARY, fontWeight: '700' },
+  listenAgainText: { color: HOME_LAVENDER_DARK, fontWeight: '700' },
   retryMicButton: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, backgroundColor: PRIMARY, borderRadius: 14, paddingVertical: 12,
+    gap: 6, backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999, paddingVertical: 12,
   },
   retryMicText: { color: '#fff', fontWeight: '700' },
 
