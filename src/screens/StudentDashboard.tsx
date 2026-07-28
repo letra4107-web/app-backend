@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +24,7 @@ import {
 } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, speakWord, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
-import { fetchDashboardSettings, DashboardSettings } from '../services/settingsService';
+import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } from '../services/settingsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { fetchWords } from '../services/wordsService';
@@ -469,6 +469,35 @@ export default function StudentDashboard({ navigation }: any) {
       console.warn('[StudentDashboard] settings load failed:', error?.message || error);
       return null;
     }
+  };
+
+  // Same real dyslexia_font field/update path as the Settings tab's own
+  // Accessibility toggle - not a second source of truth. DashboardSettingsScreen
+  // unmounts/remounts whenever the Settings tab is left and reopened, so it
+  // always refetches this value fresh; nothing to keep in sync there.
+  const toggleDyslexiaFont = async (next: boolean) => {
+    if (!child?.auth_uid) return;
+    const previous = dashboardSettings;
+    setDashboardSettings((prev) => (prev ? { ...prev, dyslexia_font: next } : prev));
+    try {
+      const saved = await updateDashboardSettings(child.auth_uid, 'student', { dyslexia_font: next });
+      setDashboardSettings(saved);
+    } catch (error: any) {
+      console.warn('[Sidebar] dyslexia_font toggle failed:', error?.message || error);
+      setDashboardSettings(previous);
+    }
+  };
+
+  // Same mailto pattern as DashboardSettingsScreen's contactSupport (that
+  // component isn't mounted from the sidebar, so this is a small, deliberate
+  // duplication matching how ParentDashboardEnhanced already keeps its own
+  // local copy too, rather than a new shared-service refactor).
+  const contactSupportFromSidebar = async () => {
+    const subject = encodeURIComponent('LinawLetra support - Student account');
+    const body = encodeURIComponent(`User ID: ${child?.auth_uid || ''}\n\nHow can we help?`);
+    const url = `mailto:support@linawletra.app?subject=${subject}&body=${body}`;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) await Linking.openURL(url);
   };
 
   const loadPronunciationStats = async (childId?: string) => {
@@ -3523,6 +3552,11 @@ export default function StudentDashboard({ navigation }: any) {
   // Same unread-notification count that used to live in the header bell on
   // every tab - now surfaced only via the "Notifications" row in the sidebar.
   const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
+  // Same accuracy_sum/total_attempts formula as the Progress tab's "Overall
+  // Reading Progress" ring - not a separately-computed version.
+  const sidebarOverallPct = (progress?.total_attempts || 0) > 0
+    ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
+    : 0;
 
   const topHeaderNode = (
     <View style={styles.topHeader}>
@@ -3598,25 +3632,47 @@ export default function StudentDashboard({ navigation }: any) {
         </Animated.View>
       )}
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: sidebarAnim }] }]}>
-        <View style={styles.sidebarProfile}>
-          <View style={styles.sidebarAvatarGlowOuter}>
-            <View style={styles.sidebarAvatarGlowInner}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.sidebarScrollContent} showsVerticalScrollIndicator={false}>
+          <LinearGradient
+            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.sidebarProfileCard}
+          >
+            <TouchableOpacity style={styles.sidebarCloseButton} onPress={closeSidebar}>
+              <Ionicons name="close" size={18} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.sidebarProfileRow}>
+              <View style={styles.sidebarAvatarWrap}>
+                <Text style={styles.sidebarAvatarText}>{initials}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sidebarProfileName} numberOfLines={1}>{child?.name || 'Estudyante'}</Text>
+                <Text style={styles.sidebarProfileGrade}>Grade {child?.grade_level || '-'} Student</Text>
+                <TouchableOpacity onPress={() => navigateTo('settings')}>
+                  <Text style={styles.sidebarProfileLink}>View Profile ›</Text>
+                </TouchableOpacity>
               </View>
             </View>
+          </LinearGradient>
+
+          <View style={styles.sidebarLogoRow}>
+            <View style={styles.sidebarLogoIconWrap}>
+              <Ionicons name="book" size={18} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sidebarLogoText}>LinawLetra</Text>
+              <Text style={styles.sidebarLogoTagline}>Clearer Reading. Brighter Learning.</Text>
+            </View>
           </View>
-          <Text style={styles.sidebarName}>{child?.name || 'Estudyante'}</Text>
-          <Text style={styles.sidebarEmail}>{child?.username || 'student account'}</Text>
-        </View>
-        <ScrollView style={styles.sidebarNav} showsVerticalScrollIndicator={false}>
+
+          <Text style={styles.sidebarSectionLabel}>MAIN NAVIGATION</Text>
           {[
             { k: 'home', l: 'Home', i: 'home-outline' },
             { k: 'learn', l: 'Learn', i: 'library-outline', count: navPendingCount },
             { k: 'practice', l: 'Practice', i: 'mic-outline' },
             { k: 'progress', l: 'Progress', i: 'analytics-outline' },
             { k: 'achievements', l: 'Badges', i: 'ribbon-outline', fraction: navBadgeFraction },
-            { k: 'notifications', l: 'Notifications', i: 'notifications-outline', count: unreadNotifCount },
             { k: 'settings', l: 'Settings', i: 'settings-outline' },
           ].map((it: any) => {
             const active = section === it.k;
@@ -3627,7 +3683,7 @@ export default function StudentDashboard({ navigation }: any) {
                 onPress={() => navigateTo(it.k)}
               >
                 <View style={[styles.navIconWrap, active && styles.navIconWrapActive]}>
-                  <Ionicons name={it.i as any} size={17} color={active ? HOME_LAVENDER_DARK : 'rgba(255,255,255,0.85)'} />
+                  <Ionicons name={it.i as any} size={17} color={active ? HOME_LAVENDER_DARK : HOME_INK_SOFT} />
                 </View>
                 <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.l}</Text>
                 {!!it.count && (
@@ -3643,11 +3699,61 @@ export default function StudentDashboard({ navigation }: any) {
               </TouchableOpacity>
             );
           })}
+
+          <Text style={styles.sidebarSectionLabel}>PROGRESS</Text>
+          <View style={styles.sidebarProgressCard}>
+            <Text style={styles.sidebarProgressTitle}>Your Reading Progress</Text>
+            <Text style={styles.sidebarProgressPct}>{sidebarOverallPct}% Complete</Text>
+            <View style={styles.sidebarProgressTrack}>
+              <View style={[styles.sidebarProgressFill, { width: `${Math.max(4, sidebarOverallPct)}%` }]} />
+            </View>
+            <Text style={styles.sidebarProgressMsg}>Keep going {getFirstName(child?.name || '')}! ✦</Text>
+            <Image source={require('../../assets/menu.png')} style={styles.sidebarProgressImage} resizeMode="contain" />
+          </View>
+
+          <Text style={styles.sidebarSectionLabel}>QUICK ACCESS</Text>
+          <TouchableOpacity style={styles.sidebarQuickRow} onPress={() => navigateTo('notifications')}>
+            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: VIVID_TEAL }]}>
+              <Ionicons name="notifications" size={16} color="#fff" />
+            </View>
+            <Text style={styles.sidebarQuickLabel}>Notifications</Text>
+            {unreadNotifCount > 0 && (
+              <View style={styles.navCountBadge}>
+                <Text style={styles.navCountBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-forward" size={16} color={HOME_INK_SOFT} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarQuickRow} onPress={contactSupportFromSidebar}>
+            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: VIVID_TEAL }]}>
+              <Ionicons name="help-circle" size={16} color="#fff" />
+            </View>
+            <Text style={styles.sidebarQuickLabel}>Help & Support</Text>
+            <Ionicons name="chevron-forward" size={16} color={HOME_INK_SOFT} />
+          </TouchableOpacity>
+
+          <View style={styles.sidebarAccessibilityCard}>
+            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: HOME_SAGE }]}>
+              <Ionicons name="accessibility" size={16} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sidebarAccessibilityTitle}>Dyslexia-Friendly Mode</Text>
+              <Text style={styles.sidebarAccessibilitySub}>Make reading more comfortable.</Text>
+            </View>
+            <Switch
+              value={!!dashboardSettings?.dyslexia_font}
+              onValueChange={toggleDyslexiaFont}
+              trackColor={{ false: '#cbd5e1', true: 'rgba(124,111,207,0.4)' }}
+              thumbColor={dashboardSettings?.dyslexia_font ? HOME_LAVENDER_DARK : '#f8fafc'}
+            />
+          </View>
+
+          <Text style={styles.sidebarSectionLabel}>ACCOUNT</Text>
+          <TouchableOpacity style={styles.sidebarLogout} onPress={async () => { await signOutUser(); navigation.replace('Login'); }}>
+            <Ionicons name="log-out-outline" size={20} color="#fff" />
+            <Text style={styles.sidebarLogoutText}>Log Out</Text>
+          </TouchableOpacity>
         </ScrollView>
-        <TouchableOpacity style={styles.sidebarLogout} onPress={async () => { await signOutUser(); navigation.replace('Login'); }}>
-          <Ionicons name="log-out-outline" size={20} color="#fff" />
-          <Text style={styles.sidebarLogoutText}>Mag-log out</Text>
-        </TouchableOpacity>
       </Animated.View>
 
       <AchievementModal
@@ -4201,59 +4307,92 @@ const styles = StyleSheet.create({
   // Tinted indigo scrim (matches the drawer's own palette) instead of flat black
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(30,23,66,0.6)' },
   sidebar: {
-    position: 'absolute', top: 0, bottom: 0, left: 0, width: 270,
-    backgroundColor: HOME_LAVENDER_DARK, paddingTop: 48, zIndex: 100,
+    position: 'absolute', top: 0, bottom: 0, left: 0, width: 300,
+    backgroundColor: HOME_CREAM, paddingTop: 48, zIndex: 100,
     shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.25, shadowRadius: 24, elevation: 20,
   },
-  sidebarProfile: {
-    alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)',
+  sidebarScrollContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  sidebarProfileCard: {
+    borderRadius: 24, padding: 18, marginBottom: 16, position: 'relative',
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
   },
-  sidebarAvatarGlowOuter: {
-    width: 92, height: 92, borderRadius: 46, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 12,
+  sidebarCloseButton: {
+    position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
-  sidebarAvatarGlowInner: {
-    width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  avatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: HOME_LAVENDER,
+  sidebarProfileRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 24 },
+  sidebarAvatarWrap: {
+    width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 26, fontWeight: '900', color: '#fff' },
-  sidebarName: { fontSize: 17, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  sidebarEmail: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4, textAlign: 'center' },
-  sidebarNav: { flex: 1, paddingHorizontal: 14, paddingTop: 16 },
+  sidebarAvatarText: { fontSize: 22, fontWeight: '900', color: '#fff' },
+  sidebarProfileName: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 16, color: '#fff' },
+  sidebarProfileGrade: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 12, marginTop: 2 },
+  sidebarProfileLink: { color: '#fff', fontWeight: '900', fontSize: 12, marginTop: 6, textDecorationLine: 'underline' },
+  sidebarLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18, paddingHorizontal: 2 },
+  sidebarLogoIconWrap: {
+    width: 34, height: 34, borderRadius: 17, backgroundColor: HOME_LAVENDER_DARK,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sidebarLogoText: { fontFamily: FONT_DISPLAY, fontSize: 16, color: HOME_INK },
+  sidebarLogoTagline: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 10.5, marginTop: 1 },
+  sidebarSectionLabel: {
+    color: HOME_INK_SOFT, fontWeight: '900', fontSize: 11, letterSpacing: 0.8,
+    marginBottom: 8, marginTop: 4, paddingHorizontal: 2,
+  },
   navItem: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14,
-    marginBottom: 4,
+    marginBottom: 6, backgroundColor: '#fff',
+    shadowColor: HOME_INK, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  navItemActive: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  navItemActive: { backgroundColor: '#EFECFB' },
   navIconWrap: {
     width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F5F3FC',
   },
-  navIconWrapActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3,
-  },
-  navLabel: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.85)', flex: 1 },
-  navLabelActive: { color: '#fff', fontWeight: '900' },
+  navIconWrapActive: { backgroundColor: '#fff' },
+  navLabel: { fontSize: 14, fontWeight: '700', color: HOME_INK, flex: 1 },
+  navLabelActive: { color: HOME_LAVENDER_DARK, fontWeight: '900' },
   navCountBadge: {
     backgroundColor: DANGER, borderRadius: 999, minWidth: 20, height: 20, paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
   navCountBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
-  navFractionPill: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  navFractionPillText: { color: '#fff', fontWeight: '800', fontSize: 10.5 },
+  navFractionPill: { backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  navFractionPillText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 10.5 },
+  sidebarProgressCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16, overflow: 'hidden',
+    shadowColor: HOME_INK, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+  },
+  sidebarProgressTitle: { color: HOME_INK, fontWeight: '800', fontSize: 13, maxWidth: '72%' },
+  sidebarProgressPct: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_LAVENDER_DARK, fontSize: 20, marginTop: 4, maxWidth: '72%' },
+  sidebarProgressTrack: {
+    height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden',
+    marginTop: 10, maxWidth: '72%',
+  },
+  sidebarProgressFill: { height: '100%', borderRadius: 4, backgroundColor: HOME_LAVENDER_DARK },
+  sidebarProgressMsg: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 11, marginTop: 8, maxWidth: '72%' },
+  // 1120x2240 in the source art (same ratio group as singing.png/learn2.png) -
+  // "peeking" from the bottom-right corner of the mini progress card.
+  sidebarProgressImage: { position: 'absolute', right: -6, bottom: -10, width: 70, height: 140 },
+  sidebarQuickRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
+    borderRadius: 14, padding: 12, marginBottom: 8,
+    shadowColor: HOME_INK, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  sidebarQuickIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  sidebarQuickLabel: { color: HOME_INK, fontWeight: '700', fontSize: 14, flex: 1 },
+  sidebarAccessibilityCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#E9F1E2',
+    borderRadius: 16, padding: 14, marginTop: 4, marginBottom: 16,
+  },
+  sidebarAccessibilityTitle: { color: HOME_INK, fontWeight: '800', fontSize: 13 },
+  sidebarAccessibilitySub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 11, marginTop: 2 },
   sidebarLogout: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    margin: 20, padding: 16, borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    padding: 15, borderRadius: 14, backgroundColor: DANGER,
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   // --- Home tab ---
