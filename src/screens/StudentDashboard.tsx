@@ -84,6 +84,8 @@ const VIVID_GREEN = '#16A34A';
 const VIVID_ORANGE = '#EA580C';
 const VIVID_VIOLET = '#7C3AED';
 const VIVID_AMBER = '#F59E0B';
+const VIVID_TEAL = '#0D9488';
+const VIVID_NAVY = '#1E3A8A';
 const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 const XP_CORRECT = 50;
@@ -1916,7 +1918,12 @@ export default function StudentDashboard({ navigation }: any) {
 
     const lessonSubjects = Array.from(new Set(lessons.map((l) => l.subject).filter(Boolean))) as string[];
 
-    const filteredLessons = lessonFilter === 'Lahat' ? lessons : lessons.filter((l) => l.subject === lessonFilter);
+    const lessonsAscending = lessons
+      .slice()
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const filteredLessonsAscending = lessonFilter === 'Lahat'
+      ? lessonsAscending
+      : lessonsAscending.filter((l) => l.subject === lessonFilter);
 
     const inProgressRows = lessonProgress
       .filter((p) => p.status === 'in_progress')
@@ -1926,8 +1933,35 @@ export default function StudentDashboard({ navigation }: any) {
       ? lessons.find((l) => l.id === inProgressRows[0].lesson_id) || null
       : null;
 
-    const lessonStateColor = (state: 'not_started' | 'in_progress' | 'completed') =>
-      state === 'completed' ? SUCCESS : state === 'in_progress' ? WARNING : HOME_INK_SOFT;
+    // "Learning Progress" - real completed/total lesson counts, no fixed
+    // denominator. See migration/migrations/013_lesson_progress.sql: lessons
+    // have no sequence field, so there's no real "5 lessons" curriculum to
+    // measure against - the total is whatever the teacher has actually
+    // uploaded and published.
+    const totalLessonsCount = lessons.length;
+    const completedLessonsCount = lessonProgress.filter((p) => p.status === 'completed').length;
+    const learningProgressPct = totalLessonsCount
+      ? Math.round((completedLessonsCount / totalLessonsCount) * 100)
+      : 0;
+
+    // Same daily-goal metric already shown on Home and Practice (real
+    // total_attempts mod DAILY_GOAL) - intentionally the same number a third
+    // time, not a competing/fabricated metric.
+    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
+    const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
+
+    // Learning Categories - real taxonomy (categorizeWord) already used for
+    // the Progress tab's skill breakdown, scored here against completed_words.
+    const completedWordsList = progress?.completed_words || [];
+    const lettersTotal = SKILL_LETTERS.length;
+    const lettersDone = SKILL_LETTERS.filter((w) => completedWordsList.includes(w)).length;
+    const syllablesPool = DEFAULT_PHONETIC_WORDS;
+    const syllablesTotal = syllablesPool.length;
+    const syllablesDone = syllablesPool.filter((w) => completedWordsList.includes(w)).length;
+    const wordsPool = SKILL_LONG_WORDS;
+    const wordsTotal = wordsPool.length;
+    const wordsDone = wordsPool.filter((w) => completedWordsList.includes(w)).length;
+
     const lessonStateLabel = (state: 'not_started' | 'in_progress' | 'completed') =>
       state === 'completed' ? 'Nabasa na' : state === 'in_progress' ? 'Binabasa' : 'Hindi pa binuksan';
 
@@ -1938,23 +1972,31 @@ export default function StudentDashboard({ navigation }: any) {
 
     return (
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.homeHeaderRow}>
-        <View style={styles.homeHeaderAvatar}>
-          <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
+      <LinearGradient
+        colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroBanner}
+      >
+        <View style={styles.heroTopRow}>
+          <TouchableOpacity style={styles.heroLogoRow} onPress={openSidebar}>
+            <Ionicons name="menu-outline" size={20} color="#fff" />
+            <Ionicons name="book" size={16} color="#fff" />
+            <Text style={styles.heroLogoText}>LinawLetra</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
+            <Ionicons name="notifications" size={20} color="#fff" />
+            {unreadNotifCount > 0 && (
+              <View style={styles.homeBellBadge}>
+                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.homeGreetingHello}>Learn</Text>
-          <Text style={styles.homeGreetingSub}>Galugarin ang iyong mga aralin at pagsasanay</Text>
-        </View>
-        <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
-          <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
-          {unreadNotifCount > 0 && (
-            <View style={styles.homeBellBadge}>
-              <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+        <Text style={styles.heroGreeting}>Matuto tayo,{'\n'}{getFirstName(child?.name || '')}!</Text>
+        <Text style={styles.heroSubtitle}>Piliin ang aralin at ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
+        <Image source={require('../../assets/learn.png')} style={styles.learnHeroImage} resizeMode="contain" />
+      </LinearGradient>
 
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
@@ -2013,113 +2055,234 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
       )}
 
-      {continueReadingLesson && (
-        <View style={styles.learnContinueCard}>
-          <View style={styles.learnContinuePill}>
-            <Text style={styles.learnContinuePillText}>IPAGPATULOY ANG PAGBASA</Text>
-          </View>
-          <Text style={styles.learnContinueTitle}>{continueReadingLesson.title}</Text>
-          {!!continueReadingLesson.description && (
-            <Text style={styles.learnContinueSub}>{continueReadingLesson.description}</Text>
-          )}
-          <TouchableOpacity style={styles.learnContinueButton} onPress={() => openLesson(continueReadingLesson)}>
-            <Text style={styles.learnContinueButtonText}>Ipagpatuloy ang Pagbasa</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <View style={styles.learnSectionHeader}>
-        <View style={[styles.learnBadgePill, { backgroundColor: '#E9F1E2' }]}>
-          <Ionicons name="book" size={16} color={HOME_SAGE} />
-          <Text style={[styles.learnBadgeText, { color: HOME_SAGE }]}>PDF LESSONS</Text>
+        <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
+          <Ionicons name="flag" size={16} color={HOME_LAVENDER_DARK} />
+          <Text style={[styles.learnBadgeText, { color: HOME_LAVENDER_DARK }]}>MY LEARNING PATH</Text>
         </View>
-        <Text style={styles.learnSectionSubtitle}>Mga babasahin at aralin para sa iyo</Text>
+        <Text style={styles.learnSectionSubtitle}>Sundan ang mga aralin at buuin ang iyong reading skills</Text>
       </View>
 
-      {lessonSubjects.length > 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.learnFilterRow}
-          contentContainerStyle={{ gap: 8 }}
-        >
-          {['Lahat', ...lessonSubjects].map((subj) => (
-            <TouchableOpacity
-              key={subj}
-              style={[styles.learnFilterChip, lessonFilter === subj && styles.learnFilterChipActive]}
-              onPress={() => setLessonFilter(subj)}
-            >
-              <Text style={[styles.learnFilterChipText, lessonFilter === subj && styles.learnFilterChipTextActive]}>
-                {subj}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      {totalLessonsCount > 0 ? (
+        <View style={styles.learnProgressCard}>
+          <View style={styles.learnProgressTopRow}>
+            <Text style={styles.learnProgressTitle}>Learning Progress</Text>
+            <Text style={styles.learnProgressPct}>{learningProgressPct}%</Text>
+          </View>
+          <Text style={styles.learnProgressCount}>{completedLessonsCount} / {totalLessonsCount} Lessons Completed</Text>
+          <View style={styles.learnProgressTrack}>
+            <View style={{ width: `${Math.max(4, learningProgressPct)}%`, height: '100%' }}>
+              <LinearGradient
+                colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ flex: 1, borderRadius: 5 }}
+              />
+            </View>
+          </View>
+          <Text style={styles.learnProgressMsg}>
+            {completedLessonsCount === 0 ? 'Simulan ang unang aralin mo!' : 'Keep going! Umaangat ka nang umaangat.'}
+          </Text>
+        </View>
+      ) : (
+        <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
+            <Ionicons name="book-outline" size={40} color={HOME_LAVENDER_DARK} />
+          </View>
+          <Text style={styles.learnEmptyTitle}>Wala ka pang aralin</Text>
+          <Text style={styles.learnEmptySubtext}>Kapag nag-upload na ang guro mo ng aralin, makikita mo agad dito ang iyong progress! 📚</Text>
+        </View>
       )}
 
-      {lessonsLoading && (
-        <View style={styles.centerBlock}>
-          <ActivityIndicator size="small" color={HOME_SAGE} />
-          <Text style={styles.empty}>Loading lessons...</Text>
-        </View>
-      )}
-      {!lessonsLoading && !!lessonsError && (
-        <View style={styles.errorBlock}>
-          <Text style={styles.error}>{lessonsError}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={retryLessons}>
-            <Text style={styles.retryButtonText}>Subukan muli</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      {!lessonsLoading && !lessonsError && filteredLessons.length ? (
-        <View style={styles.learnCardList}>
-          {filteredLessons.map((lesson) => {
-            const state = getLessonState(lesson.id);
-            return (
-              <View key={lesson.id} style={styles.learnLessonCard}>
-                <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
-                  <Ionicons name="document-text" size={22} color={HOME_SAGE} />
-                </View>
-                <View style={styles.uploadBody}>
-                  <Text style={styles.learnItemTitle}>{lesson.title}</Text>
-                  <View style={styles.learnItemMetaRow}>
-                    <View style={[styles.learnStatusDot, { backgroundColor: lessonStateColor(state) }]} />
-                    <Text style={styles.learnItemMeta}>
-                      {lesson.subject || 'Lesson'} • {lessonStateLabel(state)}
-                    </Text>
+      {totalLessonsCount > 0 && (
+        <>
+          <Text style={styles.practiceSectionTitle}>Lesson Library</Text>
+
+          {lessonSubjects.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.learnFilterRow}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {['Lahat', ...lessonSubjects].map((subj) => (
+                <TouchableOpacity
+                  key={subj}
+                  style={[styles.learnFilterChip, lessonFilter === subj && styles.learnFilterChipActive]}
+                  onPress={() => setLessonFilter(subj)}
+                >
+                  <Text style={[styles.learnFilterChipText, lessonFilter === subj && styles.learnFilterChipTextActive]}>
+                    {subj}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {lessonsLoading && (
+            <View style={styles.centerBlock}>
+              <ActivityIndicator size="small" color={HOME_LAVENDER} />
+              <Text style={styles.empty}>Loading lessons...</Text>
+            </View>
+          )}
+          {!lessonsLoading && !!lessonsError && (
+            <View style={styles.errorBlock}>
+              <Text style={styles.error}>{lessonsError}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={retryLessons}>
+                <Text style={styles.retryButtonText}>Subukan muli</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {!lessonsLoading && !lessonsError && (
+            <View style={styles.lessonStepList}>
+              {filteredLessonsAscending.map((lesson, index) => {
+                const state = getLessonState(lesson.id);
+                const isLast = index === filteredLessonsAscending.length - 1;
+                const cardBody = (
+                  <>
+                    <View style={styles.lessonStepBody}>
+                      <Text
+                        style={[styles.lessonStepTitle, state === 'in_progress' && styles.lessonStepTitleLight]}
+                        numberOfLines={1}
+                      >
+                        {lesson.title}
+                      </Text>
+                      <Text
+                        style={[styles.lessonStepMeta, state === 'in_progress' && styles.lessonStepMetaLight]}
+                        numberOfLines={1}
+                      >
+                        {lesson.subject || 'Lesson'} • {lessonStateLabel(state)}
+                      </Text>
+                    </View>
+                    {state === 'completed' ? (
+                      <TouchableOpacity style={styles.lessonStepButtonGhost} onPress={() => openLesson(lesson)}>
+                        <Text style={[styles.lessonStepButtonGhostText, { color: VIVID_GREEN }]}>Review Lesson</Text>
+                      </TouchableOpacity>
+                    ) : state === 'in_progress' ? (
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                        <TouchableOpacity style={styles.lessonStepButtonLight} onPress={() => openLesson(lesson)}>
+                          <Text style={styles.lessonStepButtonLightText}>Continue Learning</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => void finishLesson(lesson)}>
+                          <Text style={styles.lessonStepMarkDoneLight}>Tapos na</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity style={styles.lessonStepButtonGhost} onPress={() => openLesson(lesson)}>
+                        <Text style={styles.lessonStepButtonGhostText}>Simulan</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                );
+                return (
+                  <View key={lesson.id} style={styles.lessonStepRow}>
+                    <View style={styles.lessonStepRail}>
+                      <View
+                        style={[
+                          styles.lessonStepDot,
+                          state === 'completed' && styles.lessonStepDotDone,
+                          state === 'in_progress' && styles.lessonStepDotActive,
+                        ]}
+                      >
+                        {state === 'completed' && <Ionicons name="checkmark" size={12} color="#fff" />}
+                      </View>
+                      {!isLast && <View style={styles.lessonStepLine} />}
+                    </View>
+                    {state === 'in_progress' ? (
+                      <LinearGradient
+                        colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.lessonStepCard, styles.lessonStepCardActive]}
+                      >
+                        {cardBody}
+                      </LinearGradient>
+                    ) : (
+                      <View style={[styles.lessonStepCard, state === 'completed' ? styles.lessonStepCardDone : styles.lessonStepCardMuted]}>
+                        {cardBody}
+                      </View>
+                    )}
                   </View>
-                  {!!lesson.description && <Text style={styles.learnItemDescription}>{lesson.description}</Text>}
-                </View>
-                {state === 'completed' ? (
-                  <Text style={[styles.learnStatusBadge, { color: SUCCESS }]}>Tapos na ✓</Text>
-                ) : state === 'in_progress' ? (
-                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                    <TouchableOpacity style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]} onPress={() => openLesson(lesson)}>
-                      <Text style={styles.learnActionButtonText}>Ipagpatuloy</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => void finishLesson(lesson)}>
-                      <Text style={styles.learnMarkDoneText}>Tapos na</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]} onPress={() => openLesson(lesson)}>
-                    <Text style={styles.learnActionButtonText}>Buksan</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      ) : null}
-      {!lessonsLoading && !lessonsError && !filteredLessons.length && (
-        <View style={[styles.learnEmptyCard, { backgroundColor: '#F1F6ED' }]}>
-          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E9F1E2' }]}>
-            <Ionicons name="book-outline" size={40} color={HOME_SAGE} />
+                );
+              })}
+            </View>
+          )}
+        </>
+      )}
+
+      <Text style={styles.practiceSectionTitle}>Learning Categories</Text>
+      <View style={styles.categoryGrid}>
+        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#F1E9FE' }]} onPress={() => setSection('practice')}>
+          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+            <Ionicons name="text" size={20} color="#fff" />
           </View>
-          <Text style={styles.learnEmptyTitle}>Wala pang lessons dito</Text>
-          <Text style={styles.learnEmptySubtext}>Kapag nag-upload na ang guro mo, makikita mo agad ito rito! 📚</Text>
+          <Text style={styles.categoryTitle}>Letters</Text>
+          <Text style={styles.categorySub}>{lettersDone} of {lettersTotal} practiced</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#E1F5F2' }]} onPress={() => setSection('practice')}>
+          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_TEAL }]}>
+            <Ionicons name="reader" size={20} color="#fff" />
+          </View>
+          <Text style={styles.categoryTitle}>Syllables</Text>
+          <Text style={styles.categorySub}>{syllablesDone} of {syllablesTotal} practiced</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#E7ECF8' }]} onPress={() => setSection('practice')}>
+          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_NAVY }]}>
+            <Ionicons name="book" size={20} color="#fff" />
+          </View>
+          <Text style={styles.categoryTitle}>Words</Text>
+          <Text style={styles.categorySub}>{wordsDone} of {wordsTotal} practiced</Text>
+        </TouchableOpacity>
+        <View style={[styles.categoryCard, styles.categoryTipCard, { backgroundColor: '#FEF3D6' }]}>
+          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_AMBER }]}>
+            <Ionicons name="bulb" size={20} color="#fff" />
+          </View>
+          <Text style={styles.categoryTitle}>Reading Tip</Text>
+          <Text style={styles.categorySub}>Bigkasin ang bawat pantig nang dahan-dahan bago pagsamahin.</Text>
+          <Image source={require('../../assets/learnboypng.png')} style={styles.categoryTipImage} resizeMode="contain" />
         </View>
-      )}
+      </View>
+
+      <View style={styles.learnBottomRow}>
+        {continueReadingLesson ? (
+          <View style={[styles.learnContinueCard, styles.learnBottomCard]}>
+            <View style={{ maxWidth: '66%' }}>
+              <View style={styles.learnContinuePill}>
+                <Text style={styles.learnContinuePillText}>IPAGPATULOY</Text>
+              </View>
+              <Text style={styles.learnContinueTitle} numberOfLines={2}>{continueReadingLesson.title}</Text>
+              <TouchableOpacity style={styles.learnContinueButton} onPress={() => openLesson(continueReadingLesson)}>
+                <Text style={styles.learnContinueButtonText}>Ipagpatuloy</Text>
+              </TouchableOpacity>
+            </View>
+            <Image source={require('../../assets/learn2.png')} style={styles.learnContinueImage} resizeMode="contain" />
+          </View>
+        ) : (
+          <View style={[styles.learnContinueCard, styles.learnBottomCard]}>
+            <View style={{ maxWidth: '66%' }}>
+              <View style={styles.learnContinuePill}>
+                <Text style={styles.learnContinuePillText}>MGA PANTIG</Text>
+              </View>
+              <Text style={styles.learnContinueTitle}>Magsanay Magbasa</Text>
+              <TouchableOpacity style={styles.learnContinueButton} onPress={() => setSection('practice')}>
+                <Text style={styles.learnContinueButtonText}>Simulan</Text>
+              </TouchableOpacity>
+            </View>
+            <Image source={require('../../assets/learn2.png')} style={styles.learnContinueImage} resizeMode="contain" />
+          </View>
+        )}
+
+        <View style={[styles.learnGoalCard, styles.learnBottomCard]}>
+          <Text style={styles.learnGoalTitle}>Daily Learning Goal</Text>
+          <Text style={styles.learnGoalSub}>{goalDone} of {DAILY_GOAL} learning activities today</Text>
+          <View style={styles.learnGoalTrack}>
+            <View style={[styles.learnGoalTrackFill, { width: `${Math.max(4, goalPct)}%` }]} />
+          </View>
+          <Text style={styles.learnGoalMsg}>
+            {goalDone === 0 ? 'Simulan ang unang aralin ngayon!' : goalDone >= DAILY_GOAL ? 'Tapos na ang goal mo! 🎉' : 'Halos tapos na, ipagpatuloy mo!'}
+          </Text>
+        </View>
+      </View>
 
       {!!uploadsError && (
         <View style={styles.errorBlock}>
@@ -2905,10 +3068,16 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.homeBg}>
           {renderWordOfDay()}
         </View>
+      ) : section === 'learn' ? (
+        // Same reasoning as Home: renderActivities() now opens with its own
+        // hero banner (menu trigger + notification bell), so topHeaderNode
+        // would duplicate that chrome.
+        <View style={styles.homeBg}>
+          {renderActivities()}
+        </View>
       ) : (
         <>
           {topHeaderNode}
-          {section === 'learn' && renderActivities()}
           {section === 'practice' && renderPractice()}
           {section === 'progress' && renderProgress()}
           {section === 'achievements' && renderAchievements()}
@@ -3323,6 +3492,7 @@ const styles = StyleSheet.create({
   learnContinueCard: {
     backgroundColor: HOME_SAGE, borderRadius: 24, padding: 18, marginBottom: 20,
     shadowColor: HOME_SAGE, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    position: 'relative', overflow: 'hidden',
   },
   learnContinuePill: {
     alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)',
@@ -3350,6 +3520,71 @@ const styles = StyleSheet.create({
   learnJourneyTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginBottom: 8 },
   learnJourneyFill: { height: '100%', borderRadius: 5, backgroundColor: HOME_LAVENDER },
   learnJourneyMsg: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  learnHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
+  learnProgressCard: {
+    backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 20,
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2,
+  },
+  learnProgressTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  learnProgressTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16 },
+  learnProgressPct: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 18 },
+  learnProgressCount: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 13, marginBottom: 12 },
+  learnProgressTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginBottom: 10 },
+  learnProgressMsg: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 13 },
+
+  lessonStepList: { marginBottom: 8 },
+  lessonStepRow: { flexDirection: 'row', gap: 12 },
+  lessonStepRail: { width: 24, alignItems: 'center' },
+  lessonStepDot: {
+    width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff',
+    borderWidth: 2, borderColor: 'rgba(124,111,207,0.35)', alignItems: 'center', justifyContent: 'center',
+  },
+  lessonStepDotDone: { backgroundColor: VIVID_GREEN, borderColor: VIVID_GREEN },
+  lessonStepDotActive: { backgroundColor: HERO_GRADIENT_MID, borderColor: HERO_GRADIENT_MID },
+  lessonStepLine: { flex: 1, width: 2, backgroundColor: 'rgba(124,111,207,0.25)', marginVertical: 2, minHeight: 24 },
+  lessonStepCard: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 18, padding: 14, marginBottom: 14,
+  },
+  lessonStepCardDone: { backgroundColor: '#EAF7EE' },
+  lessonStepCardMuted: { backgroundColor: '#F1EFF9' },
+  lessonStepCardActive: {},
+  lessonStepBody: { flex: 1 },
+  lessonStepTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14 },
+  lessonStepTitleLight: { color: '#fff' },
+  lessonStepMeta: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2 },
+  lessonStepMetaLight: { color: 'rgba(255,255,255,0.85)' },
+  lessonStepButtonGhost: { backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  lessonStepButtonGhostText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 12 },
+  lessonStepButtonLight: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  lessonStepButtonLightText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12 },
+  lessonStepMarkDoneLight: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 11, textDecorationLine: 'underline' },
+
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
+  categoryCard: {
+    width: '47%', borderRadius: 20, padding: 16, minHeight: 118,
+    overflow: 'hidden', position: 'relative',
+  },
+  categoryTipCard: { justifyContent: 'flex-start' },
+  categoryIconWrap: {
+    width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+  },
+  categoryTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15, marginBottom: 4 },
+  categorySub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 16 },
+  categoryTipImage: { position: 'absolute', right: 2, bottom: -6, width: 52, height: 92 },
+
+  learnBottomRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  learnBottomCard: { flex: 1, marginBottom: 0 },
+  learnContinueImage: { position: 'absolute', right: 4, bottom: -8, width: 52, height: 104 },
+  learnGoalCard: {
+    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 24, padding: 18,
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+  },
+  learnGoalTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 15, marginBottom: 4 },
+  learnGoalSub: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 12, marginBottom: 12 },
+  learnGoalTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', marginBottom: 10 },
+  learnGoalTrackFill: { height: '100%', borderRadius: 5, backgroundColor: '#7DD3FC' },
+  learnGoalMsg: { color: 'rgba(255,255,255,0.9)', fontWeight: '700', fontSize: 12 },
   wordGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   wordCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 14, minWidth: '30%', minHeight: 64,
