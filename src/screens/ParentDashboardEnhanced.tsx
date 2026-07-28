@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Linking, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
-import Svg, { Circle, Polyline } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Polyline, Stop } from 'react-native-svg';
 import { supabase } from '../config/supabase';
 import { getUserProfileById, onAuthStateChanged, signOutUser } from '../services/supabaseService';
 import { fetchParentProfile } from '../services/profileService';
 import { ACHIEVEMENTS } from '../services/achievementService';
 import { fetchNotifications, subscribeToParentNotifications } from '../services/notificationService';
-import { fetchPublishedLessons } from '../services/lessonService';
-import { fetchLessonProgress } from '../services/lessonProgressService';
+import { fetchPublishedLessons, Lesson } from '../services/lessonService';
+import { fetchLessonProgress, LessonProgressRow } from '../services/lessonProgressService';
 import { NotificationsView } from './ParentNotifications';
 import EnrollChildModal from './EnrollChildModal';
 import AddScheduledActivityModal from './AddScheduledActivityModal';
@@ -39,6 +40,13 @@ const HOME_CORAL = '#E06B4C';
 const HOME_SAGE = '#5C8047';
 const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
+const HERO_GRADIENT_START = '#6D28D9';
+const HERO_GRADIENT_MID = '#A855F7';
+const HERO_GRADIENT_END = '#9D174D';
+// Same daily-goal formula as the Student Dashboard (total_attempts mod
+// DAILY_GOAL) - kept identical so a child's "goal" means the same thing
+// whether they or their parent is looking at it.
+const DAILY_GOAL = 5;
 
 type SkillCategory = 'letters' | 'syllables' | 'words';
 const categorizeWord = (word: string): SkillCategory => {
@@ -55,6 +63,8 @@ function ProgressRing({
   strokeWidth = 10,
   color,
   trackColor,
+  gradientColors,
+  gradientId,
   children,
 }: {
   percent: number;
@@ -62,6 +72,8 @@ function ProgressRing({
   strokeWidth?: number;
   color: string;
   trackColor: string;
+  gradientColors?: [string, string];
+  gradientId?: string;
   children?: React.ReactNode;
 }) {
   const radius = (size - strokeWidth) / 2;
@@ -71,12 +83,20 @@ function ProgressRing({
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+        {gradientColors && gradientId && (
+          <Defs>
+            <SvgLinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor={gradientColors[0]} />
+              <Stop offset="100%" stopColor={gradientColors[1]} />
+            </SvgLinearGradient>
+          </Defs>
+        )}
         <Circle cx={size / 2} cy={size / 2} r={radius} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={color}
+          stroke={gradientColors && gradientId ? `url(#${gradientId})` : color}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={`${circumference} ${circumference}`}
@@ -219,8 +239,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [progressPeriod, setProgressPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [childLessonsTotal, setChildLessonsTotal] = useState<number | null>(null);
+  const [childLessonsList, setChildLessonsList] = useState<Lesson[]>([]);
   const [childCompletedLessons, setChildCompletedLessons] = useState<number | null>(null);
-  const [childCurrentLesson, setChildCurrentLesson] = useState<{ title: string; status: string } | null>(null);
+  const [childLessonProgressRows, setChildLessonProgressRows] = useState<LessonProgressRow[]>([]);
+  const [childCurrentLesson, setChildCurrentLesson] = useState<{ title: string; status: string; openedAt: string | null } | null>(null);
   const [childInsightsLoading, setChildInsightsLoading] = useState(false);
   const [parentPhone, setParentPhone] = useState('');
   const [parentAvatarUrl, setParentAvatarUrl] = useState<string | null>(null);
@@ -382,6 +404,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           : [],
       );
       setChildLessonsTotal(lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : null);
+      setChildLessonsList(lessonsResult.status === 'fulfilled' ? lessonsResult.value : []);
 
       // Real completed-lesson count (lesson_progress rows with status
       // 'completed') - previously the Home tab mistakenly used
@@ -392,6 +415,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           ? lessonProgressResult.value.filter((row) => row.status === 'completed').length
           : null,
       );
+      setChildLessonProgressRows(lessonProgressResult.status === 'fulfilled' ? lessonProgressResult.value : []);
 
       if (
         currentLessonResult.status === 'fulfilled' &&
@@ -399,7 +423,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         currentLessonResult.value.data
       ) {
         const row = currentLessonResult.value.data as any;
-        setChildCurrentLesson({ title: row.lessons?.title || 'Lesson', status: row.status });
+        setChildCurrentLesson({ title: row.lessons?.title || 'Lesson', status: row.status, openedAt: row.opened_at || null });
       } else {
         // lesson_progress may not be available yet (pending migration) or the
         // child hasn't opened a lesson - omit the card rather than fabricate one.
@@ -425,7 +449,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (!child) {
       setChildSessions([]);
       setChildLessonsTotal(null);
+      setChildLessonsList([]);
       setChildCompletedLessons(null);
+      setChildLessonProgressRows([]);
       setChildCurrentLesson(null);
       return;
     }
@@ -802,9 +828,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const isActivelyLearning = !!progress?.last_practice_date && progress.last_practice_date.slice(0, 10) === new Date().toISOString().slice(0, 10);
     const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
     const lessonsCompleted = childCompletedLessons ?? 0;
-    const practiceSessions = progress?.total_attempts || 0;
 
-    const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
     const tierMessage = (name: string, pct: number | null) =>
       pct === null
         ? `${name} hasn't started practicing yet.`
@@ -814,62 +838,63 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         ? `${name} is making steady progress in reading.`
         : `${name} could use a bit more practice this week.`;
 
-    // Weekly accuracy trend (last 4 weeks, most recent last) - real sessions
-    // grouped by 7-day windows, same computation the Student Dashboard uses
-    // day-by-day, just bucketed weekly to match this view's time horizon.
-    const weekBuckets = Array.from({ length: 4 }, (_, i) => {
-      const end = new Date();
-      end.setHours(23, 59, 59, 999);
-      end.setDate(end.getDate() - (3 - i) * 7);
-      const start = new Date(end);
-      start.setDate(start.getDate() - 6);
-      start.setHours(0, 0, 0, 0);
-      const inRange = childSessions.filter((s) => {
-        const t = new Date(s.created_at).getTime();
-        return t >= start.getTime() && t <= end.getTime();
-      });
-      const avg = inRange.length
-        ? Math.round(inRange.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / inRange.length)
-        : null;
-      return { label: `Week ${i + 1}`, pct: avg };
-    });
-    const weeksWithData = weekBuckets.filter((w) => w.pct !== null);
-
-    // Month-over-month improvement - avg accuracy over the last 30 days vs
-    // the 30 days before that. Omitted entirely (not shown as 0%) when there
-    // isn't a full prior period to compare against.
     const dayMs = 86400000;
     const nowMs = Date.now();
     const avgOf = (rows: typeof childSessions) =>
       rows.length ? Math.round(rows.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / rows.length) : null;
-    const last30 = childSessions.filter((s) => nowMs - new Date(s.created_at).getTime() <= 30 * dayMs);
-    const prior30 = childSessions.filter((s) => {
+
+    // Week-over-week accuracy delta - backs the hero card's real "compared
+    // with last week" figure (the reference's own framing, now real numbers).
+    const last7 = childSessions.filter((s) => nowMs - new Date(s.created_at).getTime() <= 7 * dayMs);
+    const prior7 = childSessions.filter((s) => {
       const age = nowMs - new Date(s.created_at).getTime();
-      return age > 30 * dayMs && age <= 60 * dayMs;
+      return age > 7 * dayMs && age <= 14 * dayMs;
     });
-    const recentAvg = avgOf(last30);
-    const priorAvg = avgOf(prior30);
-    const monthDelta = recentAvg !== null && priorAvg !== null ? recentAvg - priorAvg : null;
+    const week7Avg = avgOf(last7);
+    const priorWeekAvg = avgOf(prior7);
+    const weekDelta = week7Avg !== null && priorWeekAvg !== null ? week7Avg - priorWeekAvg : null;
 
-    const lastSessionAt = childSessions[0]?.created_at;
-    const relativeTime = (iso?: string) => {
-      if (!iso) return null;
-      const hours = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
-      if (hours < 1) return 'less than an hour ago';
-      if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-      const days = Math.floor(hours / 24);
-      return `${days} day${days === 1 ? '' : 's'} ago`;
-    };
+    // "Reading Practice" this week - same total_attempts source as the
+    // lifetime count below, just windowed to match the reference's explicit
+    // "sessions this week" framing for this specific tile.
+    const practiceSessionsThisWeek = last7.length;
 
-    // Areas to Practice - same real per-word-shape categories as the Student
-    // Dashboard's "My Reading Skills" (categorizeWord), relabeled for a
-    // parent audience but backed by the identical accuracy-by-category math.
+    // Weekly activity bar chart - real attempts-per-day for the last 7
+    // calendar days. Deliberately no "practice minutes" line: duration_seconds
+    // is genuinely tracked per attempt, but it's a per-single-word duration
+    // (2-3 seconds), not a session length - summed per day it rounds to under
+    // a minute, which reads as broken rather than honest. Attempt counts are
+    // the real, meaningful unit here.
+    const weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const weekDayBars = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (6 - i));
+      const dayKey = d.toISOString().slice(0, 10);
+      const count = childSessions.filter((s) => (s.created_at || '').slice(0, 10) === dayKey).length;
+      const weekday = d.getDay() === 0 ? 6 : d.getDay() - 1;
+      return { label: weekDayLabels[weekday], count };
+    });
+    const maxDayCount = Math.max(1, ...weekDayBars.map((d) => d.count));
+    const activeDaysThisWeek = weekDayBars.filter((d) => d.count > 0).length;
+
+    // Today's Reading Goal - identical DAILY_GOAL formula as the Student
+    // Dashboard, read from this child's own progress.
+    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
+    const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
+
+    // This Week's Insight - same real per-word-shape categories as the
+    // Student Dashboard's own 3-row skill breakdown (categorizeWord, no
+    // separate "Sentence Reading" or "Pronunciation" row - those aren't real
+    // tracked categories on either side of this app). Scoped to the last 7
+    // days (last7) to honestly match this section's "this week" framing,
+    // not all-time history.
     const skillGroups: Record<SkillCategory, { count: number; sum: number }> = {
       letters: { count: 0, sum: 0 },
       syllables: { count: 0, sum: 0 },
       words: { count: 0, sum: 0 },
     };
-    childSessions.forEach((s) => {
+    last7.forEach((s) => {
       const cat = categorizeWord(s.word);
       skillGroups[cat].count += 1;
       skillGroups[cat].sum += Number(s.accuracy_percentage) || 0;
@@ -881,12 +906,42 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     ];
     const skillStatus = (avg: number | null) =>
       avg === null
-        ? { label: 'Not started', color: HOME_INK_SOFT }
+        ? { label: 'Not enough data', color: HOME_INK_SOFT }
         : avg >= 80
-        ? { label: 'Strong', color: SUCCESS }
+        ? { label: 'Excellent', color: SUCCESS }
         : avg >= 60
-        ? { label: 'Improving', color: WARNING }
-        : { label: 'Needs more practice', color: DANGER };
+        ? { label: 'Good Progress', color: WARNING }
+        : { label: 'Needs More Practice', color: DANGER };
+
+    // Recent activity - same merged real lesson+pronunciation feed pattern
+    // as the Student Dashboard's Home/Progress tabs, scoped to this child.
+    type RecentActivityItem = { key: string; kind: 'lesson' | 'pronunciation'; title: string; detail: string; timestamp: string };
+    const lessonActivityItems: RecentActivityItem[] = childLessonProgressRows
+      .filter((p) => p.status === 'completed' && !!p.completed_at)
+      .map((p) => ({
+        key: `lesson-${p.id}`,
+        kind: 'lesson' as const,
+        title: childLessonsList.find((l) => l.id === p.lesson_id)?.title || 'Lesson',
+        detail: 'Completed',
+        timestamp: p.completed_at as string,
+      }));
+    const pronunciationActivityItems: RecentActivityItem[] = childSessions.slice(0, 10).map((s, idx) => ({
+      key: `pron-${s.created_at}-${idx}`,
+      kind: 'pronunciation' as const,
+      title: s.word,
+      detail: `${Math.round(s.accuracy_percentage || 0)}% accuracy`,
+      timestamp: s.created_at,
+    }));
+    const recentActivityItems = [...lessonActivityItems, ...pronunciationActivityItems]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 4);
+    const formatActivityTime = (iso: string) => {
+      const date = new Date(iso);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return isToday ? `Today ${time}` : `${date.toLocaleDateString()} ${time}`;
+    };
 
     return (
       <>
@@ -898,18 +953,36 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={styles.homeGreeting}>Good Day, {parentName || 'Loading...'}!</Text>
             <Text style={styles.homeGreetingSub}>Here's how your child is doing today.</Text>
           </View>
+          <Image source={require('../../assets/decorate.png')} style={styles.homeGreetingDecor} resizeMode="contain" />
         </View>
 
-        <TouchableOpacity
-          style={styles.viewingSelector}
-          onPress={() => children.length > 1 && setChildPickerOpen((open) => !open)}
-          activeOpacity={children.length > 1 ? 0.7 : 1}
-        >
-          <Text style={styles.viewingSelectorText}>Viewing: {selectedChild.name}</Text>
+        <View style={styles.childSummaryCard}>
+          <View style={styles.childAvatarLg}>
+            <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.childSummaryEyebrow}>Your Child</Text>
+            <Text style={styles.childSummaryName}>{selectedChild.name}</Text>
+            <View style={styles.childSummaryBadgeRow}>
+              <View style={styles.gradeBadge}>
+                <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
+              </View>
+              <View style={[styles.levelBadgeOutline, { borderColor: getLevelColor(level) }]}>
+                <Text style={[styles.levelBadgeOutlineText, { color: getLevelColor(level) }]}>{level}</Text>
+              </View>
+            </View>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? SUCCESS : HOME_INK_SOFT }]} />
+              <Text style={styles.statusRowText}>{isActivelyLearning ? 'Active Today' : 'No activity today'}</Text>
+            </View>
+          </View>
           {children.length > 1 && (
-            <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={HOME_LAVENDER_DARK} />
+            <TouchableOpacity style={styles.switchChildButton} onPress={() => setChildPickerOpen((open) => !open)}>
+              <Text style={styles.switchChildButtonText}>Switch Child</Text>
+              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={HOME_LAVENDER_DARK} />
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
 
         {childPickerOpen && children.length > 1 && (
           <View style={styles.childPickerList}>
@@ -931,51 +1004,58 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
         )}
 
-        <View style={styles.childSummaryCard}>
-          <View style={styles.childAvatarLg}>
-            <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.childSummaryName}>{selectedChild.name}</Text>
-            <View style={styles.childSummaryBadgeRow}>
-              <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroProgressCard}
+        >
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.heroProgressTitle}>{selectedChild.name.split(' ')[0]}'s Reading Progress</Text>
+            {weekDelta !== null && (
+              <View style={styles.heroDeltaPill}>
+                <Ionicons name={weekDelta >= 0 ? 'trending-up' : 'trending-down'} size={13} color="#fff" />
+                <Text style={styles.heroDeltaPillText}>
+                  {weekDelta >= 0 ? '+' : ''}{weekDelta}% compared with last week
+                </Text>
               </View>
-              <View style={[styles.levelBadgeOutline, { borderColor: getLevelColor(level) }]}>
-                <Text style={[styles.levelBadgeOutlineText, { color: getLevelColor(level) }]}>{level}</Text>
-              </View>
-            </View>
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? SUCCESS : HOME_INK_SOFT }]} />
-              <Text style={styles.statusRowText}>{isActivelyLearning ? 'Actively Learning' : 'No activity today'}</Text>
-            </View>
+            )}
+            <Text style={styles.heroProgressMessage}>{tierMessage(selectedChild.name.split(' ')[0], avgAccuracy)}</Text>
+            <TouchableOpacity style={styles.heroProgressButton} onPress={() => setSection('progress')}>
+              <Text style={styles.heroProgressButtonText}>View Full Progress →</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={styles.readingProgressCard}>
-          <View style={styles.readingProgressHeader}>
-            <Text style={styles.readingProgressTitle}>Reading Progress</Text>
-            <Ionicons name="book" size={26} color={HOME_LAVENDER} />
-          </View>
-          <View style={{ alignItems: 'center', marginVertical: 12 }}>
-            <ProgressRing percent={avgAccuracy ?? 0} color={HOME_LAVENDER_DARK} trackColor="rgba(124,111,207,0.15)">
-              <Text style={styles.readingProgressPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+          <View style={styles.heroProgressRingWrap}>
+            <ProgressRing
+              percent={avgAccuracy ?? 0}
+              size={100}
+              strokeWidth={10}
+              color="#fff"
+              trackColor="rgba(255,255,255,0.25)"
+              gradientColors={['#ffffff', '#F5D0FE']}
+              gradientId="parentHeroRing"
+            >
+              <Text style={styles.heroProgressPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+              <Text style={styles.heroProgressPctLabel}>Overall Progress</Text>
             </ProgressRing>
           </View>
-          <Text style={styles.readingProgressLabel}>Overall Reading Progress</Text>
-          {monthDelta !== null && (
-            <View style={[styles.improvementBadge, { backgroundColor: monthDelta >= 0 ? '#E9F1E2' : '#FBE7DF' }]}>
-              <Ionicons name={monthDelta >= 0 ? 'trending-up' : 'trending-down'} size={13} color={monthDelta >= 0 ? SUCCESS : DANGER} />
-              <Text style={[styles.improvementBadgeText, { color: monthDelta >= 0 ? SUCCESS : DANGER }]}>
-                {monthDelta >= 0 ? '+' : ''}{monthDelta}% improvement this month
-              </Text>
-            </View>
-          )}
-          <Text style={styles.readingProgressMessage}>{tierMessage(selectedChild.name.split(' ')[0], avgAccuracy)}</Text>
-        </View>
+          <Image source={require('../../assets/parentreading.png')} style={styles.heroProgressImage} resizeMode="contain" />
+        </LinearGradient>
 
         <Text style={styles.homeSectionTitle}>Quick Overview</Text>
         <View style={styles.overviewGrid}>
+          <View style={[styles.overviewCard, { backgroundColor: '#EFECFB' }]}>
+            <Ionicons name="school" size={20} color={HOME_LAVENDER} />
+            <Text style={[styles.overviewValue, { color: HOME_LAVENDER }]}>
+              {lessonsCompleted}{childLessonsTotal !== null ? `/${childLessonsTotal}` : ''}
+            </Text>
+            <Text style={styles.overviewLabel}>Lessons Completed</Text>
+          </View>
+          <View style={[styles.overviewCard, { backgroundColor: '#FFF3DC' }]}>
+            <Ionicons name="mic" size={20} color={HOME_SUN} />
+            <Text style={[styles.overviewValue, { color: HOME_SUN }]}>{practiceSessionsThisWeek}</Text>
+            <Text style={styles.overviewLabel}>Reading Practice (this week)</Text>
+          </View>
           <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
             <Ionicons name="book" size={20} color={HOME_LAVENDER_DARK} />
             <Text style={[styles.overviewValue, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
@@ -986,97 +1066,132 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={[styles.overviewValue, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
             <Text style={styles.overviewLabel}>Reading Accuracy</Text>
           </View>
-          <View style={[styles.overviewCard, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="school" size={20} color={HOME_LAVENDER} />
-            <Text style={[styles.overviewValue, { color: HOME_LAVENDER }]}>
-              {lessonsCompleted}{childLessonsTotal !== null ? `/${childLessonsTotal}` : ''}
-            </Text>
-            <Text style={styles.overviewLabel}>Lessons Completed</Text>
-          </View>
-          <View style={[styles.overviewCard, { backgroundColor: '#FFF3DC' }]}>
-            <Ionicons name="mic" size={20} color={HOME_SUN} />
-            <Text style={[styles.overviewValue, { color: HOME_SUN }]}>{practiceSessions}</Text>
-            <Text style={styles.overviewLabel}>Practice Sessions</Text>
-          </View>
         </View>
 
-        <Text style={styles.homeSectionTitle}>Reading Development</Text>
+        <Text style={styles.homeSectionTitle}>This Week's Activity</Text>
         <View style={styles.trendCard}>
-          {weeksWithData.length >= 2 ? (
-            <>
-              <View style={styles.trendBars}>
-                {weekBuckets.map((week, i) => {
-                  const color = week.pct !== null ? tierColor(week.pct) : 'rgba(124,111,207,0.12)';
-                  return (
-                    <View key={i} style={styles.trendBarCol}>
-                      {week.pct !== null && <Text style={[styles.trendBarValue, { color }]}>{week.pct}%</Text>}
-                      <View style={[styles.trendBar, { height: week.pct !== null ? Math.max(6, Math.round((week.pct / 100) * 80)) : 6, backgroundColor: color }]} />
-                      <Text style={styles.trendBarLabel}>{week.label}</Text>
-                    </View>
-                  );
-                })}
+          <View style={styles.weekBarRow}>
+            {weekDayBars.map((day, i) => (
+              <View key={i} style={styles.weekBarCol}>
+                <View style={styles.weekBarTrack}>
+                  <View
+                    style={[
+                      styles.weekBarFill,
+                      { height: day.count > 0 ? Math.max(6, Math.round((day.count / maxDayCount) * 70)) : 4 },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.weekBarLabel}>{day.label}</Text>
               </View>
-              <View style={styles.trendMsgRow}>
-                <Ionicons name="checkmark-circle" size={13} color={SUCCESS} />
-                <Text style={styles.trendMsgText}>
-                  {weeksWithData[weeksWithData.length - 1].pct! >= weeksWithData[0].pct!
-                    ? `${selectedChild.name.split(' ')[0]}'s reading accuracy has improved this month.`
-                    : `Keep practicing to build on ${selectedChild.name.split(' ')[0]}'s progress.`}
+            ))}
+          </View>
+          <Text style={styles.weekBarSummary}>
+            {activeDaysThisWeek} active day{activeDaysThisWeek === 1 ? '' : 's'} this week
+          </Text>
+        </View>
+
+        <Text style={styles.homeSectionTitle}>Reading Skills Overview</Text>
+        <View style={styles.currentLessonCard}>
+          {childCurrentLesson ? (
+            <>
+              <View style={styles.skillOverviewRow}>
+                <Ionicons name="book" size={18} color={HOME_LAVENDER_DARK} />
+                <Text style={styles.currentLessonTitle}>
+                  {childCurrentLesson.status === 'completed' ? 'Completed Lesson: ' : 'Currently on: '}
+                  {childCurrentLesson.title}
                 </Text>
               </View>
+              {!!childCurrentLesson.openedAt && (
+                <Text style={styles.skillOverviewMeta}>{formatActivityTime(childCurrentLesson.openedAt)}</Text>
+              )}
             </>
           ) : (
-            <View style={styles.trendEmpty}>
-              <Ionicons name="analytics-outline" size={28} color={HOME_LAVENDER} />
-              <Text style={styles.trendEmptyText}>Not enough practice sessions yet to show a trend.</Text>
-            </View>
+            <Text style={styles.skillOverviewEmpty}>No lesson opened yet.</Text>
           )}
-          {!!lastSessionAt && <Text style={styles.trendUpdated}>Last updated {relativeTime(lastSessionAt)}</Text>}
         </View>
 
-        <Text style={styles.homeSectionTitle}>Areas to Practice</Text>
-        <View style={styles.skillsRow}>
-          {skillMeta.map(({ key, label, icon }) => {
+        <Text style={styles.homeSectionTitle}>This Week's Insight</Text>
+        <Text style={styles.homeSectionSub}>Practice activity over last 7 days</Text>
+        <View style={styles.weeklyInsightCard}>
+          {skillMeta.map(({ key, label }) => {
             const group = skillGroups[key];
             const avg = group.count > 0 ? Math.round(group.sum / group.count) : null;
             const status = skillStatus(avg);
             return (
-              <View key={key} style={styles.skillCard}>
-                <Ionicons name={icon as any} size={18} color={status.color} />
-                <Text style={styles.skillCardLabel} numberOfLines={2}>{label}</Text>
-                <Text style={[styles.skillCardStatus, { color: status.color }]}>{status.label}</Text>
-                <View style={styles.skillCardTrack}>
-                  <View style={[styles.skillCardFill, { width: `${avg ? Math.max(4, avg) : 0}%`, backgroundColor: status.color }]} />
+              <View key={key} style={styles.weeklyInsightRow}>
+                <Text style={styles.insightRowLabel}>{label}</Text>
+                <View style={styles.insightRowTrack}>
+                  <View style={[styles.insightRowFill, { width: `${avg ? Math.max(4, avg) : 0}%`, backgroundColor: status.color }]} />
                 </View>
+                <Text style={[styles.insightRowStatus, { color: status.color }]}>
+                  {avg !== null ? `${avg}% • ${status.label}` : status.label}
+                </Text>
               </View>
             );
           })}
+          <TouchableOpacity onPress={() => setSection('progress')}>
+            <Text style={styles.insightSeeMore}>See Recommendations →</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.viewLessonProgressButton} onPress={() => setSection('progress')}>
-          <Text style={styles.viewLessonProgressText}>View Lesson Progress</Text>
-        </TouchableOpacity>
 
-        {childCurrentLesson && (
-          <>
-            <Text style={styles.homeSectionTitle}>Child's Current Lesson</Text>
-            <View style={styles.currentLessonCard}>
-              <Text style={styles.currentLessonTitle}>{childCurrentLesson.title}</Text>
-              <View style={[styles.currentLessonStatus, { backgroundColor: childCurrentLesson.status === 'completed' ? '#E9F1E2' : '#FFF3DC' }]}>
-                <Text style={[styles.currentLessonStatusText, { color: childCurrentLesson.status === 'completed' ? SUCCESS : HOME_SUN }]}>
-                  {childCurrentLesson.status === 'completed' ? 'Completed' : 'In Progress'}
-                </Text>
+        <View style={styles.goalCard}>
+          <View style={styles.goalCardHeader}>
+            <Ionicons name="flag" size={18} color={HOME_SUN} />
+            <Text style={styles.homeSectionTitleInline}>Today's Reading Goal</Text>
+          </View>
+          <Text style={styles.goalCardValue}>{goalDone}/{DAILY_GOAL} Activities</Text>
+          <View style={styles.goalCardTrack}>
+            <View style={[styles.goalCardFill, { width: `${goalPct}%` }]} />
+          </View>
+          <Text style={styles.goalCardSub}>
+            {goalDone === 0
+              ? `${selectedChild.name.split(' ')[0]} hasn't started today's goal yet.`
+              : goalDone >= DAILY_GOAL
+              ? `${selectedChild.name.split(' ')[0]} finished today's goal! 🎉`
+              : `${selectedChild.name.split(' ')[0]} is almost finished with today's goal!`}
+          </Text>
+        </View>
+
+        <View style={styles.recentHeaderRow}>
+          <Text style={styles.homeSectionTitleInline}>Recent</Text>
+          <TouchableOpacity onPress={() => setSection('progress')}>
+            <Text style={styles.viewAllLink}>View All Activity →</Text>
+          </TouchableOpacity>
+        </View>
+        {recentActivityItems.length ? (
+          recentActivityItems.map((item) => (
+            <View key={item.key} style={styles.recentActivityCard}>
+              <View style={[styles.recentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
+                <Ionicons name={item.kind === 'lesson' ? 'book' : 'mic'} size={16} color={item.kind === 'lesson' ? HOME_SAGE : HOME_LAVENDER_DARK} />
               </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.currentLessonTitle}>{item.kind === 'lesson' ? 'Lesson Completed' : 'Reading Practice'}</Text>
+                <Text style={styles.recentActivityDetail}>{item.title} • {item.detail}</Text>
+              </View>
+              <Text style={styles.recentActivityTime}>{formatActivityTime(item.timestamp)}</Text>
             </View>
-          </>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No activity yet.</Text>
+          </View>
         )}
 
-        <View style={styles.tipBanner}>
-          <Ionicons name="heart" size={22} color={HOME_CORAL} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.tipBannerTitle}>Keep Supporting Their Reading Journey</Text>
-            <Text style={styles.tipBannerText}>Small steps every day can make a big difference. Encourage your child to practice reading regularly.</Text>
+        <LinearGradient
+          colors={[HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.supportBanner}
+        >
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.supportBannerTitle}>Your Support Matters</Text>
+            <Text style={styles.supportBannerText}>Every little bit of encouragement can make a difference.</Text>
+            <TouchableOpacity style={styles.supportBannerButton} onPress={() => setSection('progress')}>
+              <Text style={styles.supportBannerButtonText}>View Child Progress →</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+          <Image source={require('../../assets/parentreading.png')} style={styles.supportBannerImage} resizeMode="contain" />
+        </LinearGradient>
 
         <View style={styles.quickActions}>
           <TouchableOpacity style={styles.quickAction} onPress={() => setShowEnroll(true)}>
@@ -2215,7 +2330,6 @@ const styles = StyleSheet.create({
   readingProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
   readingProgressTitle: { fontSize: 17, fontWeight: '900', color: HOME_INK },
   readingProgressPct: { fontSize: 26, fontWeight: '900', color: HOME_LAVENDER_DARK },
-  readingProgressLabel: { fontSize: 13, color: HOME_INK_SOFT, fontWeight: '600', marginBottom: 10 },
   improvementBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10,
@@ -2231,43 +2345,91 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE, borderRadius: 18, padding: 16, marginBottom: 16,
     borderWidth: 1, borderColor: BORDER,
   },
-  trendBars: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 120, marginBottom: 8 },
-  trendBarCol: { alignItems: 'center', gap: 4, flex: 1 },
-  trendBarValue: { fontSize: 11, fontWeight: '800' },
-  trendBar: { width: 22, borderRadius: 6 },
-  trendBarLabel: { fontSize: 10, color: TEXT_SECONDARY, marginTop: 4 },
   trendMsgRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   trendMsgText: { fontSize: 12, color: HOME_INK_SOFT, flex: 1 },
   trendEmpty: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   trendEmptyText: { fontSize: 13, color: HOME_INK_SOFT, textAlign: 'center' },
-  trendUpdated: { fontSize: 11, color: TEXT_SECONDARY, marginTop: 10, textAlign: 'right' },
-  skillsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  skillCard: {
-    flex: 1, backgroundColor: SURFACE, borderRadius: 16, padding: 12,
-    borderWidth: 1, borderColor: BORDER, gap: 6,
-  },
-  skillCardLabel: { fontSize: 12, fontWeight: '800', color: HOME_INK, minHeight: 30 },
-  skillCardStatus: { fontSize: 11, fontWeight: '700' },
   skillCardTrack: { height: 5, backgroundColor: '#f3f4f6', borderRadius: 999, overflow: 'hidden' },
   skillCardFill: { height: '100%', borderRadius: 999 },
-  viewLessonProgressButton: {
-    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 14, paddingVertical: 13,
-    alignItems: 'center', marginBottom: 16,
-  },
-  viewLessonProgressText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   currentLessonCard: {
     backgroundColor: SURFACE, borderRadius: 16, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: BORDER, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    borderWidth: 1, borderColor: BORDER, gap: 6,
   },
   currentLessonTitle: { fontSize: 14, fontWeight: '800', color: HOME_INK, flex: 1 },
-  currentLessonStatus: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  currentLessonStatusText: { fontSize: 11, fontWeight: '800' },
-  tipBanner: {
-    flexDirection: 'row', gap: 12, backgroundColor: HOME_CREAM, borderRadius: 18,
-    padding: 16, marginBottom: 16, alignItems: 'flex-start',
+
+  // Home tab redesign - decor, child card, hero, weekly chart, insight,
+  // goal, recent feed, support banner
+  homeGreetingDecor: { width: 64, height: 43, marginLeft: 4 },
+  childSummaryEyebrow: { fontSize: 11, fontWeight: '800', color: HOME_INK_SOFT, textTransform: 'uppercase', letterSpacing: 0.4 },
+  switchChildButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFECFB',
+    borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'flex-start',
   },
-  tipBannerTitle: { fontSize: 13, fontWeight: '800', color: HOME_INK, marginBottom: 4 },
-  tipBannerText: { fontSize: 12, color: HOME_INK_SOFT, lineHeight: 17 },
+  switchChildButtonText: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK },
+  heroProgressCard: {
+    flexDirection: 'row', alignItems: 'center', borderRadius: 22, padding: 20, marginBottom: 16,
+    overflow: 'hidden', shadowColor: HERO_GRADIENT_START, shadowOpacity: 0.25, shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 }, elevation: 5,
+  },
+  heroProgressTitle: { fontSize: 17, fontWeight: '900', color: '#fff', marginBottom: 8 },
+  heroDeltaPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8,
+  },
+  heroDeltaPillText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  heroProgressMessage: { fontSize: 13, color: 'rgba(255,255,255,0.92)', fontWeight: '600', marginBottom: 12 },
+  heroProgressButton: { backgroundColor: '#fff', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
+  heroProgressButtonText: { fontSize: 12, fontWeight: '800', color: HERO_GRADIENT_START },
+  heroProgressRingWrap: { alignItems: 'center', justifyContent: 'center' },
+  heroProgressPct: { fontSize: 22, fontWeight: '900', color: '#fff' },
+  heroProgressPctLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  heroProgressImage: { width: 60, height: 80, position: 'absolute', right: 4, bottom: 0, opacity: 0.9 },
+  weekBarRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 90, marginBottom: 10 },
+  weekBarCol: { alignItems: 'center', gap: 6, flex: 1 },
+  weekBarTrack: { height: 70, width: 16, justifyContent: 'flex-end' },
+  weekBarFill: { width: 16, borderRadius: 8, backgroundColor: HOME_LAVENDER },
+  weekBarLabel: { fontSize: 10, color: TEXT_SECONDARY, fontWeight: '700' },
+  weekBarSummary: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '700', textAlign: 'center' },
+  skillOverviewRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  skillOverviewMeta: { fontSize: 11, color: HOME_INK_SOFT, fontWeight: '600', marginTop: 4, marginLeft: 26 },
+  skillOverviewEmpty: { fontSize: 13, color: HOME_INK_SOFT, fontWeight: '600' },
+  homeSectionSub: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '600', marginTop: -6, marginBottom: 10 },
+  weeklyInsightCard: {
+    backgroundColor: SURFACE, borderRadius: 18, padding: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: BORDER, gap: 10,
+  },
+  weeklyInsightRow: { gap: 4 },
+  insightRowLabel: { fontSize: 13, fontWeight: '800', color: HOME_INK },
+  insightRowTrack: { height: 6, backgroundColor: '#f3f4f6', borderRadius: 999, overflow: 'hidden' },
+  insightRowFill: { height: '100%', borderRadius: 999 },
+  insightRowStatus: { fontSize: 11, fontWeight: '700' },
+  insightSeeMore: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK, marginTop: 4 },
+  goalCard: {
+    backgroundColor: '#FFF3DC', borderRadius: 18, padding: 16, marginBottom: 16, gap: 8,
+  },
+  goalCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  homeSectionTitleInline: { fontSize: 15, fontWeight: '900', color: HOME_INK },
+  goalCardValue: { fontSize: 22, fontWeight: '900', color: HOME_SUN },
+  goalCardTrack: { height: 8, backgroundColor: 'rgba(227,151,26,0.18)', borderRadius: 999, overflow: 'hidden' },
+  goalCardFill: { height: '100%', borderRadius: 999, backgroundColor: HOME_SUN },
+  goalCardSub: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '600' },
+  recentHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  viewAllLink: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK },
+  recentActivityCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: SURFACE, borderRadius: 16,
+    padding: 12, marginBottom: 10, borderWidth: 1, borderColor: BORDER,
+  },
+  recentActivityIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  recentActivityDetail: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '600', marginTop: 2 },
+  recentActivityTime: { fontSize: 11, color: HOME_INK_SOFT, fontWeight: '600' },
+  supportBanner: {
+    flexDirection: 'row', alignItems: 'center', borderRadius: 20, padding: 18, marginBottom: 16, overflow: 'hidden',
+  },
+  supportBannerTitle: { fontSize: 15, fontWeight: '900', color: '#fff', marginBottom: 4 },
+  supportBannerText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '600', marginBottom: 10 },
+  supportBannerButton: { backgroundColor: '#111827', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
+  supportBannerButtonText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  supportBannerImage: { width: 66, height: 88, opacity: 0.95 },
 
   // Child Progress tab
   trendLineLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
