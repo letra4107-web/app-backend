@@ -133,6 +133,41 @@ router.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
       });
     }
 
+    // "New Lesson Ready" notification - fanned out server-side to every
+    // student in this grade the moment a lesson is genuinely published, not
+    // dependent on any particular student's app being open at that moment.
+    try {
+      const { data: gradeStudents, error: studentsError } = await supabaseAdmin
+        .from('children')
+        .select('id, auth_uid')
+        .eq('grade_level', grade);
+
+      if (studentsError) {
+        console.warn('[Reading] could not look up students for new-lesson notification:', studentsError.message || studentsError);
+      } else if (gradeStudents?.length) {
+        const notifRows = gradeStudents
+          .filter((student) => student.auth_uid)
+          .map((student) => ({
+            user_id: student.auth_uid,
+            student_id: student.id,
+            title: 'New Lesson Ready',
+            body: `A new lesson "${title}" is ready for you!`,
+            message: `A new lesson "${title}" is ready for you!`,
+            type: 'lesson',
+            is_read: false,
+            read: false,
+          }));
+        if (notifRows.length) {
+          const { error: notifError } = await supabaseAdmin.from('notifications').insert(notifRows);
+          if (notifError) {
+            console.warn('[Reading] new-lesson notification insert failed:', notifError.message || notifError);
+          }
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('[Reading] new-lesson notification step threw:', notifyErr?.message || notifyErr);
+    }
+
     return res.json({
       success: true,
       message: `Lesson uploaded for ${gradeLabel}`,

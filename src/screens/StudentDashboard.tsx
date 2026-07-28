@@ -28,7 +28,7 @@ import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } fr
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { fetchWords } from '../services/wordsService';
-import { createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
+import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 
@@ -274,6 +274,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [pronunciationStats, setPronunciationStats] = useState<PronunciationStats | null>(null);
   const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings | null>(null);
   const [badgeFilter, setBadgeFilter] = useState<'all' | AchievementCategory>('all');
+  const [notifFilter, setNotifFilter] = useState<'all' | 'unread' | 'lesson' | 'practice' | 'achievement'>('all');
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
   const [practiceTranscript, setPracticeTranscript] = useState('');
   const [practiceListening, setPracticeListening] = useState(false);
@@ -978,6 +979,7 @@ export default function StudentDashboard({ navigation }: any) {
       await markLessonCompleted(child.id, lesson.id);
       void loadLessonProgress(child.id);
       await notifyParent('Lesson Completed', `${child?.name || 'Student'} completed "${lesson.title}".`, 'lesson');
+      await notifyStudent('Lesson Completed!', `You finished "${lesson.title}". Great work!`, 'lesson');
     } catch {
       Alert.alert('Error', 'Hindi na-save ang progress. Subukan muli.');
     }
@@ -1023,6 +1025,7 @@ export default function StudentDashboard({ navigation }: any) {
       const celebrate = newlyUnlocked.find((a) => saved.newlyPersistedAchievementIds?.includes(a.id));
       if (celebrate) {
         setAchievement({ image: celebrate.image, title: celebrate.title });
+        await notifyStudent('New Badge Unlocked!', `You earned the "${celebrate.title}" badge!`, 'achievement');
       }
     }
   };
@@ -1056,6 +1059,7 @@ export default function StudentDashboard({ navigation }: any) {
             category: celebrate.category,
             xp: celebrate.xpReward,
           });
+          await notifyStudent('New Badge Unlocked!', `You earned the "${celebrate.title}" badge!`, 'achievement');
         }
       }
     } catch (e) {
@@ -1170,6 +1174,26 @@ export default function StudentDashboard({ navigation }: any) {
     }
   };
 
+  // Student-facing counterpart to notifyParent - writes user_id = the
+  // student's own auth_uid. Before this, nothing in the app ever wrote a
+  // notification row addressed to the student themselves (every existing
+  // call site was parent-only), so the student's own Notifications tab had
+  // no real content to show. Only called at genuinely real events below -
+  // deliberately not mirrored for every notifyParent() call, to avoid
+  // notification spam (e.g. no per-attempt XP/assignment noise).
+  const notifyStudent = async (title: string, message: string, type: string) => {
+    if (!child?.auth_uid) return;
+    try {
+      await createNotification(child.auth_uid, title, message, type);
+    } catch (error: any) {
+      console.warn('[StudentDashboard] student notification failed:', {
+        title,
+        type,
+        message: error?.message,
+      });
+    }
+  };
+
   const handlePracticeResult = async (transcript: string) => {
     try {
       if (!selectedWord) return;
@@ -1242,6 +1266,11 @@ export default function StudentDashboard({ navigation }: any) {
       await notifyParent('XP Update', `${child?.name || 'Student'} earned ${xpAward} XP from speech practice.`, 'xp');
       if ((next.streak || 0) > beforeStreak && [3, 7, 14, 30, 60, 100].includes(next.streak || 0)) {
         await notifyParent('Streak Milestone', `${child?.name || 'Student'} reached a ${next.streak}-day practice streak.`, 'streak');
+        // The reference's "Daily Reading Reminder" is mapped to this real,
+        // already-firing streak milestone (genuine progress.streak, not a
+        // fabricated number) rather than a new proactive "haven't practiced
+        // today" push, which would need scheduling infra this backend doesn't have.
+        await notifyStudent('Daily Reading Reminder', `You're on a ${next.streak}-day reading streak! Keep it going.`, 'streak');
       }
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
       if (newlyUnlocked?.length) {
@@ -1257,6 +1286,7 @@ export default function StudentDashboard({ navigation }: any) {
             category: celebrate.category,
             xp: celebrate.xpReward,
           });
+          await notifyStudent('New Badge Unlocked!', `You earned the "${celebrate.title}" badge!`, 'achievement');
         }
       }
     } catch (e) {
@@ -3469,48 +3499,185 @@ export default function StudentDashboard({ navigation }: any) {
     );
   };
 
-  const renderNotifications = () => (
-    <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.notifSectionHeader}>
-        <View style={styles.notifBadgePill}>
-          <Ionicons name="notifications" size={16} color={HOME_LAVENDER_DARK} />
-          <Text style={styles.notifBadgeText}>MENSAHE</Text>
-        </View>
-        <Text style={styles.notifSectionSubtitle}>Mga update at paalala para sa iyo</Text>
-      </View>
+  const renderNotifications = () => {
+    // Filter tabs map onto the real type values this app actually creates for
+    // students today: 'lesson' (Lesson Completed!, New Lesson Ready), 'streak'
+    // (Daily Reading Reminder - the real Streak Milestone event), 'achievement'
+    // (New Badge Unlocked!, tied to the badge-unlock persistence fix). 'word'/
+    // 'xp'/'practice' are included under the Practice filter too only so any
+    // old fossil rows still display sensibly - no new notifications of those
+    // types are created (deliberately, to avoid per-attempt notification spam).
+    const filteredNotifs = notifications.filter((n) => {
+      const unread = !(n.is_read ?? n.read);
+      if (notifFilter === 'all') return true;
+      if (notifFilter === 'unread') return unread;
+      if (notifFilter === 'lesson') return n.type === 'lesson';
+      if (notifFilter === 'practice') return ['practice', 'word', 'xp', 'streak'].includes(n.type || '');
+      if (notifFilter === 'achievement') return n.type === 'achievement';
+      return true;
+    });
 
-      {notifications.length ? (
-        <View style={{ gap: 10 }}>
-          {notifications.map((item) => {
-            const unread = !(item.is_read ?? item.read);
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.notifCard, unread && styles.notifCardUnread]}
-                onPress={async () => {
-                  if (!unread) return;
-                  await markNotificationRead(item.id).catch(() => {});
-                  setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true, read: true } : n)));
-                }}
-              >
-                {unread && <View style={styles.notifDot} />}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.notifTitle}>{item.title}</Text>
-                  {!!(item.message || item.body) && <Text style={styles.notifBody}>{item.message || item.body}</Text>}
-                  <Text style={styles.notifDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+    const groupLabel = (iso: string) => {
+      const date = new Date(iso);
+      const now = new Date();
+      if (date.toDateString() === now.toDateString()) return 'Today';
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+      const daysAgo = Math.floor((now.getTime() - date.getTime()) / 86400000);
+      return daysAgo < 7 ? 'Earlier This Week' : 'Earlier';
+    };
+    const groupOrder = ['Today', 'Yesterday', 'Earlier This Week', 'Earlier'];
+    const groups: { label: string; items: NotificationItem[] }[] = [];
+    filteredNotifs.forEach((item) => {
+      const label = groupLabel(item.created_at);
+      let group = groups.find((g) => g.label === label);
+      if (!group) {
+        group = { label, items: [] };
+        groups.push(group);
+      }
+      group.items.push(item);
+    });
+    groups.sort((a, b) => groupOrder.indexOf(a.label) - groupOrder.indexOf(b.label));
+
+    const typeMeta = (type?: string | null) => {
+      switch (type) {
+        case 'lesson':
+          return { icon: 'book', color: HOME_SAGE, actionLabel: 'View Lesson', actionSection: 'learn' };
+        case 'achievement':
+          return { icon: 'trophy', color: XP_GOLD, actionLabel: 'View Badge', actionSection: 'achievements' };
+        case 'streak':
+          return { icon: 'flame', color: HOME_SUN, actionLabel: 'Practice Now', actionSection: 'practice' };
+        default:
+          return { icon: 'notifications', color: HOME_LAVENDER_DARK, actionLabel: null as string | null, actionSection: null as string | null };
+      }
+    };
+
+    const markAllNotificationsRead = async () => {
+      const unreadIds = notifications.filter((n) => !(n.is_read ?? n.read)).map((n) => n.id);
+      if (!unreadIds.length) return;
+      await Promise.all(unreadIds.map((id) => markNotificationRead(id).catch(() => {})));
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true, read: true })));
+    };
+
+    const filterTabs: { key: typeof notifFilter; label: string }[] = [
+      { key: 'all', label: 'All' },
+      { key: 'unread', label: 'Unread' },
+      { key: 'lesson', label: 'Lessons' },
+      { key: 'practice', label: 'Practice' },
+      { key: 'achievement', label: 'Achievements' },
+    ];
+
+    return (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBanner}
+        >
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity style={styles.heroLogoRow} onPress={openSidebar}>
+              <View>
+                <Ionicons name="menu-outline" size={20} color="#fff" />
+                {unreadNotifCount > 0 && <View style={styles.heroMenuDot} />}
+              </View>
+              <Ionicons name="book" size={16} color="#fff" />
+              <Text style={styles.heroLogoText}>LinawLetra</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.heroGreeting}>Notifications</Text>
+          <Text style={styles.heroSubtitle}>Stay updated on your reading journey.</Text>
+          <Image source={require('../../assets/bell.png')} style={styles.notifHeroImage} resizeMode="contain" />
+        </LinearGradient>
+
+        <View style={styles.notifSummaryCard}>
+          <View style={[styles.notifSummaryIconWrap, { backgroundColor: unreadNotifCount > 0 ? VIVID_AMBER : SUCCESS }]}>
+            <Ionicons name={unreadNotifCount > 0 ? 'notifications' : 'checkmark-circle'} size={22} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.notifSummaryTitle}>
+              {unreadNotifCount > 0 ? `${unreadNotifCount} New Notification${unreadNotifCount === 1 ? '' : 's'}` : "You're All Caught Up!"}
+            </Text>
+            <Text style={styles.notifSummarySub}>
+              {unreadNotifCount > 0 ? 'Tap a notification to mark it as read.' : 'Wala pang bagong update ngayon.'}
+            </Text>
+          </View>
+          {unreadNotifCount > 0 && (
+            <TouchableOpacity style={styles.notifMarkAllButton} onPress={markAllNotificationsRead}>
+              <Text style={styles.notifMarkAllButtonText}>Mark All Read</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      ) : (
-        <View style={styles.notifEmptyCard}>
-          <Ionicons name="notifications-outline" size={40} color={HOME_LAVENDER} />
-          <Text style={styles.notifEmptyText}>Wala ka pang mensahe. Dito lalabas ang mga update at paalala.</Text>
-        </View>
-      )}
-    </ScrollView>
-  );
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesFilterRow} contentContainerStyle={{ gap: 8 }}>
+          {filterTabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.badgesFilterChip, notifFilter === tab.key && styles.badgesFilterChipActive]}
+              onPress={() => setNotifFilter(tab.key)}
+            >
+              <Text style={[styles.badgesFilterChipText, notifFilter === tab.key && styles.badgesFilterChipTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {groups.length ? (
+          groups.map((group) => (
+            <View key={group.label}>
+              <Text style={styles.practiceSectionTitle}>{group.label}</Text>
+              <View style={{ gap: 10, marginBottom: 12 }}>
+                {group.items.map((item) => {
+                  const unread = !(item.is_read ?? item.read);
+                  const meta = typeMeta(item.type);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.notifCard, unread && styles.notifCardUnread]}
+                      activeOpacity={0.85}
+                      onPress={async () => {
+                        if (!unread) return;
+                        await markNotificationRead(item.id).catch(() => {});
+                        setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true, read: true } : n)));
+                      }}
+                    >
+                      <View style={[styles.notifIconWrap, { backgroundColor: meta.color }]}>
+                        <Ionicons name={meta.icon as any} size={18} color="#fff" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.notifTitleRow}>
+                          <Text style={styles.notifTitle}>{item.title}</Text>
+                          {unread && <View style={styles.notifDot} />}
+                        </View>
+                        {!!(item.message || item.body) && <Text style={styles.notifBody}>{item.message || item.body}</Text>}
+                        <Text style={styles.notifDate}>{new Date(item.created_at).toLocaleString()}</Text>
+                        {!!meta.actionLabel && (
+                          <TouchableOpacity
+                            style={styles.notifActionButton}
+                            onPress={() => setSection(meta.actionSection as any)}
+                          >
+                            <Text style={styles.notifActionButtonText}>{meta.actionLabel}</Text>
+                            <Ionicons name="chevron-forward" size={14} color={HOME_LAVENDER_DARK} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))
+        ) : (
+          <View style={styles.notifEmptyCard}>
+            <Ionicons name="notifications-outline" size={40} color={HOME_LAVENDER} />
+            <Text style={styles.notifEmptyText}>Wala ka pang mensahe. Dito lalabas ang mga update at paalala.</Text>
+          </View>
+        )}
+      </ScrollView>
+    );
+  };
 
   const renderProfile = () => (
     <ScrollView contentContainerStyle={styles.content}>
@@ -3631,11 +3798,17 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.homeBg}>
           {renderSettings()}
         </View>
+      ) : section === 'notifications' ? (
+        // Same reasoning again: renderNotifications() now opens with its own
+        // hero banner (menu trigger with an unread dot instead of the old
+        // separate bell button).
+        <View style={styles.homeBg}>
+          {renderNotifications()}
+        </View>
       ) : (
         <>
           {topHeaderNode}
           {section === 'practice' && renderPractice()}
-          {section === 'notifications' && renderNotifications()}
         </>
       )}
 
@@ -4565,22 +4738,36 @@ const styles = StyleSheet.create({
   homeDeadlinesEmpty: { alignItems: 'center', paddingVertical: 14 },
   homeDeadlinesEmptyEmoji: { fontSize: 28, marginBottom: 6 },
   homeDeadlinesEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600', fontSize: 13 },
-  // --- Notifications (reachable via the Home tab bell) ---
-  notifSectionHeader: { marginBottom: 14 },
-  notifBadgePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
+  // --- Notifications tab ---
+  heroMenuDot: {
+    position: 'absolute', top: -2, right: -2, width: 9, height: 9, borderRadius: 4.5,
+    backgroundColor: DANGER, borderWidth: 1.5, borderColor: HERO_GRADIENT_START,
   },
-  notifBadgeText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-  notifSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  // 1184x2096 in the source art (same ratio group as learn.png/book.png).
+  notifHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
+  notifSummaryCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
+    borderRadius: 24, padding: 16, marginBottom: 16,
+    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+  },
+  notifSummaryIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  notifSummaryTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
+  notifSummarySub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 3 },
+  notifMarkAllButton: { backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9 },
+  notifMarkAllButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 11 },
   notifCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#fff', borderRadius: 16, padding: 14,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#fff', borderRadius: 18, padding: 14,
+    shadowColor: HOME_INK, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
   },
   notifCardUnread: { backgroundColor: '#F5F3FC' },
-  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: HOME_LAVENDER, marginTop: 6 },
+  notifIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  notifTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: HOME_LAVENDER },
   notifTitle: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
   notifBody: { color: HOME_INK_SOFT, fontSize: 13, marginTop: 4, lineHeight: 18 },
   notifDate: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '600', marginTop: 6 },
+  notifActionButton: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', marginTop: 8 },
+  notifActionButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12 },
   notifEmptyCard: { alignItems: 'center', paddingVertical: 40 },
   notifEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 12, lineHeight: 18 },
   bigWord: { fontSize: 48, fontWeight: '900', color: PRIMARY, marginVertical: 10 },
