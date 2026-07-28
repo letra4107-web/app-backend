@@ -1709,7 +1709,12 @@ export default function StudentDashboard({ navigation }: any) {
     // this student's actual practice bank - but stay defined for the Learn
     // tab's Learning Categories counts.
     const letterWords = SKILL_LETTERS;
-    const wordListWords = [...practiceWords, ...wordBank];
+    // Teacher-uploaded lesson content and the generic Supabase word bank are
+    // independently authored and can legitimately overlap (e.g. a Grade 5
+    // lesson word also happens to be in the intermediate word bank) - de-dupe
+    // by value so the same word never renders twice with no visual way to
+    // tell the two "copies" apart.
+    const wordListWords = Array.from(new Set([...practiceWords, ...wordBank]));
     const cycleList = (word: string | null) => (word && letterWords.includes(word) ? letterWords : wordListWords);
 
     const nextWord = wordListWords.length
@@ -2162,11 +2167,11 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         ) : (
           <View style={styles.wordGrid}>
-            {wordListWords.map((word) => {
+            {wordListWords.map((word, index) => {
               const done = progress?.completed_words?.includes(word);
               return (
                 <TouchableOpacity
-                  key={word}
+                  key={`${word}-${index}`}
                   style={[styles.wordCard, done && styles.wordCardDone]}
                   onPress={() => startWord(word, 'say')}
                 >
