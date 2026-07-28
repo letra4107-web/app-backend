@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import ReanimatedView, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import {
@@ -2791,30 +2791,54 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={styles.progressOverallRow}>
             <View style={styles.progressOverallCol}>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#EFECFB' }]}>
-                <Ionicons name="school" size={20} color={HOME_LAVENDER_DARK} />
-                <Text style={[styles.progressStatValue, { color: HOME_LAVENDER_DARK }]}>{lessonsCompletedCount}</Text>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+                  <Ionicons name="school" size={16} color="#fff" />
+                </View>
+                <Text style={[styles.progressStatValue, { color: VIVID_VIOLET }]}>{lessonsCompletedCount}</Text>
                 <Text style={styles.progressStatLabel}>Lessons Completed</Text>
               </View>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#E9F1E2' }]}>
-                <Ionicons name="book" size={20} color={HOME_SAGE} />
-                <Text style={[styles.progressStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_GREEN }]}>
+                  <Ionicons name="book" size={16} color="#fff" />
+                </View>
+                <Text style={[styles.progressStatValue, { color: VIVID_GREEN }]}>{stats.completed}</Text>
                 <Text style={styles.progressStatLabel}>Words Practiced</Text>
               </View>
             </View>
-            <ProgressRing percent={avgAccuracy ?? 0} color={HOME_LAVENDER_DARK} trackColor="rgba(124,111,207,0.15)">
-              <Text style={styles.progressHeroRingPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-              <Text style={styles.progressHeroRingLabel}>Complete</Text>
-            </ProgressRing>
+            <View style={styles.progressRingShadowWrap}>
+              <ProgressRing
+                percent={avgAccuracy ?? 0}
+                size={112}
+                strokeWidth={12}
+                color={HOME_LAVENDER_DARK}
+                trackColor="rgba(124,111,207,0.12)"
+                gradientColors={[HERO_GRADIENT_MID, HERO_GRADIENT_START]}
+                gradientId="progressOverallRing"
+              >
+                <Text style={styles.progressHeroRingPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+                <Text style={styles.progressHeroRingLabel}>Complete</Text>
+              </ProgressRing>
+            </View>
             <View style={styles.progressOverallCol}>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FBE7DF' }]}>
-                <Ionicons name="mic" size={20} color={HOME_CORAL} />
-                <Text style={[styles.progressStatValue, { color: HOME_CORAL }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+                  <Ionicons name="mic" size={16} color="#fff" />
+                </View>
+                <Text style={[styles.progressStatValue, { color: VIVID_ORANGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
                 <Text style={styles.progressStatLabel}>Pronunciation Accuracy</Text>
               </View>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FFF3DC' }]}>
-                <Ionicons name="flame" size={20} color={HOME_SUN} />
-                <Text style={[styles.progressStatValue, { color: HOME_SUN }]}>{progress?.streak || 0} Days</Text>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_AMBER }]}>
+                  <Ionicons name="flame" size={16} color="#fff" />
+                </View>
+                <Text style={[styles.progressStatValue, { color: VIVID_AMBER }]}>{progress?.streak || 0} Days</Text>
                 <Text style={styles.progressStatLabel}>Current Streak</Text>
+                {longestStreak > 0 && (
+                  <View style={styles.progressStreakBestPill}>
+                    <Ionicons name="star" size={9} color={XP_GOLD} />
+                    <Text style={styles.progressStreakBestText}>Best: {longestStreak}d</Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -2828,7 +2852,12 @@ export default function StudentDashboard({ navigation }: any) {
           )}
         </View>
 
-        <Text style={styles.practiceSectionTitle}>Reading Skills</Text>
+        <View style={styles.progressSectionHeader}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_TEAL }]}>
+            <Ionicons name="ribbon" size={14} color="#fff" />
+          </View>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText]}>Reading Skills</Text>
+        </View>
         <View style={styles.skillsCard}>
           {skillMeta.map(({ key, label, icon }, idx) => {
             const group = skillGroups[key];
@@ -2836,8 +2865,8 @@ export default function StudentDashboard({ navigation }: any) {
             const tag = skillTag(avg);
             return (
               <View key={key} style={[styles.skillRow, idx === skillMeta.length - 1 && { marginBottom: 0 }]}>
-                <View style={[styles.skillIconWrap, { backgroundColor: `${tag.color}22` }]}>
-                  <Ionicons name={icon as any} size={18} color={tag.color} />
+                <View style={[styles.skillIconWrap, { backgroundColor: tag.color }]}>
+                  <Ionicons name={icon as any} size={18} color="#fff" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.skillTopRow}>
@@ -2860,17 +2889,23 @@ export default function StudentDashboard({ navigation }: any) {
 
         {/* Weekly Reading Activity — real session COUNT per day (separate
             metric from the "Reading Accuracy" trend chart above) */}
-        <Text style={styles.practiceSectionTitle}>Weekly Reading Activity</Text>
+        <View style={styles.progressSectionHeader}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+            <Ionicons name="bar-chart" size={14} color="#fff" />
+          </View>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText]}>Weekly Reading Activity</Text>
+        </View>
         <View style={styles.progressChartCard}>
           {sessionsThisWeek > 0 ? (
             <View style={styles.progressChartBars}>
               {weeklyActivity.map((day, i) => (
                 <View key={i} style={styles.progressChartBarCol}>
                   {day.count > 0 && <Text style={[styles.progressChartBarValue, { color: HOME_LAVENDER_DARK }]}>{day.count}</Text>}
-                  <View
+                  <LinearGradient
+                    colors={[HOME_LAVENDER, HOME_LAVENDER_DARK]}
                     style={[
                       styles.progressChartBar,
-                      { height: Math.max(6, Math.round((day.count / maxWeeklyCount) * maxBarHeight)), backgroundColor: HOME_LAVENDER },
+                      { height: Math.max(6, Math.round((day.count / maxWeeklyCount) * maxBarHeight)) },
                     ]}
                     accessible
                     accessibilityLabel={`${day.label}: ${day.count} session${day.count === 1 ? '' : 's'}`}
@@ -2898,6 +2933,9 @@ export default function StudentDashboard({ navigation }: any) {
         {/* Weekly accuracy trend — real sessions grouped by day */}
         <View style={styles.progressChartCard}>
           <View style={styles.progressChartHeader}>
+            <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_CORAL }]}>
+              <Ionicons name="analytics" size={14} color="#fff" />
+            </View>
             <Text style={styles.progressChartTitle}>Reading Accuracy</Text>
           </View>
           {daysWithData.length >= 2 ? (
@@ -2908,10 +2946,11 @@ export default function StudentDashboard({ navigation }: any) {
                   return (
                     <View key={i} style={styles.progressChartBarCol}>
                       {day.pct !== null && <Text style={[styles.progressChartBarValue, { color }]}>{day.pct}%</Text>}
-                      <View
+                      <LinearGradient
+                        colors={day.pct !== null ? [`${color}99`, color] : [color, color]}
                         style={[
                           styles.progressChartBar,
-                          { height: day.pct !== null ? Math.max(6, Math.round((day.pct / 100) * maxBarHeight)) : 6, backgroundColor: color },
+                          { height: day.pct !== null ? Math.max(6, Math.round((day.pct / 100) * maxBarHeight)) : 6 },
                         ]}
                         accessible
                         accessibilityLabel={day.pct !== null ? `${day.label}: ${day.pct}%` : `${day.label}: walang datos`}
@@ -2959,31 +2998,59 @@ export default function StudentDashboard({ navigation }: any) {
         {/* This Month — real month-scoped aggregations (lessonsCompletedThisMonth,
             wordsReadThisMonth, monthAvgAccuracy) plus the real longestStreak
             personal-best, not lifetime totals repeated */}
-        <Text style={styles.practiceSectionTitle}>This Month</Text>
-        <View style={styles.progressMonthCard}>
-          <View style={styles.progressMonthRow}>
-            <Ionicons name="trophy" size={18} color={HOME_LAVENDER_DARK} />
-            <Text style={styles.progressMonthRowText}>{lessonsCompletedThisMonth} Lessons Finished</Text>
+        <View style={styles.progressSectionHeader}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_NAVY }]}>
+            <Ionicons name="calendar" size={14} color="#fff" />
           </View>
-          <View style={styles.progressMonthRow}>
-            <Ionicons name="book" size={18} color={HOME_SAGE} />
-            <Text style={styles.progressMonthRowText}>{wordsReadThisMonth} Words Read</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText]}>This Month</Text>
+        </View>
+        <View style={styles.progressMonthGrid}>
+          <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#EFECFB' }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+              <Ionicons name="trophy" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_VIOLET }]}>{lessonsCompletedThisMonth}</Text>
+            <Text style={styles.homeGridLabel}>Lessons Finished</Text>
           </View>
-          <View style={styles.progressMonthRow}>
-            <Ionicons name="locate" size={18} color={HOME_CORAL} />
-            <Text style={styles.progressMonthRowText}>{monthAvgAccuracy !== null ? `${monthAvgAccuracy}%` : '--'} Average Accuracy</Text>
+          <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#E9F1E2' }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_GREEN }]}>
+              <Ionicons name="book" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_GREEN }]}>{wordsReadThisMonth}</Text>
+            <Text style={styles.homeGridLabel}>Words Read</Text>
           </View>
-          <View style={styles.progressMonthRow}>
-            <Ionicons name="flame" size={18} color={HOME_SUN} />
-            <Text style={styles.progressMonthRowText}>{longestStreak} Day{longestStreak === 1 ? '' : 's'} Longest Streak</Text>
+          <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#FBE7DF' }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+              <Ionicons name="locate" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_ORANGE }]}>{monthAvgAccuracy !== null ? `${monthAvgAccuracy}%` : '--'}</Text>
+            <Text style={styles.homeGridLabel}>Average Accuracy</Text>
+          </View>
+          <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#FFF3DC' }]}>
+            {longestStreak > 0 && (
+              <View style={styles.progressPbBadge}>
+                <Ionicons name="star" size={9} color="#fff" />
+                <Text style={styles.progressPbBadgeText}>PB</Text>
+              </View>
+            )}
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_AMBER }]}>
+              <Ionicons name="flame" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_AMBER }]}>{longestStreak} Day{longestStreak === 1 ? '' : 's'}</Text>
+            <Text style={styles.homeGridLabel}>Longest Streak</Text>
           </View>
         </View>
 
-        <Text style={styles.practiceSectionTitle}>Recent Activity</Text>
+        <View style={styles.progressSectionHeader}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_SAGE }]}>
+            <Ionicons name="time" size={14} color="#fff" />
+          </View>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText]}>Recent Activity</Text>
+        </View>
         {recentActivityItems.length ? (
           <View style={styles.learnCardList}>
             {recentActivityItems.map((item) => (
-              <View key={item.key} style={styles.homeRecentActivityCard}>
+              <View key={item.key} style={[styles.homeRecentActivityCard, styles.progressActivityCardShadow]}>
                 <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
                   <Ionicons
                     name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
@@ -3010,7 +3077,12 @@ export default function StudentDashboard({ navigation }: any) {
         )}
 
         <View style={styles.progressWordsCard}>
-          <Text style={styles.progressWordsTitle}>Mga Salitang Natapos</Text>
+          <View style={styles.progressSectionHeader}>
+            <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_LAVENDER_DARK }]}>
+              <Ionicons name="checkmark-done" size={14} color="#fff" />
+            </View>
+            <Text style={[styles.progressWordsTitle, styles.progressSectionTitleText]}>Mga Salitang Natapos</Text>
+          </View>
           {completedWords.length ? (
             <View style={styles.progressWordsWrap}>
               {completedWords.slice(0, 8).map((w) => (
@@ -3075,16 +3147,32 @@ export default function StudentDashboard({ navigation }: any) {
       }
     };
 
-    const metaBadges = ACHIEVEMENTS.filter((b) => b.category === 'meta');
-    const filteredBadges = ACHIEVEMENTS.filter((b) => b.category !== 'meta' && (badgeFilter === 'all' || b.category === badgeFilter));
-    const unlockedBadges = filteredBadges.filter((b) => unlockedIds.has(b.id));
-    const lockedBadges = filteredBadges.filter((b) => !unlockedIds.has(b.id));
+    // Single unified grid, all 20 real badges (incl. the 2 meta/cascade
+    // badges) — matches the reference's one "Badge Collection" grid instead
+    // of separate Unlocked/Locked/Special sections.
+    const filteredBadges = ACHIEVEMENTS.filter((b) => badgeFilter === 'all' || b.category === badgeFilter);
 
     const spotlightCandidates = ACHIEVEMENTS.filter((b) => !unlockedIds.has(b.id))
       .map((b) => ({ badge: b, progress: getBadgeProgress(b) }))
       .filter((c) => c.progress.hasFraction && (c.progress.pct || 0) < 100)
       .sort((a, b) => (b.progress.pct || 0) - (a.progress.pct || 0));
     const spotlight = spotlightCandidates[0];
+
+    // Most recently unlocked badge — real unlockedAt timestamps stored on
+    // progress.achievements at the moment each badge unlocks (unlockAchievements()).
+    const unlockedRecords = (progress?.achievements || [])
+      .map((a) => ({ badge: ACHIEVEMENTS.find((b) => b.id === a.id), unlockedAt: a.unlockedAt }))
+      .filter((r): r is { badge: AchievementDefinition; unlockedAt: string } => !!r.badge)
+      .sort((a, b) => new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime());
+    const mostRecent = unlockedRecords[0];
+    const recentlyEarned = unlockedRecords.slice(0, 5);
+
+    // Learning Milestones — the exact same real fields/formula already
+    // established on the Progress tab, not recomputed differently.
+    const lessonsCompletedCount = lessonProgress.filter((p) => p.status === 'completed').length;
+    const overallAccuracyPct = (progress?.total_attempts || 0) > 0
+      ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
+      : null;
 
     const filterTabs: { key: 'all' | AchievementCategory; label: string }[] = [
       { key: 'all', label: 'All' },
@@ -3149,48 +3237,75 @@ export default function StudentDashboard({ navigation }: any) {
     };
 
     return (
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.homeHeaderRow}>
-          <View style={styles.homeHeaderAvatar}>
-            <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBanner}
+        >
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity style={styles.heroLogoRow} onPress={openSidebar}>
+              <Ionicons name="menu-outline" size={20} color="#fff" />
+              <Ionicons name="book" size={16} color="#fff" />
+              <Text style={styles.heroLogoText}>LinawLetra</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
+              <Ionicons name="notifications" size={20} color="#fff" />
+              {unreadNotifCount > 0 && (
+                <View style={styles.homeBellBadge}>
+                  <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.homeGreetingHello}>My Badges</Text>
-            <Text style={styles.homeGreetingSub}>Ipagdiwang ang tagumpay mo sa pagbasa!</Text>
-          </View>
-          <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
-            <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
-            {unreadNotifCount > 0 && (
-              <View style={styles.homeBellBadge}>
-                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+          <Text style={styles.heroGreeting}>My Learning{'\n'}Badges</Text>
+          <Text style={styles.heroSubtitle}>Celebrate every reading milestone you achieve!</Text>
+          <Image source={require('../../assets/trophy.png')} style={styles.badgesHeroImage} resizeMode="contain" />
+        </LinearGradient>
 
-        <View style={styles.badgesHeroCard}>
-          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-            <Defs>
-              <SvgLinearGradient id="badgesHeroGrad" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={HOME_LAVENDER_DARK} />
-                <Stop offset="1" stopColor={HOME_LAVENDER} />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#badgesHeroGrad)" rx={24} />
-          </Svg>
-          <View style={styles.badgesHeroTrophyWrap}>
-            <Ionicons name="trophy" size={30} color={XP_GOLD} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.badgesHeroTitle}>My Achievements</Text>
-            <Text style={styles.badgesHeroCount}>{unlockedCount} of {totalCount} Badges Unlocked</Text>
-            <View style={styles.badgesHeroTrack}>
-              <View style={[styles.badgesHeroFill, { width: `${Math.max(4, unlockPct)}%` }]} />
+        <View style={styles.achievementSummaryCard}>
+          <Text style={styles.progressHeroTitle}>Achievement Summary</Text>
+          <View style={styles.achievementSummaryRow}>
+            <View style={styles.achievementSummaryLeftCol}>
+              <Text style={styles.achievementSummaryLabel}>Badges Earned</Text>
+              <Text style={styles.achievementSummaryCount}>
+                {unlockedCount}<Text style={styles.achievementSummaryCountTotal}>/{totalCount}</Text>
+              </Text>
+              <Text style={styles.achievementSummaryHint}>
+                {unlockedCount === totalCount ? 'Nakuha mo na ang lahat ng badge! 🎉' : 'Keep learning to unlock more achievements! ✨'}
+              </Text>
             </View>
-            <Text style={styles.badgesHeroMsg}>
-              {unlockedCount === 0 ? 'Simulan ang pagsasanay para makakuha ng unang badge!' : 'Keep practicing to unlock more achievements!'}
-            </Text>
+            <View style={styles.progressRingShadowWrap}>
+              <ProgressRing
+                percent={unlockPct}
+                size={92}
+                strokeWidth={10}
+                color={HOME_LAVENDER_DARK}
+                trackColor="rgba(124,111,207,0.12)"
+                gradientColors={[HERO_GRADIENT_MID, HERO_GRADIENT_START]}
+                gradientId="badgesSummaryRing"
+              >
+                <Text style={styles.progressHeroRingPct}>{unlockPct}%</Text>
+                <Text style={styles.progressHeroRingLabel}>Complete</Text>
+              </ProgressRing>
+            </View>
           </View>
+          {mostRecent ? (
+            <View style={styles.achievementFeaturedCallout}>
+              <Image source={mostRecent.badge.image} style={styles.achievementFeaturedImage} resizeMode="contain" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.achievementFeaturedTitle} numberOfLines={1}>{mostRecent.badge.title}</Text>
+                <Text style={styles.achievementFeaturedDesc} numberOfLines={2}>{mostRecent.badge.description}</Text>
+              </View>
+              <View style={styles.badgeUnlockedPill}>
+                <Ionicons name="checkmark" size={11} color="#fff" />
+                <Text style={styles.badgeUnlockedPillText}>Unlocked</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.progressHeroEmptyText}>Magsanay para makakuha ng unang badge!</Text>
+          )}
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesFilterRow} contentContainerStyle={{ gap: 8 }}>
@@ -3207,77 +3322,135 @@ export default function StudentDashboard({ navigation }: any) {
           ))}
         </ScrollView>
 
-        <Text style={styles.practiceSectionTitle}>Natatanging Tagumpay</Text>
-        <View style={styles.metaBadgeRow}>
-          {metaBadges.map((badge) => {
-            const record = progress?.achievements?.find((a) => a.id === badge.id);
-            const unlocked = !!record;
-            const bp = !unlocked ? getBadgeProgress(badge) : null;
-            return (
-              <View key={badge.id} style={[styles.metaBadgeCard, !unlocked && styles.metaBadgeCardLocked]}>
-                <Image source={badge.image} style={[styles.metaBadgeImage, !unlocked && styles.badgeImageLocked]} resizeMode="contain" />
-                <Text style={styles.metaBadgeTitle}>{badge.title}</Text>
-                {unlocked && record ? (
-                  <>
-                    <View style={styles.badgeUnlockedPill}>
-                      <Ionicons name="checkmark" size={11} color="#fff" />
-                      <Text style={styles.badgeUnlockedPillText}>Nakuha na!</Text>
-                    </View>
-                    <Text style={styles.badgeEarnedDate}>{relativeBadgeDate(record.unlockedAt)}</Text>
-                  </>
-                ) : badge.id === 'aking_unang_tagumpay' ? (
-                  <Text style={styles.metaBadgeCondition}>Awtomatikong makukuha sa una mong badge</Text>
-                ) : bp?.hasFraction ? (
-                  <View style={styles.badgeProgressWrap}>
-                    <View style={styles.badgeProgressTrack}>
-                      <View style={[styles.badgeProgressFill, { width: `${Math.max(4, bp.pct || 0)}%`, backgroundColor: HOME_LAVENDER_DARK }]} />
-                    </View>
-                    <Text style={styles.badgeProgressText}>{bp.current}/{bp.target} na badge</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.metaBadgeCondition}>{badge.description}</Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        <Text style={styles.practiceSectionTitle}>Unlocked Badges</Text>
-        {unlockedBadges.length ? (
-          <View style={styles.badgesGrid}>{unlockedBadges.map(renderBadgeCard)}</View>
-        ) : (
-          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
-            <Text style={styles.learnEmptySubtext}>Wala ka pang nakukuhang badge sa kategoryang ito.</Text>
+        <View style={styles.progressSectionHeader}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: XP_GOLD }]}>
+            <Ionicons name="trophy" size={14} color="#fff" />
           </View>
-        )}
-
-        <Text style={styles.practiceSectionTitle}>Badges to Unlock</Text>
-        {lockedBadges.length ? (
-          <View style={styles.badgesGrid}>{lockedBadges.map(renderBadgeCard)}</View>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText]}>Badge Collection</Text>
+        </View>
+        {filteredBadges.length ? (
+          <View style={styles.badgesGrid}>{filteredBadges.map(renderBadgeCard)}</View>
         ) : (
           <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
-            <Text style={styles.learnEmptySubtext}>Nakuha mo na ang lahat ng badge sa kategoryang ito! 🎉</Text>
+            <Text style={styles.learnEmptySubtext}>Wala pang badge sa kategoryang ito.</Text>
           </View>
         )}
 
         {spotlight && (
           <View style={styles.spotlightCard}>
-            <Text style={styles.spotlightTitle}>Your Next Achievement</Text>
+            <Text style={styles.spotlightEyebrow}>Almost There!</Text>
+            <Text style={styles.spotlightTitle}>Current Badge Progress</Text>
             <View style={styles.spotlightRow}>
               <Image source={spotlight.badge.image} style={styles.spotlightImage} resizeMode="contain" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.spotlightBadgeTitle}>{spotlight.badge.title}</Text>
-                <Text style={styles.spotlightProgressText}>{spotlight.progress.current}/{spotlight.progress.target}</Text>
+                <Text style={styles.spotlightProgressText}>Progress {spotlight.progress.current}/{spotlight.progress.target}</Text>
                 <View style={styles.spotlightTrack}>
                   <View style={[styles.spotlightFill, { width: `${Math.max(4, spotlight.progress.pct || 0)}%` }]} />
                 </View>
               </View>
             </View>
+            <Text style={styles.spotlightHint}>You're getting closer! Keep practicing. →</Text>
             <TouchableOpacity style={styles.spotlightButton} onPress={() => setSection('practice')}>
               <Text style={styles.spotlightButtonText}>Practice Now</Text>
             </TouchableOpacity>
           </View>
         )}
+
+        <View style={styles.progressSectionHeader}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_SAGE }]}>
+            <Ionicons name="time" size={14} color="#fff" />
+          </View>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText]}>Recently Earned</Text>
+        </View>
+        {recentlyEarned.length ? (
+          <View style={styles.learnCardList}>
+            {recentlyEarned.map((r) => (
+              <View key={r.badge.id} style={[styles.homeRecentActivityCard, styles.progressActivityCardShadow]}>
+                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: '#FFF3DC' }]}>
+                  <Image source={r.badge.image} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.homeRecentActivityTitle}>{r.badge.title}</Text>
+                  <Text style={styles.homeRecentActivityDetail} numberOfLines={1}>{r.badge.description}</Text>
+                </View>
+                <Text style={styles.homeRecentActivityTime}>{relativeBadgeDate(r.unlockedAt)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
+            <Text style={styles.learnEmptySubtext}>Wala ka pang nakukuhang badge. Magsanay para makakuha ng una mo!</Text>
+          </View>
+        )}
+
+        <View style={styles.progressSectionHeader}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_NAVY }]}>
+            <Ionicons name="school" size={14} color="#fff" />
+          </View>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText]}>Learning Milestones</Text>
+        </View>
+        <View style={styles.homeStatGrid}>
+          <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_NAVY }]}>
+              <Ionicons name="school" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_NAVY }]}>{lessonsCompletedCount}</Text>
+            <Text style={styles.homeGridLabel}>Lessons Completed</Text>
+          </View>
+          <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+              <Ionicons name="mic" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_ORANGE }]}>{progress?.total_attempts || 0}</Text>
+            <Text style={styles.homeGridLabel}>Voice Practices</Text>
+          </View>
+          <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_AMBER }]}>
+              <Ionicons name="book" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_AMBER }]}>{stats.completed}</Text>
+            <Text style={styles.homeGridLabel}>Words Practiced</Text>
+          </View>
+          <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_GREEN }]}>
+              <Ionicons name="bar-chart" size={18} color="#fff" />
+            </View>
+            <Text style={[styles.homeGridValue, { color: VIVID_GREEN }]}>{overallAccuracyPct !== null ? `${overallAccuracyPct}%` : '--'}</Text>
+            <Text style={styles.homeGridLabel}>Overall Progress</Text>
+          </View>
+        </View>
+
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.badgesCelebrateBanner}
+        >
+          <Image source={require('../../assets/celebrate.png')} style={styles.badgesCelebrateImage} resizeMode="contain" />
+          <View style={{ maxWidth: '62%' }}>
+            <Text style={styles.badgesCelebrateTitle}>Fantastic Work!</Text>
+            <Text style={styles.badgesCelebrateSub}>Every badge represents your hard work and growing reading skills.</Text>
+          </View>
+          <View style={styles.badgesNextCard}>
+            {spotlight ? (
+              <>
+                <Text style={styles.badgesNextLabel}>Next Badge to Unlock</Text>
+                <Text style={styles.badgesNextTitle}>{spotlight.badge.title}</Text>
+                <Text style={styles.badgesNextDetail}>
+                  {Math.max(0, (spotlight.progress.target || 0) - (spotlight.progress.current || 0))} more to go
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.badgesNextTitle}>
+                {unlockedCount === totalCount ? 'All badges unlocked!' : 'Keep practicing to make progress!'}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity style={styles.badgesCelebrateButton} onPress={() => setSection('practice')}>
+            <Text style={styles.badgesCelebrateButtonText}>Continue Learning →</Text>
+          </TouchableOpacity>
+        </LinearGradient>
       </ScrollView>
     );
   };
@@ -3420,11 +3593,16 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.homeBg}>
           {renderProgress()}
         </View>
+      ) : section === 'achievements' ? (
+        // Same reasoning again: renderAchievements() now opens with its own
+        // hero banner (menu trigger + notification bell).
+        <View style={styles.homeBg}>
+          {renderAchievements()}
+        </View>
       ) : (
         <>
           {topHeaderNode}
           {section === 'practice' && renderPractice()}
-          {section === 'achievements' && renderAchievements()}
           {section === 'notifications' && renderNotifications()}
           {section === 'settings' && renderSettings()}
         </>
@@ -3506,6 +3684,8 @@ function ProgressRing({
   strokeWidth = 10,
   color,
   trackColor,
+  gradientColors,
+  gradientId = 'progressRingStroke',
   children,
 }: {
   percent: number;
@@ -3513,21 +3693,36 @@ function ProgressRing({
   strokeWidth?: number;
   color: string;
   trackColor: string;
+  // Optional two-tone stroke (Defs/SvgLinearGradient/Stop, same react-native-svg
+  // primitives used elsewhere in this file) instead of a flat `color`. Give
+  // each concurrently-mounted ring a distinct gradientId so their <Defs>
+  // don't collide.
+  gradientColors?: [string, string];
+  gradientId?: string;
   children?: React.ReactNode;
 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, percent));
   const dashOffset = circumference * (1 - clamped / 100);
+  const stroke = gradientColors ? `url(#${gradientId})` : color;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+        {gradientColors && (
+          <Defs>
+            <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={gradientColors[0]} />
+              <Stop offset="1" stopColor={gradientColors[1]} />
+            </SvgLinearGradient>
+          </Defs>
+        )}
         <Circle cx={size / 2} cy={size / 2} r={radius} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={color}
+          stroke={stroke}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={`${circumference} ${circumference}`}
@@ -3663,34 +3858,50 @@ const styles = StyleSheet.create({
   progressStatCard: {
     width: '48%', borderRadius: 20, padding: 14, alignItems: 'flex-start', minHeight: 84, justifyContent: 'center',
   },
-  progressStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 8 },
+  progressStatIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  progressStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 2 },
   progressStatLabel: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  progressStreakBestPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, marginTop: 6,
+  },
+  progressStreakBestText: { color: HOME_INK, fontWeight: '800', fontSize: 10 },
   progressHeroCard: {
-    backgroundColor: '#EFECFB', borderRadius: 24, padding: 20, alignItems: 'center', marginBottom: 20,
+    backgroundColor: '#fff', borderRadius: 28, padding: 20, alignItems: 'center', marginBottom: 20,
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
   },
   progressHeroTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 18, textAlign: 'center', marginBottom: 4 },
   progressOverallRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginVertical: 14, width: '100%' },
   progressOverallCol: { flex: 1, gap: 8 },
   progressOverallStatCard: { width: '100%', minHeight: 76, padding: 10 },
+  progressRingShadowWrap: {
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+  },
   progressHeroRingPct: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 28 },
   progressHeroRingLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 11, marginTop: 2 },
   progressHeroLabel: { color: HOME_INK, fontWeight: '800', fontSize: 14, marginBottom: 8 },
   progressHeroStatusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F5F3FC',
     borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7,
   },
   progressHeroStatusText: { fontWeight: '800', fontSize: 13 },
   progressHeroEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center' },
-  progressChartCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 20 },
-  progressChartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  progressSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 12 },
+  progressSectionIconWrap: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  progressSectionTitleText: { marginTop: 0, marginBottom: 0 },
+  progressChartCard: {
+    backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 20,
+    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+  },
+  progressChartHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   progressChartTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
   progressChartBars: {
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
-    height: 130, gap: 6, paddingHorizontal: 4,
+    height: 150, gap: 6, paddingHorizontal: 4,
   },
   progressChartBarCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   progressChartBarValue: { fontSize: 10, fontWeight: '900', marginBottom: 4 },
-  progressChartBar: { width: '100%', borderRadius: 4, minWidth: 10 },
+  progressChartBar: { width: '100%', borderTopLeftRadius: 8, borderTopRightRadius: 8, minWidth: 10 },
   progressChartDayRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginTop: 6 },
   progressChartDayLabel: { flex: 1, textAlign: 'center', color: HOME_INK_SOFT, fontSize: 10, fontWeight: '700' },
   progressChartLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16 },
@@ -3701,23 +3912,39 @@ const styles = StyleSheet.create({
   progressTrendMsgText: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12 },
   progressChartEmpty: { alignItems: 'center', paddingVertical: 24 },
   progressChartEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 18 },
-  skillsCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 20 },
+  skillsCard: {
+    backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 20,
+    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+  },
   skillRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  skillIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  skillIconWrap: {
+    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+    shadowColor: HOME_INK, shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+  },
   skillTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   skillLabel: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
   skillTagPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   skillTagText: { fontWeight: '800', fontSize: 11 },
   skillTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  skillTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
-  skillTrackFill: { height: '100%', borderRadius: 4 },
+  skillTrack: { flex: 1, height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
+  skillTrackFill: { height: '100%', borderRadius: 5 },
   skillPct: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 12, minWidth: 34, textAlign: 'right' },
-  progressMonthCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 20, gap: 14,
+  progressMonthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  progressMonthTile: {
+    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
-  progressMonthRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  progressMonthRowText: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
-  progressWordsCard: { backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: 20, padding: 16 },
+  progressPbBadge: {
+    position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: XP_GOLD, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 3,
+  },
+  progressPbBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9 },
+  progressActivityCardShadow: {
+    shadowColor: HOME_INK, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+  },
+  progressWordsCard: {
+    backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: 24, padding: 16,
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+  },
   progressWordsTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15, marginBottom: 10 },
   progressWordsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   progressWordChip: { backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
@@ -3727,18 +3954,42 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
   // --- Badges tab (accent: lavender, ties into Home's achievement showcase) ---
-  badgesHeroCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 24, padding: 18, marginBottom: 20, overflow: 'hidden',
+  // 1280x1920 in the source art (own ratio group, distinct from
+  // learn.png/book.png and singing.png/learn2.png).
+  badgesHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 140, height: 210 },
+  achievementSummaryCard: {
+    backgroundColor: '#fff', borderRadius: 28, padding: 20, marginBottom: 20,
+    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
   },
-  badgesHeroTrophyWrap: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.22)',
-    alignItems: 'center', justifyContent: 'center',
+  achievementSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 14 },
+  achievementSummaryLeftCol: { flex: 1 },
+  achievementSummaryLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 13, marginBottom: 4 },
+  achievementSummaryCount: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 32 },
+  achievementSummaryCountTotal: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK_SOFT, fontSize: 18 },
+  achievementSummaryHint: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 4, maxWidth: '90%' },
+  achievementFeaturedCallout: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF3DC',
+    borderRadius: 18, padding: 14, width: '100%',
   },
-  badgesHeroTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 18, marginBottom: 6 },
-  badgesHeroCount: { color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 8 },
-  badgesHeroTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', marginBottom: 8 },
-  badgesHeroFill: { height: '100%', borderRadius: 4, backgroundColor: '#fff' },
-  badgesHeroMsg: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 12 },
+  achievementFeaturedImage: { width: 44, height: 44 },
+  achievementFeaturedTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14, marginBottom: 2 },
+  achievementFeaturedDesc: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12 },
+  spotlightEyebrow: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  spotlightHint: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginTop: 10, marginBottom: 4 },
+  badgesCelebrateBanner: {
+    borderRadius: 28, padding: 20, marginBottom: 20, overflow: 'hidden',
+    shadowColor: HERO_GRADIENT_START, shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+  },
+  // 1184x2096 in the source art (same ratio group as learn.png/book.png).
+  badgesCelebrateImage: { position: 'absolute', right: 14, top: 10, width: 76, height: 134 },
+  badgesCelebrateTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 20, marginBottom: 4 },
+  badgesCelebrateSub: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 13, marginBottom: 16, lineHeight: 18 },
+  badgesNextCard: { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 18, padding: 14, marginBottom: 14 },
+  badgesNextLabel: { color: 'rgba(255,255,255,0.85)', fontWeight: '800', fontSize: 11, marginBottom: 3 },
+  badgesNextTitle: { color: '#fff', fontWeight: '900', fontSize: 15, marginBottom: 2 },
+  badgesNextDetail: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 12 },
+  badgesCelebrateButton: { backgroundColor: '#fff', borderRadius: 999, paddingVertical: 13, alignItems: 'center' },
+  badgesCelebrateButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 14 },
   badgesFilterRow: { marginBottom: 16 },
   badgesFilterChip: {
     backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginRight: 8,
@@ -3746,15 +3997,6 @@ const styles = StyleSheet.create({
   badgesFilterChipActive: { backgroundColor: HOME_LAVENDER },
   badgesFilterChipText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 13 },
   badgesFilterChipTextActive: { color: '#fff' },
-  metaBadgeRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  metaBadgeCard: {
-    flex: 1, backgroundColor: '#FFF3DC', borderRadius: 20, padding: 14, alignItems: 'center',
-    borderWidth: 2, borderColor: XP_GOLD,
-  },
-  metaBadgeCardLocked: { backgroundColor: '#F3F4F6', borderColor: 'rgba(59,50,44,0.15)' },
-  metaBadgeImage: { width: 64, height: 64, marginBottom: 6 },
-  metaBadgeTitle: { textAlign: 'center', fontWeight: '900', color: HOME_INK, fontSize: 13, marginBottom: 6 },
-  metaBadgeCondition: { textAlign: 'center', color: HOME_INK_SOFT, fontSize: 11, lineHeight: 15 },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   badgeCard: {
     width: '48%', backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14,
