@@ -584,6 +584,15 @@ export default function StudentDashboard({ navigation }: any) {
         if (supabaseError) throw supabaseError;
         if (!child) throw new Error('Child not found in Supabase');
 
+        // child_progress has a UNIQUE child_id constraint, so this join embeds
+        // it as a single object, not an array - but callers read
+        // `child_progress?.[0]`. Normalize so real progress isn't mistaken for
+        // "no progress yet" and overwritten on the next save.
+        const rawChildProgress = (child as any).child_progress;
+        if (rawChildProgress && !Array.isArray(rawChildProgress)) {
+          (child as any).child_progress = [rawChildProgress];
+        }
+
         console.log('[StudentDashboard] Supabase fallback succeeded for authUid:', authUid);
         return child as ChildProfile;
       } catch (supabaseErr: any) {

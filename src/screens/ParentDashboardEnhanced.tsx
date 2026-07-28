@@ -245,7 +245,20 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       .eq('parent_id', id)
       .order('created_at', { ascending: false });
     if (childError) throw childError;
-    const rows = (data || []) as ChildRow[];
+    // child_progress has a UNIQUE child_id constraint, so PostgREST embeds it
+    // as a to-one relationship (a single object) per row, not an array - but
+    // every read site here uses `child.child_progress?.[0]`, expecting an
+    // array. Left un-normalized, that silently returns undefined even though
+    // the real row was just fetched, making every child look like it has no
+    // progress at all.
+    const rows = ((data || []) as any[]).map((row) => ({
+      ...row,
+      child_progress: row.child_progress
+        ? Array.isArray(row.child_progress)
+          ? row.child_progress
+          : [row.child_progress]
+        : [],
+    })) as ChildRow[];
     setChildren(rows);
     return rows;
   };

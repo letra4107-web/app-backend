@@ -533,6 +533,16 @@ const fetchChildProfileByAuthUid = async (authUid, requestId) => {
       .eq('auth_uid', authUid)
       .maybeSingle();
 
+    // child_progress has a UNIQUE child_id constraint, so PostgREST embeds it
+    // as a to-one relationship (a single object) rather than an array - but
+    // every consumer of this response reads `child_progress?.[0]`, expecting
+    // an array. Left un-normalized, that indexing silently returns undefined
+    // even when the real row was just fetched, and the client falls back to
+    // an empty progress object (root cause of progress resetting every login).
+    if (!error && data && data.child_progress && !Array.isArray(data.child_progress)) {
+      data.child_progress = [data.child_progress];
+    }
+
     const joinFailure = error && (
       String(error.message || '').toLowerCase().includes('relationship') ||
       String(error.message || '').toLowerCase().includes('schema cache') ||
