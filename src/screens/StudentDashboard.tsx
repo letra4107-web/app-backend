@@ -90,6 +90,12 @@ const VIVID_TEAL = '#0D9488';
 const VIVID_NAVY = '#1E3A8A';
 const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
+// Single source of truth for the drawer's width - the closed-position
+// translateX must always equal -SIDEBAR_WIDTH so the drawer fully clears the
+// screen edge. A stale hardcoded offset here (from before the drawer was
+// widened) was the bug: it left a permanent sliver of the drawer visible even
+// when "closed".
+const SIDEBAR_WIDTH = 300;
 const XP_CORRECT = 50;
 const XP_WRONG = 30;
 const DAILY_GOAL = 5;
@@ -286,7 +292,7 @@ export default function StudentDashboard({ navigation }: any) {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const sidebarAnim = useRef(new Animated.Value(-260)).current;
+  const sidebarAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const mascotPulse = useRef(new Animated.Value(1)).current;
   const handledTranscriptRef = useRef('');
@@ -813,9 +819,17 @@ export default function StudentDashboard({ navigation }: any) {
 
   const closeSidebar = () => {
     Animated.parallel([
-      Animated.timing(sidebarAnim, { toValue: -260, duration: 240, useNativeDriver: true }),
+      Animated.timing(sidebarAnim, { toValue: -SIDEBAR_WIDTH, duration: 240, useNativeDriver: true }),
       Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
-    ]).start(() => setSidebarOpen(false));
+    ]).start(({ finished }) => {
+      // A rapid re-open (openSidebar interrupting this close animation) stops
+      // this timing early and still invokes this callback with finished:false.
+      // Without this guard, setSidebarOpen(false) would fire right after the
+      // newer openSidebar() call had just set it true, desyncing the overlay
+      // (which unmounts when sidebarOpen is false) from the drawer's actual
+      // on-screen position - the "stuck under rapid taps" half of this bug.
+      if (finished) setSidebarOpen(false);
+    });
   };
 
   const navigateTo = (s: any) => {
@@ -4307,7 +4321,7 @@ const styles = StyleSheet.create({
   // Tinted indigo scrim (matches the drawer's own palette) instead of flat black
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(30,23,66,0.6)' },
   sidebar: {
-    position: 'absolute', top: 0, bottom: 0, left: 0, width: 300,
+    position: 'absolute', top: 0, bottom: 0, left: 0, width: SIDEBAR_WIDTH,
     backgroundColor: HOME_CREAM, paddingTop: 48, zIndex: 100,
     shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.25, shadowRadius: 24, elevation: 20,
