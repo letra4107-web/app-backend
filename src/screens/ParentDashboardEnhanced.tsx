@@ -47,6 +47,9 @@ const HERO_GRADIENT_END = '#9D174D';
 // DAILY_GOAL) - kept identical so a child's "goal" means the same thing
 // whether they or their parent is looking at it.
 const DAILY_GOAL = 5;
+// Distinct from HOME_LAVENDER_DARK so the Calendar's Lesson vs Practice
+// day-dots read as genuinely different hues at 6px, not two shades of purple.
+const CALENDAR_PRACTICE_BLUE = '#2F80ED';
 
 type SkillCategory = 'letters' | 'syllables' | 'words';
 const categorizeWord = (word: string): SkillCategory => {
@@ -735,19 +738,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   );
 
   const getActivityDateKey = (activity: StudentActivity) => new Date(activity.deadline).toISOString().slice(0, 10);
-  const getActivitiesForDate = (dateKey: string) =>
-    activities.filter((activity) => getActivityDateKey(activity) === dateKey);
-  const getStatusColor = (status: string) => {
-    if (status === 'completed') return SUCCESS;
-    if (status === 'overdue') return DANGER;
-    return WARNING;
-  };
-  const getChildNameForActivity = (activity: StudentActivity) =>
-    children.find((child) => child.id === activity.student_id || child.auth_uid === activity.student_id)?.name || 'Student';
-  const getScheduledForDate = (dateKey: string) =>
-    scheduledActivities.filter((item) => item.scheduled_date === dateKey);
-  const getChildNameForScheduled = (item: ScheduledActivity) =>
-    children.find((child) => child.id === item.child_id)?.name || 'Student';
   const SCHEDULED_TYPE_ICON: Record<ScheduledActivity['activity_type'], keyof typeof Ionicons.glyphMap> = {
     reading_lesson: 'book-outline',
     practice: 'mic-outline',
@@ -1010,36 +1000,51 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           end={{ x: 1, y: 1 }}
           style={styles.heroProgressCard}
         >
-          <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.heroProgressTitle}>{selectedChild.name.split(' ')[0]}'s Reading Progress</Text>
-            {weekDelta !== null && (
-              <View style={styles.heroDeltaPill}>
-                <Ionicons name={weekDelta >= 0 ? 'trending-up' : 'trending-down'} size={13} color="#fff" />
-                <Text style={styles.heroDeltaPillText}>
-                  {weekDelta >= 0 ? '+' : ''}{weekDelta}% compared with last week
-                </Text>
-              </View>
-            )}
-            <Text style={styles.heroProgressMessage}>{tierMessage(selectedChild.name.split(' ')[0], avgAccuracy)}</Text>
-            <TouchableOpacity style={styles.heroProgressButton} onPress={() => setSection('progress')}>
-              <Text style={styles.heroProgressButtonText}>View Full Progress →</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.heroProgressRingWrap}>
-            <ProgressRing
-              percent={avgAccuracy ?? 0}
-              size={100}
-              strokeWidth={10}
-              color="#fff"
-              trackColor="rgba(255,255,255,0.25)"
-              gradientColors={['#ffffff', '#F5D0FE']}
-              gradientId="parentHeroRing"
-            >
-              <Text style={styles.heroProgressPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-              <Text style={styles.heroProgressPctLabel}>Overall Progress</Text>
-            </ProgressRing>
-          </View>
+          <View style={styles.heroDecorCircleLg} />
+          <View style={styles.heroDecorCircleSm} />
           <Image source={require('../../assets/parentreading.png')} style={styles.heroProgressImage} resizeMode="contain" />
+
+          <View style={styles.heroProgressTopRow}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <View style={styles.heroProgressEyebrowRow}>
+                <View style={styles.heroProgressIconWrap}>
+                  <Ionicons name="book" size={12} color="#fff" />
+                </View>
+                <Text style={styles.heroProgressEyebrow}>READING PROGRESS</Text>
+              </View>
+              <Text style={styles.heroProgressTitle}>{selectedChild.name.split(' ')[0]}'s Reading Progress</Text>
+            </View>
+            <View style={styles.heroProgressRingWrap}>
+              <ProgressRing
+                percent={avgAccuracy ?? 0}
+                size={88}
+                strokeWidth={9}
+                color="#fff"
+                trackColor="rgba(255,255,255,0.25)"
+                gradientColors={['#ffffff', '#F5D0FE']}
+                gradientId="parentHeroRing"
+              >
+                <Text style={styles.heroProgressPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+                <Text style={styles.heroProgressPctLabel}>Overall</Text>
+              </ProgressRing>
+            </View>
+          </View>
+
+          {weekDelta !== null && (
+            <View style={styles.heroDeltaPill}>
+              <Ionicons name={weekDelta >= 0 ? 'trending-up' : 'trending-down'} size={13} color="#fff" />
+              <Text style={styles.heroDeltaPillText}>
+                {weekDelta >= 0 ? '+' : ''}{weekDelta}% compared with last week
+              </Text>
+            </View>
+          )}
+          <Text style={styles.heroProgressMessage} numberOfLines={2}>
+            {tierMessage(selectedChild.name.split(' ')[0], avgAccuracy)}
+          </Text>
+          <TouchableOpacity style={styles.heroProgressButton} onPress={() => setSection('progress')} activeOpacity={0.85}>
+            <Text style={styles.heroProgressButtonText}>View Full Progress</Text>
+            <Ionicons name="arrow-forward" size={14} color={HERO_GRADIENT_START} />
+          </TouchableOpacity>
         </LinearGradient>
 
         <Text style={styles.homeSectionTitle}>Quick Overview</Text>
@@ -1702,32 +1707,286 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   );
 
   const renderCalendar = () => {
-    const selectedActivities = getActivitiesForDate(selectedCalendarDate);
+    const selectedChild = children.find((child) => child.id === selectedChildId) || children[0];
+
+    if (!selectedChild) {
+      return (
+        <>
+          <View style={styles.homeHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.homeGreeting}>Calendar</Text>
+              <Text style={styles.homeGreetingSub}>Plan and follow your child's learning activities.</Text>
+            </View>
+          </View>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>👨‍👩‍👧</Text>
+            <Text style={styles.emptyText}>Wala pang naka-enroll na bata.</Text>
+          </View>
+        </>
+      );
+    }
+
+    const progress = selectedChild.child_progress?.[0];
+    const level = (progress?.level || 'Beginner') as Level;
+    const avgAccuracy = progress && (progress.total_attempts || 0) > 0
+      ? Math.round((progress.accuracy_sum || 0) / (progress.total_attempts || 1))
+      : null;
+    const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
+
+    // Scoped to the selected child only - the calendar previously showed
+    // every enrolled child's activities merged together with no selector.
+    // Matching the Home/Progress tabs' single-child pattern here too.
+    const childActivities = activities.filter(
+      (activity) => activity.student_id === selectedChild.id || activity.student_id === selectedChild.auth_uid,
+    );
+    const childScheduled = scheduledActivities.filter((item) => item.child_id === selectedChild.id);
+
     const monthLabel = calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    const overdueCount = activities.filter((activity) => activity.status === 'overdue').length;
-    const completedCount = activities.filter((activity) => activity.status === 'completed').length;
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    // Real 4-type day-dot signal, per day - Lesson/Practice reflect genuine
+    // activity (lesson_progress, pronunciation sessions, teacher
+    // assignments) OR a manually-scheduled plan of that type; Completed is a
+    // scheduled plan marked done; Reminder is a pending reminder/appointment.
+    const dayTypesForDate = (dateKey: string) => {
+      const scheduledThatDay = childScheduled.filter((item) => item.scheduled_date === dateKey);
+      const hasRealLesson = childLessonProgressRows.some(
+        (p) => (p.opened_at || '').slice(0, 10) === dateKey || (p.completed_at || '').slice(0, 10) === dateKey,
+      );
+      const hasTeacherAssignment = childActivities.some((a) => getActivityDateKey(a) === dateKey);
+      const hasRealPractice = childSessions.some((s) => (s.created_at || '').slice(0, 10) === dateKey);
+      return {
+        lesson: hasRealLesson || hasTeacherAssignment || scheduledThatDay.some((s) => s.activity_type === 'reading_lesson'),
+        practice: hasRealPractice || scheduledThatDay.some((s) => s.activity_type === 'practice'),
+        completed: scheduledThatDay.some((s) => s.status === 'completed'),
+        reminder: scheduledThatDay.some((s) => (s.activity_type === 'reminder' || s.activity_type === 'appointment') && s.status !== 'completed'),
+      };
+    };
+
+    // This Week - real counts for the selected child, no fabricated minutes.
+    const nowMs = Date.now();
+    const dayMs = 86400000;
+    const weekSessions = childSessions.filter((s) => nowMs - new Date(s.created_at).getTime() <= 7 * dayMs);
+    const weekLessonsCompleted = childLessonProgressRows.filter(
+      (p) => p.status === 'completed' && p.completed_at && nowMs - new Date(p.completed_at).getTime() <= 7 * dayMs,
+    ).length;
+    const activeDaysList = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (6 - i));
+      const dayKey = d.toISOString().slice(0, 10);
+      return childSessions.some((s) => (s.created_at || '').slice(0, 10) === dayKey);
+    });
+    const activeDaysThisWeek = activeDaysList.filter(Boolean).length;
+    const weekCaption =
+      activeDaysThisWeek >= 5
+        ? `${selectedChild.name.split(' ')[0]} is staying consistent this week!`
+        : activeDaysThisWeek >= 2
+        ? `${selectedChild.name.split(' ')[0]} is building a good practice habit.`
+        : `${selectedChild.name.split(' ')[0]} hasn't practiced much this week yet.`;
+
+    // Parent Insight - rule-based weekday consistency, not generated
+    // commentary. Needs a real minimum sample before claiming a pattern.
+    const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
+    childSessions.forEach((s) => {
+      weekdayCounts[new Date(s.created_at).getDay()] += 1;
+    });
+    const topWeekdayIndex = weekdayCounts.reduce((best, count, idx) => (count > weekdayCounts[best] ? idx : best), 0);
+    const hasEnoughInsightData = childSessions.length >= 3 && weekdayCounts[topWeekdayIndex] >= 2;
+
+    // Upcoming Reminders - reuses the already-loaded scheduledActivities
+    // (itself fetched via the real /scheduled-activities GET route), just
+    // filtered client-side to this child's future, not-yet-completed items.
+    const upcomingReminders = childScheduled
+      .filter((item) => item.scheduled_date >= todayKey && item.status !== 'completed')
+      .sort((a, b) => `${a.scheduled_date}${a.start_time || ''}`.localeCompare(`${b.scheduled_date}${b.start_time || ''}`))
+      .slice(0, 3);
+
+    // Day-detail - one merged, time-sorted list combining real lesson
+    // progress, a real aggregated practice summary, teacher assignments, and
+    // manually-scheduled plans, instead of the old two-separate-panels split.
+    const dateKey = selectedCalendarDate;
+    const daySessions = childSessions.filter((s) => (s.created_at || '').slice(0, 10) === dateKey);
+    const dayLessonRows = childLessonProgressRows.filter(
+      (p) => (p.opened_at || '').slice(0, 10) === dateKey || (p.completed_at || '').slice(0, 10) === dateKey,
+    );
+    const dayTeacherActivities = childActivities.filter((a) => getActivityDateKey(a) === dateKey);
+    const dayScheduledItems = childScheduled.filter((item) => item.scheduled_date === dateKey);
+
+    type DayEntry = {
+      key: string;
+      sortKey: string;
+      pillLabel: string;
+      pillColor: string;
+      icon: keyof typeof Ionicons.glyphMap;
+      title: string;
+      meta: string;
+      actionLabel?: string;
+      onPress?: () => void;
+      scheduledItem?: ScheduledActivity;
+    };
+    const dayEntries: DayEntry[] = [];
+
+    dayLessonRows.forEach((p) => {
+      const title = childLessonsList.find((l) => l.id === p.lesson_id)?.title || 'Lesson';
+      const timeSource = p.completed_at || p.opened_at;
+      const time = timeSource ? new Date(timeSource).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+      dayEntries.push({
+        key: `lp-${p.id}`,
+        sortKey: timeSource || dateKey,
+        pillLabel: 'Lesson',
+        pillColor: HOME_LAVENDER_DARK,
+        icon: 'book',
+        title,
+        meta: `${time ? `${time} • ` : ''}${p.status === 'completed' ? 'Completed' : 'In Progress'}`,
+        actionLabel: 'View Lesson',
+        onPress: () => setSection('progress'),
+      });
+    });
+
+    dayTeacherActivities.forEach((a) => {
+      dayEntries.push({
+        key: `act-${a.id}`,
+        sortKey: a.deadline,
+        pillLabel: 'Lesson',
+        pillColor: HOME_LAVENDER_DARK,
+        icon: 'clipboard',
+        title: a.title,
+        meta: `${new Date(a.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ${a.status}`,
+        actionLabel: 'View Details',
+        onPress: () => setSection('progress'),
+      });
+    });
+
+    if (daySessions.length) {
+      const avgDayAccuracy = Math.round(
+        daySessions.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / daySessions.length,
+      );
+      const sortedDaySessions = daySessions.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const firstTime = sortedDaySessions[0]?.created_at;
+      dayEntries.push({
+        key: 'practice-agg',
+        sortKey: firstTime || dateKey,
+        pillLabel: 'Practice',
+        pillColor: CALENDAR_PRACTICE_BLUE,
+        icon: 'mic',
+        title: `Pronunciation Practice • ${daySessions.length} word${daySessions.length === 1 ? '' : 's'}`,
+        meta: `${firstTime ? `${new Date(firstTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ` : ''}Completed • ${avgDayAccuracy}% Accuracy`,
+        actionLabel: 'View Details',
+        onPress: () => setSection('progress'),
+      });
+    }
+
+    dayScheduledItems.forEach((item) => {
+      const pillLabel =
+        item.activity_type === 'reading_lesson' ? 'Lesson' :
+        item.activity_type === 'practice' ? 'Practice' :
+        item.activity_type === 'appointment' ? 'Appointment' : 'Reminder';
+      const pillColor =
+        item.activity_type === 'reading_lesson' ? HOME_LAVENDER_DARK :
+        item.activity_type === 'practice' ? CALENDAR_PRACTICE_BLUE : WARNING;
+      dayEntries.push({
+        key: `sched-${item.id}`,
+        sortKey: item.start_time ? `${item.scheduled_date}T${item.start_time}` : item.scheduled_date,
+        pillLabel,
+        pillColor,
+        icon: SCHEDULED_TYPE_ICON[item.activity_type],
+        title: item.title,
+        meta: `${item.start_time ? `${item.start_time.slice(0, 5)} • ` : ''}${item.status === 'completed' ? 'Completed' : item.status === 'missed' ? 'Missed' : 'Planned'}`,
+        scheduledItem: item,
+      });
+    });
+
+    dayEntries.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
     return (
       <>
-        <View style={styles.sectionHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sectionHeaderTitle}>Calendar</Text>
-            <Text style={styles.sectionHeaderSub}>
-              {activities.length} activities - {overdueCount} overdue - {completedCount} completed
-            </Text>
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroProgressCard}
+        >
+          <View style={styles.heroDecorCircleLg} />
+          <View style={styles.heroDecorCircleSm} />
+          <Image source={require('../../assets/calendar.png')} style={styles.calendarHeroImage} resizeMode="contain" />
+          <View style={styles.heroProgressEyebrowRow}>
+            <View style={styles.heroProgressIconWrap}>
+              <Ionicons name="calendar" size={12} color="#fff" />
+            </View>
+            <Text style={styles.heroProgressEyebrow}>PLAN & TRACK</Text>
           </View>
-          <View style={styles.calendarHeaderActions}>
+          <Text style={styles.heroProgressTitle}>Calendar</Text>
+          <Text style={[styles.heroProgressMessage, { maxWidth: '72%', marginTop: 6, marginBottom: 0 }]}>
+            Plan and follow {selectedChild.name.split(' ')[0]}'s learning activities.
+          </Text>
+        </LinearGradient>
+
+        <View style={styles.childSummaryCard}>
+          <View style={styles.childAvatarLg}>
+            <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.childSummaryEyebrow}>Viewing Calendar For</Text>
+            <Text style={styles.childSummaryName}>{selectedChild.name}</Text>
+            <View style={styles.childSummaryBadgeRow}>
+              <View style={styles.gradeBadge}>
+                <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
+              </View>
+              <View style={[styles.levelBadgeOutline, { borderColor: getLevelColor(level) }]}>
+                <Text style={[styles.levelBadgeOutlineText, { color: getLevelColor(level) }]}>{level} Reader</Text>
+              </View>
+            </View>
+          </View>
+          {children.length > 1 && (
+            <TouchableOpacity style={styles.switchChildButton} onPress={() => setChildPickerOpen((open) => !open)}>
+              <Text style={styles.switchChildButtonText}>Switch Child</Text>
+              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={HOME_LAVENDER_DARK} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {childPickerOpen && children.length > 1 && (
+          <View style={styles.childPickerList}>
+            {children.map((child) => (
+              <TouchableOpacity
+                key={child.id}
+                style={styles.childPickerRow}
+                onPress={() => {
+                  setSelectedChildId(child.id);
+                  setChildPickerOpen(false);
+                }}
+              >
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: HOME_LAVENDER_DARK, fontWeight: '800' }]}>
+                  {child.name}
+                </Text>
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={HOME_LAVENDER_DARK} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.calendarCard}>
+          <View style={styles.calendarCardHeader}>
             <TouchableOpacity style={styles.monthButton} onPress={() => shiftCalendarMonth(-1)}>
               <Ionicons name="chevron-back" size={18} color={PRIMARY} />
+            </TouchableOpacity>
+            <Text style={styles.calendarMonth}>{monthLabel}</Text>
+            <TouchableOpacity
+              style={styles.todayPill}
+              onPress={() => {
+                const now = new Date();
+                setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+                setSelectedCalendarDate(now.toISOString().slice(0, 10));
+              }}
+            >
+              <Text style={styles.todayPillText}>Today</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.monthButton} onPress={() => shiftCalendarMonth(1)}>
               <Ionicons name="chevron-forward" size={18} color={PRIMARY} />
             </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={styles.calendarCard}>
-          <Text style={styles.calendarMonth}>{monthLabel}</Text>
           <View style={styles.weekHeader}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <Text key={day} style={styles.weekHeaderText}>{day}</Text>
@@ -1737,11 +1996,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             {getCalendarDays().map((cell) => {
               if (!cell.date) return <View key={cell.key} style={styles.dayCell} />;
               const key = cell.date.toISOString().slice(0, 10);
-              const dayActivities = getActivitiesForDate(key);
-              const dayScheduled = getScheduledForDate(key);
+              const dayTypes = dayTypesForDate(key);
               const selected = key === selectedCalendarDate;
-              const hasOverdue = dayActivities.some((activity) => activity.status === 'overdue');
-              const hasCompleted = dayActivities.some((activity) => activity.status === 'completed');
+              const hasAnyDot = dayTypes.lesson || dayTypes.practice || dayTypes.completed || dayTypes.reminder;
               return (
                 <TouchableOpacity
                   key={cell.key}
@@ -1749,100 +2006,177 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   onPress={() => setSelectedCalendarDate(key)}
                 >
                   <Text style={[styles.dayText, selected && styles.dayTextSelected]}>{cell.date.getDate()}</Text>
-                  {(!!dayActivities.length || !!dayScheduled.length) && (
+                  {hasAnyDot && (
                     <View style={styles.dayDots}>
-                      {!!dayActivities.length && (
-                        <View style={[styles.dayDot, { backgroundColor: hasOverdue ? DANGER : hasCompleted ? SUCCESS : WARNING }]} />
-                      )}
-                      {!!dayScheduled.length && <View style={[styles.dayDot, { backgroundColor: HOME_LAVENDER_DARK }]} />}
-                      {dayActivities.length + dayScheduled.length > 1 && (
-                        <Text style={styles.dayCount}>{dayActivities.length + dayScheduled.length}</Text>
-                      )}
+                      {dayTypes.lesson && <View style={[styles.dayDot, { backgroundColor: HOME_LAVENDER_DARK }]} />}
+                      {dayTypes.practice && <View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} />}
+                      {dayTypes.completed && <View style={[styles.dayDot, { backgroundColor: SUCCESS }]} />}
+                      {dayTypes.reminder && <View style={[styles.dayDot, { backgroundColor: WARNING }]} />}
                     </View>
                   )}
                 </TouchableOpacity>
               );
             })}
           </View>
+          <View style={styles.dayLegendRow}>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: HOME_LAVENDER_DARK }]} /><Text style={styles.dayLegendText}>Lesson</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} /><Text style={styles.dayLegendText}>Practice</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: SUCCESS }]} /><Text style={styles.dayLegendText}>Completed</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: WARNING }]} /><Text style={styles.dayLegendText}>Reminder</Text></View>
+          </View>
         </View>
 
         <View style={styles.selectedTasksCard}>
           <View style={styles.selectedTasksHeaderRow}>
             <Text style={styles.selectedTasksTitle}>
-              {new Date(`${selectedCalendarDate}T00:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
+              {new Date(`${selectedCalendarDate}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} • {selectedChild.name.split(' ')[0]}'s Activities
             </Text>
-            <TouchableOpacity
-              style={styles.addPlanButton}
-              onPress={() => {
-                setEditingScheduledActivity(null);
-                setActivityModalVisible(true);
-              }}
-            >
-              <Ionicons name="add" size={16} color="#fff" />
-              <Text style={styles.addPlanButtonText}>Magdagdag</Text>
-            </TouchableOpacity>
           </View>
-          {selectedActivities.length ? (
-            selectedActivities.map((activity) => (
-              <View key={activity.id} style={styles.calendarTaskRow}>
-                <View style={[styles.statusStrip, { backgroundColor: getStatusColor(activity.status) }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.activityChildName}>{activity.title}</Text>
-                  <Text style={styles.activityTitle}>
-                    {getChildNameForActivity(activity)} - {activity.subject || 'Activity'} - {new Date(activity.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                  {!!activity.description && <Text style={styles.activityDate}>{activity.description}</Text>}
+          {dayEntries.length ? (
+            dayEntries.map((entry) => (
+              <TouchableOpacity
+                key={entry.key}
+                style={styles.dayEntryRow}
+                disabled={!entry.scheduledItem}
+                onPress={() => {
+                  if (entry.scheduledItem) {
+                    setEditingScheduledActivity(entry.scheduledItem);
+                    setActivityModalVisible(true);
+                  }
+                }}
+              >
+                <View style={[styles.dayEntryIconWrap, { backgroundColor: `${entry.pillColor}1A` }]}>
+                  <Ionicons name={entry.icon} size={17} color={entry.pillColor} />
                 </View>
-                <Text style={[styles.statusBadge, { color: getStatusColor(activity.status) }]}>{activity.status}</Text>
-              </View>
+                <View style={{ flex: 1 }}>
+                  <View style={[styles.dayEntryPill, { backgroundColor: `${entry.pillColor}1A` }]}>
+                    <Text style={[styles.dayEntryPillText, { color: entry.pillColor }]}>{entry.pillLabel}</Text>
+                  </View>
+                  <Text style={styles.dayEntryTitle}>{entry.title}</Text>
+                  <Text style={styles.dayEntryMeta}>{entry.meta}</Text>
+                </View>
+                {entry.actionLabel && entry.onPress ? (
+                  <TouchableOpacity style={[styles.dayEntryAction, { borderColor: entry.pillColor }]} onPress={entry.onPress}>
+                    <Text style={[styles.dayEntryActionText, { color: entry.pillColor }]}>{entry.actionLabel}</Text>
+                  </TouchableOpacity>
+                ) : entry.scheduledItem ? (
+                  <TouchableOpacity
+                    style={styles.scheduledCompleteButton}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      void toggleScheduledComplete(entry.scheduledItem!);
+                    }}
+                    disabled={entry.scheduledItem.status === 'completed'}
+                  >
+                    <Ionicons
+                      name={entry.scheduledItem.status === 'completed' ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                      size={22}
+                      color={getScheduledStatusColor(entry.scheduledItem.status)}
+                    />
+                  </TouchableOpacity>
+                ) : null}
+              </TouchableOpacity>
             ))
           ) : (
             <Text style={styles.emptyDetail}>No activities on this date.</Text>
           )}
         </View>
 
-        <View style={styles.selectedTasksCard}>
-          <Text style={styles.selectedTasksTitle}>Mga Plano Mo</Text>
-          {getScheduledForDate(selectedCalendarDate).length ? (
-            getScheduledForDate(selectedCalendarDate).map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.scheduledRow}
-                onPress={() => {
-                  setEditingScheduledActivity(item);
-                  setActivityModalVisible(true);
-                }}
-              >
-                <View style={styles.scheduledIconWrap}>
-                  <Ionicons name={SCHEDULED_TYPE_ICON[item.activity_type]} size={18} color={HOME_LAVENDER_DARK} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.activityChildName}>{item.title}</Text>
-                  <Text style={styles.activityTitle}>
-                    {getChildNameForScheduled(item)}
-                    {item.start_time ? ` - ${item.start_time.slice(0, 5)}` : ''}
-                  </Text>
-                  {!!item.description && <Text style={styles.activityDate}>{item.description}</Text>}
-                </View>
-                <TouchableOpacity
-                  style={styles.scheduledCompleteButton}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    void toggleScheduledComplete(item);
-                  }}
-                  disabled={item.status === 'completed'}
-                >
-                  <Ionicons
-                    name={item.status === 'completed' ? 'checkmark-circle' : 'checkmark-circle-outline'}
-                    size={22}
-                    color={getScheduledStatusColor(item.status)}
-                  />
-                </TouchableOpacity>
-              </TouchableOpacity>
+        <View style={styles.weekSummaryCard}>
+          <View style={styles.weekSummaryHeaderRow}>
+            <Ionicons name="bar-chart" size={16} color={HOME_SAGE} />
+            <Text style={styles.homeSectionTitleInline}>This Week</Text>
+          </View>
+          <View style={styles.weekSummaryStatsRow}>
+            <View style={styles.weekSummaryStat}>
+              <Text style={[styles.weekSummaryStatValue, { color: HOME_LAVENDER_DARK }]}>{weekLessonsCompleted}</Text>
+              <Text style={styles.weekSummaryStatLabel}>Lessons</Text>
+            </View>
+            <View style={styles.weekSummaryStat}>
+              <Text style={[styles.weekSummaryStatValue, { color: CALENDAR_PRACTICE_BLUE }]}>{weekSessions.length}</Text>
+              <Text style={styles.weekSummaryStatLabel}>Practice Sessions</Text>
+            </View>
+            <View style={styles.weekSummaryStat}>
+              <Text style={[styles.weekSummaryStatValue, { color: HOME_SAGE }]}>{activeDaysThisWeek}</Text>
+              <Text style={styles.weekSummaryStatLabel}>Active Days</Text>
+            </View>
+          </View>
+          <View style={styles.weekProgressTrack}>
+            <View style={[styles.weekProgressFill, { width: `${Math.round((activeDaysThisWeek / 7) * 100)}%` }]} />
+          </View>
+          <Text style={styles.weekSummaryCaption}>{activeDaysThisWeek}/7 days active this week • {weekCaption}</Text>
+        </View>
+
+        <View style={styles.upcomingCard}>
+          <View style={styles.upcomingHeaderRow}>
+            <Ionicons name="alarm" size={16} color={HOME_SUN} />
+            <Text style={styles.homeSectionTitleInline}>Upcoming Reminders</Text>
+          </View>
+          {upcomingReminders.length ? (
+            upcomingReminders.map((item) => (
+              <View key={item.id} style={styles.upcomingRow}>
+                <Ionicons name={SCHEDULED_TYPE_ICON[item.activity_type]} size={15} color={HOME_SUN} />
+                <Text style={styles.upcomingRowText}>
+                  {item.title} • {new Date(`${item.scheduled_date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {item.start_time ? ` ${item.start_time.slice(0, 5)}` : ''}
+                </Text>
+              </View>
             ))
           ) : (
-            <Text style={styles.emptyDetail}>Wala ka pang naka-schedule na plano sa araw na ito.</Text>
+            <Text style={styles.emptyDetail}>No upcoming reminders scheduled.</Text>
           )}
+        </View>
+
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => {
+              setEditingScheduledActivity(null);
+              setActivityModalVisible(true);
+            }}
+          >
+            <Ionicons name="add-circle" size={16} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.quickActionText}>Add Reminder</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')}>
+            <Ionicons name="bar-chart" size={16} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.quickActionText}>View Progress</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')}>
+            <Ionicons name="settings" size={16} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.quickActionText}>Notification Settings</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.overviewGrid}>
+          <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
+            <Ionicons name="book" size={20} color={HOME_LAVENDER_DARK} />
+            <Text style={[styles.overviewValue, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
+            <Text style={styles.overviewLabel}>Words Practiced</Text>
+          </View>
+          <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
+            <Ionicons name="checkmark-circle" size={20} color={HOME_SAGE} />
+            <Text style={[styles.overviewValue, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+            <Text style={styles.overviewLabel}>Average Accuracy</Text>
+          </View>
+        </View>
+
+        <View style={styles.parentInsightCard}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <View style={styles.upcomingHeaderRow}>
+              <Ionicons name="bulb" size={16} color={HOME_LAVENDER_DARK} />
+              <Text style={[styles.homeSectionTitleInline, { fontSize: 14 }]}>Parent Insight</Text>
+            </View>
+            <Text style={styles.parentInsightText}>
+              {hasEnoughInsightData
+                ? `${selectedChild.name.split(' ')[0]} has been most consistent on ${weekdayNames[topWeekdayIndex]}s. Keeping a short daily routine may help.`
+                : `Not enough practice history yet to spot a pattern in ${selectedChild.name.split(' ')[0]}'s routine.`}
+            </Text>
+            <TouchableOpacity onPress={() => setSection('progress')}>
+              <Text style={styles.insightSeeMore}>View Child Progress →</Text>
+            </TouchableOpacity>
+          </View>
+          <Image source={require('../../assets/parentreading.png')} style={styles.parentInsightImage} resizeMode="contain" />
         </View>
       </>
     );
@@ -2367,23 +2701,52 @@ const styles = StyleSheet.create({
   },
   switchChildButtonText: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK },
   heroProgressCard: {
-    flexDirection: 'row', alignItems: 'center', borderRadius: 22, padding: 20, marginBottom: 16,
-    overflow: 'hidden', shadowColor: HERO_GRADIENT_START, shadowOpacity: 0.25, shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 }, elevation: 5,
+    borderRadius: 26, padding: 20, marginBottom: 16, overflow: 'hidden',
+    shadowColor: HERO_GRADIENT_START, shadowOpacity: 0.3, shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 }, elevation: 6,
   },
-  heroProgressTitle: { fontSize: 17, fontWeight: '900', color: '#fff', marginBottom: 8 },
+  // Soft translucent circles for depth - purely decorative, sit behind
+  // everything, clipped by the card's own overflow:hidden.
+  heroDecorCircleLg: {
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.08)', top: -60, left: -50,
+  },
+  heroDecorCircleSm: {
+    position: 'absolute', width: 90, height: 90, borderRadius: 45,
+    backgroundColor: 'rgba(255,255,255,0.07)', bottom: -30, left: 60,
+  },
+  // Peeks in from the bottom-right corner, below the ring's row and to the
+  // right of the left-aligned button/message, so nothing sits on top of it.
+  heroProgressImage: { width: 84, height: 112, position: 'absolute', right: 4, bottom: -8, opacity: 0.95 },
+  heroProgressTopRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
+  heroProgressEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  heroProgressIconWrap: {
+    width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  heroProgressEyebrow: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 },
+  heroProgressTitle: { fontSize: 19, fontWeight: '900', color: '#fff', lineHeight: 24 },
   heroDeltaPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8,
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', marginBottom: 10,
   },
   heroDeltaPillText: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  heroProgressMessage: { fontSize: 13, color: 'rgba(255,255,255,0.92)', fontWeight: '600', marginBottom: 12 },
-  heroProgressButton: { backgroundColor: '#fff', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
+  heroProgressMessage: {
+    fontSize: 13, color: 'rgba(255,255,255,0.92)', fontWeight: '600', marginBottom: 14,
+    maxWidth: '68%', lineHeight: 18,
+  },
+  heroProgressButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
+    borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18, alignSelf: 'flex-start',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3,
+  },
   heroProgressButtonText: { fontSize: 12, fontWeight: '800', color: HERO_GRADIENT_START },
-  heroProgressRingWrap: { alignItems: 'center', justifyContent: 'center' },
-  heroProgressPct: { fontSize: 22, fontWeight: '900', color: '#fff' },
+  heroProgressRingWrap: {
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
+  },
+  heroProgressPct: { fontSize: 20, fontWeight: '900', color: '#fff' },
   heroProgressPctLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
-  heroProgressImage: { width: 60, height: 80, position: 'absolute', right: 4, bottom: 0, opacity: 0.9 },
   weekBarRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 90, marginBottom: 10 },
   weekBarCol: { alignItems: 'center', gap: 6, flex: 1 },
   weekBarTrack: { height: 70, width: 16, justifyContent: 'flex-end' },
@@ -2430,6 +2793,28 @@ const styles = StyleSheet.create({
   supportBannerButton: { backgroundColor: '#111827', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
   supportBannerButtonText: { fontSize: 12, fontWeight: '800', color: '#fff' },
   supportBannerImage: { width: 66, height: 88, opacity: 0.95 },
+
+  // Calendar tab
+  calendarHeroImage: { width: 76, height: 51, position: 'absolute', right: 16, bottom: 14, opacity: 0.95 },
+  weekSummaryCard: { backgroundColor: '#E9F1E2', borderRadius: 18, padding: 16, marginBottom: 16, gap: 10 },
+  weekSummaryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  weekSummaryStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  weekSummaryStat: { alignItems: 'center', gap: 2 },
+  weekSummaryStatValue: { fontSize: 20, fontWeight: '900' },
+  weekSummaryStatLabel: { fontSize: 10.5, color: HOME_INK_SOFT, fontWeight: '700', textAlign: 'center' },
+  weekProgressTrack: { height: 7, backgroundColor: 'rgba(92,128,71,0.16)', borderRadius: 999, overflow: 'hidden' },
+  weekProgressFill: { height: '100%', borderRadius: 999, backgroundColor: HOME_SAGE },
+  weekSummaryCaption: { fontSize: 11.5, color: HOME_INK_SOFT, fontWeight: '600' },
+  upcomingCard: { backgroundColor: '#FFF3DC', borderRadius: 18, padding: 16, marginBottom: 16, gap: 8 },
+  upcomingHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  upcomingRowText: { fontSize: 12.5, color: HOME_INK, fontWeight: '700', flex: 1 },
+  parentInsightCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: 18,
+    padding: 16, marginBottom: 16,
+  },
+  parentInsightText: { fontSize: 12.5, color: HOME_INK, fontWeight: '600', lineHeight: 17, marginTop: 6, marginBottom: 8 },
+  parentInsightImage: { width: 72, height: 96 },
 
   // Child Progress tab
   trendLineLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
@@ -2500,7 +2885,6 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   sectionHeaderTitle: { fontSize: 18, fontWeight: '900', color: TEXT_PRIMARY, flex: 1 },
   sectionHeaderSub: { fontSize: 12, color: TEXT_SECONDARY },
-  calendarHeaderActions: { flexDirection: 'row', gap: 8 },
   monthButton: {
     width: 38,
     height: 38,
@@ -2515,8 +2899,15 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: BORDER,
+    marginBottom: 16,
   },
-  calendarMonth: { fontSize: 16, fontWeight: '900', color: TEXT_PRIMARY, marginBottom: 12 },
+  calendarCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8 },
+  todayPill: { backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
+  todayPillText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  dayLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: BORDER },
+  dayLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dayLegendText: { fontSize: 11, fontWeight: '700', color: TEXT_SECONDARY },
+  calendarMonth: { fontSize: 16, fontWeight: '900', color: TEXT_PRIMARY },
   weekHeader: { flexDirection: 'row', marginBottom: 8 },
   weekHeaderText: { flex: 1, textAlign: 'center', color: TEXT_SECONDARY, fontSize: 11, fontWeight: '800' },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -2540,33 +2931,22 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: BORDER,
-    marginTop: 14,
+    marginBottom: 16,
   },
+  dayEntryRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+  },
+  dayEntryIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  dayEntryPill: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 3 },
+  dayEntryPillText: { fontSize: 9.5, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
+  dayEntryTitle: { fontSize: 13.5, fontWeight: '800', color: TEXT_PRIMARY },
+  dayEntryMeta: { fontSize: 11.5, color: TEXT_SECONDARY, fontWeight: '600', marginTop: 1 },
+  dayEntryAction: { borderWidth: 1.3, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  dayEntryActionText: { fontSize: 10.5, fontWeight: '800' },
   selectedTasksTitle: { color: TEXT_PRIMARY, fontWeight: '900', fontSize: 16, marginBottom: 10 },
   selectedTasksHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  addPlanButton: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: HOME_LAVENDER_DARK,
-    borderRadius: 20, paddingVertical: 7, paddingHorizontal: 12,
-  },
-  addPlanButtonText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  scheduledRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
-    borderTopWidth: 1, borderTopColor: '#f3f4f6',
-  },
-  scheduledIconWrap: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFECFB',
-    alignItems: 'center', justifyContent: 'center',
-  },
   scheduledCompleteButton: { padding: 4 },
-  calendarTaskRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-  },
-  statusStrip: { width: 4, borderRadius: 999 },
-  statusBadge: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
   insightCard: { backgroundColor: PRIMARY_LIGHT, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: PRIMARY, padding: 16, marginBottom: 12 },
   insightChildName: { fontSize: 14, fontWeight: '900', color: PRIMARY_TEXT, marginBottom: 10 },
   insightRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#c7d2fe' },
