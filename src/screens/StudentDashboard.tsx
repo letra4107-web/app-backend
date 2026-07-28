@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
@@ -1181,14 +1182,73 @@ export default function StudentDashboard({ navigation }: any) {
   const levelInfo = getNextLevelInfo(stats.xp, stats.level);
 
   const renderWordOfDay = () => {
-    const words = practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS;
+    // Resets every 5 attempts, not at actual midnight - there's no calendar-
+    // day boundary tracked yet. A true calendar-day version (reset at real
+    // midnight, independent of attempt count) is a separate future task -
+    // this is the existing, real mechanic, not a placeholder to fix now.
     const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
     const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
 
-    const continueLearningDone = words.filter((w) => progress?.completed_words?.includes(w)).length;
-    const continueLearningPct = words.length ? Math.round((continueLearningDone / words.length) * 100) : 0;
+    // Same all-time-average formula the Progress tab's accuracy ring uses.
+    const avgAccuracy = (progress?.total_attempts || 0) > 0
+      ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
+      : null;
 
     const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
+
+    // Continue Learning: the same real in-progress-lesson lookup the Learn
+    // tab uses - most-recently-opened lesson still marked in_progress.
+    const inProgressRows = lessonProgress
+      .filter((p) => p.status === 'in_progress')
+      .slice()
+      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime());
+    const continueReadingLesson = inProgressRows.length
+      ? lessons.find((l) => l.id === inProgressRows[0].lesson_id) || null
+      : null;
+    // Lessons have no authored sequence/order field, only created_at - this
+    // numbers them by creation date (oldest = Lesson 1) as the closest
+    // honest proxy for "Lesson X of Y". It's an inferred ordering, not an
+    // authored curriculum sequence, so numbering can shift if a teacher
+    // later backfills an older lesson.
+    const lessonsAscending = lessons.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const continueLessonIndex = continueReadingLesson ? lessonsAscending.findIndex((l) => l.id === continueReadingLesson.id) : -1;
+    const continueLessonTotal = lessonsAscending.length;
+    const continueLessonPct = continueLessonTotal > 0 && continueLessonIndex >= 0
+      ? Math.round(((continueLessonIndex + 1) / continueLessonTotal) * 100)
+      : 0;
+
+    // Recent Activity: merges the only two real event types that exist -
+    // completed lessons and pronunciation practice sessions. A separate
+    // "Reading Practice" aggregate event doesn't exist in the data model
+    // (Listen & Read mode saves nothing), so it's deliberately not forced
+    // in as a fabricated third category.
+    type RecentActivityItem = { key: string; kind: 'lesson' | 'pronunciation'; title: string; detail: string; timestamp: string };
+    const lessonActivityItems: RecentActivityItem[] = lessonProgress
+      .filter((p) => p.status === 'completed' && !!p.completed_at)
+      .map((p) => ({
+        key: `lesson-${p.id}`,
+        kind: 'lesson' as const,
+        title: lessons.find((l) => l.id === p.lesson_id)?.title || 'Aralin',
+        detail: 'Nakumpleto na',
+        timestamp: p.completed_at as string,
+      }));
+    const pronunciationActivityItems: RecentActivityItem[] = recentSessions.slice(0, 10).map((s, idx) => ({
+      key: `pron-${s.created_at}-${idx}`,
+      kind: 'pronunciation' as const,
+      title: s.word,
+      detail: `${Math.round(s.accuracy_percentage || 0)}% accuracy`,
+      timestamp: s.created_at,
+    }));
+    const recentActivityItems = [...lessonActivityItems, ...pronunciationActivityItems]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 3);
+    const formatActivityTime = (iso: string) => {
+      const date = new Date(iso);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return isToday ? `Today ${time}` : `${date.toLocaleDateString()} ${time}`;
+    };
 
     return (
       <>
@@ -1205,24 +1265,32 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
-          {/* Header row: avatar + greeting + notification bell */}
-          <View style={styles.homeHeaderRow}>
-            <View style={styles.homeHeaderAvatar}>
-              <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
+          {/* Hero banner: gradient background (existing lavender tokens, not a
+              new palette) + waving.png illustration */}
+          <LinearGradient
+            colors={[HOME_LAVENDER, HOME_LAVENDER_DARK]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroBanner}
+          >
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroLogoRow}>
+                <Ionicons name="book" size={16} color="#fff" />
+                <Text style={styles.heroLogoText}>LinawLetra</Text>
+              </View>
+              <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
+                <Ionicons name="notifications" size={20} color="#fff" />
+                {unreadNotifCount > 0 && (
+                  <View style={styles.homeBellBadge}>
+                    <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.homeGreetingHello}>Kumusta, {getFirstName(child?.name || '')}! 👋</Text>
-              <Text style={styles.homeGreetingSub}>Handa ka na bang matuto ngayon?</Text>
-            </View>
-            <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
-              <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
-              {unreadNotifCount > 0 && (
-                <View style={styles.homeBellBadge}>
-                  <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+            <Text style={styles.heroGreeting}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
+            <Text style={styles.heroSubtitle}>Handa ka na bang matuto ngayon?</Text>
+            <Image source={require('../../assets/waving.png')} style={styles.heroImage} resizeMode="contain" />
+          </LinearGradient>
 
           {/* Today's Reading Progress — real daily-goal data (same mechanic as
               the Practice tab's step-dots; resets every 5 attempts, not at
@@ -1241,49 +1309,64 @@ export default function StudentDashboard({ navigation }: any) {
             </ProgressRing>
           </View>
 
-          {/* 2x2 stat grid — same color mapping used on Progress tab
-              (streak=sun, xp=coral, words=sage, badges=lavender) */}
+          {/* Quick Stats 2x2 grid — Words Practiced, Reading Accuracy,
+              Practice Sessions, Current Streak, all real fields */}
+          <Text style={styles.practiceSectionTitle}>Quick Stats</Text>
           <View style={styles.homeStatGrid}>
-            <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-              <Ionicons name="star" size={22} color={HOME_CORAL} />
-              <Text style={[styles.homeGridValue, { color: HOME_CORAL }]}>{stats.xp}</Text>
-              <Text style={styles.homeGridLabel}>XP Earned</Text>
-            </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
               <Ionicons name="book" size={22} color={HOME_SAGE} />
               <Text style={[styles.homeGridValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
               <Text style={styles.homeGridLabel}>Words Practiced</Text>
             </View>
+            <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
+              <Ionicons name="locate" size={22} color={HOME_CORAL} />
+              <Text style={[styles.homeGridValue, { color: HOME_CORAL }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+              <Text style={styles.homeGridLabel}>Reading Accuracy</Text>
+            </View>
+            <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
+              <Ionicons name="bar-chart" size={22} color={HOME_LAVENDER_DARK} />
+              <Text style={[styles.homeGridValue, { color: HOME_LAVENDER_DARK }]}>{progress?.total_attempts || 0}</Text>
+              <Text style={styles.homeGridLabel}>Practice Sessions</Text>
+            </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
               <Ionicons name="flame" size={22} color={HOME_SUN} />
               <Text style={[styles.homeGridValue, { color: HOME_SUN }]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
-              <Text style={styles.homeGridLabel}>Reading Streak</Text>
-            </View>
-            <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-              <Ionicons name="ribbon" size={22} color={HOME_LAVENDER_DARK} />
-              <Text style={[styles.homeGridValue, { color: HOME_LAVENDER_DARK }]}>{progress?.achievements?.length || 0}</Text>
-              <Text style={styles.homeGridLabel}>Badges Earned</Text>
+              <Text style={styles.homeGridLabel}>Current Streak</Text>
             </View>
           </View>
 
-          {/* Continue Learning — real substitute: % of this grade's practice
-              word list completed so far (Lesson has no sequence/progress
-              field, so there's no real "next lesson" concept to show here) */}
-          <View style={styles.homeContinueCard}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.homeContinueTitle}>Continue Learning</Text>
-              <Text style={styles.homeContinueSubtitle}>Tagalog Reading Practice</Text>
-              <View style={styles.homeContinueTrackRow}>
-                <View style={styles.homeContinueTrack}>
-                  <View style={[styles.homeContinueFill, { width: `${Math.max(4, continueLearningPct)}%` }]} />
+          {/* Continue Learning — real in-progress lesson + inferred
+              Lesson X of Y (see comment above on continueLessonIndex) */}
+          {continueReadingLesson ? (
+            <View style={styles.homeContinueCard}>
+              <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.homeContinueTitle}>Continue Learning</Text>
+                <Text style={styles.homeContinueSubtitle}>{continueReadingLesson.title}</Text>
+                <Text style={styles.homeContinueLessonCount}>Lesson {continueLessonIndex + 1} of {continueLessonTotal}</Text>
+                <View style={styles.homeContinueTrackRow}>
+                  <View style={styles.homeContinueTrack}>
+                    <View style={[styles.homeContinueFill, { width: `${Math.max(4, continueLessonPct)}%` }]} />
+                  </View>
+                  <Text style={styles.homeContinuePct}>{continueLessonPct}%</Text>
                 </View>
-                <Text style={styles.homeContinuePct}>{continueLearningPct}%</Text>
               </View>
+              <TouchableOpacity style={styles.homeContinueButton} onPress={() => setSection('learn')}>
+                <Text style={styles.homeContinueButtonText}>Continue</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.homeContinueButton} onPress={() => setSection('practice')}>
-              <Text style={styles.homeContinueButtonText}>Continue</Text>
-            </TouchableOpacity>
-          </View>
+          ) : (
+            <View style={styles.homeContinueCard}>
+              <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.homeContinueTitle}>Continue Learning</Text>
+                <Text style={styles.homeContinueSubtitle}>Wala pang binabasang aralin — simulan ang isa!</Text>
+              </View>
+              <TouchableOpacity style={styles.homeContinueButton} onPress={() => setSection('learn')}>
+                <Text style={styles.homeContinueButtonText}>Simulan</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Word of the Day — kept intact, a real distinct feature the new
               reference layout has no equivalent slot for */}
@@ -1308,31 +1391,51 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
-          {/* Practice Your Reading — both tiles point to real features */}
-          <Text style={styles.homePracticeSectionTitle}>Practice Your Reading</Text>
-          <TouchableOpacity style={styles.homePracticeRow} onPress={() => setSection('practice')}>
-            <View style={[styles.homePracticeIconWrap, { backgroundColor: '#EFECFB' }]}>
-              <Ionicons name="mic" size={20} color={HOME_LAVENDER_DARK} />
+          {/* Ready to Practice? — single consolidated card per reference
+              layout, replacing the old two-row Say/Listen mode list */}
+          <View style={styles.readyPracticeCard}>
+            <View style={styles.readyPracticeIconWrap}>
+              <Ionicons name="mic" size={24} color={HOME_LAVENDER_DARK} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.homePracticeRowTitle}>Say the Word</Text>
-              <Text style={styles.homePracticeRowSubtitle}>Practice pronunciation</Text>
+              <Text style={styles.readyPracticeTitle}>Ready to Practice?</Text>
+              <Text style={styles.readyPracticeSub}>Magsanay bumasa ng mga salita at mapabuti ang iyong bigkas gamit ang AI feedback.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={HOME_INK_SOFT} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.homePracticeRow} onPress={() => setSection('practice')}>
-            <View style={[styles.homePracticeIconWrap, { backgroundColor: '#FBE7DF' }]}>
-              <Ionicons name="volume-high" size={20} color={HOME_CORAL} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.homePracticeRowTitle}>Listen & Read</Text>
-              <Text style={styles.homePracticeRowSubtitle}>Listen to the word and follow along</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={HOME_INK_SOFT} />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.readyPracticeButton} onPress={() => setSection('practice')}>
+              <Text style={styles.readyPracticeButtonText}>Start Practice</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Motivational quote */}
+          {/* Recent Activity — merged real feed (see recentActivityItems
+              comment above): whatever mix of completed lessons and
+              pronunciation sessions actually happened, not a fixed layout */}
+          <Text style={styles.practiceSectionTitle}>Recent Activity</Text>
+          {recentActivityItems.length ? (
+            recentActivityItems.map((item) => (
+              <View key={item.key} style={styles.homeRecentActivityCard}>
+                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
+                  <Ionicons
+                    name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
+                    size={20}
+                    color={item.kind === 'lesson' ? HOME_SAGE : HOME_LAVENDER_DARK}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.homeRecentActivityTitle}>{item.kind === 'lesson' ? 'Lesson Completed' : 'Pronunciation Practice'}</Text>
+                  <Text style={styles.homeRecentActivityDetail}>{item.title} • {item.detail}</Text>
+                </View>
+                <Text style={styles.homeRecentActivityTime}>{formatActivityTime(item.timestamp)}</Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.homeRecentActivityEmpty}>
+              <Text style={styles.homeRecentActivityEmptyText}>Wala ka pang aktibidad. Magsimula ng pagsasanay ngayon!</Text>
+            </View>
+          )}
+
+          {/* Bottom encouragement banner */}
           <View style={styles.homeQuoteBanner}>
+            <Image source={require('../../assets/thumbsup.png')} style={styles.homeQuoteImage} resizeMode="contain" />
             <Text style={styles.homeQuoteText}>"Bawat salitang nababasa mo, lumalakas ka!"</Text>
           </View>
 
@@ -1401,11 +1504,18 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderPractice = () => {
-    const words = [
+    // Letters (single-character phonics tiles) and words (teacher-uploaded
+    // reading_activities content, or the hardcoded starter list, plus the
+    // harder SKILL_LONG_WORDS continuation) are two unrelated content types -
+    // kept as separate lists so neither's sequential-unlock progress can
+    // gate the other (previously concatenated into one array, which made a
+    // civics vocabulary word lock every single letter tile behind it).
+    const letterWords = SKILL_LETTERS;
+    const wordListWords = [
       ...(practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS),
-      ...SKILL_LETTERS,
       ...SKILL_LONG_WORDS,
     ];
+    const cycleList = (word: string | null) => (word && letterWords.includes(word) ? letterWords : wordListWords);
     const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
 
     const startWord = (word: string, mode: 'say' | 'listen') => {
@@ -1464,8 +1574,9 @@ export default function StudentDashboard({ navigation }: any) {
             <TouchableOpacity
               style={styles.listenNextButton}
               onPress={() => {
-                const currentIndex = words.indexOf(selectedWord);
-                const next = words[(currentIndex + 1) % words.length];
+                const list = cycleList(selectedWord);
+                const currentIndex = list.indexOf(selectedWord);
+                const next = list[(currentIndex + 1) % list.length];
                 startWord(next, 'listen');
               }}
             >
@@ -1543,8 +1654,9 @@ export default function StudentDashboard({ navigation }: any) {
                   setPracticeStatus('Kaya mo yan. Subukan ulit!');
                 }}
                 onNext={() => {
-                  const currentIndex = words.indexOf(selectedWord);
-                  const nextWord = words[(currentIndex + 1) % words.length];
+                  const list = cycleList(selectedWord);
+                  const currentIndex = list.indexOf(selectedWord);
+                  const nextWord = list[(currentIndex + 1) % list.length];
                   startWord(nextWord, 'say');
                 }}
               />
@@ -1556,7 +1668,7 @@ export default function StudentDashboard({ navigation }: any) {
 
     const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
     const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
-    const nextWord = words.find((word) => !progress?.completed_words?.includes(word)) || words[0];
+    const nextWord = wordListWords.find((word) => !progress?.completed_words?.includes(word)) || wordListWords[0];
 
     const wordsPracticedToday = todaySessions.length;
     const correctToday = todaySessions.filter((s) => s.is_correct).length;
@@ -1681,10 +1793,10 @@ export default function StudentDashboard({ navigation }: any) {
         <Text style={styles.practiceSectionTitle}>O Pumili ng Partikular na Salita</Text>
 
         <View style={styles.wordGrid}>
-          {words.map((word, wordIndex) => {
+          {wordListWords.map((word, wordIndex) => {
             const done = progress?.completed_words?.includes(word);
             const isNext = !done && word === nextWord;
-            const locked = !done && !isNext && wordIndex > words.indexOf(nextWord);
+            const locked = !done && !isNext && wordIndex > wordListWords.indexOf(nextWord);
             return (
               <TouchableOpacity
                 key={word}
@@ -1713,6 +1825,31 @@ export default function StudentDashboard({ navigation }: any) {
                   </View>
                 )}
                 <Text style={[styles.wordText, done && { color: SUCCESS }, locked && { color: HOME_INK_SOFT }]}>{word}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Letters are a separate, non-linear practice bank - freely
+            tappable in any order, no sequential lock (unlike the words
+            grid above, which intentionally gates ahead-of-progress words). */}
+        <Text style={styles.practiceSectionTitle}>Mga Titik</Text>
+
+        <View style={styles.wordGrid}>
+          {letterWords.map((letter) => {
+            const done = progress?.completed_words?.includes(letter);
+            return (
+              <TouchableOpacity
+                key={letter}
+                style={[styles.wordCard, done && styles.wordCardDone]}
+                onPress={() => startWord(letter, 'say')}
+              >
+                {done && (
+                  <View style={styles.wordCardCheckBadge}>
+                    <Ionicons name="checkmark" size={14} color="#fff" />
+                  </View>
+                )}
+                <Text style={[styles.wordText, done && { color: SUCCESS }]}>{letter}</Text>
               </TouchableOpacity>
             );
           })}
@@ -2516,10 +2653,10 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.badgesHeroCard}>
           <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
             <Defs>
-              <LinearGradient id="badgesHeroGrad" x1="0" y1="0" x2="1" y2="1">
+              <SvgLinearGradient id="badgesHeroGrad" x1="0" y1="0" x2="1" y2="1">
                 <Stop offset="0" stopColor={HOME_LAVENDER_DARK} />
                 <Stop offset="1" stopColor={HOME_LAVENDER} />
-              </LinearGradient>
+              </SvgLinearGradient>
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" fill="url(#badgesHeroGrad)" rx={24} />
           </Svg>
@@ -3323,6 +3460,44 @@ const styles = StyleSheet.create({
     backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
   },
   homeBellBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9 },
+  heroBanner: { borderRadius: 28, padding: 22, marginBottom: 20, overflow: 'hidden', position: 'relative', minHeight: 200 },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
+  heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  heroBell: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: FONT_DISPLAY, lineHeight: 32, maxWidth: '68%' },
+  heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
+  heroImage: { position: 'absolute', right: 4, bottom: 4, width: 140, height: 140 },
+  readyPracticeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(124,111,207,0.15)',
+  },
+  readyPracticeIconWrap: {
+    width: 52, height: 52, borderRadius: 26, backgroundColor: '#EFECFB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  readyPracticeTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 4 },
+  readyPracticeSub: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  readyPracticeButton: {
+    backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 16,
+    minHeight: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  readyPracticeButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  homeRecentActivityCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: '#EEE9F9',
+  },
+  homeRecentActivityIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  homeRecentActivityTitle: { fontWeight: '800', color: HOME_INK, fontSize: 14 },
+  homeRecentActivityDetail: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  homeRecentActivityTime: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '600' },
+  homeRecentActivityEmpty: { alignItems: 'center', paddingVertical: 20, marginBottom: 8 },
+  homeRecentActivityEmptyText: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   homeTodayCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 16,
     shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3,
@@ -3350,8 +3525,10 @@ const styles = StyleSheet.create({
   homeContinueTrack: { flex: 1, backgroundColor: 'rgba(124,111,207,0.2)', height: 8, borderRadius: 999, overflow: 'hidden' },
   homeContinueFill: { backgroundColor: HOME_LAVENDER, height: 8, borderRadius: 999 },
   homeContinuePct: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
-  homeContinueButton: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 16 },
+  homeContinueButton: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
   homeContinueButtonText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  homeContinueImage: { width: 52, height: 52 },
+  homeContinueLessonCount: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 11, marginBottom: 8 },
   homeHeroCard: {
     backgroundColor: HOME_CREAM, borderRadius: 24, padding: 18, marginBottom: 16,
     borderWidth: 1, borderColor: 'rgba(124,111,207,0.18)',
@@ -3380,9 +3557,11 @@ const styles = StyleSheet.create({
   homePracticeRowTitle: { fontWeight: '800', color: HOME_INK, fontSize: 14 },
   homePracticeRowSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2 },
   homeQuoteBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#FFF3DC', borderRadius: 20, padding: 18, marginTop: 4, marginBottom: 16,
   },
-  homeQuoteText: { color: '#8A6416', fontWeight: '800', fontSize: 14, textAlign: 'center', lineHeight: 20, fontStyle: 'italic' },
+  homeQuoteText: { flex: 1, color: '#8A6416', fontWeight: '800', fontSize: 14, textAlign: 'left', lineHeight: 20, fontStyle: 'italic' },
+  homeQuoteImage: { width: 56, height: 56 },
   homeQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   homeQuickCard: {
     flex: 1, borderRadius: 20, paddingVertical: 16, alignItems: 'center', minHeight: 88, justifyContent: 'center',
