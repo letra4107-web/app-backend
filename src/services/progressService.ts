@@ -7,6 +7,10 @@ export type ChildProgress = {
   xp: number;
   level: ReadingLevel;
   streak: number;
+  // Personal-best streak - never decreases, even after `streak` resets to 0.
+  // Separate column (021_longest_streak.sql); defaults to 0 until that
+  // migration has run, so callers should treat it as possibly undefined.
+  longest_streak?: number;
   last_practice_date: string | null;
   completed_words: string[];
   word_count?: number;
@@ -65,11 +69,13 @@ export const buildNextProgress = (
   const hasAccuracy = typeof options.accuracy === 'number' && Number.isFinite(options.accuracy);
   const baselineAccuracy = current.baseline_accuracy ?? (hasAccuracy ? options.accuracy! : null);
   const accuracySum = (current.accuracy_sum || 0) + (hasAccuracy ? options.accuracy! : 0);
+  const longestStreak = Math.max(current.longest_streak || 0, streak);
 
   return {
     ...current,
     xp,
     streak,
+    longest_streak: longestStreak,
     level: levelForXp(xp),
     last_practice_date: lastPracticeDate,
     completed_words: completedWords,
@@ -86,6 +92,8 @@ export const saveProgress = async (progress: ChildProgress) => {
     student_id: progress.child_id,
     xp: progress.xp,
     streak: progress.streak,
+    longestStreak: progress.longest_streak ?? 0,
+    longest_streak: progress.longest_streak ?? 0,
     lastPracticeDate: progress.last_practice_date,
     last_practice_date: progress.last_practice_date,
     completedWords: progress.completed_words,

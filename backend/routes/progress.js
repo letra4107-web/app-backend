@@ -41,6 +41,8 @@ router.post('/update', async (req, res) => {
       student_id,
       xp,
       streak,
+      longestStreak,
+      longest_streak,
       lastPracticeDate,
       last_practice_date,
       completedWords,
@@ -73,6 +75,7 @@ router.post('/update', async (req, res) => {
     const normalizedWordCount = asNumber(wordCount ?? word_count, normalizedCompletedWords.length);
     const normalizedXp = asNumber(xp, 0);
     const normalizedStreak = asNumber(streak, 0);
+    const normalizedLongestStreak = Math.max(asNumber(longestStreak ?? longest_streak, 0), normalizedStreak);
     const normalizedTotalAttempts = asNumber(totalAttempts ?? total_attempts, 0);
     const normalizedLastPracticeDate = asDateKey(lastPracticeDate || last_practice_date);
     const rawBaselineAccuracy = baselineAccuracy ?? baseline_accuracy;
@@ -85,6 +88,7 @@ router.post('/update', async (req, res) => {
       child_id: progressStudentId,
       xp: normalizedXp,
       streak: normalizedStreak,
+      longest_streak: normalizedLongestStreak,
       last_practice_date: normalizedLastPracticeDate,
       completed_words: normalizedCompletedWords,
       word_count: normalizedWordCount,
@@ -106,7 +110,7 @@ router.post('/update', async (req, res) => {
       .select()
       .single();
 
-    const optionalColumns = ['word_count', 'baseline_accuracy', 'accuracy_sum', 'activities_completed'];
+    const optionalColumns = ['word_count', 'baseline_accuracy', 'accuracy_sum', 'activities_completed', 'longest_streak'];
     let fallbackPayload = payload;
     while (error && isMissingColumnError(error)) {
       const message = String(error.message || '').toLowerCase();

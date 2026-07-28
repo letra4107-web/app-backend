@@ -216,6 +216,7 @@ const emptyProgress = (childId: string): ChildProgress => ({
   xp: 0,
   level: 'Beginner',
   streak: 0,
+  longest_streak: 0,
   last_practice_date: null,
   completed_words: [],
   total_attempts: 0,
@@ -2649,6 +2650,12 @@ export default function StudentDashboard({ navigation }: any) {
     const maxBarHeight = 90;
     const completedWords = progress?.completed_words || [];
     const lessonsCompletedCount = lessonProgress.filter((p) => p.status === 'completed').length;
+    // Personal-best streak (021_longest_streak.sql) - never lower than the
+    // live current streak, which itself can reset to 0. Falls back to the
+    // current streak if the column hasn't been migrated yet for this row.
+    const longestStreak = Math.max(progress?.longest_streak || 0, progress?.streak || 0);
+
+    const monthKey = new Date().toISOString().slice(0, 7);
 
     // Weekly accuracy trend — real sessions grouped by calendar day (last 7 days)
     const dayLabels = ['Lin', 'Lun', 'Mar', 'Miy', 'Huw', 'Biy', 'Sab'];
@@ -2669,8 +2676,23 @@ export default function StudentDashboard({ navigation }: any) {
     const daysWithData = weeklyTrend.filter((d) => d.pct !== null);
     const trendImproving = daysWithData.length >= 2 && (daysWithData[daysWithData.length - 1].pct || 0) >= (daysWithData[0].pct || 0);
 
+    // Weekly Reading Activity — real session COUNT per day (distinct from
+    // the accuracy trend above), same last7Days/dayLabels, same hand-built
+    // View-height-percentage bar technique - no charting library.
+    const weeklyActivity = last7Days.map((day) => {
+      const dayKey = day.toISOString().slice(0, 10);
+      const count = recentSessions.filter((s) => (s.created_at || '').slice(0, 10) === dayKey).length;
+      return { label: dayLabels[day.getDay()], count };
+    });
+    const sessionsThisWeek = weeklyActivity.reduce((sum, d) => sum + d.count, 0);
+    const maxWeeklyCount = Math.max(1, ...weeklyActivity.map((d) => d.count));
+
     // My Reading Skills — real categories derived from actual word shape
-    // (see categorizeWord), scored from actual pronunciation session rows
+    // (see categorizeWord), scored from actual pronunciation session rows.
+    // Only 3 real rows exist (letters/syllables/words) - no "Sentence
+    // Reading" (nothing sentence-level is tracked anywhere) and no separate
+    // "Pronunciation" row (every row here already IS a pronunciation-scored
+    // measurement, so a 5th row would double-count the same data).
     const skillGroups: Record<SkillCategory, { count: number; sum: number }> = {
       letters: { count: 0, sum: 0 },
       syllables: { count: 0, sum: 0 },
@@ -2695,48 +2717,107 @@ export default function StudentDashboard({ navigation }: any) {
         ? { label: 'Improving', color: WARNING }
         : { label: 'Keep Practicing', color: DANGER };
 
-    // Days practiced this month — real, from distinct session dates
-    const monthKey = new Date().toISOString().slice(0, 7);
-    const daysPracticedThisMonth = new Set(
-      recentSessions.filter((s) => (s.created_at || '').slice(0, 7) === monthKey).map((s) => s.created_at.slice(0, 10))
-    ).size;
+    // This Month — real month-scoped aggregations, not lifetime totals.
+    const lessonsCompletedThisMonth = lessonProgress.filter(
+      (p) => p.status === 'completed' && !!p.completed_at && (p.completed_at as string).slice(0, 7) === monthKey
+    ).length;
+    const monthSessions = recentSessions.filter((s) => (s.created_at || '').slice(0, 7) === monthKey);
+    const wordsReadThisMonth = new Set(monthSessions.map((s) => s.word)).size;
+    const monthAvgAccuracy = monthSessions.length
+      ? Math.round(monthSessions.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / monthSessions.length)
+      : null;
 
-    const recentActivity = recentSessions.slice(0, 2);
-    const relativeDay = (iso: string) => {
-      const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-      if (days <= 0) return 'Ngayon';
-      if (days === 1) return 'Kahapon';
-      return `${days} araw na ang nakalipas`;
+    // Recent Activity — merged real feed (same pattern as the Home tab):
+    // whatever mix of completed lessons and pronunciation sessions actually
+    // happened, sorted by real timestamp, not a fabricated fixed layout.
+    type RecentActivityItem = { key: string; kind: 'lesson' | 'pronunciation'; title: string; detail: string; timestamp: string };
+    const lessonActivityItems: RecentActivityItem[] = lessonProgress
+      .filter((p) => p.status === 'completed' && !!p.completed_at)
+      .map((p) => ({
+        key: `lesson-${p.id}`,
+        kind: 'lesson' as const,
+        title: lessons.find((l) => l.id === p.lesson_id)?.title || 'Aralin',
+        detail: 'Nakumpleto na',
+        timestamp: p.completed_at as string,
+      }));
+    const pronunciationActivityItems: RecentActivityItem[] = recentSessions.slice(0, 10).map((s, idx) => ({
+      key: `pron-${s.created_at}-${idx}`,
+      kind: 'pronunciation' as const,
+      title: s.word,
+      detail: `${Math.round(Number(s.accuracy_percentage) || 0)}% accuracy`,
+      timestamp: s.created_at,
+    }));
+    const recentActivityItems = [...lessonActivityItems, ...pronunciationActivityItems]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 4);
+    const formatActivityTime = (iso: string) => {
+      const date = new Date(iso);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return isToday ? `Today ${time}` : `${date.toLocaleDateString()} ${time}`;
     };
 
     return (
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.homeHeaderRow}>
-          <View style={styles.homeHeaderAvatar}>
-            <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBanner}
+        >
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity style={styles.heroLogoRow} onPress={openSidebar}>
+              <Ionicons name="menu-outline" size={20} color="#fff" />
+              <Ionicons name="book" size={16} color="#fff" />
+              <Text style={styles.heroLogoText}>LinawLetra</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
+              <Ionicons name="notifications" size={20} color="#fff" />
+              {unreadNotifCount > 0 && (
+                <View style={styles.homeBellBadge}>
+                  <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.homeGreetingHello}>My Progress</Text>
-            <Text style={styles.homeGreetingSub}>Tingnan kung gaano ka na umunlad!</Text>
-          </View>
-          <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
-            <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
-            {unreadNotifCount > 0 && (
-              <View style={styles.homeBellBadge}>
-                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+          <Text style={styles.heroGreeting}>My Reading{'\n'}Progress</Text>
+          <Text style={styles.heroSubtitle}>See how much you've improved on your reading journey.</Text>
+          <Image source={require('../../assets/clipboard.png')} style={styles.progressHeroImage} resizeMode="contain" />
+        </LinearGradient>
 
         <View style={styles.progressHeroCard}>
-          <Text style={styles.progressHeroTitle}>Kabuuang Progreso sa Pagbasa</Text>
-          <View style={{ alignItems: 'center', marginVertical: 14 }}>
+          <Text style={styles.progressHeroTitle}>Overall Reading Progress</Text>
+          <View style={styles.progressOverallRow}>
+            <View style={styles.progressOverallCol}>
+              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#EFECFB' }]}>
+                <Ionicons name="school" size={20} color={HOME_LAVENDER_DARK} />
+                <Text style={[styles.progressStatValue, { color: HOME_LAVENDER_DARK }]}>{lessonsCompletedCount}</Text>
+                <Text style={styles.progressStatLabel}>Lessons Completed</Text>
+              </View>
+              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#E9F1E2' }]}>
+                <Ionicons name="book" size={20} color={HOME_SAGE} />
+                <Text style={[styles.progressStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
+                <Text style={styles.progressStatLabel}>Words Practiced</Text>
+              </View>
+            </View>
             <ProgressRing percent={avgAccuracy ?? 0} color={HOME_LAVENDER_DARK} trackColor="rgba(124,111,207,0.15)">
               <Text style={styles.progressHeroRingPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+              <Text style={styles.progressHeroRingLabel}>Complete</Text>
             </ProgressRing>
+            <View style={styles.progressOverallCol}>
+              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FBE7DF' }]}>
+                <Ionicons name="mic" size={20} color={HOME_CORAL} />
+                <Text style={[styles.progressStatValue, { color: HOME_CORAL }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+                <Text style={styles.progressStatLabel}>Pronunciation Accuracy</Text>
+              </View>
+              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FFF3DC' }]}>
+                <Ionicons name="flame" size={20} color={HOME_SUN} />
+                <Text style={[styles.progressStatValue, { color: HOME_SUN }]}>{progress?.streak || 0} Days</Text>
+                <Text style={styles.progressStatLabel}>Current Streak</Text>
+              </View>
+            </View>
           </View>
-          <Text style={styles.progressHeroLabel}>Average Reading Accuracy</Text>
           {avgAccuracy !== null ? (
             <View style={styles.progressHeroStatusPill}>
               <Ionicons name="checkmark-circle" size={14} color={tierColor(avgAccuracy)} />
@@ -2747,27 +2828,70 @@ export default function StudentDashboard({ navigation }: any) {
           )}
         </View>
 
-        <Text style={styles.practiceSectionTitle}>Quick Progress Stats</Text>
-        <View style={styles.progressStatsGrid}>
-          <View style={[styles.progressStatCard, { backgroundColor: '#E9F1E2' }]}>
-            <Ionicons name="book" size={22} color={HOME_SAGE} />
-            <Text style={[styles.progressStatValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
-            <Text style={styles.progressStatLabel}>Words Practiced</Text>
+        <Text style={styles.practiceSectionTitle}>Reading Skills</Text>
+        <View style={styles.skillsCard}>
+          {skillMeta.map(({ key, label, icon }, idx) => {
+            const group = skillGroups[key];
+            const avg = group.count > 0 ? Math.round(group.sum / group.count) : null;
+            const tag = skillTag(avg);
+            return (
+              <View key={key} style={[styles.skillRow, idx === skillMeta.length - 1 && { marginBottom: 0 }]}>
+                <View style={[styles.skillIconWrap, { backgroundColor: `${tag.color}22` }]}>
+                  <Ionicons name={icon as any} size={18} color={tag.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.skillTopRow}>
+                    <Text style={styles.skillLabel}>{label}</Text>
+                    <View style={[styles.skillTagPill, { backgroundColor: `${tag.color}22` }]}>
+                      <Text style={[styles.skillTagText, { color: tag.color }]}>{tag.label}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.skillTrackRow}>
+                    <View style={styles.skillTrack}>
+                      <View style={[styles.skillTrackFill, { width: `${avg ? Math.max(4, avg) : 0}%`, backgroundColor: tag.color }]} />
+                    </View>
+                    <Text style={styles.skillPct}>{avg !== null ? `${avg}%` : '—'}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Weekly Reading Activity — real session COUNT per day (separate
+            metric from the "Reading Accuracy" trend chart above) */}
+        <Text style={styles.practiceSectionTitle}>Weekly Reading Activity</Text>
+        <View style={styles.progressChartCard}>
+          {sessionsThisWeek > 0 ? (
+            <View style={styles.progressChartBars}>
+              {weeklyActivity.map((day, i) => (
+                <View key={i} style={styles.progressChartBarCol}>
+                  {day.count > 0 && <Text style={[styles.progressChartBarValue, { color: HOME_LAVENDER_DARK }]}>{day.count}</Text>}
+                  <View
+                    style={[
+                      styles.progressChartBar,
+                      { height: Math.max(6, Math.round((day.count / maxWeeklyCount) * maxBarHeight)), backgroundColor: HOME_LAVENDER },
+                    ]}
+                    accessible
+                    accessibilityLabel={`${day.label}: ${day.count} session${day.count === 1 ? '' : 's'}`}
+                  />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.progressChartEmpty}>
+              <Ionicons name="bar-chart-outline" size={32} color={HOME_LAVENDER} />
+              <Text style={styles.progressChartEmptyText}>Wala ka pang practice session ngayong linggo.</Text>
+            </View>
+          )}
+          <View style={styles.progressChartDayRow}>
+            {weeklyActivity.map((day, i) => (
+              <Text key={i} style={styles.progressChartDayLabel}>{day.label}</Text>
+            ))}
           </View>
-          <View style={[styles.progressStatCard, { backgroundColor: '#FBE7DF' }]}>
-            <Ionicons name="locate" size={22} color={HOME_CORAL} />
-            <Text style={[styles.progressStatValue, { color: HOME_CORAL }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-            <Text style={styles.progressStatLabel}>Reading Accuracy</Text>
-          </View>
-          <View style={[styles.progressStatCard, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="school" size={22} color={HOME_LAVENDER_DARK} />
-            <Text style={[styles.progressStatValue, { color: HOME_LAVENDER_DARK }]}>{lessonsCompletedCount}</Text>
-            <Text style={styles.progressStatLabel}>Lessons Completed</Text>
-          </View>
-          <View style={[styles.progressStatCard, { backgroundColor: '#FFF3DC' }]}>
-            <Ionicons name="mic" size={22} color={HOME_SUN} />
-            <Text style={[styles.progressStatValue, { color: HOME_SUN }]}>{progress?.total_attempts || 0}</Text>
-            <Text style={styles.progressStatLabel}>Practice Sessions</Text>
+          <View style={styles.progressTrendMsgRow}>
+            <Ionicons name="calendar" size={14} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.progressTrendMsgText}>{sessionsThisWeek} Practice Session{sessionsThisWeek === 1 ? '' : 's'} This Week</Text>
           </View>
         </View>
 
@@ -2832,51 +2956,50 @@ export default function StudentDashboard({ navigation }: any) {
           )}
         </View>
 
-        <Text style={styles.practiceSectionTitle}>My Reading Skills</Text>
-        <View style={styles.skillsCard}>
-          {skillMeta.map(({ key, label, icon }, idx) => {
-            const group = skillGroups[key];
-            const avg = group.count > 0 ? Math.round(group.sum / group.count) : null;
-            const tag = skillTag(avg);
-            return (
-              <View key={key} style={[styles.skillRow, idx === skillMeta.length - 1 && { marginBottom: 0 }]}>
-                <View style={[styles.skillIconWrap, { backgroundColor: `${tag.color}22` }]}>
-                  <Ionicons name={icon as any} size={18} color={tag.color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.skillTopRow}>
-                    <Text style={styles.skillLabel}>{label}</Text>
-                    <View style={[styles.skillTagPill, { backgroundColor: `${tag.color}22` }]}>
-                      <Text style={[styles.skillTagText, { color: tag.color }]}>{tag.label}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.skillTrackRow}>
-                    <View style={styles.skillTrack}>
-                      <View style={[styles.skillTrackFill, { width: `${avg ? Math.max(4, avg) : 0}%`, backgroundColor: tag.color }]} />
-                    </View>
-                    <Text style={styles.skillPct}>{avg !== null ? `${avg}%` : '—'}</Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
+        {/* This Month — real month-scoped aggregations (lessonsCompletedThisMonth,
+            wordsReadThisMonth, monthAvgAccuracy) plus the real longestStreak
+            personal-best, not lifetime totals repeated */}
+        <Text style={styles.practiceSectionTitle}>This Month</Text>
+        <View style={styles.progressMonthCard}>
+          <View style={styles.progressMonthRow}>
+            <Ionicons name="trophy" size={18} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.progressMonthRowText}>{lessonsCompletedThisMonth} Lessons Finished</Text>
+          </View>
+          <View style={styles.progressMonthRow}>
+            <Ionicons name="book" size={18} color={HOME_SAGE} />
+            <Text style={styles.progressMonthRowText}>{wordsReadThisMonth} Words Read</Text>
+          </View>
+          <View style={styles.progressMonthRow}>
+            <Ionicons name="locate" size={18} color={HOME_CORAL} />
+            <Text style={styles.progressMonthRowText}>{monthAvgAccuracy !== null ? `${monthAvgAccuracy}%` : '--'} Average Accuracy</Text>
+          </View>
+          <View style={styles.progressMonthRow}>
+            <Ionicons name="flame" size={18} color={HOME_SUN} />
+            <Text style={styles.progressMonthRowText}>{longestStreak} Day{longestStreak === 1 ? '' : 's'} Longest Streak</Text>
+          </View>
         </View>
 
         <Text style={styles.practiceSectionTitle}>Recent Activity</Text>
-        {recentActivity.length ? (
+        {recentActivityItems.length ? (
           <View style={styles.learnCardList}>
-            {recentActivity.map((session, i) => (
-              <View key={`${session.created_at}-${i}`} style={styles.recentActivityCard}>
-                <View style={[styles.learnIconWrap, { backgroundColor: '#EFECFB' }]}>
-                  <Ionicons name="mic" size={20} color={HOME_LAVENDER_DARK} />
+            {recentActivityItems.map((item) => (
+              <View key={item.key} style={styles.homeRecentActivityCard}>
+                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
+                  <Ionicons
+                    name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
+                    size={20}
+                    color={item.kind === 'lesson' ? HOME_SAGE : HOME_LAVENDER_DARK}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.learnItemTitle}>Tagalog Word Practice</Text>
-                  <Text style={styles.learnItemMeta}>{session.word} • {relativeDay(session.created_at)}</Text>
+                  <Text style={styles.homeRecentActivityTitle}>
+                    {item.kind === 'lesson' ? `Completed "${item.title}"` : 'Practice Pronunciation Accuracy'}
+                  </Text>
+                  <Text style={styles.homeRecentActivityDetail}>
+                    {item.kind === 'lesson' ? item.detail : `${item.title} • ${item.detail}`}
+                  </Text>
                 </View>
-                <Text style={[styles.recentActivityScore, { color: tierColor(Math.round(Number(session.accuracy_percentage) || 0)) }]}>
-                  {Math.round(Number(session.accuracy_percentage) || 0)}%
-                </Text>
+                <Text style={styles.homeRecentActivityTime}>{formatActivityTime(item.timestamp)}</Text>
               </View>
             ))}
           </View>
@@ -2885,20 +3008,6 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={styles.learnEmptySubtext}>Wala ka pang practice session. Simulan na sa Practice tab!</Text>
           </View>
         )}
-
-        <View style={styles.progressMonthBanner}>
-          <Ionicons name="calendar" size={22} color={HOME_LAVENDER_DARK} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.progressMonthTitle}>
-              {daysPracticedThisMonth > 0 ? "You're Improving!" : 'Simulan ang Buwan na Ito!'}
-            </Text>
-            <Text style={styles.progressMonthSub}>
-              {daysPracticedThisMonth > 0
-                ? `You've practiced ${daysPracticedThisMonth} day${daysPracticedThisMonth === 1 ? '' : 's'} this month. Keep reading and growing!`
-                : 'Simulan ang iyong unang pagsasanay ngayong buwan!'}
-            </Text>
-          </View>
-        </View>
 
         <View style={styles.progressWordsCard}>
           <Text style={styles.progressWordsTitle}>Mga Salitang Natapos</Text>
@@ -3305,11 +3414,16 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.homeBg}>
           {renderPractice()}
         </View>
+      ) : section === 'progress' ? (
+        // Same reasoning again: renderProgress() now opens with its own
+        // hero banner (menu trigger + notification bell).
+        <View style={styles.homeBg}>
+          {renderProgress()}
+        </View>
       ) : (
         <>
           {topHeaderNode}
           {section === 'practice' && renderPractice()}
-          {section === 'progress' && renderProgress()}
           {section === 'achievements' && renderAchievements()}
           {section === 'notifications' && renderNotifications()}
           {section === 'settings' && renderSettings()}
@@ -3554,8 +3668,12 @@ const styles = StyleSheet.create({
   progressHeroCard: {
     backgroundColor: '#EFECFB', borderRadius: 24, padding: 20, alignItems: 'center', marginBottom: 20,
   },
-  progressHeroTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 18, textAlign: 'center' },
+  progressHeroTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 18, textAlign: 'center', marginBottom: 4 },
+  progressOverallRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginVertical: 14, width: '100%' },
+  progressOverallCol: { flex: 1, gap: 8 },
+  progressOverallStatCard: { width: '100%', minHeight: 76, padding: 10 },
   progressHeroRingPct: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 28 },
+  progressHeroRingLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 11, marginTop: 2 },
   progressHeroLabel: { color: HOME_INK, fontWeight: '800', fontSize: 14, marginBottom: 8 },
   progressHeroStatusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
@@ -3594,17 +3712,11 @@ const styles = StyleSheet.create({
   skillTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
   skillTrackFill: { height: '100%', borderRadius: 4 },
   skillPct: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 12, minWidth: 34, textAlign: 'right' },
-  recentActivityCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14, marginBottom: 12,
+  progressMonthCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 20, gap: 14,
   },
-  recentActivityScore: { fontWeight: '900', fontSize: 15 },
-  progressMonthBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFF3DC', borderRadius: 20, padding: 16, marginBottom: 20,
-  },
-  progressMonthTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14, marginBottom: 3 },
-  progressMonthSub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 17 },
+  progressMonthRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  progressMonthRowText: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
   progressWordsCard: { backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: 20, padding: 16 },
   progressWordsTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15, marginBottom: 10 },
   progressWordsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
@@ -3751,6 +3863,9 @@ const styles = StyleSheet.create({
   learnJourneyFill: { height: '100%', borderRadius: 5, backgroundColor: HOME_LAVENDER },
   learnJourneyMsg: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
   learnHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
+  // 1184x2096 in the source art (same ratio group as learn.png/book.png) -
+  // sized to that real aspect ratio, not the 1120x2240 group's heroImage box.
+  progressHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
   learnProgressCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 20,
     shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2,
