@@ -22,7 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { supabase } from '../config/supabase';
-import { fetchProfile, updateProfile, uploadAvatar } from '../services/profileService';
+import { fetchProfile, fetchStudentProfile, updateProfile, updateStudentProfile, uploadAvatar } from '../services/profileService';
 import {
   changeEmail,
   changePassword,
@@ -152,7 +152,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           return;
         }
         const [profileData, settingsData] = await Promise.all([
-          fetchProfile(user.id),
+          isParent ? fetchProfile(user.id) : fetchStudentProfile(user.id),
           fetchDashboardSettings(user.id, role),
         ]);
         if (!mounted) return;
@@ -206,15 +206,26 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     }
     setSavingProfile(true);
     try {
-      await updateProfile({
-        id: authUid,
-        full_name: profile.full_name.trim(),
-        name: profile.full_name.trim(),
-        email: profile.email,
-        phone: profile.phone_number || profile.phone,
-        phone_number: profile.phone_number || profile.phone,
-        avatar_url: profile.avatar_url,
-      });
+      if (isParent) {
+        await updateProfile({
+          id: authUid,
+          full_name: profile.full_name.trim(),
+          name: profile.full_name.trim(),
+          email: profile.email,
+          phone: profile.phone_number || profile.phone,
+          phone_number: profile.phone_number || profile.phone,
+          avatar_url: profile.avatar_url,
+        });
+      } else {
+        // Students' real name lives on `children.name`, not the `parents`
+        // table - see fetchStudentProfile/updateStudentProfile.
+        await updateStudentProfile(authUid, {
+          full_name: profile.full_name.trim(),
+          phone: profile.phone_number || profile.phone,
+          phone_number: profile.phone_number || profile.phone,
+          avatar_url: profile.avatar_url,
+        });
+      }
       showSuccess('Profile saved.');
     } catch (e: any) {
       showError(e?.message || 'Could not save profile.');

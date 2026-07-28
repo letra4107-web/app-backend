@@ -341,6 +341,52 @@ export async function fetchProfile(userId: string) {
   return data as Profile;
 }
 
+// Students live in the `children` table, not `parents` - their real name is
+// `children.name`. `fetchProfile` only ever looks at `parents` (and
+// auto-creates a blank row there for any unrecognized auth_uid), so calling
+// it for a student silently created an empty shadow "parent" row for them
+// and permanently masked their real name behind it. Avatar/phone have no
+// home on `children` yet, so those still round-trip through that shared
+// auxiliary row - only `full_name` needs to come from the real source.
+export async function fetchStudentProfile(authUid: string) {
+  const { data: childRow, error: childError } = await supabase
+    .from('children')
+    .select('name')
+    .eq('auth_uid', authUid)
+    .maybeSingle();
+  if (childError) throw childError;
+
+  const aux = await fetchProfile(authUid);
+
+  return {
+    ...aux,
+    id: authUid,
+    auth_uid: authUid,
+    full_name: childRow?.name || aux?.full_name || '',
+    name: childRow?.name || aux?.name || '',
+  } as Profile;
+}
+
+export async function updateStudentProfile(
+  authUid: string,
+  updates: { full_name?: string; avatar_url?: string | null; phone?: string; phone_number?: string },
+) {
+  if (updates.full_name !== undefined) {
+    const { error } = await supabase.from('children').update({ name: updates.full_name }).eq('auth_uid', authUid);
+    if (error) throw error;
+  }
+
+  const auxUpdates: Profile = { id: authUid };
+  if (updates.avatar_url !== undefined) auxUpdates.avatar_url = updates.avatar_url;
+  if (updates.phone_number !== undefined || updates.phone !== undefined) {
+    auxUpdates.phone = updates.phone_number || updates.phone;
+    auxUpdates.phone_number = updates.phone_number || updates.phone;
+  }
+  if (Object.keys(auxUpdates).length > 1) {
+    await updateProfile(auxUpdates);
+  }
+}
+
 export async function updateProfile(profile: Profile) {
   const { id, ...rest } = profile;
   try {
@@ -379,16 +425,19 @@ export async function uploadAvatar(userId: string, uri: string, mimeType?: strin
     // `mimeType` (or the fetched blob's `.type` as a fallback) reliably gives us.
     const resolvedMime = mimeType || blob.type || 'image/jpeg';
     const fileExt = MIME_TO_EXT[resolvedMime.toLowerCase()] || 'jpg';
-    // No "avatars/" prefix here - the bucket passed to .from() below is
-    // already named "avatars", so prefixing it again just doubled the path.
+    // No prefix here - the bucket passed to .from() below is already the
+    // target bucket, so prefixing it again just doubled the path. The real
+    // bucket in this project is named "avatar" (singular) - it was created
+    // after this function was first written against an assumed "avatars"
+    // name, so every upload has been hitting a nonexistent bucket.
     const filePath = `${userId}.${fileExt}`;
-    const { data, error: uploadError } = await supabase.storage.from('avatars').upload(filePath, blob, {
+    const { data, error: uploadError } = await supabase.storage.from('avatar').upload(filePath, blob, {
       upsert: true,
       cacheControl: '3600',
       contentType: resolvedMime,
     });
     if (uploadError) throw uploadError;
-    const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(data.path);
+    const { data: publicData } = supabase.storage.from('avatar').getPublicUrl(data.path);
     const publicUrl = publicData?.publicUrl || null;
     await updateProfile({ id: userId, avatar_url: publicUrl });
     return publicUrl;
