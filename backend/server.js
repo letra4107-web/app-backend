@@ -183,6 +183,7 @@ app.get('/api', (req, res) => {
       '/api/scheduled-activities',
       '/api/notifications',
       '/api/practice',
+      '/api/words',
     ],
   });
 });
@@ -213,6 +214,7 @@ app.get('/api/routes', (req, res) => {
       '/api/scheduled-activities',
       '/api/notifications',
       '/api/practice',
+      '/api/words',
     ],
   });
 });
@@ -263,6 +265,7 @@ mountRoute('/api/activities', () => require('./routes/activities'));
 mountRoute('/api/scheduled-activities', () => require('./routes/scheduledActivities'));
 mountRoute('/api/notifications', () => require('./routes/notifications'));
 mountRoute('/api/practice', () => require('./routes/practice'));
+mountRoute('/api/words', () => require('./routes/words'));
 
 app.use((req, res) => {
   res.status(404).json({

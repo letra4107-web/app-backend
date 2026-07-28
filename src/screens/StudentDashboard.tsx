@@ -26,6 +26,7 @@ import { speakPhrase, speakWord, stopSpeaking, setTtsEnabled, setSpeechRateSetti
 import { fetchDashboardSettings, DashboardSettings } from '../services/settingsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
+import { fetchWords } from '../services/wordsService';
 import { createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
@@ -225,6 +226,9 @@ export default function StudentDashboard({ navigation }: any) {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [lessonProgress, setLessonProgress] = useState<LessonProgressRow[]>([]);
+  const [wordBank, setWordBank] = useState<string[]>([]);
+  const [wordBankLoading, setWordBankLoading] = useState(false);
+  const [wordBankError, setWordBankError] = useState('');
   const [lessonFilter, setLessonFilter] = useState<string>('Lahat');
   const [activities, setActivities] = useState<StudentActivity[]>([]);
   const [uploadsError, setUploadsError] = useState<string>('');
@@ -468,6 +472,25 @@ export default function StudentDashboard({ navigation }: any) {
     if (child) void loadPublishedLessons(child.grade_level);
   };
 
+  const loadWordBank = async (level: string) => {
+    setWordBankLoading(true);
+    setWordBankError('');
+    try {
+      const words = await fetchWords(level.toLowerCase(), 24);
+      setWordBank(words);
+    } catch (error: any) {
+      console.warn('[StudentDashboard] word bank load failed:', error?.message || error);
+      setWordBank([]);
+      setWordBankError(error?.message || 'Hindi ma-load ang mga salita.');
+    } finally {
+      setWordBankLoading(false);
+    }
+  };
+
+  const retryWordBank = () => {
+    if (progress?.level) void loadWordBank(progress.level);
+  };
+
   const retryActivities = () => {
     if (child) void loadStudentActivities(child.auth_uid, child.id);
   };
@@ -678,6 +701,11 @@ export default function StudentDashboard({ navigation }: any) {
       loadPublishedLessons(Number(child.grade_level || 1));
     });
   }, [child?.id, child?.grade_level]);
+
+  useEffect(() => {
+    if (!child?.id || !progress?.level) return;
+    void loadWordBank(progress.level);
+  }, [child?.id, progress?.level]);
 
   useEffect(() => {
     Animated.loop(
@@ -1533,19 +1561,38 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderPractice = () => {
-    // Letters (single-character phonics tiles) and words (teacher-uploaded
-    // reading_activities content, or the hardcoded starter list, plus the
-    // harder SKILL_LONG_WORDS continuation) are two unrelated content types -
-    // kept as separate lists so neither's sequential-unlock progress can
-    // gate the other (previously concatenated into one array, which made a
-    // civics vocabulary word lock every single letter tile behind it).
+    // Letters (single-character phonics tiles) and words (real teacher
+    // reading_activities content plus the real, level-filtered Supabase word
+    // bank) are two unrelated content types - kept as separate lists so
+    // neither's progress can gate the other (previously concatenated into
+    // one array, which made a civics vocabulary word lock every single
+    // letter tile behind it). DEFAULT_PHONETIC_WORDS/SKILL_LONG_WORDS are no
+    // longer used as a word source here - they're real content, just not
+    // this student's actual practice bank - but stay defined for the Learn
+    // tab's Learning Categories counts.
     const letterWords = SKILL_LETTERS;
-    const wordListWords = [
-      ...(practiceWords.length ? practiceWords : DEFAULT_PHONETIC_WORDS),
-      ...SKILL_LONG_WORDS,
-    ];
+    const wordListWords = [...practiceWords, ...wordBank];
     const cycleList = (word: string | null) => (word && letterWords.includes(word) ? letterWords : wordListWords);
     const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
+
+    const nextWord = wordListWords.length
+      ? wordListWords.find((word) => !progress?.completed_words?.includes(word)) || wordListWords[0]
+      : null;
+
+    // Real position of the selected word within today's active word bank -
+    // not a fabricated lesson number.
+    const wordPosition = selectedWord ? wordListWords.indexOf(selectedWord) + 1 : 0;
+    const wordTotal = wordListWords.length;
+
+    const wordsPracticedToday = todaySessions.length;
+    const correctToday = todaySessions.filter((s) => s.is_correct).length;
+    const accuracyToday = todaySessions.length
+      ? Math.round(todaySessions.reduce((sum, s) => sum + (s.accuracy_percentage || 0), 0) / todaySessions.length)
+      : 0;
+    const remainingWords = Math.max(
+      0,
+      wordTotal - wordListWords.filter((w) => progress?.completed_words?.includes(w)).length
+    );
 
     const startWord = (word: string, mode: 'say' | 'listen') => {
       setPracticeMode(mode);
@@ -1617,24 +1664,110 @@ export default function StudentDashboard({ navigation }: any) {
       );
     }
 
+    const handlePracticeAgain = () => {
+      setPracticeResult(null);
+      setPracticeTranscript('');
+      setPracticeStatus('Kaya mo yan. Subukan ulit!');
+    };
+    const handleNextWord = () => {
+      if (!selectedWord) return;
+      const list = cycleList(selectedWord);
+      const currentIndex = list.indexOf(selectedWord);
+      const next = list[(currentIndex + 1) % list.length];
+      startWord(next, 'say');
+    };
+
+    const renderSessionProgressCard = () => (
+      <View style={styles.practiceStatsCard}>
+        <Text style={styles.practiceSectionTitle}>Session Progress</Text>
+        <View style={styles.practiceStatsRow}>
+          <View style={styles.practiceStatsCol}>
+            <Ionicons name="bar-chart" size={20} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.practiceStatsValue}>{wordsPracticedToday}</Text>
+            <Text style={styles.practiceStatsLabel}>Words Practiced</Text>
+          </View>
+          <View style={styles.practiceStatsCol}>
+            <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
+            <Text style={styles.practiceStatsValue}>{correctToday}</Text>
+            <Text style={styles.practiceStatsLabel}>Correct Pronunciation</Text>
+          </View>
+          <View style={styles.practiceStatsCol}>
+            <Ionicons name="locate" size={20} color={HOME_CORAL} />
+            <Text style={styles.practiceStatsValue}>{accuracyToday}%</Text>
+            <Text style={styles.practiceStatsLabel}>Average Accuracy</Text>
+          </View>
+          <View style={styles.practiceStatsCol}>
+            <Ionicons name="albums" size={20} color={HOME_SUN} />
+            <Text style={styles.practiceStatsValue}>{remainingWords}</Text>
+            <Text style={styles.practiceStatsLabel}>Remaining Words</Text>
+          </View>
+        </View>
+      </View>
+    );
+
+    const renderReadingTipCard = () => (
+      <View style={styles.practiceTipCard}>
+        <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_AMBER, marginBottom: 0 }]}>
+          <Ionicons name="bulb" size={20} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.practiceTipCardTitle}>Reading Tip</Text>
+          <Text style={styles.practiceTipCardText}>Basahin ang bawat pantig nang dahan-dahan bago sabihin ang buong salita.</Text>
+        </View>
+      </View>
+    );
+
     if (selectedWord && child) {
       return (
         <View style={{ flex: 1 }}>
           <ConfettiOverlay visible={confettiVisible} />
           <ScrollView contentContainerStyle={styles.content}>
-            <TouchableOpacity
-              onPress={() => {
-                ExpoSpeechRecognitionModule.abort();
-                setSelectedWord(null);
-                setPracticeResult(null);
-                setPracticeAttempts(0);
-                setPracticeTranscript('');
-              }}
-              style={styles.backButton}
+            <LinearGradient
+              colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroBanner}
             >
-              <Ionicons name="arrow-back" size={20} color={HOME_LAVENDER_DARK} />
-              <Text style={styles.backText}>Bumalik</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.heroBackRow}
+                onPress={() => {
+                  ExpoSpeechRecognitionModule.abort();
+                  setSelectedWord(null);
+                  setPracticeResult(null);
+                  setPracticeAttempts(0);
+                  setPracticeTranscript('');
+                }}
+              >
+                <Ionicons name="arrow-back" size={20} color="#fff" />
+                <Text style={styles.heroBackText}>Bumalik</Text>
+              </TouchableOpacity>
+              <Text style={styles.heroGreeting}>Voice Reading{'\n'}Practice</Text>
+              <Text style={styles.heroSubtitle}>Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo.</Text>
+              <Image source={require('../../assets/singing.png')} style={styles.heroImage} resizeMode="contain" />
+            </LinearGradient>
+
+            <View style={styles.learnProgressCard}>
+              <View style={styles.learnProgressTopRow}>
+                <Text style={styles.learnProgressTitle}>Today's Practice</Text>
+                {wordTotal > 0 && (
+                  <Text style={styles.learnProgressPct}>Word {wordPosition} of {wordTotal}</Text>
+                )}
+              </View>
+              <View style={styles.learnProgressTrack}>
+                <View style={{ width: `${wordTotal ? Math.max(4, Math.round((wordPosition / wordTotal) * 100)) : 4}%`, height: '100%' }}>
+                  <LinearGradient
+                    colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{ flex: 1, borderRadius: 5 }}
+                  />
+                </View>
+              </View>
+              <View style={styles.practiceTipRow}>
+                <Ionicons name="bulb" size={14} color={HOME_SUN} />
+                <Text style={styles.practiceTipText}>Ipagpatuloy ang pagsasanay para umangat ang bigkas mo!</Text>
+              </View>
+            </View>
 
             <View style={styles.practiceHero}>
               <Animated.Text style={[styles.practiceMascot, { transform: [{ scale: mascotPulse }] }]}>
@@ -1672,24 +1805,42 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
 
             {practiceResult && (
-              <PracticeResultCard
-                result={practiceResult}
-                word={selectedWord}
-                showScore={dashboardSettings?.show_accuracy_score !== false}
-                onReplay={() => speakPracticeWord(selectedWord)}
-                onRetry={() => {
-                  setPracticeResult(null);
-                  setPracticeTranscript('');
-                  setPracticeStatus('Kaya mo yan. Subukan ulit!');
-                }}
-                onNext={() => {
-                  const list = cycleList(selectedWord);
-                  const currentIndex = list.indexOf(selectedWord);
-                  const nextWord = list[(currentIndex + 1) % list.length];
-                  startWord(nextWord, 'say');
-                }}
-              />
+              <>
+                <PracticeResultCard
+                  result={practiceResult}
+                  word={selectedWord}
+                  showScore={dashboardSettings?.show_accuracy_score !== false}
+                  onReplay={() => speakPracticeWord(selectedWord)}
+                  onRetry={handlePracticeAgain}
+                  onNext={handleNextWord}
+                />
+
+                <View style={styles.encourageCard}>
+                  <Image source={require('../../assets/book.png')} style={styles.encourageImage} resizeMode="contain" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.encourageTitle}>Every practice makes you a better reader!</Text>
+                    <Text style={styles.encourageSub}>
+                      {remainingWords > 0
+                        ? `${remainingWords} pang salita para matapos ang set ngayon!`
+                        : 'Natapos mo na ang lahat ng salita ngayon! 🎉'}
+                    </Text>
+                    <View style={styles.encourageButtonRow}>
+                      <TouchableOpacity style={styles.encourageButtonGhost} onPress={handlePracticeAgain}>
+                        <Ionicons name="refresh" size={16} color={HOME_LAVENDER_DARK} />
+                        <Text style={styles.encourageButtonGhostText}>Practice Again</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.encourageButtonSolid} onPress={handleNextWord}>
+                        <Text style={styles.encourageButtonSolidText}>Next Word</Text>
+                        <Ionicons name="arrow-forward" size={16} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </>
             )}
+
+            {renderSessionProgressCard()}
+            {renderReadingTipCard()}
           </ScrollView>
         </View>
       );
@@ -1697,17 +1848,6 @@ export default function StudentDashboard({ navigation }: any) {
 
     const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
     const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
-    const nextWord = wordListWords.find((word) => !progress?.completed_words?.includes(word)) || wordListWords[0];
-
-    const wordsPracticedToday = todaySessions.length;
-    const correctToday = todaySessions.filter((s) => s.is_correct).length;
-    const accuracyToday = todaySessions.length
-      ? Math.round(todaySessions.reduce((sum, s) => sum + (s.accuracy_percentage || 0), 0) / todaySessions.length)
-      : 0;
-    const practiceSecondsToday = todaySessions.reduce((sum, s) => sum + (s.duration_seconds || 0), 0);
-    const practiceTimeLabel = practiceSecondsToday < 60
-      ? `${practiceSecondsToday}s`
-      : `${Math.round(practiceSecondsToday / 60)} min`;
 
     return (
       <ScrollView contentContainerStyle={styles.content}>
@@ -1774,7 +1914,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         <Text style={styles.practiceSectionTitle}>Piliin ang Iyong Pagsasanay</Text>
 
-        <TouchableOpacity style={styles.practiceModeCard} onPress={() => startWord(nextWord, 'say')}>
+        <TouchableOpacity style={styles.practiceModeCard} onPress={() => nextWord && startWord(nextWord, 'say')}>
           <View style={[styles.practiceModeIconWrap, { backgroundColor: '#EFECFB' }]}>
             <Ionicons name="mic" size={24} color={HOME_LAVENDER_DARK} />
           </View>
@@ -1790,7 +1930,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.practiceModeCard} onPress={() => startWord(nextWord, 'listen')}>
+        <TouchableOpacity style={styles.practiceModeCard} onPress={() => nextWord && startWord(nextWord, 'listen')}>
           <View style={[styles.practiceModeIconWrap, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="volume-high" size={24} color={HOME_SAGE} />
           </View>
@@ -1821,47 +1961,49 @@ export default function StudentDashboard({ navigation }: any) {
 
         <Text style={styles.practiceSectionTitle}>O Pumili ng Partikular na Salita</Text>
 
-        <View style={styles.wordGrid}>
-          {wordListWords.map((word, wordIndex) => {
-            const done = progress?.completed_words?.includes(word);
-            const isNext = !done && word === nextWord;
-            const locked = !done && !isNext && wordIndex > wordListWords.indexOf(nextWord);
-            return (
-              <TouchableOpacity
-                key={word}
-                style={[styles.wordCard, done && styles.wordCardDone, isNext && styles.wordCardNext, locked && styles.wordCardLocked]}
-                onPress={() => {
-                  if (locked) {
-                    Alert.alert('Tapusin muna', 'Tapusin muna ang kasalukuyang salita bago pumunta sa susunod na salita.');
-                    return;
-                  }
-                  startWord(word, 'say');
-                }}
-              >
-                {done && (
-                  <View style={styles.wordCardCheckBadge}>
-                    <Ionicons name="checkmark" size={14} color="#fff" />
-                  </View>
-                )}
-                {isNext && (
-                  <View style={styles.wordCardNextBadge}>
-                    <Text style={styles.wordCardNextBadgeText}>SUSUNOD</Text>
-                  </View>
-                )}
-                {locked && (
-                  <View style={styles.wordCardLockIcon}>
-                    <Ionicons name="lock-closed" size={12} color={HOME_INK_SOFT} />
-                  </View>
-                )}
-                <Text style={[styles.wordText, done && { color: SUCCESS }, locked && { color: HOME_INK_SOFT }]}>{word}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* Word-bank words: binary state only - done (real completed_words)
+            or available (tap anytime). No lock icon, no "next" gate - the
+            bank is a randomized sample from /api/words each fetch, so a
+            sequential lock would be gating against an order that isn't
+            stable across refetches. Same freely-tappable treatment as
+            Letters below. */}
+        {wordBankLoading && !wordListWords.length ? (
+          <View style={styles.centerBlock}>
+            <ActivityIndicator size="small" color={HOME_LAVENDER} />
+            <Text style={styles.empty}>Loading words...</Text>
+          </View>
+        ) : wordBankError && !wordListWords.length ? (
+          <View style={styles.errorBlock}>
+            <Text style={styles.error}>{wordBankError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={retryWordBank}>
+              <Text style={styles.retryButtonText}>Subukan muli</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.wordGrid}>
+            {wordListWords.map((word) => {
+              const done = progress?.completed_words?.includes(word);
+              return (
+                <TouchableOpacity
+                  key={word}
+                  style={[styles.wordCard, done && styles.wordCardDone]}
+                  onPress={() => startWord(word, 'say')}
+                >
+                  {done && (
+                    <View style={styles.wordCardCheckBadge}>
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                    </View>
+                  )}
+                  <Text style={[styles.wordText, done && { color: SUCCESS }]}>{word}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Letters are a separate, non-linear practice bank - freely
-            tappable in any order, no sequential lock (unlike the words
-            grid above, which intentionally gates ahead-of-progress words). */}
+            tappable in any order, no sequential lock (same binary
+            done/available treatment as the words grid above). */}
         <Text style={styles.practiceSectionTitle}>Mga Titik</Text>
 
         <View style={styles.wordGrid}>
@@ -1884,31 +2026,8 @@ export default function StudentDashboard({ navigation }: any) {
           })}
         </View>
 
-        <View style={styles.practiceStatsCard}>
-          <Text style={styles.practiceSectionTitle}>Practice Session</Text>
-          <View style={styles.practiceStatsRow}>
-            <View style={styles.practiceStatsCol}>
-              <Ionicons name="bar-chart" size={20} color={HOME_LAVENDER_DARK} />
-              <Text style={styles.practiceStatsValue}>{wordsPracticedToday}</Text>
-              <Text style={styles.practiceStatsLabel}>Words Practiced</Text>
-            </View>
-            <View style={styles.practiceStatsCol}>
-              <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
-              <Text style={styles.practiceStatsValue}>{correctToday}</Text>
-              <Text style={styles.practiceStatsLabel}>Correct</Text>
-            </View>
-            <View style={styles.practiceStatsCol}>
-              <Ionicons name="locate" size={20} color={HOME_CORAL} />
-              <Text style={styles.practiceStatsValue}>{accuracyToday}%</Text>
-              <Text style={styles.practiceStatsLabel}>Accuracy</Text>
-            </View>
-            <View style={styles.practiceStatsCol}>
-              <Ionicons name="time" size={20} color={HOME_SUN} />
-              <Text style={styles.practiceStatsValue}>{practiceTimeLabel}</Text>
-              <Text style={styles.practiceStatsLabel}>Practice Time</Text>
-            </View>
-          </View>
-        </View>
+        {renderSessionProgressCard()}
+        {renderReadingTipCard()}
       </ScrollView>
     );
   };
@@ -3590,18 +3709,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 16, padding: 14, minWidth: '30%', minHeight: 64,
     alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#EEE9F9',
   },
-  wordCardNext: { borderColor: HOME_LAVENDER, borderWidth: 2, backgroundColor: '#F5F3FC' },
-  wordCardLocked: { backgroundColor: '#F3F4F6', opacity: 0.6 },
-  wordCardLockIcon: { position: 'absolute', top: 8, right: 8 },
   wordCardCheckBadge: {
     position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10,
     backgroundColor: SUCCESS, alignItems: 'center', justifyContent: 'center',
   },
-  wordCardNextBadge: {
-    position: 'absolute', top: -8, alignSelf: 'center', backgroundColor: HOME_LAVENDER,
-    borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2,
-  },
-  wordCardNextBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9, letterSpacing: 0.5 },
   wordText: { color: PRIMARY, fontWeight: '900', fontSize: 16 },
   empty: { color: '#6B7280', marginBottom: 8 },
   errorBlock: { backgroundColor: '#fff1f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
@@ -3983,6 +4094,38 @@ const styles = StyleSheet.create({
   sayWordButtonText: { color: '#fff', fontWeight: '900', fontSize: 20 },
   practiceStatus: { color: HOME_INK, textAlign: 'center', fontWeight: '800', marginTop: 14 },
   practiceTranscript: { color: HOME_INK_SOFT, textAlign: 'center', marginTop: 8, fontWeight: '700' },
+
+  heroBackRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 },
+  heroBackText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+
+  practiceTipRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  practiceTipText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, flex: 1 },
+
+  encourageCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F5F3FC', borderRadius: 24, padding: 16, marginTop: 8, marginBottom: 20,
+  },
+  encourageImage: { width: 64, height: 113 },
+  encourageTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 15, marginBottom: 4 },
+  encourageSub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginBottom: 12 },
+  encourageButtonRow: { flexDirection: 'row', gap: 10 },
+  encourageButtonGhost: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
+    borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  encourageButtonGhostText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12 },
+  encourageButtonSolid: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: HOME_LAVENDER_DARK,
+    borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  encourageButtonSolidText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+
+  practiceTipCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FEF3D6', borderRadius: 20, padding: 16, marginBottom: 8,
+  },
+  practiceTipCardTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14, marginBottom: 2 },
+  practiceTipCardText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 17 },
 
   backButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
