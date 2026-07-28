@@ -27,6 +27,25 @@ const serializeSupabaseError = (error) => ({
   status: error?.status,
 });
 
+// Achievements are merge-only, never overwritten: a client can only ever
+// race with itself here (each student writes just their own row), but two
+// nearly-simultaneous saves built from slightly stale React state have
+// caused already-persisted badges to get silently dropped from the array
+// (bug: "unlocked badges don't persist" + "celebration re-triggers").
+// Unioning with whatever is already in the DB - instead of trusting the
+// client's array as the full truth - makes the achievements list
+// monotonically growing regardless of request ordering, and lets us tell
+// the client exactly which ids are genuinely new-to-storage this call, so
+// the celebration modal only ever fires once per badge.
+const mergeAchievements = (existing, incoming) => {
+  const existingIds = new Set(existing.map((a) => a?.id).filter(Boolean));
+  const newlyPersisted = incoming.filter((a) => a?.id && !existingIds.has(a.id));
+  return {
+    merged: [...existing, ...newlyPersisted],
+    newlyPersistedIds: newlyPersisted.map((a) => a.id),
+  };
+};
+
 router.post('/update', async (req, res) => {
   try {
     console.log('[progress] Progress update request:', req.body);
@@ -84,6 +103,17 @@ router.post('/update', async (req, res) => {
     const normalizedAccuracySum = asNumber(accuracySum ?? accuracy_sum, 0);
     const normalizedActivitiesCompleted = asNumber(activitiesCompleted ?? activities_completed, 0);
 
+    const { data: existingRow, error: existingRowError } = await supabaseAdmin
+      .from('child_progress')
+      .select('achievements')
+      .eq('child_id', progressStudentId)
+      .maybeSingle();
+    if (existingRowError) {
+      console.warn('[progress] could not read existing achievements before merge (proceeding with client array as-is):', serializeSupabaseError(existingRowError));
+    }
+    const existingAchievements = asArray(existingRow?.achievements);
+    const { merged: mergedAchievements, newlyPersistedIds } = mergeAchievements(existingAchievements, asArray(achievements));
+
     const payload = {
       child_id: progressStudentId,
       xp: normalizedXp,
@@ -92,7 +122,7 @@ router.post('/update', async (req, res) => {
       last_practice_date: normalizedLastPracticeDate,
       completed_words: normalizedCompletedWords,
       word_count: normalizedWordCount,
-      achievements: asArray(achievements),
+      achievements: mergedAchievements,
       badges: asArray(badges),
       total_attempts: normalizedTotalAttempts,
       level: ['Beginner', 'Intermediate', 'Advanced'].includes(level) ? level : 'Beginner',
@@ -140,7 +170,7 @@ router.post('/update', async (req, res) => {
       });
     }
 
-    return res.json({ success: true, progress: data });
+    return res.json({ success: true, progress: data, newlyPersistedAchievementIds: newlyPersistedIds });
   } catch (error) {
     console.error('[progress] update failed:', error);
     return res.status(500).json({

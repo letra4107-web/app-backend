@@ -87,7 +87,13 @@ export const buildNextProgress = (
 };
 
 export const saveProgress = async (progress: ChildProgress) => {
-  return postJson<{ success: boolean; progress: ChildProgress }>(buildApiUrl('/progress/update'), {
+  // newlyPersistedAchievementIds - badge ids the SERVER confirms were not
+  // already in this student's stored achievements before this call (see
+  // backend/routes/progress.js's merge-on-save). This is the only reliable
+  // signal for "should the unlock celebration fire" - the achievements array
+  // on `progress` (this function's argument) can be stale if another save
+  // raced ahead of it, so callers must not use it to decide what's "new".
+  return postJson<{ success: boolean; progress: ChildProgress; newlyPersistedAchievementIds?: string[] }>(buildApiUrl('/progress/update'), {
     childId: progress.child_id,
     student_id: progress.child_id,
     xp: progress.xp,

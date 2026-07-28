@@ -971,9 +971,16 @@ export default function StudentDashboard({ navigation }: any) {
 
     const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
     if (newlyUnlocked?.length) {
-      await saveProgress(updatedProgress);
-      setProgress(updatedProgress);
-      setAchievement({ image: newlyUnlocked[0].image, title: newlyUnlocked[0].title });
+      const saved = await saveProgress(updatedProgress);
+      setProgress(saved.progress);
+      // Only celebrate badges the server confirms are genuinely new-to-storage
+      // this call - the client-side `newlyUnlocked` check above can be stale
+      // (see saveProgress's newlyPersistedAchievementIds doc comment), which
+      // was the root cause of the celebration re-triggering on every attempt.
+      const celebrate = newlyUnlocked.find((a) => saved.newlyPersistedAchievementIds?.includes(a.id));
+      if (celebrate) {
+        setAchievement({ image: celebrate.image, title: celebrate.title });
+      }
     }
   };
 
@@ -994,14 +1001,19 @@ export default function StudentDashboard({ navigation }: any) {
       );
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
       if (newlyUnlocked?.length) {
-        await saveProgress(updatedProgress);
-        setProgress(updatedProgress);
-        setAchievement({
-          image: newlyUnlocked[0].image,
-          title: newlyUnlocked[0].title,
-          category: newlyUnlocked[0].category,
-          xp: newlyUnlocked[0].xpReward,
-        });
+        const saved = await saveProgress(updatedProgress);
+        setProgress(saved.progress);
+        // See the analogous comment in completeActivity - only celebrate
+        // badges the server confirms are genuinely new-to-storage this call.
+        const celebrate = newlyUnlocked.find((a) => saved.newlyPersistedAchievementIds?.includes(a.id));
+        if (celebrate) {
+          setAchievement({
+            image: celebrate.image,
+            title: celebrate.title,
+            category: celebrate.category,
+            xp: celebrate.xpReward,
+          });
+        }
       }
     } catch (e) {
       console.warn('wordOfDay result handling failed', e);
@@ -1190,14 +1202,19 @@ export default function StudentDashboard({ navigation }: any) {
       }
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
       if (newlyUnlocked?.length) {
-        await saveProgress(updatedProgress);
-        setProgress(updatedProgress);
-        setAchievement({
-          image: newlyUnlocked[0].image,
-          title: newlyUnlocked[0].title,
-          category: newlyUnlocked[0].category,
-          xp: newlyUnlocked[0].xpReward,
-        });
+        const saved = await saveProgress(updatedProgress);
+        setProgress(saved.progress);
+        // See the analogous comment in completeActivity - only celebrate
+        // badges the server confirms are genuinely new-to-storage this call.
+        const celebrate = newlyUnlocked.find((a) => saved.newlyPersistedAchievementIds?.includes(a.id));
+        if (celebrate) {
+          setAchievement({
+            image: celebrate.image,
+            title: celebrate.title,
+            category: celebrate.category,
+            xp: celebrate.xpReward,
+          });
+        }
       }
     } catch (e) {
       console.warn('practice result handler failed', e);
