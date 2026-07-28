@@ -76,6 +76,14 @@ const HOME_LAVENDER_DARK = '#5F52B0';
 const HERO_GRADIENT_START = '#6D28D9';
 const HERO_GRADIENT_MID = '#A855F7';
 const HERO_GRADIENT_END = '#9D174D';
+// Quick Stats icon-circle fills only - deliberately more saturated than the
+// shared HOME_SAGE/HOME_CORAL/HOME_LAVENDER_DARK/HOME_SUN tokens (which stay
+// unchanged everywhere else, e.g. Progress/Achievements), since those were
+// reported as reading like faded tints rather than bold solid colors here.
+const VIVID_GREEN = '#16A34A';
+const VIVID_ORANGE = '#EA580C';
+const VIVID_VIOLET = '#7C3AED';
+const VIVID_AMBER = '#F59E0B';
 const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 const XP_CORRECT = 50;
@@ -1280,10 +1288,11 @@ export default function StudentDashboard({ navigation }: any) {
             style={styles.heroBanner}
           >
             <View style={styles.heroTopRow}>
-              <View style={styles.heroLogoRow}>
+              <TouchableOpacity style={styles.heroLogoRow} onPress={openSidebar}>
+                <Ionicons name="menu-outline" size={20} color="#fff" />
                 <Ionicons name="book" size={16} color="#fff" />
                 <Text style={styles.heroLogoText}>LinawLetra</Text>
-              </View>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
                 <Ionicons name="notifications" size={20} color="#fff" />
                 {unreadNotifCount > 0 && (
@@ -1320,31 +1329,31 @@ export default function StudentDashboard({ navigation }: any) {
           <Text style={styles.practiceSectionTitle}>Quick Stats</Text>
           <View style={styles.homeStatGrid}>
             <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_SAGE }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_GREEN }]}>
                 <Ionicons name="book" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
+              <Text style={[styles.homeGridValue, { color: VIVID_GREEN }]}>{stats.completed}</Text>
               <Text style={styles.homeGridLabel}>Words Practiced</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_CORAL }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_ORANGE }]}>
                 <Ionicons name="locate" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: HOME_CORAL }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+              <Text style={[styles.homeGridValue, { color: VIVID_ORANGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
               <Text style={styles.homeGridLabel}>Reading Accuracy</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_LAVENDER_DARK }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_VIOLET }]}>
                 <Ionicons name="bar-chart" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: HOME_LAVENDER_DARK }]}>{progress?.total_attempts || 0}</Text>
+              <Text style={[styles.homeGridValue, { color: VIVID_VIOLET }]}>{progress?.total_attempts || 0}</Text>
               <Text style={styles.homeGridLabel}>Practice Sessions</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_SUN }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_AMBER }]}>
                 <Ionicons name="flame" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: HOME_SUN }]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
+              <Text style={[styles.homeGridValue, { color: VIVID_AMBER }]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
               <Text style={styles.homeGridLabel}>Current Streak</Text>
             </View>
           </View>
@@ -2889,8 +2898,11 @@ export default function StudentDashboard({ navigation }: any) {
   return (
     <View style={styles.container}>
       {section === 'home' ? (
+        // No topHeaderNode here - the hero banner inside renderWordOfDay()
+        // already covers branding (logo lockup) and a notification bell;
+        // stacking the old hamburger/title bar on top of it duplicated that
+        // chrome and pushed the rest of the tab down unnecessarily.
         <View style={styles.homeBg}>
-          {topHeaderNode}
           {renderWordOfDay()}
         </View>
       ) : (
@@ -3502,7 +3514,7 @@ const styles = StyleSheet.create({
     width: 52, height: 52, borderRadius: 26, backgroundColor: '#EFECFB',
     alignItems: 'center', justifyContent: 'center',
   },
-  readyPracticeTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 4 },
+  readyPracticeTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16, marginBottom: 4 },
   readyPracticeSub: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600', lineHeight: 17 },
   readyPracticeButton: {
     backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 16,
@@ -3537,12 +3549,12 @@ const styles = StyleSheet.create({
     width: '48%', borderRadius: 20, padding: 14, minHeight: 92, justifyContent: 'center',
   },
   homeGridIconWrap: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  homeGridValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 8 },
+  homeGridValue: { fontFamily: FONT_DISPLAY, fontSize: 20, marginTop: 8 },
   homeGridLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginTop: 2 },
   homeContinueCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: 20, padding: 16, marginBottom: 16, gap: 12,
   },
-  homeContinueTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
+  homeContinueTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 15 },
   homeContinueSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2, marginBottom: 10 },
   homeContinueTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   homeContinueTrack: { flex: 1, backgroundColor: 'rgba(124,111,207,0.2)', height: 8, borderRadius: 999, overflow: 'hidden' },
@@ -3647,7 +3659,7 @@ const styles = StyleSheet.create({
   goalTrack: { height: 12, borderRadius: 6, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginTop: 14 },
   goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: HOME_LAVENDER },
   goalEmptyNote: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10 },
-  practiceSectionTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 12, marginTop: 4 },
+  practiceSectionTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16, marginBottom: 12, marginTop: 4 },
   practiceModeCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 20, padding: 14, marginBottom: 12,
