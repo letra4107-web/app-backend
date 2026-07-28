@@ -30,7 +30,8 @@
     "nodemailer": "^6.9.4",
     "openai": "^4.28.0",
     "pdf-parse": "^1.1.1",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

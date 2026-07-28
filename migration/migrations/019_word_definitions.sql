@@ -74,3 +74,5 @@ INSERT INTO public.word_definitions (word_key, display_word, meaning_fil, exampl
   ('tubig', NULL, 'Likidong walang kulay na kailangan ng lahat ng may buhay.', NULL, false),
   ('pagkain', NULL, 'Anumang kinakain para mabuhay.', NULL, false)
 ON CONFLICT (word_key) DO NOTHING;
+
+NOTIFY pgrst, 'reload schema';
