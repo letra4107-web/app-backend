@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl, postJson } from '../config/api';
-import { signInUser, getChildByUsername, getChildByAuthUid, getUserProfileById, mapSupabaseAuthErrorCode, upsertUserProfile } from '../services/supabaseService';
-import { supabase } from '../config/supabase';
+import {
+  signInUser, getChildByUsername, mapSupabaseAuthErrorCode,
+  signInWithOAuthProvider, ensureUserProfileForOAuthUser, completeAuthSession, OAuthProvider,
+} from '../services/supabaseService';
 
 interface LoginScreenProps {
   navigation: any;
@@ -17,7 +19,6 @@ const HOME_CREAM = '#FBF3E2';
 const HOME_INK = '#3B322C';
 const HOME_INK_SOFT = '#8A7B6C';
 const HOME_CORAL = '#E06B4C';
-const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
 const SUCCESS = '#10b981';
 const FONT_DISPLAY = 'Baloo2_800ExtraBold';
@@ -28,7 +29,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
   const [globalError, setGlobalError] = useState('');
+  const [lastErrorCode, setLastErrorCode] = useState('');
   const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [attempts, setAttempts] = useState(0);
@@ -97,47 +100,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   const clearErrors = () => {
     setGlobalError('');
+    setLastErrorCode('');
     setIdentifierError('');
     setPasswordError('');
   };
 
   const buildStudentAuthEmail = (username: string) => {
     return `${username.toLowerCase()}@student.linawletra.app`;
-  };
-
-  const normalizeRole = (role?: string) => {
-    return typeof role === 'string' ? role.trim().toLowerCase() : '';
-  };
-
-  const determineUserRole = (loginIsUsername: boolean, profileRole?: string, email?: string) => {
-    // Username login is always a student
-    if (loginIsUsername) {
-      return 'student';
-    }
-
-    const normalizedRole = normalizeRole(profileRole);
-
-    // Explicit role set — trust it
-    if (normalizedRole === 'student') {
-      return 'student';
-    }
-    if (normalizedRole === 'teacher') {
-      return 'teacher';
-    }
-    if (normalizedRole === 'parent') {
-      return 'parent';
-    }
-
-    // Email pattern fallback
-    if (
-      email?.toLowerCase().endsWith('@student.linawletra.app') ||
-      email?.toLowerCase().includes('@student.')
-    ) {
-      return 'student';
-    }
-
-    // No role set yet — return null to trigger child lookup
-    return null;
   };
 
   const createStudentAuthAccount = async (username: string, password: string, displayName: string) => {
@@ -198,14 +167,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     try {
       const identifierValue = identifier.trim();
       const isEmail = identifierValue.includes('@');
-      const loginIsUsername = !isEmail;
       let user: any;
-      let profileData: any = null;
-      let profileRole = '';
-      let loginEmail = '';
 
       if (isEmail) {
-        loginEmail = identifierValue.toLowerCase();
+        const loginEmail = identifierValue.toLowerCase();
         console.log('[Login] Attempting email/password login:', {
           email: loginEmail,
           identifierChangedByTrim: identifier !== identifier.trim(),
@@ -227,7 +192,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           throw notFoundError;
         }
         const studentData = childResult.data;
-        loginEmail = studentData.auth_email || buildStudentAuthEmail(identifierValue.toLowerCase());
+        const loginEmail = studentData.auth_email || buildStudentAuthEmail(identifierValue.toLowerCase());
 
         const { data, error } = await signInUser(loginEmail, password);
         if (error || !data?.user) {
@@ -247,98 +212,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         }
       }
 
-      console.log('Login successful for user:', user.email);
-      try {
-        const sessionRes = await supabase.auth.getSession();
-        console.log('[Login] supabase.getSession after signIn:', { session: sessionRes?.data?.session });
-      } catch (sessionErr) {
-        console.error('[Login] supabase.getSession error:', sessionErr);
-      }
-      // We'll check Supabase Auth first, then fall back to our public.users.email_verified flag
-      let emailVerified = !!user.email_confirmed_at;
-
-      if (isEmail) {
-        const profileResult = await getUserProfileById(user.id);
-        console.log('[Login] Profile lookup after auth:', {
-          userId: user.id,
-          hasProfile: !!profileResult.data,
-          profileRole: profileResult.data?.role,
-          profileEmail: profileResult.data?.email,
-          profileError: profileResult.error
-            ? {
-                message: profileResult.error.message,
-                code: profileResult.error.code,
-                details: profileResult.error.details,
-              }
-            : null,
-        });
-        profileData = profileResult.data;
-
-        // Try to determine role from profile
-        const determinedRole = determineUserRole(loginIsUsername, profileData?.role, user.email || undefined);
-
-        // If role is null OR role might be wrong (no explicit role set), ALWAYS check children table
-        // This handles web-enrolled students who have a users row but no role set
-        if (!determinedRole || determinedRole === null) {
-          const childLookup = await getChildByAuthUid(user.id);
-          if (childLookup.data) {
-            console.log('[Login] Found child record — setting role to student');
-            profileRole = 'student';
-            profileData = { ...(profileData || {}), name: childLookup.data.name };
-          } else {
-            profileRole = '';
-          }
-        } else {
-          profileRole = determinedRole;
-
-          // Even if profile says parent/teacher, double-check children table
-          // (web enrollments sometimes create users with wrong role)
-          if (profileRole !== 'student') {
-            const childLookup = await getChildByAuthUid(user.id);
-            if (childLookup.data) {
-              console.log('[Login] Profile role was', profileRole, 'but found child record — overriding to student');
-              profileRole = 'student';
-              profileData = { ...(profileData || {}), name: childLookup.data.name };
-            }
-          }
-        }
-
-        // If auth hasn't marked email confirmed for some reason, use profile.email_verified
-        if (!emailVerified && profileData?.email_verified) {
-          emailVerified = true;
-        }
-      } else {
-        profileRole = 'student';
-        profileData = { name: user.user_metadata?.full_name || user.email };
-      }
-
-      if (isEmail && !emailVerified) {
-        console.log('User email not verified, redirecting to verification screen');
-        navigation.replace('EmailVerification', {
-          email: user.email,
-          userId: user.id,
-          message: 'Your email is not verified. Enter the 6-digit code sent to your email to continue.',
-        });
-      } else {
-        await upsertUserProfile({ id: user.id, lastLoginAt: new Date().toISOString() });
-        resetAttempts();
-
-        if (profileRole === 'parent') {
-          console.log('[Login] → ParentDashboard');
-          navigation.replace('ParentDashboard');
-        } else if (profileRole === 'student') {
-          console.log('[Login] → StudentDashboard');
-          navigation.replace('StudentDashboard');
-        } else if (profileRole === 'teacher') {
-          console.log('[Login] → ParentDashboard (teacher placeholder)');
-          // TODO: navigation.replace('TeacherDashboard') once built
-          navigation.replace('ParentDashboard');
-        } else {
-          console.error('[Login] Could not determine role for user:', user.id);
-          setGlobalError(`Hindi kilala ang account type. Makipag-ugnayan sa admin.`);
-          setLoading(false);
-        }
-      }
+      await completeAuthSession(user, isEmail, navigation, (message) => setGlobalError(message));
+      resetAttempts();
     } catch (error: any) {
       console.error('[Login] Login error:', {
         code: error.code,
@@ -355,6 +230,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       });
       const friendlyError = mapAuthError(error.code || 'default');
       setGlobalError(friendlyError);
+      setLastErrorCode(error.code || 'default');
       setPassword('');
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
@@ -368,14 +244,46 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  const isButtonDisabled = !identifier || !password || loading || (blockedUntil && Date.now() < blockedUntil);
+  // Google/Facebook are not subject to the password-guessing lockout above —
+  // that mechanism exists specifically to slow down password brute-forcing,
+  // which doesn't apply here, so no attempts/blockedUntil bookkeeping.
+  const handleOAuthLogin = async (provider: OAuthProvider) => {
+    clearErrors();
+    setOauthLoading(provider);
+    try {
+      const { data, error } = await signInWithOAuthProvider(provider);
+      if (error) {
+        if (error.code === 'auth/oauth-cancelled') return;
+        throw error;
+      }
+      if (!data?.user) return; // web: full-page redirect already in flight
+      await ensureUserProfileForOAuthUser(data.user);
+      await completeAuthSession(data.user, true, navigation, (message) => setGlobalError(message));
+      resetAttempts();
+    } catch (error: any) {
+      console.error('[Login] OAuth login error:', { provider, message: error?.message, code: error?.code });
+      const providerLabel = provider === 'google' ? 'Google' : 'Facebook';
+      setGlobalError(`Hindi ma-login gamit ang ${providerLabel}. Pakisubukang muli.`);
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+
+  const isBusy = loading || !!oauthLoading;
+  const isRateLimited = !!blockedUntil && Date.now() < blockedUntil;
+  // Only look "disabled" once the user has actually tried to submit with a
+  // problem, or while something is genuinely in flight — not merely because
+  // the form is untouched on first load.
+  const hasValidationBlock = submitAttempted && (!!identifierError || !!passwordError || !identifier || !password);
+  const isButtonDisabled = isBusy || isRateLimited || hasValidationBlock;
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.backgroundDecor}>
           <View style={styles.circleTopLeft} />
           <View style={styles.circleRight} />
+          <View style={styles.circleBottom} />
         </View>
 
         <View style={styles.topHeader}>
@@ -463,8 +371,42 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Log In'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('EmailVerification', { email: identifier })} style={styles.resendRow}>
-            <Text style={styles.resendLink}>Resend Verification Code</Text>
+          {/* Only after a login attempt failed specifically because the email
+              isn't verified yet — not a permanent link on every visit. The
+              post-signup case is already handled by EmailVerification's own
+              resend flow, which the user is redirected to automatically. */}
+          {lastErrorCode === 'auth/email-not-confirmed' && (
+            <TouchableOpacity onPress={() => navigation.navigate('EmailVerification', { email: identifier })} style={styles.resendRow}>
+              <Text style={styles.resendLink}>Resend Verification Code</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.oauthDivider}>
+            <View style={styles.oauthDividerLine} />
+            <Text style={styles.oauthDividerText}>OR</Text>
+            <View style={styles.oauthDividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.oauthButton, (isBusy) && styles.oauthButtonDisabled]}
+            onPress={() => handleOAuthLogin('google')}
+            disabled={isBusy}
+          >
+            <Ionicons name="logo-google" size={20} color="#DB4437" />
+            <Text style={styles.oauthButtonText}>
+              {oauthLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.oauthButton, { marginBottom: 0 }, (isBusy) && styles.oauthButtonDisabled]}
+            onPress={() => handleOAuthLogin('facebook')}
+            disabled={isBusy}
+          >
+            <Ionicons name="logo-facebook" size={20} color="#1877F2" />
+            <Text style={styles.oauthButtonText}>
+              {oauthLoading === 'facebook' ? 'Connecting...' : 'Continue with Facebook'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -484,13 +426,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
     backgroundColor: HOME_CREAM,
+  },
+  scroll: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: 24,
+    paddingTop: Platform.OS === 'ios' ? 44 : 32,
     paddingBottom: 40,
   },
   backgroundDecor: {
@@ -504,7 +447,7 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: 'rgba(124,111,207,0.12)',
+    backgroundColor: 'rgba(124,111,207,0.14)',
   },
   circleRight: {
     position: 'absolute',
@@ -513,13 +456,21 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     borderRadius: 120,
-    backgroundColor: 'rgba(224,107,76,0.10)',
+    backgroundColor: 'rgba(224,107,76,0.12)',
+  },
+  circleBottom: {
+    position: 'absolute',
+    bottom: -100,
+    left: -60,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(92,128,71,0.08)',
   },
   topHeader: {
     alignItems: 'center',
     marginHorizontal: 20,
     marginBottom: 8,
-    paddingTop: 18,
   },
   logo: {
     width: 220,
@@ -558,8 +509,8 @@ const styles = StyleSheet.create({
     // string, but remain the correct (and only) cross-platform way to draw a
     // shadow on native iOS/Android, so the two are split per-platform here.
     ...Platform.select({
-      web: { boxShadow: '0px 16px 34px rgba(59,50,44,0.10)' },
-      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.08, shadowRadius: 34 },
+      web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
+      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
     }),
   },
   globalError: {
@@ -682,6 +633,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
     fontWeight: '700',
+  },
+  oauthDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  oauthDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(59,50,44,0.14)',
+  },
+  oauthDividerText: {
+    color: HOME_INK_SOFT,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  oauthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(59,50,44,0.14)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    minHeight: 52,
+    marginBottom: 12,
+  },
+  oauthButtonDisabled: {
+    opacity: 0.6,
+  },
+  oauthButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: HOME_INK,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   signUpRow: {
     marginTop: 20,

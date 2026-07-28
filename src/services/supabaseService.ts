@@ -1,6 +1,20 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+// Not re-exported from the main expo-auth-session entrypoint, but this exact
+// subpath is what Supabase's own Expo integration guide uses to pull the
+// `code`/`error` query params out of a PKCE redirect URL — exchangeCodeForSession
+// wants just the code string, not the whole URL.
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { getSupabaseDebugInfo, supabase } from '../config/supabase';
 import { buildApiUrl, getJson } from '../config/api';
+import { ensureParentProfile } from './profileService';
+
+// Recommended by Expo's docs so a pending native auth session (from
+// WebBrowser.openAuthSessionAsync) properly resolves instead of hanging —
+// a no-op on native, relevant mainly to the web OAuth redirect path.
+WebBrowser.maybeCompleteAuthSession();
 
 const SIGNUP_TIMEOUT_MS = 20000;
 
@@ -220,8 +234,220 @@ export const signOutUser = async () => {
   return supabase.auth.signOut();
 };
 
+export type OAuthProvider = 'google' | 'facebook';
+
+// Google/Facebook login: Supabase does the actual OAuth dance with the
+// provider server-side — this just opens that URL in a native browser tab
+// (WebBrowser.openAuthSessionAsync) and waits for it to redirect back into
+// the app via the custom "linawletra://" scheme (registered in app.json),
+// then exchanges the returned PKCE code for a real session.
+export const signInWithOAuthProvider = async (provider: OAuthProvider) => {
+  const redirectTo = AuthSession.makeRedirectUri({ scheme: 'linawletra', path: 'auth-callback' });
+
+  console.log('[Supabase] signInWithOAuth start:', { provider, redirectTo, platform: Platform.OS });
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo, skipBrowserRedirect: true },
+  });
+
+  if (error || !data?.url) {
+    console.error('[Supabase] signInWithOAuth failed to get provider URL:', { provider, error: toPlainSupabaseError(error) });
+    return { data: null, error: error || new Error(`Unable to start ${provider} sign-in`) };
+  }
+
+  if (Platform.OS === 'web') {
+    // Supabase's normal web pattern is a full-page redirect to the provider,
+    // then back to this same page — skipBrowserRedirect just lets us log the
+    // URL first; the redirect itself still has to happen via the browser.
+    window.location.href = data.url;
+    return { data: null, error: null };
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  console.log('[Supabase] WebBrowser.openAuthSessionAsync result:', { provider, type: result.type });
+
+  if (result.type === 'cancel' || result.type === 'dismiss') {
+    const cancelError: any = new Error(`User cancelled ${provider} sign-in`);
+    cancelError.code = 'auth/oauth-cancelled';
+    return { data: null, error: cancelError };
+  }
+
+  if (result.type !== 'success' || !result.url) {
+    return { data: null, error: new Error(`${provider} sign-in did not complete`) };
+  }
+
+  const { params, errorCode } = QueryParams.getQueryParams(result.url);
+  if (errorCode || !params.code) {
+    console.error('[Supabase] OAuth redirect had no code:', { provider, errorCode, url: result.url });
+    return { data: null, error: new Error(errorCode || `${provider} sign-in did not return a code`) };
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(params.code);
+  if (sessionError || !sessionData?.session?.user) {
+    console.error('[Supabase] exchangeCodeForSession failed:', { provider, error: toPlainSupabaseError(sessionError) });
+    return { data: null, error: sessionError || new Error('Unable to complete sign-in session') };
+  }
+
+  console.log('[Supabase] OAuth sign-in successful:', { provider, userId: sessionData.session.user.id });
+  return { data: { user: sessionData.session.user }, error: null };
+};
+
+// New Google/Facebook sign-ins never went through SignUpScreen, so there's no
+// `users` row yet. Mirrors SignUpScreen's exact profile shape (role: 'parent'
+// — the only self-serve signup path this app has) so an OAuth user reaches
+// the dashboard the same way an email/password signup would. Idempotent: a
+// returning OAuth user already has both rows, so both calls are no-ops.
+export const ensureUserProfileForOAuthUser = async (user: any) => {
+  const existing = await getUserProfileById(user.id);
+  if (existing.data) return;
+
+  const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Parent';
+  console.log('[Supabase] First-time OAuth login — creating user profile row:', { userId: user.id });
+
+  const { error: userProfileError } = await upsertUserProfile({
+    id: user.id,
+    name: fullName,
+    email: user.email,
+    role: 'parent',
+    // Google/Facebook already verified this address on their end.
+    email_verified: true,
+  });
+  if (userProfileError) throw userProfileError;
+
+  try {
+    await ensureParentProfile({
+      id: user.id,
+      auth_uid: user.id,
+      full_name: fullName,
+      name: fullName,
+      email: user.email,
+    });
+  } catch (parentProfileError) {
+    console.error('[Supabase] Failed to create parent profile row for OAuth user:', parentProfileError);
+  }
+};
+
+const normalizeRole = (role?: string) => (typeof role === 'string' ? role.trim().toLowerCase() : '');
+
+const determineUserRole = (loginIsUsername: boolean, profileRole?: string, email?: string) => {
+  // Username login is always a student
+  if (loginIsUsername) return 'student';
+
+  const normalizedRole = normalizeRole(profileRole);
+  if (normalizedRole === 'student') return 'student';
+  if (normalizedRole === 'teacher') return 'teacher';
+  if (normalizedRole === 'parent') return 'parent';
+
+  // Email pattern fallback
+  if (email?.toLowerCase().endsWith('@student.linawletra.app') || email?.toLowerCase().includes('@student.')) {
+    return 'student';
+  }
+
+  // No role set yet — return null to trigger child lookup
+  return null;
+};
+
+// Shared by every login entry point — email/password (LoginScreen), student
+// username (LoginScreen), and Google/Facebook (LoginScreen + SignUpScreen) —
+// so role resolution and dashboard routing behave identically no matter how
+// the user authenticated. `navigation` is a React Navigation prop passed in
+// by whichever screen calls this.
+export const completeAuthSession = async (
+  user: any,
+  isEmail: boolean,
+  navigation: any,
+  onUnknownRole?: (message: string) => void,
+) => {
+  const loginIsUsername = !isEmail;
+  let profileData: any = null;
+  let profileRole = '';
+
+  console.log('[Auth] Session established for user:', user.email);
+  let emailVerified = !!user.email_confirmed_at;
+
+  if (isEmail) {
+    const profileResult = await getUserProfileById(user.id);
+    console.log('[Auth] Profile lookup after auth:', {
+      userId: user.id,
+      hasProfile: !!profileResult.data,
+      profileRole: profileResult.data?.role,
+      profileEmail: profileResult.data?.email,
+      profileError: profileResult.error
+        ? { message: profileResult.error.message, code: profileResult.error.code, details: profileResult.error.details }
+        : null,
+    });
+    profileData = profileResult.data;
+
+    const determinedRole = determineUserRole(loginIsUsername, profileData?.role, user.email || undefined);
+
+    if (!determinedRole || determinedRole === null) {
+      const childLookup = await getChildByAuthUid(user.id);
+      if (childLookup.data) {
+        console.log('[Auth] Found child record — setting role to student');
+        profileRole = 'student';
+        profileData = { ...(profileData || {}), name: childLookup.data.name };
+      } else {
+        profileRole = '';
+      }
+    } else {
+      profileRole = determinedRole;
+
+      // Even if profile says parent/teacher, double-check children table
+      // (web enrollments sometimes create users with wrong role)
+      if (profileRole !== 'student') {
+        const childLookup = await getChildByAuthUid(user.id);
+        if (childLookup.data) {
+          console.log('[Auth] Profile role was', profileRole, 'but found child record — overriding to student');
+          profileRole = 'student';
+          profileData = { ...(profileData || {}), name: childLookup.data.name };
+        }
+      }
+    }
+
+    if (!emailVerified && profileData?.email_verified) {
+      emailVerified = true;
+    }
+  } else {
+    profileRole = 'student';
+    profileData = { name: user.user_metadata?.full_name || user.email };
+  }
+
+  if (isEmail && !emailVerified) {
+    console.log('[Auth] Email not verified, redirecting to verification screen');
+    navigation.replace('EmailVerification', {
+      email: user.email,
+      userId: user.id,
+      message: 'Your email is not verified. Enter the 6-digit code sent to your email to continue.',
+    });
+    return;
+  }
+
+  await upsertUserProfile({ id: user.id, lastLoginAt: new Date().toISOString() });
+
+  if (profileRole === 'parent') {
+    console.log('[Auth] → ParentDashboard');
+    navigation.replace('ParentDashboard');
+  } else if (profileRole === 'student') {
+    console.log('[Auth] → StudentDashboard');
+    navigation.replace('StudentDashboard');
+  } else if (profileRole === 'teacher') {
+    console.log('[Auth] → ParentDashboard (teacher placeholder)');
+    // TODO: navigation.replace('TeacherDashboard') once built
+    navigation.replace('ParentDashboard');
+  } else {
+    console.error('[Auth] Could not determine role for user:', user.id);
+    onUnknownRole?.('Hindi kilala ang account type. Makipag-ugnayan sa admin.');
+  }
+};
+
+// Deep-links back into the app (ResetPassword screen, registered in App.tsx's
+// linking config) instead of Supabase's dashboard-configured web Site URL —
+// there's no website that handles this link, so a web redirect would be a
+// dead end on a native build.
 export const resetPassword = async (email: string) => {
-  return supabase.auth.resetPasswordForEmail(email);
+  const redirectTo = AuthSession.makeRedirectUri({ scheme: 'linawletra', path: 'reset-password' });
+  return supabase.auth.resetPasswordForEmail(email, { redirectTo });
 };
 
 export const getCurrentSession = async () => {

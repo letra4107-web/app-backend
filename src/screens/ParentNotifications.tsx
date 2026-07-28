@@ -282,7 +282,13 @@ export function NotificationsView({
         {!loading && !filteredItems.length && (
           <View style={styles.emptyState}>
             <Ionicons name="notifications-off-outline" size={40} color={HOME_INK_SOFT} />
-            <Text style={styles.emptyText}>Wala pang notification.</Text>
+            <Text style={styles.emptyText}>
+              {items.length === 0
+                ? childList.length === 1
+                  ? `Wala ka pang notifications. Makikita mo dito ang mga update tungkol sa progress ni ${childList[0].name}.`
+                  : 'Wala ka pang notifications. Makikita mo dito ang mga update tungkol sa progress ng iyong (mga) anak.'
+                : 'Walang notification na tumutugma sa filter na ito.'}
+            </Text>
           </View>
         )}
 

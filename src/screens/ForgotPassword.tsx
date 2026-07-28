@@ -1,29 +1,43 @@
 import React, { useState } from 'react';
 import {
-  ImageBackground,
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   Platform,
   Image,
+  ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { resetPassword } from '../services/supabaseService';
-import { colors } from '../config/theme';
 
 interface ForgotPasswordProps {
   navigation: any;
 }
+
+// Same warm "reading journey" identity tokens used on Login/Sign Up — this
+// screen should feel like a continuation of the same flow.
+const HOME_CREAM = '#FBF3E2';
+const HOME_INK = '#3B322C';
+const HOME_INK_SOFT = '#8A7B6C';
+const HOME_CORAL = '#E06B4C';
+const HOME_LAVENDER_DARK = '#5F52B0';
+const SUCCESS = '#10b981';
+const FONT_DISPLAY = 'Baloo2_800ExtraBold';
+const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
+
+const REASSURANCE_TEXT = "If an account exists with this email, you'll receive a reset link shortly. Check your inbox and spam folder.";
 
 const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [generalError, setGeneralError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   const validateEmail = (value: string) => {
     setEmail(value);
@@ -49,6 +63,8 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
     }
 
     setTouched(true);
+    setGeneralError('');
+    setSubmitted(false);
 
     if (!isEmailValid()) {
       return;
@@ -57,228 +73,361 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
     setLoading(true);
     try {
       const { error } = await resetPassword(email.trim());
-      if (error) throw error;
 
-      Alert.alert(
-        '📧 Check Your Email',
-        'We sent a password reset link. Follow the instructions to create a new password.',
-        [
-          {
-            text: 'Back to Login',
-            onPress: () => navigation.goBack(),
-          },
-        ],
-      );
-    } catch (error: any) {
-      console.error('[ForgotPassword] Reset error:', error);
-      let errorMessage = 'Something went wrong. Please try again.';
+      // Supabase's resetPasswordForEmail is already designed not to reveal
+      // whether an account exists for this email — but even so, we must never
+      // let a "user not found"-style error surface as a distinct message here
+      // (account enumeration). Only genuinely account-agnostic failures
+      // (rate limiting, malformed email, network) get their own message;
+      // anything else — including any account-existence-related error —
+      // collapses into the same generic confirmation as a real success.
+      if (error) {
+        const message = String(error.message || '').toLowerCase();
+        const status = (error as any)?.status;
+        console.warn('[ForgotPassword] resetPasswordForEmail returned an error (may still be safe to treat as generic):', {
+          status,
+          message: error.message,
+        });
 
-      if (error?.message?.includes('Invalid email')) {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (error?.message?.includes('User not found')) {
-        errorMessage = 'No account found with this email.';
+        if (status === 429 || message.includes('rate limit') || message.includes('too many')) {
+          setGeneralError('Too many requests. Please wait a few minutes and try again.');
+          return;
+        }
+        if (message.includes('invalid email') || message.includes('unable to validate email')) {
+          setGeneralError('Please enter a valid email address.');
+          return;
+        }
+        if (message.includes('network') || message.includes('fetch failed') || message.includes('timed out')) {
+          setGeneralError('Network error. Please check your connection and try again.');
+          return;
+        }
+        // Deliberately no other branches — anything else (including account
+        // existence) falls through to the generic confirmation below.
       }
 
-      Alert.alert('Unable to Send Reset', errorMessage);
+      setSubmitted(true);
+    } catch (error: any) {
+      console.error('[ForgotPassword] Reset error:', error);
+      setGeneralError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ImageBackground
-      source={require('../../assets/bg.jpg')}
-      resizeMode="cover"
-      style={styles.container}
-      imageStyle={styles.backgroundImage}
-    >
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="chevron-back" size={24} color={colors.primary} />
-        <Text style={styles.backText}>Back</Text>
-      </TouchableOpacity>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.backgroundDecor}>
+          <View style={styles.circleTopLeft} />
+          <View style={styles.circleRight} />
+        </View>
 
-      <View style={styles.content}>
-        <Image source={require('../../assets/Logo.jpg')} style={styles.logo} />
+        <View style={styles.topHeader}>
+          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.tagline}>Clearer Reading. Brighter Learning.</Text>
+        </View>
 
-        <Text style={styles.title}>Forgot Password</Text>
-        <Text style={styles.subtitle}>Enter your email to receive a reset link.</Text>
+        <View style={styles.iconBadge}>
+          <Ionicons name="lock-closed" size={32} color="#fff" />
+        </View>
+
+        <Text style={styles.title}>Forgot Your Password?</Text>
+        <Text style={styles.subtitle}>No worries. Enter your email and we'll send you a link to reset your password.</Text>
 
         <View style={styles.card}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={[
-              styles.inputWrapper,
-              touched && emailError ? styles.inputWrapperError : null,
-            ]}>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your email"
-                placeholderTextColor="#A6A6A6"
-                value={email}
-                onChangeText={validateEmail}
-                onBlur={() => setTouched(true)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                editable={!loading}
-              />
-            </View>
-            {touched && emailError ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color="#E07A31" />
-                <Text style={styles.errorText}>{emailError}</Text>
-              </View>
-            ) : null}
-          </View>
+          {generalError ? <Text style={styles.errorBanner}>{generalError}</Text> : null}
 
-          <TouchableOpacity
-            style={[styles.button, (!isEmailValid() || loading) && styles.buttonDisabled]}
-            onPress={handleReset}
-            disabled={!isEmailValid() || loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Send Reset Email</Text>
-            )}
-          </TouchableOpacity>
+          {submitted ? (
+            <View style={styles.successBanner}>
+              <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
+              <Text style={styles.successBannerText}>{REASSURANCE_TEXT}</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email Address</Text>
+                <View style={[
+                  styles.inputWrapper,
+                  touched && emailError ? styles.inputWrapperError : null,
+                ]}>
+                  <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your registered email address"
+                    placeholderTextColor={HOME_INK_SOFT}
+                    value={email}
+                    onChangeText={validateEmail}
+                    onBlur={() => setTouched(true)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    editable={!loading}
+                  />
+                </View>
+                {touched && emailError ? (
+                  <View style={styles.errorContainer}>
+                    <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                    <Text style={styles.errorFieldText}>{emailError}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.button, (!isEmailValid() || loading) && styles.buttonDisabled]}
+                onPress={handleReset}
+                disabled={!isEmailValid() || loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Send Reset Link</Text>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.reassuranceText}>{REASSURANCE_TEXT}</Text>
+            </>
+          )}
         </View>
-      </View>
-    </ImageBackground>
+
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backRow}>
+          <Ionicons name="chevron-back" size={18} color={HOME_LAVENDER_DARK} />
+          <Text style={styles.backText}>Back to Login</Text>
+        </TouchableOpacity>
+
+        <View style={styles.trustNote}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Text style={styles.trustNoteText}>Your information is protected and securely handled.</Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F7F9',
-    paddingTop: 40,
+    backgroundColor: HOME_CREAM,
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  backText: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-    marginLeft: 6,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-  },
-  content: {
+  scroll: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 8,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingTop: Platform.OS === 'ios' ? 44 : 32,
+    paddingBottom: 40,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+  },
+  backgroundDecor: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: -1,
+  },
+  circleTopLeft: {
+    position: 'absolute',
+    top: -80,
+    left: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(124,111,207,0.14)',
+  },
+  circleRight: {
+    position: 'absolute',
+    top: 28,
+    right: -90,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(224,107,76,0.12)',
+  },
+  topHeader: {
+    alignItems: 'center',
+    marginBottom: 4,
   },
   logo: {
-    width: 190,
-    height: 88,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-    marginBottom: 16,
+    width: 200,
+    height: 100,
+  },
+  tagline: {
+    fontSize: 13,
+    color: HOME_INK_SOFT,
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  iconBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: HOME_LAVENDER_DARK,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 24px rgba(95,82,176,0.35)' },
+      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
+    }),
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 24,
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: colors.primary,
-    letterSpacing: 0.25,
-    lineHeight: 38,
+    fontFamily: FONT_DISPLAY,
+    color: HOME_INK,
+    paddingHorizontal: 20,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 30,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#2B2B2B',
-    lineHeight: 22,
-    letterSpacing: 0.12,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+    color: HOME_INK_SOFT,
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 28,
   },
   card: {
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.82)',
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    maxWidth: 420,
+    marginHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    shadowColor: '#0f2715',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
+    borderColor: 'rgba(124,111,207,0.14)',
     elevation: 10,
-    marginBottom: 28,
+    ...Platform.select({
+      web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
+      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+    }),
+  },
+  errorBanner: {
+    color: '#9A3412',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 13,
+    backgroundColor: 'rgba(224,107,76,0.12)',
+    padding: 12,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: HOME_CORAL,
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderLeftWidth: 4,
+    borderLeftColor: SUCCESS,
+    borderRadius: 16,
+    padding: 16,
+  },
+  successBannerText: {
+    flex: 1,
+    color: '#0f6b4f',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   label: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
+    fontSize: 12,
+    marginBottom: 8,
+    fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#1D4030',
-    letterSpacing: 0.25,
+    color: HOME_INK,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   inputWrapper: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(61, 77, 85, 0.14)',
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    height: 64,
-    justifyContent: 'center',
+    borderColor: 'rgba(124,111,207,0.25)',
+    borderRadius: 14,
+    backgroundColor: '#FAF8F3',
+    paddingHorizontal: 14,
+    minHeight: 56,
   },
   inputWrapperError: {
-    borderColor: '#F3B269',
-    backgroundColor: '#FFF4ED',
+    borderColor: HOME_CORAL,
+    backgroundColor: '#FDF3EF',
+  },
+  inputLeadingIcon: {
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#1B2730',
+    color: HOME_INK,
     padding: 0,
-    minHeight: 46,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
-  errorText: {
-    color: '#E07A31',
-    fontSize: 13,
-    marginLeft: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    fontWeight: '500',
+  errorFieldText: {
+    color: '#B3441F',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
   },
   button: {
-    backgroundColor: '#1D5E2D',
-    borderRadius: 18,
-    height: 56,
+    backgroundColor: HOME_LAVENDER_DARK,
+    paddingVertical: 16,
+    borderRadius: 24,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 4,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
+      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+    }),
   },
   buttonDisabled: {
-    backgroundColor: '#A7BEAB',
+    backgroundColor: '#C7C2D6',
     opacity: 0.8,
+    ...Platform.select({
+      web: { boxShadow: 'none' },
+      default: { shadowOpacity: 0 },
+    }),
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    letterSpacing: 0.25,
+    fontSize: 16,
+    fontWeight: '800',
+    fontFamily: FONT_DISPLAY_SEMI,
   },
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
+  reassuranceText: {
+    fontSize: 12,
+    textAlign: 'center',
+    color: HOME_INK_SOFT,
+    lineHeight: 17,
+    marginTop: 14,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 22,
+    gap: 4,
+  },
+  backText: {
+    fontSize: 15,
+    color: HOME_LAVENDER_DARK,
+    fontWeight: '700',
+  },
+  trustNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+    paddingHorizontal: 20,
+  },
+  trustNoteText: {
+    color: HOME_INK_SOFT,
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
 

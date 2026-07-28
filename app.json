@@ -3,6 +3,7 @@
     "name": "LinawLm",
     "slug": "LinawLm",
     "version": "1.0.0",
+    "scheme": "linawletra",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

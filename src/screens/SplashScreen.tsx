@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, ImageBackground, Image, Dimensions, Platform } from 'react-native';
+import { supabase } from '../config/supabase';
+import { completeAuthSession } from '../services/supabaseService';
 
 interface SplashScreenProps {
   navigation: any;
@@ -22,7 +24,22 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
       Animated.spring(scale, { toValue: 1, friction: 6, tension: 80, useNativeDriver: USE_NATIVE_DRIVER }),
     ]).start();
 
-    const timer = setTimeout(() => navigation.replace('Login'), 2200);
+    // Without this, a perfectly valid persisted session (AsyncStorage on
+    // native, localStorage on web) was still discarded on every cold start —
+    // this screen always sent the user to Login regardless of whether they
+    // were already signed in.
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) {
+          await completeAuthSession(data.session.user, true, navigation);
+          return;
+        }
+      } catch (error) {
+        console.error('[Splash] Session restore check failed:', error);
+      }
+      navigation.replace('Login');
+    }, 2200);
     return () => clearTimeout(timer);
   }, [navigation, opacity, scale]);
 

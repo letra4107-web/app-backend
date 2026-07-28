@@ -21,10 +21,24 @@ import EditProfile from './src/screens/EditProfile';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import EmailVerification from './src/screens/EmailVerification';
 import ForgotPassword from './src/screens/ForgotPassword';
+import ResetPassword from './src/screens/ResetPassword';
 import ResendVerification from './src/screens/ResendVerification';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
 const Stack = createStackNavigator();
+
+// Lets the password-reset email link (linawletra://reset-password?code=...)
+// open the app directly into the ResetPassword screen, with the `code` query
+// param handed to it as route.params.code — both cold-start (app not running)
+// and warm (already open) cases are handled by this same config.
+const linking = {
+  prefixes: ['linawletra://'],
+  config: {
+    screens: {
+      ResetPassword: 'reset-password',
+    },
+  },
+};
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -39,7 +53,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         <ErrorBoundary title="LinawLetra needs a refresh" message="The app hit an unexpected error. Try again to reload this view.">
           <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Splash" component={SplashScreen} />
@@ -53,6 +67,7 @@ export default function App() {
             <Stack.Screen name="StudentSettings" component={StudentSettings} />
             <Stack.Screen name="EditProfile" component={EditProfile} />
             <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+            <Stack.Screen name="ResetPassword" component={ResetPassword} />
             <Stack.Screen name="ResendVerification" component={ResendVerification} />
           </Stack.Navigator>
         </ErrorBoundary>

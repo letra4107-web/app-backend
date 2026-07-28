@@ -74,7 +74,11 @@ if (SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length < 100) {
 }
 
 // Only use React Native AsyncStorage on native platforms. On web, let supabase-js use browser storage.
-let clientOptions: any = { auth: { detectSessionInUrl: false } };
+// flowType: 'pkce' is required for the Google/Facebook OAuth flow (signInWithOAuthProvider in
+// supabaseService.ts) — it makes signInWithOAuth return a `code` we exchange manually via
+// exchangeCodeForSession after the WebBrowser redirect, instead of implicit-flow tokens in a URL
+// fragment (which is awkward to parse on native). Email/password sign-in is unaffected either way.
+let clientOptions: any = { auth: { detectSessionInUrl: false, flowType: 'pkce' } };
 if (Platform.OS !== 'web') {
   try {
     // Require dynamically so bundlers targeting web don't try to resolve native-only packages.
@@ -87,6 +91,7 @@ if (Platform.OS !== 'web') {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false,
+        flowType: 'pkce',
       },
     };
   } catch (e) {

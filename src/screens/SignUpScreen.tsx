@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  ImageBackground,
   View,
   Text,
   TextInput,
@@ -13,9 +12,11 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signUpUser, upsertUserProfile } from '../services/supabaseService';
+import {
+  signUpUser, upsertUserProfile,
+  signInWithOAuthProvider, ensureUserProfileForOAuthUser, completeAuthSession, OAuthProvider,
+} from '../services/supabaseService';
 import { ensureParentProfile } from '../services/profileService';
-import { colors } from '../config/theme';
 import { sendEmailOTP } from '../services/otpService';
 
 interface SignUpScreenProps {
@@ -48,6 +49,18 @@ interface FormValid {
 type DeliveryMethod = 'email' | 'sms' | null;
 type SignUpStep = 'form' | 'otp';
 
+// Same warm "reading journey" identity tokens used on the Login screen and
+// across the redesigned dashboard — this screen should read as a
+// continuation of the same flow, not a separate style.
+const HOME_CREAM = '#FBF3E2';
+const HOME_INK = '#3B322C';
+const HOME_INK_SOFT = '#8A7B6C';
+const HOME_CORAL = '#E06B4C';
+const HOME_LAVENDER_DARK = '#5F52B0';
+const SUCCESS = '#10b981';
+const FONT_DISPLAY = 'Baloo2_800ExtraBold';
+const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
+
 const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   // Form fields
   const [firstName, setFirstName] = useState('');
@@ -69,6 +82,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
   // UI states
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [successInfo, setSuccessInfo] = useState('');
@@ -164,8 +178,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         else isValid = true;
         break;
       case 'middleInitial':
-        if (!value.trim()) error = 'Please enter your middle initial';
-        else if (value.trim().length > 1) error = 'Please use only one letter';
+        // Genuinely optional — empty is valid. Only complain if somehow more
+        // than one character got in (the input itself already caps at 1).
+        if (value.trim().length > 1) error = 'Please use only one letter';
         else isValid = true;
         break;
       case 'email':
@@ -214,7 +229,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     return (
       firstName.trim().length >= 2 &&
       lastName.trim().length >= 2 &&
-      middleInitial.trim().length === 1 &&
+      middleInitial.trim().length <= 1 &&
       emailRegex.test(email.trim()) &&
       password.length >= 8 &&
       /[A-Z]/.test(password) &&
@@ -325,7 +340,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         console.error('[Signup] Failed to create parent profile row:', parentProfileError);
       }
 
-      await sendEmailOTP(normalizedEmail, userId);
+      const otpResult = await sendEmailOTP(normalizedEmail, userId);
       console.log('[Signup] Completed successfully:', { ms: Date.now() - startAt });
 
       setSuccessMessage('✅ Signup successful!');
@@ -334,6 +349,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         email: normalizedEmail,
         userId,
         otpSent: true,
+        expiresAt: otpResult?.expiresAt,
         message: 'Naipadala na ang OTP sa iyong email.',
       });
     } catch (error: any) {
@@ -371,6 +387,33 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     }
   };
 
+  // Same signInWithOAuth flow as the Login screen — Supabase creates the
+  // account automatically on first OAuth sign-in, and Google/Facebook already
+  // verify the email on their end (user.email_confirmed_at comes back true),
+  // so completeAuthSession routes straight to the dashboard and never
+  // involves the OTP screen at all. ensureUserProfileForOAuthUser is the same
+  // idempotent helper the Login screen uses — not duplicated here.
+  const handleOAuthSignUp = async (provider: OAuthProvider) => {
+    setErrors((prev) => ({ ...prev, general: '' }));
+    setOauthLoading(provider);
+    try {
+      const { data, error } = await signInWithOAuthProvider(provider);
+      if (error) {
+        if (error.code === 'auth/oauth-cancelled') return;
+        throw error;
+      }
+      if (!data?.user) return; // web: full-page redirect already in flight
+      await ensureUserProfileForOAuthUser(data.user);
+      await completeAuthSession(data.user, true, navigation, (message) => setErrors((prev) => ({ ...prev, general: message })));
+    } catch (error: any) {
+      console.error('[Signup] OAuth signup error:', { provider, message: error?.message, code: error?.code });
+      const providerLabel = provider === 'google' ? 'Google' : 'Facebook';
+      setErrors((prev) => ({ ...prev, general: `Hindi ma-signup gamit ang ${providerLabel}. Pakisubukang muli.` }));
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+
   const showTerms = () => {
     // In a real app, this would navigate to a Terms screen
     // For now, we'll just show a placeholder
@@ -381,190 +424,184 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     // For now, we'll just show a placeholder
   };
 
+  const isBusy = loading || !!oauthLoading;
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ImageBackground
-        source={require('../../assets/bg.jpg')}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.contentWrapper}>
-            <View style={styles.card}>
-              <Image source={require('../../assets/Logo.jpg')} style={styles.logo} />
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.backgroundDecor}>
+          <View style={styles.circleTopLeft} />
+          <View style={styles.circleRight} />
+          <View style={styles.circleBottom} />
+        </View>
 
-              <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Join LinawLetra for personalized reading</Text>
+        <View style={styles.topHeader}>
+          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Create Your Account</Text>
+          <Text style={styles.subtitle}>Let's get started with LinawLetra.</Text>
+          <Text style={styles.supportingText}>Create a parent account to support your child's reading journey.</Text>
+        </View>
 
-          {/* General Error Message */}
-              {errors.general ? (
-                <View style={[styles.messageBanner, styles.errorBanner]}>
-                  <Ionicons name="alert-circle" size={20} color="#d32f2f" style={styles.messageIcon} />
-                  <Text style={styles.errorBannerText}>{errors.general}</Text>
+        <View style={styles.card}>
+          {errors.general ? (
+            <View style={styles.messageBanner}>
+              <Ionicons name="alert-circle" size={20} color={HOME_CORAL} style={styles.messageIcon} />
+              <Text style={styles.errorBannerText}>{errors.general}</Text>
+            </View>
+          ) : null}
+
+          {successMessage ? (
+            <View style={[styles.messageBanner, styles.successBanner]}>
+              <Ionicons name="checkmark-circle" size={20} color={SUCCESS} style={styles.messageIcon} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.successBannerText}>{successMessage}</Text>
+                {successInfo ? <Text style={styles.successInfoText}>{successInfo}</Text> : null}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.nameRow}>
+            <View style={[styles.inputGroup, styles.nameField]}>
+              <Text style={styles.label}>First Name</Text>
+              <View style={[
+                styles.inputWrapper,
+                (touchedFirstName || submitAttempted) && errors.firstName ? styles.inputWrapperError : null,
+              ]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="First Name"
+                  placeholderTextColor={HOME_INK_SOFT}
+                  value={firstName}
+                  onChangeText={(text) => setFirstName(sanitizeName(text))}
+                  onBlur={() => setTouchedFirstName(true)}
+                  editable={!isBusy}
+                  autoCapitalize="words"
+                />
+                {valid.firstName && !errors.firstName && (
+                  <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
+                )}
+              </View>
+              {(touchedFirstName || submitAttempted) && errors.firstName ? (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                  <Text style={styles.errorFieldText}>{errors.firstName}</Text>
                 </View>
               ) : null}
+            </View>
 
-              {/* Success Message */}
-              {successMessage ? (
-                <View style={[styles.messageBanner, styles.successBanner]}>
-                  <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={styles.messageIcon} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.successBannerText}>{successMessage}</Text>
-                    {successInfo ? (
-                      <Text style={styles.successInfoText}>{successInfo}</Text>
-                    ) : null}
-                  </View>
+            <View style={[styles.inputGroup, styles.nameField]}>
+              <Text style={styles.label}>Last Name</Text>
+              <View style={[
+                styles.inputWrapper,
+                (touchedLastName || submitAttempted) && errors.lastName ? styles.inputWrapperError : null,
+              ]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Last Name"
+                  placeholderTextColor={HOME_INK_SOFT}
+                  value={lastName}
+                  onChangeText={(text) => setLastName(sanitizeName(text))}
+                  onBlur={() => setTouchedLastName(true)}
+                  editable={!isBusy}
+                  autoCapitalize="words"
+                />
+                {valid.lastName && !errors.lastName && (
+                  <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
+                )}
+              </View>
+              {(touchedLastName || submitAttempted) && errors.lastName ? (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                  <Text style={styles.errorFieldText}>{errors.lastName}</Text>
                 </View>
               ) : null}
-
-          {/* First Name */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>First Name *</Text>
-            <View style={[
-              styles.inputWrapper,
-              (touchedFirstName || submitAttempted) && errors.firstName ? styles.inputWrapperError : null,
-            ]}>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter first name"
-                placeholderTextColor="#999"
-                value={firstName}
-                onChangeText={(text) => setFirstName(sanitizeName(text))}
-                onBlur={() => setTouchedFirstName(true)}
-                editable={!loading}
-                autoCapitalize="words"
-              />
-              {valid.firstName && !errors.firstName && (
-                <Ionicons name="checkmark-circle" size={20} color="#388e3c" style={styles.inputIcon} />
-              )}
             </View>
-            {(touchedFirstName || submitAttempted) && errors.firstName ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color="#d32f2f" />
-                <Text style={styles.errorFieldText}>{errors.firstName}</Text>
-              </View>
-            ) : null}
           </View>
 
-          {/* Last Name */}
+          {/* Middle Initial is genuinely optional — see validateField/isFormValid,
+              neither requires it. Label reflects that instead of showing a
+              required asterisk. */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Last Name *</Text>
-            <View style={[
-              styles.inputWrapper,
-              (touchedLastName || submitAttempted) && errors.lastName ? styles.inputWrapperError : null,
-            ]}>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter last name"
-                placeholderTextColor="#999"
-                value={lastName}
-                onChangeText={(text) => setLastName(sanitizeName(text))}
-                onBlur={() => setTouchedLastName(true)}
-                editable={!loading}
-                autoCapitalize="words"
-              />
-              {valid.lastName && !errors.lastName && (
-                <Ionicons name="checkmark-circle" size={20} color="#388e3c" style={styles.inputIcon} />
-              )}
-            </View>
-            {(touchedLastName || submitAttempted) && errors.lastName ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color="#d32f2f" />
-                <Text style={styles.errorFieldText}>{errors.lastName}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Middle Initial */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Middle Initial *</Text>
+            <Text style={styles.label}>Middle Initial — Optional</Text>
             <View style={[
               styles.inputWrapper,
               (touchedMiddleInitial || submitAttempted) && errors.middleInitial ? styles.inputWrapperError : null,
             ]}>
               <TextInput
                 style={styles.input}
-                placeholder="M"
-                placeholderTextColor="#999"
+                placeholder="M.I. - Optional"
+                placeholderTextColor={HOME_INK_SOFT}
                 value={middleInitial}
                 onChangeText={(text) => setMiddleInitial(text.toUpperCase().slice(0, 1))}
                 onBlur={() => setTouchedMiddleInitial(true)}
                 maxLength={1}
-                editable={!loading}
+                editable={!isBusy}
               />
-              {valid.middleInitial && !errors.middleInitial && (
-                <Ionicons name="checkmark-circle" size={20} color="#388e3c" style={styles.inputIcon} />
+              {middleInitial.length > 0 && valid.middleInitial && !errors.middleInitial && (
+                <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
               )}
             </View>
             {(touchedMiddleInitial || submitAttempted) && errors.middleInitial ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color="#d32f2f" />
+                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
                 <Text style={styles.errorFieldText}>{errors.middleInitial}</Text>
               </View>
             ) : null}
           </View>
 
-          {/* Email */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address *</Text>
+            <Text style={styles.label}>Email Address</Text>
             <View style={[
               styles.inputWrapper,
               (touchedEmail || submitAttempted) && errors.email ? styles.inputWrapperError : null,
             ]}>
+              <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="your@email.com"
-                placeholderTextColor="#999"
+                placeholder="Enter your email address"
+                placeholderTextColor={HOME_INK_SOFT}
                 value={email}
                 onChangeText={(text) => setEmail(sanitizeEmail(text))}
                 onBlur={() => setTouchedEmail(true)}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                editable={!loading}
+                editable={!isBusy}
               />
               {valid.email && !errors.email && (
-                <Ionicons name="checkmark-circle" size={20} color="#388e3c" style={styles.inputIcon} />
+                <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
               )}
             </View>
             {(touchedEmail || submitAttempted) && errors.email ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color="#d32f2f" />
+                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
                 <Text style={styles.errorFieldText}>{errors.email}</Text>
               </View>
             ) : null}
           </View>
 
-          {/* Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password *</Text>
+            <Text style={styles.label}>Password</Text>
             <View style={[
               styles.inputWrapper,
               (touchedPassword || submitAttempted) && errors.password ? styles.inputWrapperError : null,
             ]}>
+              <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="At least 8 characters"
-                placeholderTextColor="#999"
+                placeholder="Create a password"
+                placeholderTextColor={HOME_INK_SOFT}
                 value={password}
                 onChangeText={setPassword}
                 onBlur={() => setTouchedPassword(true)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
-                editable={!loading}
+                editable={!isBusy}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color="#666" />
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
               </TouchableOpacity>
             </View>
 
-            {/* Password Strength Indicator */}
             {password ? (
               <View style={styles.strengthContainer}>
                 <View style={styles.strengthBarBackground}>
@@ -581,14 +618,17 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               </View>
             ) : null}
 
-            {/* Password Requirements */}
+            {/* Only the 3 requirements validateField/isFormValid actually
+                enforce — a "special character" rule was NOT added here since
+                it isn't checked anywhere in the validation logic; showing it
+                would promise something the form doesn't actually require. */}
             {password && (
               <View style={styles.requirementsContainer}>
                 <View style={styles.requirementItem}>
                   <Ionicons
-                    name={password.length >= 8 ? 'checkmark-circle' : 'ellipse'}
+                    name={password.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
                     size={14}
-                    color={password.length >= 8 ? '#388e3c' : '#999'}
+                    color={password.length >= 8 ? SUCCESS : HOME_INK_SOFT}
                   />
                   <Text style={[styles.requirementText, password.length >= 8 && styles.requirementMet]}>
                     At least 8 characters
@@ -596,9 +636,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 </View>
                 <View style={styles.requirementItem}>
                   <Ionicons
-                    name={/[A-Z]/.test(password) ? 'checkmark-circle' : 'ellipse'}
+                    name={/[A-Z]/.test(password) ? 'checkmark-circle' : 'ellipse-outline'}
                     size={14}
-                    color={/[A-Z]/.test(password) ? '#388e3c' : '#999'}
+                    color={/[A-Z]/.test(password) ? SUCCESS : HOME_INK_SOFT}
                   />
                   <Text style={[styles.requirementText, /[A-Z]/.test(password) && styles.requirementMet]}>
                     One uppercase letter (A-Z)
@@ -606,9 +646,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 </View>
                 <View style={styles.requirementItem}>
                   <Ionicons
-                    name={/\d/.test(password) ? 'checkmark-circle' : 'ellipse'}
+                    name={/\d/.test(password) ? 'checkmark-circle' : 'ellipse-outline'}
                     size={14}
-                    color={/\d/.test(password) ? '#388e3c' : '#999'}
+                    color={/\d/.test(password) ? SUCCESS : HOME_INK_SOFT}
                   />
                   <Text style={[styles.requirementText, /\d/.test(password) && styles.requirementMet]}>
                     One number (0-9)
@@ -619,94 +659,114 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
             {(touchedPassword || submitAttempted) && errors.password ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color="#d32f2f" />
+                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
                 <Text style={styles.errorFieldText}>{errors.password}</Text>
               </View>
             ) : null}
           </View>
 
-          {/* Confirm Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password *</Text>
+            <Text style={styles.label}>Confirm Password</Text>
             <View style={[
               styles.inputWrapper,
               (touchedConfirmPassword || submitAttempted) && errors.confirmPassword ? styles.inputWrapperError : null,
             ]}>
+              <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Re-enter your password"
-                placeholderTextColor="#999"
+                placeholderTextColor={HOME_INK_SOFT}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 onBlur={() => setTouchedConfirmPassword(true)}
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
-                editable={!loading}
+                editable={!isBusy}
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
-                <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={20} color="#666" />
+                <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
               </TouchableOpacity>
             </View>
             {(touchedConfirmPassword || submitAttempted) && errors.confirmPassword ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color="#d32f2f" />
+                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
                 <Text style={styles.errorFieldText}>{errors.confirmPassword}</Text>
               </View>
             ) : null}
           </View>
 
-          {/* Terms and Conditions */}
-              <View style={styles.termsContainer}>
-                <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkbox}>
-                  <Ionicons
-                    name={termsAccepted ? 'checkbox' : 'square-outline'}
-                    size={24}
-                    color={termsAccepted ? colors.primary : '#999'}
-                  />
-                </TouchableOpacity>
-                <Text style={styles.termsText}>
-                  I agree to the{' '}
-                  <Text style={styles.link} onPress={showTerms}>
-                    Terms and Conditions
-                  </Text>
-                  {' '}and{' '}
-                  <Text style={styles.link} onPress={showPrivacy}>
-                    Privacy Policy
-                  </Text>
-                </Text>
-              </View>
-              {(submitAttempted && errors.terms) ? (
-                <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={14} color="#d32f2f" />
-                  <Text style={styles.errorFieldText}>{errors.terms}</Text>
-                </View>
-              ) : null}
-
-              {/* Sign Up Button */}
-              <TouchableOpacity
-                style={[styles.signUpButton, (!isFormValid() || loading) && styles.buttonDisabled]}
-                onPress={handleSignUp}
-                disabled={!isFormValid() || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" size="large" />
-                ) : (
-                  <>
-                    <Ionicons name="person-add" size={20} color="#fff" style={styles.buttonIcon} />
-                    <Text style={styles.signUpButtonText}>Sign Up</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-          {/* Sign In Link */}
-              <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.signInContainer}>
-                <Text style={styles.signInText}>Already have an account? </Text>
-                <Text style={styles.signInLink}>Log in</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.termsContainer}>
+            <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkbox}>
+              <Ionicons
+                name={termsAccepted ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={termsAccepted ? HOME_LAVENDER_DARK : HOME_INK_SOFT}
+              />
+            </TouchableOpacity>
+            <Text style={styles.termsText}>
+              I agree to the{' '}
+              <Text style={styles.link} onPress={showTerms}>Terms of Use</Text>
+              {' '}and{' '}
+              <Text style={styles.link} onPress={showPrivacy}>Privacy Policy</Text>
+            </Text>
           </View>
+          {(submitAttempted && errors.terms) ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+              <Text style={styles.errorFieldText}>{errors.terms}</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={[styles.signUpButton, (!isFormValid() || isBusy) && styles.buttonDisabled]}
+            onPress={handleSignUp}
+            disabled={!isFormValid() || isBusy}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.signUpButtonText}>Create Account</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.oauthDivider}>
+            <View style={styles.oauthDividerLine} />
+            <Text style={styles.oauthDividerText}>OR</Text>
+            <View style={styles.oauthDividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.oauthButton, isBusy && styles.oauthButtonDisabled]}
+            onPress={() => handleOAuthSignUp('google')}
+            disabled={isBusy}
+          >
+            <Ionicons name="logo-google" size={20} color="#DB4437" />
+            <Text style={styles.oauthButtonText}>
+              {oauthLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.oauthButton, { marginBottom: 0 }, isBusy && styles.oauthButtonDisabled]}
+            onPress={() => handleOAuthSignUp('facebook')}
+            disabled={isBusy}
+          >
+            <Ionicons name="logo-facebook" size={20} color="#1877F2" />
+            <Text style={styles.oauthButtonText}>
+              {oauthLoading === 'facebook' ? 'Connecting...' : 'Continue with Facebook'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.signInRow}>
+          <Text style={styles.signInText}>Already have an account? <Text style={styles.signInLinkBold}>Log In</Text></Text>
+        </TouchableOpacity>
+
+        <View style={styles.trustNote}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
+        </View>
       </ScrollView>
-      </ImageBackground>
     </KeyboardAvoidingView>
   );
 };
@@ -714,141 +774,182 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: HOME_CREAM,
   },
-  backgroundImage: {
+  scroll: {
     flex: 1,
-    width: '100%',
   },
-  scrollContainer: {
+  scrollContent: {
     flexGrow: 1,
-    minHeight: '100%',
-  },
-  contentWrapper: {
-    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 44 : 32,
     paddingBottom: 40,
   },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.75)',
+  backgroundDecor: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: -1,
+  },
+  circleTopLeft: {
+    position: 'absolute',
+    top: -80,
+    left: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(124,111,207,0.14)',
+  },
+  circleRight: {
+    position: 'absolute',
+    top: 28,
+    right: -90,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(224,107,76,0.12)',
+  },
+  circleBottom: {
+    position: 'absolute',
+    bottom: -100,
+    left: -60,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(92,128,71,0.08)',
+  },
+  topHeader: {
+    alignItems: 'center',
     marginHorizontal: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 26,
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.85)',
-    shadowColor: '#122d18',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.12,
-    shadowRadius: 34,
-    elevation: 10,
-    marginTop: 16,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
+    marginBottom: 8,
   },
   logo: {
-    width: 150,
-    height: 75,
-    resizeMode: 'contain',
+    width: 200,
+    height: 100,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 6,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 24,
     textAlign: 'center',
-    marginBottom: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#1a1a1a',
-    letterSpacing: 0.5,
+    marginBottom: 4,
+    fontFamily: FONT_DISPLAY,
+    color: HOME_INK,
+    letterSpacing: 0.2,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
-    marginBottom: 24,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#222',
-    lineHeight: 24,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+    color: HOME_INK_SOFT,
+    lineHeight: 22,
+  },
+  supportingText: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 18,
+    fontStyle: 'italic',
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+    color: HOME_INK_SOFT,
+    lineHeight: 18,
+    paddingHorizontal: 12,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(124,111,207,0.14)',
+    elevation: 10,
+    marginTop: 14,
+    ...Platform.select({
+      web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
+      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+    }),
   },
   messageBanner: {
     flexDirection: 'row',
     padding: 14,
-    borderRadius: 12,
-    marginBottom: 20,
+    borderRadius: 16,
+    marginBottom: 18,
     alignItems: 'flex-start',
-  },
-  errorBanner: {
-    backgroundColor: '#FFF8E1',
+    backgroundColor: 'rgba(224,107,76,0.12)',
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
+    borderLeftColor: HOME_CORAL,
   },
   successBanner: {
-    backgroundColor: '#e8f5e9',
-    borderLeftWidth: 4,
-    borderLeftColor: '#388e3c',
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderLeftColor: SUCCESS,
   },
   messageIcon: {
     marginRight: 10,
     marginTop: 2,
   },
   errorBannerText: {
-    color: '#FF9800',
+    color: '#9A3412',
     fontSize: 14,
     flex: 1,
     lineHeight: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
     fontWeight: '500',
   },
   successBannerText: {
-    color: colors.primary,
+    color: '#0f6b4f',
     fontSize: 14,
     flex: 1,
     lineHeight: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
     fontWeight: '600',
   },
   successInfoText: {
-    color: colors.primary,
+    color: '#0f6b4f',
     fontSize: 13,
     lineHeight: 18,
     marginTop: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  nameField: {
+    flex: 1,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 10,
+    fontSize: 12,
+    marginBottom: 8,
+    fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#111',
-    letterSpacing: 0.3,
+    color: HOME_INK,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(153, 163, 173, 0.35)',
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.86)',
+    borderColor: 'rgba(124,111,207,0.25)',
+    borderRadius: 14,
+    backgroundColor: '#FAF8F3',
     paddingHorizontal: 14,
-    minHeight: 60,
+    minHeight: 56,
   },
   inputWrapperError: {
-    borderColor: '#FF9800',
-    backgroundColor: '#FFF8E1',
+    borderColor: HOME_CORAL,
+    backgroundColor: '#FDF3EF',
   },
   input: {
     flex: 1,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: '#111',
+    color: HOME_INK,
   },
-  inputIcon: {
-    marginLeft: 8,
+  inputLeadingIcon: {
+    marginRight: 10,
   },
   eyeButton: {
     padding: 10,
@@ -860,18 +961,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   errorFieldText: {
-    color: '#FF9800',
+    color: '#B3441F',
     fontSize: 12,
     marginLeft: 6,
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+    fontWeight: '600',
   },
   strengthContainer: {
     marginTop: 10,
   },
   strengthBarBackground: {
     height: 6,
-    backgroundColor: '#eee',
+    backgroundColor: '#EEE9DE',
     borderRadius: 3,
     flexDirection: 'row',
     marginBottom: 6,
@@ -883,14 +984,14 @@ const styles = StyleSheet.create({
   strengthText: {
     fontSize: 12,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   requirementsContainer: {
     marginTop: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    paddingVertical: 10,
+    backgroundColor: '#FAF8F3',
+    borderRadius: 12,
   },
   requirementItem: {
     flexDirection: 'row',
@@ -900,83 +1001,132 @@ const styles = StyleSheet.create({
   requirementText: {
     fontSize: 12,
     marginLeft: 8,
-    color: '#666',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    color: HOME_INK_SOFT,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   requirementMet: {
-    color: '#388e3c',
-    fontWeight: '600',
+    color: SUCCESS,
+    fontWeight: '700',
   },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
-    marginTop: 8,
+    marginBottom: 8,
+    marginTop: 4,
   },
   checkbox: {
-    marginRight: 12,
+    marginRight: 10,
     marginTop: 0,
-    paddingRight: 0,
   },
   termsText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#333',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    fontSize: 13,
+    lineHeight: 19,
+    color: HOME_INK_SOFT,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   link: {
-    color: colors.primary,
+    color: HOME_LAVENDER_DARK,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
   signUpButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: HOME_LAVENDER_DARK,
     paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingHorizontal: 18,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    marginTop: 24,
-    marginBottom: 16,
+    marginTop: 20,
     elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-  },
-  buttonIcon: {
-    marginRight: 10,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
+      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+    }),
   },
   signUpButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    fontSize: 17,
+    fontWeight: '800',
+    fontFamily: FONT_DISPLAY_SEMI,
   },
   buttonDisabled: {
-    backgroundColor: '#ccc',
-    opacity: 0.6,
+    backgroundColor: '#C7C2D6',
+    opacity: 0.8,
     elevation: 0,
-    shadowOpacity: 0,
+    ...Platform.select({
+      web: { boxShadow: 'none' },
+      default: { shadowOpacity: 0 },
+    }),
   },
-  signInContainer: {
+  oauthDivider: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    gap: 10,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  oauthDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(59,50,44,0.14)',
+  },
+  oauthDividerText: {
+    color: HOME_INK_SOFT,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  oauthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(59,50,44,0.14)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    minHeight: 52,
+    marginBottom: 12,
+  },
+  oauthButtonDisabled: {
+    opacity: 0.6,
+  },
+  oauthButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: HOME_INK,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
+  },
+  signInRow: {
+    marginTop: 20,
+    alignSelf: 'center',
+    minHeight: 32,
+    justifyContent: 'center',
   },
   signInText: {
     fontSize: 14,
-    color: '#666',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+    color: HOME_INK_SOFT,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
-  signInLink: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+  signInLinkBold: {
+    color: HOME_LAVENDER_DARK,
+    fontWeight: '800',
+  },
+  trustNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+    paddingHorizontal: 20,
+  },
+  trustNoteText: {
+    color: HOME_INK_SOFT,
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
 });
 

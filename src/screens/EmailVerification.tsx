@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ImageBackground,
   View,
   Text,
   TextInput,
@@ -13,7 +12,6 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../config/theme';
 import { validateEmail, validateOTP } from '../utils/validation';
 import { sendEmailOTP, resendOTP, verifyOTP } from '../services/otpService';
 import { onAuthStateChanged, getCurrentUser, getUserProfileByEmail, getUserProfileById, upsertUserProfile } from '../services/supabaseService';
@@ -22,6 +20,18 @@ interface EmailVerificationProps {
   navigation: any;
   route: any;
 }
+
+// Same warm "reading journey" identity tokens used on Login/Sign Up/Forgot
+// Password/Reset Password — continuation of the same flow.
+const HOME_CREAM = '#FBF3E2';
+const HOME_INK = '#3B322C';
+const HOME_INK_SOFT = '#8A7B6C';
+const HOME_CORAL = '#E06B4C';
+const HOME_LAVENDER_DARK = '#5F52B0';
+const HOME_SAGE = '#5C8047';
+const SUCCESS = '#10b981';
+const FONT_DISPLAY = 'Baloo2_800ExtraBold';
+const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 
 const MAX_RESEND_ATTEMPTS = 3;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -44,6 +54,12 @@ const markAutoSendStarted = (key: string) => {
   }
 };
 
+const formatCountdown = (totalSeconds: number) => {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
 const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route }) => {
   const routeEmail = route.params?.email || '';
   const routeMessage = route.params?.message || '';
@@ -61,17 +77,26 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
   const [timeoutSendError, setTimeoutSendError] = useState(false);
   const [otpQueued, setOtpQueued] = useState(Boolean(route.params?.otpSent));
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+  // Real expiry from the backend's otpSession.expiresAt (backend/models/otp.js,
+  // OTP_EXPIRY_MS = 5 min) — NOT OTP_REQUEST_CACHE_TTL_MS (backend/routes/auth.js,
+  // 2 min), which is just an anti-duplicate-request cache for the send endpoint
+  // and has nothing to do with how long the code the user types is actually valid.
+  const [expiresAt, setExpiresAt] = useState<string | null>(route.params?.expiresAt || null);
+  const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const autoSendInFlightRef = useRef(false);
   const sendInFlightRef = useRef(false);
   const otpRefs = useRef<Array<TextInput | null>>([]);
 
   const getVerificationUserId = () => currentUser?.id || routeUserId || '';
-  const applyOtpQueuedState = (message = 'OTP queued for delivery. Please check your email shortly.') => {
+  const applyOtpQueuedState = (message: string, newExpiresAt?: string) => {
     setSuccessMessage(message);
-    setInfoMessage('The code expires in 5 minutes. Resend is available after 60 seconds.');
+    setInfoMessage('');
     setResendCooldown(RESEND_COOLDOWN_SECONDS);
     setTimeoutSendError(false);
     setOtpQueued(true);
+    setOtp('');
+    if (newExpiresAt) setExpiresAt(newExpiresAt);
+    otpRefs.current[0]?.focus();
   };
 
   // Subscribe to auth state changes
@@ -97,7 +122,6 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       // If OTP was already sent from signup, just show the UI state
       if (otpSentFlag) {
         setSuccessMessage('OTP sent! Please check your email.');
-        setInfoMessage('The code expires in 5 minutes. Resend is available after 60 seconds.');
         setResendCooldown(RESEND_COOLDOWN_SECONDS);
         setOtpQueued(true);
         markAutoSendStarted(autoSendKey);
@@ -124,7 +148,10 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
           throw new Error(result.message);
         }
 
-        applyOtpQueuedState(result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'OTP sent! Please check your email.');
+        applyOtpQueuedState(
+          result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'OTP sent! Please check your email.',
+          result.expiresAt,
+        );
         markAutoSendStarted(autoSendKey);
       } catch (error: any) {
         console.error('[EmailVerification] Auto-send OTP error:', error);
@@ -143,16 +170,15 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
     return () => clearTimeout(timer);
   }, [email, route.params?.otpSent, routeUserId]);
 
+  // Resend-button cooldown (60s) — separate from the code's own 5-minute
+  // validity window below.
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (resendCooldown > 0) {
       timer = setInterval(() => {
         setResendCooldown((prev) => {
           const next = prev - 1;
-          if (next <= 0) {
-            return 0;
-          }
-          return next;
+          return next <= 0 ? 0 : next;
         });
       }, 1000);
     }
@@ -160,6 +186,24 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       if (timer) clearInterval(timer);
     };
   }, [resendCooldown]);
+
+  // The actual code-expiry countdown, driven by the real expiresAt timestamp
+  // the backend returned when the OTP was created — not a hardcoded display.
+  useEffect(() => {
+    if (!expiresAt) {
+      setSecondsRemaining(null);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000));
+      setSecondsRemaining(remaining);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  const isCodeExpired = expiresAt !== null && secondsRemaining === 0;
 
   const handleSendOTP = async () => {
     setErrorMessage('');
@@ -194,12 +238,15 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       const result = shouldResend
         ? await resendOTP(email, verificationUserId)
         : await sendEmailOTP(email, verificationUserId);
-      
+
       if (!result.success) {
         throw new Error(result.message);
       }
 
-      applyOtpQueuedState(result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'OTP sent! Please check your email.');
+      applyOtpQueuedState(
+        result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'A new code has been sent! Please check your email.',
+        result.expiresAt,
+      );
       if (shouldResend) {
         setResendAttempts((prev) => prev + 1);
       }
@@ -327,120 +374,85 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ImageBackground
-        source={require('../../assets/background.png')}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <View style={styles.backNav}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={22} color={colors.primary} />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.backgroundDecor}>
+          <View style={styles.circleTopLeft} />
+          <View style={styles.circleRight} />
         </View>
 
-        <View style={styles.header}>
-          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} />
-          <Text style={styles.mainTitle}>LinawLetra</Text>
-          <Text style={styles.heading}>Account Verification</Text>
-          <Text style={styles.description}>
-            Enter the verification code sent to your email to continue.
-          </Text>
+        <View style={styles.topHeader}>
+          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
         </View>
+
+        <View style={styles.iconBadgeWrap}>
+          <View style={styles.iconBadge}>
+            <Ionicons name="mail" size={30} color="#fff" />
+          </View>
+          <View style={styles.iconBadgeSmall}>
+            <Ionicons name="lock-closed" size={14} color="#fff" />
+          </View>
+        </View>
+
+        <Text style={styles.title}>Enter Verification Code</Text>
+        <Text style={styles.subtitle}>We sent a 6-digit code to your email</Text>
+
+        {routeEmail ? (
+          <Text style={styles.emailHighlight}>{email}</Text>
+        ) : (
+          <View style={[styles.inputGroup, { width: '100%', maxWidth: 380, paddingHorizontal: 20 }]}>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="mail-outline" size={18} color={HOME_LAVENDER_DARK} style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.emailInput}
+                placeholder="Enter your email"
+                placeholderTextColor={HOME_INK_SOFT}
+                value={email}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onChangeText={setEmail}
+                editable={!loading && !verifying}
+              />
+            </View>
+          </View>
+        )}
+
+        <Text style={styles.supportingText}>Please check your inbox and enter the code below.</Text>
 
         {errorMessage ? (
           <View style={[styles.banner, styles.errorBanner]}>
-            <Ionicons name="alert-circle" size={18} color="#b71c1c" style={styles.bannerIcon} />
+            <Ionicons name="alert-circle" size={18} color={HOME_CORAL} />
             <Text style={styles.bannerText}>{errorMessage}</Text>
           </View>
         ) : null}
 
         {successMessage ? (
           <View style={[styles.banner, styles.successBanner]}>
-            <Ionicons name="checkmark-circle" size={18} color="#1b5e20" style={styles.bannerIcon} />
+            <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
             <Text style={styles.bannerText}>{successMessage}</Text>
           </View>
         ) : null}
 
         {infoMessage ? (
           <View style={[styles.banner, styles.infoBanner]}>
-            <Ionicons name="information-circle" size={18} color="#0d47a1" style={styles.bannerIcon} />
+            <Ionicons name="information-circle" size={18} color={HOME_LAVENDER_DARK} />
             <Text style={styles.bannerText}>{infoMessage}</Text>
           </View>
         ) : null}
 
         <View style={styles.card}>
-          <View style={styles.group}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputCard}>
-              <TextInput
-                style={styles.input}
-                placeholder="perri.moises@gmail.com"
-                placeholderTextColor="#9E9E9E"
-                value={email}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                onChangeText={setEmail}
-                editable={!routeEmail && !loading && !verifying}
-              />
-            </View>
-          </View>
-
-          {routeEmail && (
-            <Text style={{ fontSize: 12, color: '#666', marginTop: 8, marginBottom: 12 }}>
-              ✓ Email is locked from signup
-            </Text>
-          )}
-
-          <TouchableOpacity
-            style={[styles.button, (loading || resendCooldown > 0) && styles.buttonDisabled]}
-            disabled={loading || resendCooldown > 0}
-            onPress={handleSendOTP}
-          >
-            {loading ? (
-              <>
-                <ActivityIndicator color="#fff" style={{ marginRight: 10 }} />
-                <Text style={styles.buttonText}>Sending OTP...</Text>
-              </>
-            ) : (
-              <Text style={styles.buttonText}>
-                {resendCooldown > 0
-                  ? `Resend in ${resendCooldown}s`
-                  : otpQueued
-                  ? 'Resend Verification Code'
-                  : 'Send Verification Code'}
-              </Text>
-            )}
-          </TouchableOpacity>
-          {(timeoutSendError || (!loading && errorMessage)) ? (
-            <TouchableOpacity
-              style={[styles.secondaryButton, loading && styles.buttonDisabled]}
-              disabled={loading}
-              onPress={handleSendOTP}
-            >
-              <Text style={styles.secondaryButtonText}>Resend OTP</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.label}>6-digit OTP</Text>
           <View style={styles.otpRow}>
             {Array.from({ length: 6 }).map((_, index) => (
               <TextInput
                 key={index}
                 value={otp[index] || ''}
-                style={styles.otpInput}
+                style={[styles.otpInput, otp[index] && styles.otpInputFilled]}
                 keyboardType="number-pad"
                 maxLength={1}
                 onChangeText={(value) => handleOtpChange(value, index)}
                 onKeyPress={(event) => handleOtpKeyPress(event, index)}
-                editable={!verifying}
+                editable={!verifying && !isCodeExpired}
+                selectionColor={HOME_LAVENDER_DARK}
                 ref={(ref) => {
                   otpRefs.current[index] = ref;
                 }}
@@ -448,9 +460,20 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
             ))}
           </View>
 
+          {secondsRemaining !== null && !isCodeExpired && (
+            <Text style={styles.countdownText}>
+              Code expires in <Text style={[styles.countdownValue, secondsRemaining <= 30 && { color: HOME_CORAL }]}>{formatCountdown(secondsRemaining)}</Text>
+            </Text>
+          )}
+          {isCodeExpired && (
+            <Text style={[styles.countdownText, { color: HOME_CORAL, fontWeight: '700' }]}>
+              This code has expired. Please resend to get a new one.
+            </Text>
+          )}
+
           <TouchableOpacity
-            style={[styles.button, (verifying || otp.length !== 6) && styles.buttonDisabled]}
-            disabled={verifying || otp.length !== 6}
+            style={[styles.button, (verifying || otp.length !== 6 || isCodeExpired) && styles.buttonDisabled]}
+            disabled={verifying || otp.length !== 6 || isCodeExpired}
             onPress={handleVerifyOTP}
           >
             {verifying ? (
@@ -459,14 +482,33 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
               <Text style={styles.buttonText}>Verify Code</Text>
             )}
           </TouchableOpacity>
+
+          <View style={styles.resendRow}>
+            <Text style={styles.resendPrompt}>Didn't receive the code? </Text>
+            <TouchableOpacity
+              onPress={handleSendOTP}
+              disabled={loading || resendCooldown > 0}
+            >
+              <Text style={[styles.resendLink, (loading || resendCooldown > 0) && styles.resendLinkDisabled]}>
+                {loading ? 'Sending...' : 'Resend Code'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {resendCooldown > 0 && (
+            <Text style={styles.resendCooldownText}>Resend available in {resendCooldown}s</Text>
+          )}
         </View>
 
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.replace('Login')}>
-          <Ionicons name="arrow-back-outline" size={18} color={colors.primary} />
+          <Ionicons name="arrow-back" size={16} color={HOME_LAVENDER_DARK} />
           <Text style={styles.backLinkText}>Back to Login</Text>
         </TouchableOpacity>
+
+        <View style={styles.trustNote}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Text style={styles.trustNoteText}>Your information is protected and securely handled.</Text>
+        </View>
       </ScrollView>
-      </ImageBackground>
     </KeyboardAvoidingView>
   );
 };
@@ -474,226 +516,277 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: HOME_CREAM,
   },
-  backgroundImage: {
+  scroll: {
     flex: 1,
-    width: '100%',
   },
-  scrollContainer: {
+  scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  backNav: {
-    marginBottom: 16,
-  },
-  backButton: {
-    flexDirection: 'row',
+    paddingTop: Platform.OS === 'ios' ? 44 : 32,
+    paddingBottom: 40,
     alignItems: 'center',
   },
-  backButtonText: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
-    marginLeft: 8,
+  backgroundDecor: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: -1,
   },
-  header: {
+  circleTopLeft: {
+    position: 'absolute',
+    top: -80,
+    left: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(124,111,207,0.14)',
+  },
+  circleRight: {
+    position: 'absolute',
+    top: 28,
+    right: -90,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(224,107,76,0.12)',
+  },
+  topHeader: {
     alignItems: 'center',
-    marginBottom: 22,
-  },
-  logo: {
-    width: 210,
-    height: 90,
-    resizeMode: 'contain',
-    marginBottom: 12,
-  },
-  mainTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.primary,
-    letterSpacing: 0.3,
     marginBottom: 4,
   },
-  heading: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2C3E2F',
-    marginBottom: 10,
+  logo: {
+    width: 200,
+    height: 100,
   },
-  description: {
-    fontSize: 15,
-    color: '#4B4B4B',
-    textAlign: 'center',
-    lineHeight: 22,
-    letterSpacing: 0.15,
-    maxWidth: '88%',
+  iconBadgeWrap: {
+    marginBottom: 16,
   },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E5E9EA',
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 16,
-    elevation: 5,
-    marginBottom: 18,
+  iconBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: HOME_LAVENDER_DARK,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 24px rgba(95,82,176,0.35)' },
+      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
+    }),
+  },
+  iconBadgeSmall: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: HOME_SAGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: HOME_CREAM,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1b5e20',
-    marginTop: 16,
-    marginBottom: 6,
-    fontFamily: Platform.OS === 'ios' ? 'Comic Sans MS' : 'Comic Sans MS',
+    fontSize: 22,
     textAlign: 'center',
+    marginBottom: 6,
+    fontFamily: FONT_DISPLAY,
+    color: HOME_INK,
+    paddingHorizontal: 20,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#4f4f4f',
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
+    color: HOME_INK_SOFT,
+    marginBottom: 4,
+  },
+  emailHighlight: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: HOME_LAVENDER_DARK,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  supportingText: {
+    fontSize: 13,
+    textAlign: 'center',
+    color: HOME_INK_SOFT,
+    marginBottom: 16,
+    paddingHorizontal: 28,
+  },
+  inputGroup: {
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(124,111,207,0.25)',
+    borderRadius: 14,
+    backgroundColor: '#FAF8F3',
+    paddingHorizontal: 14,
+    minHeight: 52,
+  },
+  emailInput: {
+    flex: 1,
+    fontSize: 15,
+    color: HOME_INK,
+    padding: 0,
   },
   banner: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 14,
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    marginBottom: 12,
+    width: '100%',
+    maxWidth: 420,
+    marginHorizontal: 20,
   },
   errorBanner: {
-    backgroundColor: '#fdecea',
-    borderColor: '#f8c7c5',
-    borderWidth: 1,
+    backgroundColor: 'rgba(224,107,76,0.12)',
+    borderLeftWidth: 4,
+    borderLeftColor: HOME_CORAL,
   },
   successBanner: {
-    backgroundColor: '#e8f5e9',
-    borderColor: '#c8e6c9',
-    borderWidth: 1,
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderLeftWidth: 4,
+    borderLeftColor: SUCCESS,
   },
   infoBanner: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#bbdefb',
-    borderWidth: 1,
-  },
-  bannerIcon: {
-    marginRight: 10,
-    marginTop: 2,
+    backgroundColor: 'rgba(124,111,207,0.1)',
+    borderLeftWidth: 4,
+    borderLeftColor: HOME_LAVENDER_DARK,
   },
   bannerText: {
-    color: '#1e1e1e',
-    fontSize: 14,
-    lineHeight: 20,
     flex: 1,
+    color: HOME_INK,
+    fontSize: 13,
+    lineHeight: 18,
   },
-  group: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#2E3B30',
-  },
-  inputCard: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 18,
+  card: {
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    maxWidth: 420,
+    marginHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#D8DEE2',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  inputCardError: {
-    borderColor: '#F3B269',
-    backgroundColor: '#FFF4ED',
-  },
-  input: {
-    fontSize: 16,
-    color: '#1F2D2B',
-    padding: 0,
-    minHeight: 44,
+    borderColor: 'rgba(124,111,207,0.14)',
+    elevation: 10,
+    marginTop: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
+      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+    }),
   },
   otpRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 18,
-    marginTop: 6,
+    marginBottom: 12,
   },
   otpInput: {
-    width: 48,
+    width: 44,
     height: 56,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D8DEE2',
-    backgroundColor: '#F6F7F9',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(124,111,207,0.3)',
+    backgroundColor: '#FAF8F3',
     textAlign: 'center',
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1C2F2C',
+    fontSize: 22,
+    fontWeight: '800',
+    color: HOME_INK,
+  },
+  otpInputFilled: {
+    borderColor: HOME_LAVENDER_DARK,
+    backgroundColor: '#F5F3FC',
+  },
+  countdownText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: HOME_INK_SOFT,
+    marginBottom: 18,
+  },
+  countdownValue: {
+    fontWeight: '800',
+    color: HOME_LAVENDER_DARK,
   },
   button: {
-    backgroundColor: colors.primary,
+    backgroundColor: HOME_LAVENDER_DARK,
     paddingVertical: 16,
-    borderRadius: 18,
+    borderRadius: 24,
     alignItems: 'center',
-    marginBottom: 0,
-    marginTop: 4,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
+      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+    }),
   },
   buttonDisabled: {
-    opacity: 0.65,
-    backgroundColor: '#9BB3A0',
+    backgroundColor: '#C7C2D6',
+    opacity: 0.8,
+    ...Platform.select({
+      web: { boxShadow: 'none' },
+      default: { shadowOpacity: 0 },
+    }),
   },
-  secondaryButton: {
-    marginTop: 12,
-    backgroundColor: 'rgba(29, 94, 45, 0.12)',
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 18,
-    paddingVertical: 14,
-    alignItems: 'center',
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    fontFamily: FONT_DISPLAY_SEMI,
   },
-  secondaryButtonText: {
-    color: colors.primary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  dividerRow: {
+  resendRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 18,
+    marginTop: 18,
+    flexWrap: 'wrap',
   },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e0e7ff',
+  resendPrompt: {
+    fontSize: 13,
+    color: HOME_INK_SOFT,
   },
-  dividerText: {
-    color: '#4b5563',
+  resendLink: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: HOME_LAVENDER_DARK,
+  },
+  resendLinkDisabled: {
+    color: HOME_INK_SOFT,
+  },
+  resendCooldownText: {
+    textAlign: 'center',
     fontSize: 12,
-    fontWeight: '600',
-    marginHorizontal: 12,
+    color: HOME_INK_SOFT,
+    marginTop: 4,
   },
   backLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    gap: 6,
+    marginTop: 22,
+    paddingVertical: 8,
   },
   backLinkText: {
-    color: colors.primary,
+    color: HOME_LAVENDER_DARK,
     fontWeight: '700',
-    marginLeft: 8,
     fontSize: 15,
+  },
+  trustNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingHorizontal: 20,
+  },
+  trustNoteText: {
+    color: HOME_INK_SOFT,
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
 
