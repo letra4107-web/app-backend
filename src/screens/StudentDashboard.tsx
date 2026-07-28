@@ -1286,8 +1286,6 @@ export default function StudentDashboard({ navigation }: any) {
       ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
       : null;
 
-    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
-
     // Continue Learning: the same real in-progress-lesson lookup the Learn
     // tab uses - most-recently-opened lesson still marked in_progress.
     const inProgressRows = lessonProgress
@@ -1371,14 +1369,6 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name="menu-outline" size={20} color="#fff" />
                 <Ionicons name="book" size={16} color="#fff" />
                 <Text style={styles.heroLogoText}>LinawLetra</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
-                <Ionicons name="notifications" size={20} color="#fff" />
-                {unreadNotifCount > 0 && (
-                  <View style={styles.homeBellBadge}>
-                    <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-                  </View>
-                )}
               </TouchableOpacity>
             </View>
             <Text style={styles.heroGreeting}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
@@ -1622,7 +1612,6 @@ export default function StudentDashboard({ navigation }: any) {
     const letterWords = SKILL_LETTERS;
     const wordListWords = [...practiceWords, ...wordBank];
     const cycleList = (word: string | null) => (word && letterWords.includes(word) ? letterWords : wordListWords);
-    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
 
     const nextWord = wordListWords.length
       ? wordListWords.find((word) => !progress?.completed_words?.includes(word)) || wordListWords[0]
@@ -1960,14 +1949,6 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={styles.homeGreetingHello}>Practice</Text>
             <Text style={styles.homeGreetingSub}>Magsanay tayong magbasa nang magkasama!</Text>
           </View>
-          <TouchableOpacity style={styles.homeBellButton} onPress={() => setSection('notifications')}>
-            <Ionicons name="notifications" size={20} color={HOME_LAVENDER_DARK} />
-            {unreadNotifCount > 0 && (
-              <View style={styles.homeBellBadge}>
-                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
 
         <View style={styles.goalCard}>
@@ -2134,7 +2115,6 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderActivities = () => {
-    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
 
     const lessonSubjects = Array.from(new Set(lessons.map((l) => l.subject).filter(Boolean))) as string[];
 
@@ -2203,14 +2183,6 @@ export default function StudentDashboard({ navigation }: any) {
             <Ionicons name="menu-outline" size={20} color="#fff" />
             <Ionicons name="book" size={16} color="#fff" />
             <Text style={styles.heroLogoText}>LinawLetra</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
-            <Ionicons name="notifications" size={20} color="#fff" />
-            {unreadNotifCount > 0 && (
-              <View style={styles.homeBellBadge}>
-                <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-              </View>
-            )}
           </TouchableOpacity>
         </View>
         <Text style={styles.heroGreeting}>Matuto tayo,{'\n'}{getFirstName(child?.name || '')}!</Text>
@@ -2640,7 +2612,6 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderProgress = () => {
-    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
     const avgAccuracy = (progress?.total_attempts || 0) > 0
       ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
       : null;
@@ -2771,14 +2742,6 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="menu-outline" size={20} color="#fff" />
               <Ionicons name="book" size={16} color="#fff" />
               <Text style={styles.heroLogoText}>LinawLetra</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
-              <Ionicons name="notifications" size={20} color="#fff" />
-              {unreadNotifCount > 0 && (
-                <View style={styles.homeBellBadge}>
-                  <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-                </View>
-              )}
             </TouchableOpacity>
           </View>
           <Text style={styles.heroGreeting}>My Reading{'\n'}Progress</Text>
@@ -3103,7 +3066,6 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderAchievements = () => {
-    const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
     const unlockedIds = new Set((progress?.achievements || []).map((a) => a.id));
     const unlockedCount = unlockedIds.size;
     const totalCount = ACHIEVEMENTS.length;
@@ -3249,14 +3211,6 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="menu-outline" size={20} color="#fff" />
               <Ionicons name="book" size={16} color="#fff" />
               <Text style={styles.heroLogoText}>LinawLetra</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.heroBell} onPress={() => setSection('notifications')}>
-              <Ionicons name="notifications" size={20} color="#fff" />
-              {unreadNotifCount > 0 && (
-                <View style={styles.homeBellBadge}>
-                  <Text style={styles.homeBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-                </View>
-              )}
             </TouchableOpacity>
           </View>
           <Text style={styles.heroGreeting}>My Learning{'\n'}Badges</Text>
@@ -3547,6 +3501,9 @@ export default function StudentDashboard({ navigation }: any) {
 
   const navPendingCount = activities.filter((a) => a.status === 'pending' || a.status === 'overdue').length;
   const navBadgeFraction = `${progress?.achievements?.length || 0}/${ACHIEVEMENTS.length}`;
+  // Same unread-notification count that used to live in the header bell on
+  // every tab - now surfaced only via the "Notifications" row in the sidebar.
+  const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
 
   const topHeaderNode = (
     <View style={styles.topHeader}>
@@ -3633,6 +3590,7 @@ export default function StudentDashboard({ navigation }: any) {
             { k: 'practice', l: 'Practice', i: 'mic-outline' },
             { k: 'progress', l: 'Progress', i: 'analytics-outline' },
             { k: 'achievements', l: 'Badges', i: 'ribbon-outline', fraction: navBadgeFraction },
+            { k: 'notifications', l: 'Notifications', i: 'notifications-outline', count: unreadNotifCount },
             { k: 'settings', l: 'Settings', i: 'settings-outline' },
           ].map((it: any) => {
             const active = section === it.k;
@@ -3648,7 +3606,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.l}</Text>
                 {!!it.count && (
                   <View style={styles.navCountBadge}>
-                    <Text style={styles.navCountBadgeText}>{it.count}</Text>
+                    <Text style={styles.navCountBadgeText}>{it.count > 9 ? '9+' : it.count}</Text>
                   </View>
                 )}
                 {!!it.fraction && (
@@ -4297,24 +4255,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   homeHeaderAvatarText: { color: '#fff', fontWeight: '900', fontSize: 18 },
-  homeBellButton: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2,
-  },
-  homeBellBadge: {
-    position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9,
-    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
-  },
-  homeBellBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9 },
   heroBanner: { borderRadius: 28, padding: 22, marginBottom: 20, overflow: 'hidden', position: 'relative', minHeight: 200 },
   heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  heroBell: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center', justifyContent: 'center',
-  },
   heroGreeting: { color: '#fff', fontSize: 26, fontFamily: FONT_DISPLAY, lineHeight: 32, maxWidth: '68%' },
   heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
   // 1:2 aspect ratio in the source art (1120x2240) - sized as a tall

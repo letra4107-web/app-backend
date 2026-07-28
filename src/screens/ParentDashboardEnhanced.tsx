@@ -1952,14 +1952,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <Ionicons name="menu-outline" size={26} color={PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.appTitle}>LinawLetra</Text>
-        <TouchableOpacity onPress={() => setSection('notifications')} style={styles.bellButton}>
-          <Ionicons name="notifications-outline" size={24} color={TEXT_PRIMARY} />
-          {unreadNotifications > 0 && (
-            <View style={styles.bellBadge}>
-              <Text style={styles.bellBadgeText}>{unreadNotifications}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        {/* Balances menuButton's width so appTitle stays centered now that
+            the bell (moved into the sidebar's Notifications nav item) is gone. */}
+        <View style={styles.topBarSpacer} />
       </View>
 
       {!!error && <Text style={styles.errorBanner}>{error}</Text>}
@@ -2082,16 +2077,9 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE, borderBottomWidth: 1, borderBottomColor: BORDER,
   },
   menuButton: { padding: 6 },
+  topBarSpacer: { width: 38 },
   settingsButton: { padding: 6, marginRight: 6 },
-  appTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY },
-  bellButton: { padding: 6, position: 'relative' },
-  bellBadge: {
-    position: 'absolute', top: 2, right: 2,
-    minWidth: 16, height: 16, borderRadius: 8,
-    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  bellBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  appTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY, flex: 1, textAlign: 'center' },
   errorBanner: { color: DANGER, marginHorizontal: 16, marginTop: 12, marginBottom: 8 },
   content: { padding: 16, paddingBottom: 40 },
   overlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000', zIndex: 99 },
