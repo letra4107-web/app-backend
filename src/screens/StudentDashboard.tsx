@@ -71,6 +71,11 @@ const HOME_CORAL = '#E06B4C';
 const HOME_SAGE = '#5C8047';
 const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
+// Hero banner brand gradient only - not part of the general HOME_* palette
+// used elsewhere on the page.
+const HERO_GRADIENT_START = '#6D28D9';
+const HERO_GRADIENT_MID = '#A855F7';
+const HERO_GRADIENT_END = '#9D174D';
 const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 const XP_CORRECT = 50;
@@ -1265,10 +1270,11 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
-          {/* Hero banner: gradient background (existing lavender tokens, not a
-              new palette) + waving.png illustration */}
+          {/* Hero banner: brand gradient (deep purple -> magenta-purple ->
+              deep pink), diagonal top-left to bottom-right, via
+              expo-linear-gradient (already installed, not a new library) */}
           <LinearGradient
-            colors={[HOME_LAVENDER, HOME_LAVENDER_DARK]}
+            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroBanner}
@@ -1314,22 +1320,30 @@ export default function StudentDashboard({ navigation }: any) {
           <Text style={styles.practiceSectionTitle}>Quick Stats</Text>
           <View style={styles.homeStatGrid}>
             <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
-              <Ionicons name="book" size={22} color={HOME_SAGE} />
+              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_SAGE }]}>
+                <Ionicons name="book" size={18} color="#fff" />
+              </View>
               <Text style={[styles.homeGridValue, { color: HOME_SAGE }]}>{stats.completed}</Text>
               <Text style={styles.homeGridLabel}>Words Practiced</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-              <Ionicons name="locate" size={22} color={HOME_CORAL} />
+              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_CORAL }]}>
+                <Ionicons name="locate" size={18} color="#fff" />
+              </View>
               <Text style={[styles.homeGridValue, { color: HOME_CORAL }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
               <Text style={styles.homeGridLabel}>Reading Accuracy</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-              <Ionicons name="bar-chart" size={22} color={HOME_LAVENDER_DARK} />
+              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_LAVENDER_DARK }]}>
+                <Ionicons name="bar-chart" size={18} color="#fff" />
+              </View>
               <Text style={[styles.homeGridValue, { color: HOME_LAVENDER_DARK }]}>{progress?.total_attempts || 0}</Text>
               <Text style={styles.homeGridLabel}>Practice Sessions</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
-              <Ionicons name="flame" size={22} color={HOME_SUN} />
+              <View style={[styles.homeGridIconWrap, { backgroundColor: HOME_SUN }]}>
+                <Ionicons name="flame" size={18} color="#fff" />
+              </View>
               <Text style={[styles.homeGridValue, { color: HOME_SUN }]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
               <Text style={styles.homeGridLabel}>Current Streak</Text>
             </View>
@@ -1339,7 +1353,9 @@ export default function StudentDashboard({ navigation }: any) {
               Lesson X of Y (see comment above on continueLessonIndex) */}
           {continueReadingLesson ? (
             <View style={styles.homeContinueCard}>
-              <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+              <View style={styles.homeContinueImageWrap}>
+                <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.homeContinueTitle}>Continue Learning</Text>
                 <Text style={styles.homeContinueSubtitle}>{continueReadingLesson.title}</Text>
@@ -1357,7 +1373,9 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           ) : (
             <View style={styles.homeContinueCard}>
-              <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+              <View style={styles.homeContinueImageWrap}>
+                <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.homeContinueTitle}>Continue Learning</Text>
                 <Text style={styles.homeContinueSubtitle}>Wala pang binabasang aralin — simulan ang isa!</Text>
@@ -1435,8 +1453,8 @@ export default function StudentDashboard({ navigation }: any) {
 
           {/* Bottom encouragement banner */}
           <View style={styles.homeQuoteBanner}>
-            <Image source={require('../../assets/thumbsup.png')} style={styles.homeQuoteImage} resizeMode="contain" />
             <Text style={styles.homeQuoteText}>"Bawat salitang nababasa mo, lumalakas ka!"</Text>
+            <Image source={require('../../assets/thumbsup.png')} style={styles.homeQuoteImage} resizeMode="contain" />
           </View>
 
           {/* Quick actions */}
@@ -3470,11 +3488,15 @@ const styles = StyleSheet.create({
   },
   heroGreeting: { color: '#fff', fontSize: 26, fontFamily: FONT_DISPLAY, lineHeight: 32, maxWidth: '68%' },
   heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
-  heroImage: { position: 'absolute', right: 4, bottom: 4, width: 140, height: 140 },
+  // 1:2 aspect ratio in the source art (1120x2240) - sized as a tall
+  // rectangle so the full character shows with no cropping, anchored to
+  // bleed slightly past the card's bottom-right corner (heroBanner's
+  // overflow:hidden clips it cleanly, matching the reference).
+  heroImage: { position: 'absolute', right: 0, bottom: -12, width: 112, height: 224 },
   readyPracticeCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 16,
-    borderWidth: 1, borderColor: 'rgba(124,111,207,0.15)',
+    backgroundColor: '#FBE7DF', borderRadius: 24, padding: 18, marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(224,107,76,0.15)',
   },
   readyPracticeIconWrap: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: '#EFECFB',
@@ -3499,7 +3521,7 @@ const styles = StyleSheet.create({
   homeRecentActivityEmpty: { alignItems: 'center', paddingVertical: 20, marginBottom: 8 },
   homeRecentActivityEmptyText: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   homeTodayCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3DC', borderRadius: 24, padding: 18, marginBottom: 16,
     shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
   homeTodayTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 19, lineHeight: 24 },
@@ -3514,6 +3536,7 @@ const styles = StyleSheet.create({
   homeGridCard: {
     width: '48%', borderRadius: 20, padding: 14, minHeight: 92, justifyContent: 'center',
   },
+  homeGridIconWrap: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   homeGridValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 8 },
   homeGridLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginTop: 2 },
   homeContinueCard: {
@@ -3527,7 +3550,14 @@ const styles = StyleSheet.create({
   homeContinuePct: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
   homeContinueButton: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
   homeContinueButtonText: { color: '#fff', fontWeight: '900', fontSize: 13 },
-  homeContinueImage: { width: 52, height: 52 },
+  // Source art is a tall 1:2 character illustration (1120x2240), not a
+  // square headshot - a plain "cover" crop centers vertically and risks
+  // cutting off the character's head/face. Instead the wrap clips a fixed
+  // square, and the image inside is pinned to the top at its natural
+  // width-scaled height (2x the box width, matching the real ratio), so it
+  // crops the bottom off instead of the middle and keeps the head visible.
+  homeContinueImageWrap: { width: 52, height: 52, borderRadius: 14, overflow: 'hidden', backgroundColor: '#fff' },
+  homeContinueImage: { width: 52, height: 104, position: 'absolute', top: 0, left: 0 },
   homeContinueLessonCount: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 11, marginBottom: 8 },
   homeHeroCard: {
     backgroundColor: HOME_CREAM, borderRadius: 24, padding: 18, marginBottom: 16,
@@ -3557,11 +3587,15 @@ const styles = StyleSheet.create({
   homePracticeRowTitle: { fontWeight: '800', color: HOME_INK, fontSize: 14 },
   homePracticeRowSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2 },
   homeQuoteBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFF3DC', borderRadius: 20, padding: 18, marginTop: 4, marginBottom: 16,
+    position: 'relative', overflow: 'hidden',
+    backgroundColor: '#FFF3DC', borderRadius: 20, paddingVertical: 18, paddingLeft: 18, paddingRight: 84,
+    marginTop: 4, marginBottom: 16, minHeight: 90, justifyContent: 'center',
   },
-  homeQuoteText: { flex: 1, color: '#8A6416', fontWeight: '800', fontSize: 14, textAlign: 'left', lineHeight: 20, fontStyle: 'italic' },
-  homeQuoteImage: { width: 56, height: 56 },
+  homeQuoteText: { color: '#8A6416', fontWeight: '800', fontSize: 14, textAlign: 'left', lineHeight: 20, fontStyle: 'italic' },
+  // Same full-character, no-crop treatment as the hero's waving.png (1:2
+  // source ratio), just smaller - bleeds past the banner's bottom-right
+  // corner, clipped by the banner's own overflow:hidden.
+  homeQuoteImage: { position: 'absolute', right: -4, bottom: -10, width: 68, height: 136 },
   homeQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   homeQuickCard: {
     flex: 1, borderRadius: 20, paddingVertical: 16, alignItems: 'center', minHeight: 88, justifyContent: 'center',
