@@ -3494,6 +3494,8 @@ export default function StudentDashboard({ navigation }: any) {
       role="student"
       navigation={navigation}
       embedded
+      heroMode
+      onOpenSidebar={openSidebar}
       gradeLevel={child?.grade_level}
       readingLevel={progress?.level}
     />
@@ -3556,12 +3558,19 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.homeBg}>
           {renderAchievements()}
         </View>
+      ) : section === 'settings' ? (
+        // Same reasoning again: renderSettings() now opens with its own
+        // hero banner (menu trigger), passed via DashboardSettingsScreen's
+        // heroMode/onOpenSidebar props - Parent Settings is unaffected since
+        // those props are only ever passed from this student call site.
+        <View style={styles.homeBg}>
+          {renderSettings()}
+        </View>
       ) : (
         <>
           {topHeaderNode}
           {section === 'practice' && renderPractice()}
           {section === 'notifications' && renderNotifications()}
-          {section === 'settings' && renderSettings()}
         </>
       )}
 

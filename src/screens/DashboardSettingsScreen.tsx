@@ -17,7 +17,8 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { supabase } from '../config/supabase';
@@ -51,6 +52,12 @@ const SAGE = '#5C8047';
 const DANGER = '#ef4444';
 const SUCCESS = '#10b981';
 const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
+const FONT_DISPLAY = 'Baloo2_800ExtraBold';
+// Same 3 stops used for every hero banner across Home/Learn/Practice/
+// Progress/Badges - duplicated locally like the rest of this file's token set.
+const HERO_GRADIENT_START = '#6D28D9';
+const HERO_GRADIENT_MID = '#A855F7';
+const HERO_GRADIENT_END = '#9D174D';
 // Cycled per-section (never per-row) so adjacent sections read as visually
 // distinct while staying inside the same 4-color family used elsewhere.
 const SECTION_ACCENTS = [LAVENDER, CORAL, SUN, SAGE];
@@ -61,6 +68,11 @@ type Props = {
   embedded?: boolean;
   gradeLevel?: number;
   readingLevel?: string;
+  // Student tab redesign only - renders the same hero-banner treatment as
+  // Home/Learn/Practice/Progress/Badges instead of the plain back-button
+  // header. Parent settings (heroMode omitted) is untouched.
+  heroMode?: boolean;
+  onOpenSidebar?: () => void;
 };
 
 type MicPermissionState = 'checking' | 'granted' | 'denied';
@@ -76,7 +88,7 @@ type ProfileState = {
 
 type AccountModal = 'password' | 'email' | null;
 
-export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel }: Props) {
+export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
   const [settings, setSettings] = useState<DashboardSettings | null>(null);
@@ -420,26 +432,46 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   return (
     <Animated.View style={[styles.container, dark && styles.containerDark, { opacity: fade }]}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          {!embedded && (
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={22} color={LAVENDER} />
-            </TouchableOpacity>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Parent Settings' : 'Settings'}</Text>
-            <Text style={[styles.subtitle, dark && styles.mutedDark]}>Make LinawLetra work best for you.</Text>
-          </View>
-          <TouchableOpacity onPress={scrollToProfile}>
-            {profile.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.headerAvatar} />
-            ) : (
-              <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
-                <Text style={styles.headerAvatarInitial}>{initials}</Text>
-              </View>
+        {heroMode ? (
+          <LinearGradient
+            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroBanner}
+          >
+            <View style={styles.heroTopRow}>
+              <TouchableOpacity style={styles.heroLogoRow} onPress={onOpenSidebar}>
+                <Ionicons name="menu-outline" size={20} color="#fff" />
+                <Ionicons name="book" size={16} color="#fff" />
+                <Text style={styles.heroLogoText}>LinawLetra</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.heroGreeting}>Settings</Text>
+            <Text style={styles.heroSubtitle}>Make LinawLetra work best for you.</Text>
+            <Image source={require('../../assets/gear.png')} style={styles.heroImage} resizeMode="contain" />
+          </LinearGradient>
+        ) : (
+          <View style={styles.header}>
+            {!embedded && (
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <MaterialIcons name="arrow-back" size={22} color={LAVENDER} />
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
-        </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Parent Settings' : 'Settings'}</Text>
+              <Text style={[styles.subtitle, dark && styles.mutedDark]}>Make LinawLetra work best for you.</Text>
+            </View>
+            <TouchableOpacity onPress={scrollToProfile}>
+              {profile.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.headerAvatar} />
+              ) : (
+                <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.headerAvatarInitial}>{initials}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {!!message && <Text style={styles.successBanner}>{message}</Text>}
         {!!error && <Text style={styles.errorBanner}>{error}</Text>}
@@ -470,26 +502,110 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             </View>
           </View>
           <TouchableOpacity style={styles.viewProfileButton} onPress={scrollToProfile}>
-            <Text style={styles.viewProfileButtonText}>View Profile</Text>
+            <Text style={styles.viewProfileButtonText}>{heroMode ? 'Edit Profile' : 'View Profile'}</Text>
           </TouchableOpacity>
         </View>
 
-        {!isParent && (
+        {isParent ? (
           <>
-            <Section title="Reading Accessibility" icon="accessibility-new">
-              <Row icon="text-fields" title="Dyslexia-friendly font" subtitle="Use an easier-to-read font" right={renderSwitch('dyslexia_font', settings.dyslexia_font)} />
+            <Section title="Notifications" icon="notifications-active">
+              <Row icon="notifications" title="Notifications enabled" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
+              <Row icon="assignment" title="Assignment notifications" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
+              <Row icon="cloud-upload" title="Lesson notifications" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
+              <Row icon="insert-chart" title="Progress notifications" right={renderSwitch('progress_notifications', settings.progress_notifications)} />
+              <Row icon="notifications" title="Push notifications" right={renderSwitch('push_notifications', settings.push_notifications)} />
+            </Section>
+
+            <Section title="Appearance" icon="brightness-6">
+              <View style={styles.themeRow}>
+                {(['light', 'system', 'dark'] as ReadingTheme[]).map((opt) => {
+                  const active = theme === opt;
+                  const iconName = opt === 'light' ? 'wb-sunny' : opt === 'dark' ? 'nightlight-round' : 'smartphone';
+                  const label = opt === 'light' ? 'Light' : opt === 'dark' ? 'Dark' : 'System';
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[styles.themeCard, active && styles.themeCardActive]}
+                      onPress={() => updateSetting('reading_theme', opt)}
+                    >
+                      {active && (
+                        <View style={styles.themeCheck}>
+                          <MaterialIcons name="check" size={11} color="#fff" />
+                        </View>
+                      )}
+                      <MaterialIcons name={iconName as any} size={22} color={active ? LAVENDER_DARK : INK_SOFT} />
+                      <Text style={[styles.themeCardText, active && { color: LAVENDER_DARK }]}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={[styles.themeNote, dark && styles.mutedDark]}>* Light mode is recommended for comfortable reading.</Text>
+            </Section>
+
+            <Section title="Account" icon="manage-accounts">
+              <Row icon="lock" title="Change password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
+              <Row icon="email" title="Change email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
+              <Row icon="delete-outline" title="Delete account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
+            </Section>
+
+            <Section title="Security" icon="verified-user">
+              <Row icon="devices" title="Active sessions" subtitle="Current device session managed by Supabase Auth" />
+              <Row icon="security" title="Two-factor authentication" subtitle="Preference saved for future verification flow" right={renderSwitch('two_factor_enabled', settings.two_factor_enabled)} />
+            </Section>
+
+            <Section title="Child Monitoring" icon="supervisor-account">
+              <Row icon="calendar-month" title="Weekly progress reports" right={renderSwitch('weekly_progress_reports', settings.weekly_progress_reports)} />
+              <Row icon="summarize" title="Daily activity summary" right={renderSwitch('daily_activity_summary', settings.daily_activity_summary)} />
+              <Row icon="campaign" title="Teacher updates" right={renderSwitch('teacher_updates', settings.teacher_updates)} />
+              <Row icon="emoji-events" title="Learning milestone alerts" right={renderSwitch('milestone_alerts', settings.milestone_alerts)} />
+            </Section>
+          </>
+        ) : (
+          <>
+            {/* Accessibility - dyslexia_font/font_size/high_contrast/reading_guide
+                and reading_theme (Dark Mode) all save/load for real, but none of
+                them are consumed anywhere else in the app yet (verified: no
+                screen reads these to change how text actually renders) - these
+                are genuine preferences, just not wired into the reading UI yet.
+                "Increased Line Spacing" and a plain contrast/2FA-style fake
+                toggle were deliberately left out rather than fabricated. */}
+            <Section title="Accessibility" icon="accessibility-new">
+              <Row icon="text-fields" title="Dyslexia-Friendly Font" subtitle="Use an easier-to-read font" right={renderSwitch('dyslexia_font', settings.dyslexia_font)} />
               <Row icon="format-size" title="Text Size" subtitle={settings.font_size} right={renderSegment<FontSize>('font_size', settings.font_size, ['small', 'medium', 'large'])} />
-              <Row icon="contrast" title="High contrast mode" right={renderSwitch('high_contrast', settings.high_contrast)} />
-              <Row icon="view-day" title="Reading guide overlay" right={renderSwitch('reading_guide', settings.reading_guide)} />
+              <Row icon="contrast" title="High Contrast" right={renderSwitch('high_contrast', settings.high_contrast)} />
+              <Row icon="view-day" title="Reading Guide Overlay" subtitle="Highlight the current line while reading" right={renderSwitch('reading_guide', settings.reading_guide)} />
+              <View style={styles.themeRow}>
+                {(['light', 'system', 'dark'] as ReadingTheme[]).map((opt) => {
+                  const active = theme === opt;
+                  const iconName = opt === 'light' ? 'wb-sunny' : opt === 'dark' ? 'nightlight-round' : 'smartphone';
+                  const label = opt === 'light' ? 'Light' : opt === 'dark' ? 'Dark' : 'System';
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[styles.themeCard, active && styles.themeCardActive]}
+                      onPress={() => updateSetting('reading_theme', opt)}
+                    >
+                      {active && (
+                        <View style={styles.themeCheck}>
+                          <MaterialIcons name="check" size={11} color="#fff" />
+                        </View>
+                      )}
+                      <MaterialIcons name={iconName as any} size={22} color={active ? LAVENDER_DARK : INK_SOFT} />
+                      <Text style={[styles.themeCardText, active && { color: LAVENDER_DARK }]}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </Section>
 
-            <Section title="Reading & Audio" icon="volume-up">
+            {/* Audio & Voice - Voice Volume was left out on purpose: there is
+                no app-level volume control anywhere (TTS plays at system
+                volume), so a slider here would control nothing. */}
+            <Section title="Audio & Voice" icon="volume-up">
               <Row icon="record-voice-over" title="Text-to-Speech" subtitle="Listen to words and lessons being read aloud" right={renderSwitch('tts_enabled', settings.tts_enabled)} />
-              <Row icon="speed" title="Speech Speed" subtitle={settings.speech_rate || 'normal'} right={renderSegment<SpeechRate>('speech_rate', settings.speech_rate || 'normal', ['slow', 'normal', 'fast'])} />
-              <Row icon="repeat" title="Auto Read Words" subtitle="Automatically speak a word when selected" right={renderSwitch('auto_read_words', settings.auto_read_words)} />
-            </Section>
-
-            <Section title="Speech Practice" icon="mic">
+              <Row icon="pie-chart" title="Pronunciation Feedback" subtitle="Show a score after each practice attempt" right={renderSwitch('show_accuracy_score', settings.show_accuracy_score)} />
+              <Row icon="speed" title="Reading Speed" subtitle={settings.speech_rate || 'normal'} right={renderSegment<SpeechRate>('speech_rate', settings.speech_rate || 'normal', ['slow', 'normal', 'fast'])} />
+              <Row icon="repeat" title="Auto-Read Words" subtitle="Automatically speak a word when selected" right={renderSwitch('auto_read_words', settings.auto_read_words)} />
               <Row
                 icon="mic"
                 title="Microphone Access"
@@ -509,71 +625,37 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                   )
                 }
               />
-              <Row icon="translate" title="Language" subtitle="Tagalog (Filipino)" />
-              <Row icon="feedback" title="Pronunciation Feedback" subtitle="Get feedback on spoken pronunciation" />
-              <Row icon="pie-chart" title="Show Accuracy Score" subtitle="Display score after each practice" right={renderSwitch('show_accuracy_score', settings.show_accuracy_score)} />
+            </Section>
+
+            {/* Notifications - Daily Practice Reminder, Weekly Progress Summary,
+                and Badge Notifications were left out: no push-notification
+                infrastructure exists in this app (no expo-notifications, no
+                digest/cron job) and no student-scoped field backs them, so a
+                toggle here would save a value nothing ever acts on. */}
+            <Section title="Notifications" icon="notifications-active">
+              <Row icon="notifications" title="Notifications Enabled" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
+              <Row icon="cloud-upload" title="New Lesson Alerts" subtitle="A new lesson was published" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
+              <Row icon="assignment" title="Assignment Notifications" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
+              <Row icon="event" title="Deadline Reminders" right={renderSwitch('deadline_notifications', settings.deadline_notifications)} />
+            </Section>
+
+            {/* App Info - Storage Used and Last Sync were left out: both need
+                native device storage/sync APIs this app doesn't integrate with,
+                unlike App Version which is a trivially real, static value. */}
+            <Section title="App Info" icon="info-outline">
+              <Row icon="info" title="App Version" subtitle={appVersion} />
+            </Section>
+
+            <Section title="Account" icon="manage-accounts">
+              <Row icon="person" title="Edit Profile" subtitle="Manage your personal details" onPress={scrollToProfile} />
+              <Row icon="lock" title="Change Password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
+              <Row icon="email" title="Update Email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
+              <Row icon="gavel" title="Privacy & Security" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
+              <Row icon="support-agent" title="Help & Support" subtitle="Contact us for assistance" onPress={contactSupport} />
+              <Row icon="logout" title="Log Out" onPress={confirmLogout} danger />
+              <Row icon="delete-outline" title="Delete Account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
             </Section>
           </>
-        )}
-
-        <Section title="Notifications" icon="notifications-active">
-          <Row icon="notifications" title="Notifications enabled" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
-          <Row icon="assignment" title="Assignment notifications" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
-          <Row icon="cloud-upload" title="Lesson notifications" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
-          {isParent ? (
-            <>
-              <Row icon="insert-chart" title="Progress notifications" right={renderSwitch('progress_notifications', settings.progress_notifications)} />
-              <Row icon="notifications" title="Push notifications" right={renderSwitch('push_notifications', settings.push_notifications)} />
-            </>
-          ) : (
-            <Row icon="event" title="Deadline reminders" right={renderSwitch('deadline_notifications', settings.deadline_notifications)} />
-          )}
-        </Section>
-
-        <Section title="Appearance" icon="brightness-6">
-          <View style={styles.themeRow}>
-            {(['light', 'system', 'dark'] as ReadingTheme[]).map((opt) => {
-              const active = theme === opt;
-              const iconName = opt === 'light' ? 'wb-sunny' : opt === 'dark' ? 'nightlight-round' : 'smartphone';
-              const label = opt === 'light' ? 'Light' : opt === 'dark' ? 'Dark' : 'System';
-              return (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.themeCard, active && styles.themeCardActive]}
-                  onPress={() => updateSetting('reading_theme', opt)}
-                >
-                  {active && (
-                    <View style={styles.themeCheck}>
-                      <MaterialIcons name="check" size={11} color="#fff" />
-                    </View>
-                  )}
-                  <MaterialIcons name={iconName as any} size={22} color={active ? LAVENDER_DARK : INK_SOFT} />
-                  <Text style={[styles.themeCardText, active && { color: LAVENDER_DARK }]}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={[styles.themeNote, dark && styles.mutedDark]}>* Light mode is recommended for comfortable reading.</Text>
-        </Section>
-
-        <Section title="Account" icon="manage-accounts">
-          <Row icon="lock" title="Change password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
-          <Row icon="email" title="Change email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
-          <Row icon="delete-outline" title="Delete account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
-        </Section>
-
-        <Section title="Security" icon="verified-user">
-          <Row icon="devices" title="Active sessions" subtitle="Current device session managed by Supabase Auth" />
-          <Row icon="security" title="Two-factor authentication" subtitle="Preference saved for future verification flow" right={renderSwitch('two_factor_enabled', settings.two_factor_enabled)} />
-        </Section>
-
-        {isParent && (
-          <Section title="Child Monitoring" icon="supervisor-account">
-            <Row icon="calendar-month" title="Weekly progress reports" right={renderSwitch('weekly_progress_reports', settings.weekly_progress_reports)} />
-            <Row icon="summarize" title="Daily activity summary" right={renderSwitch('daily_activity_summary', settings.daily_activity_summary)} />
-            <Row icon="campaign" title="Teacher updates" right={renderSwitch('teacher_updates', settings.teacher_updates)} />
-            <Row icon="emoji-events" title="Learning milestone alerts" right={renderSwitch('milestone_alerts', settings.milestone_alerts)} />
-          </Section>
         )}
 
         <View
@@ -629,13 +711,27 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           </Section>
         </View>
 
-        <View style={[styles.card, dark && styles.cardDark]}>
-          <Row icon="person" title="My Profile" subtitle="Manage your personal details" onPress={scrollToProfile} />
-          <Row icon="support-agent" title="Help & Support" subtitle="Contact us for assistance" onPress={contactSupport} />
-          <Row icon="info" title="About LinawLetra" subtitle={`Version ${appVersion}`} />
-          <Row icon="gavel" title="Privacy & Safety" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
-          <Row icon="logout" title="Log Out" onPress={confirmLogout} danger />
-        </View>
+        {isParent ? (
+          <View style={[styles.card, dark && styles.cardDark]}>
+            <Row icon="person" title="My Profile" subtitle="Manage your personal details" onPress={scrollToProfile} />
+            <Row icon="support-agent" title="Help & Support" subtitle="Contact us for assistance" onPress={contactSupport} />
+            <Row icon="info" title="About LinawLetra" subtitle={`Version ${appVersion}`} />
+            <Row icon="gavel" title="Privacy & Safety" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
+            <Row icon="logout" title="Log Out" onPress={confirmLogout} danger />
+          </View>
+        ) : (
+          <View style={styles.tipCard}>
+            <View style={styles.tipIconWrap}>
+              <MaterialIcons name="lightbulb" size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.tipCardTitle, dark && styles.textDark]}>Reading Tip</Text>
+              <Text style={[styles.tipCardText, dark && styles.mutedDark]}>
+                Subukang i-on ang Dyslexia-Friendly Font at palakihin ang Text Size para mas komportable ang pagbasa.
+              </Text>
+            </View>
+          </View>
+        )}
 
         <Text style={[styles.versionFooter, dark && styles.mutedDark]}>LinawLetra Version {appVersion}</Text>
       </ScrollView>
@@ -693,6 +789,22 @@ const styles = StyleSheet.create({
   backButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 24, color: INK },
   subtitle: { fontSize: 13, color: INK_SOFT, fontWeight: '600', marginTop: 2 },
+  // Same hero-banner shape used on Home/Learn/Practice/Progress/Badges.
+  heroBanner: { borderRadius: 28, padding: 22, marginBottom: 20, overflow: 'hidden', position: 'relative', minHeight: 180 },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
+  heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: FONT_DISPLAY, lineHeight: 32, maxWidth: '68%' },
+  heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
+  // 1184x2096 in the source art (same ratio group as learn.png/book.png/clipboard.png).
+  heroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
+  tipCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF3DC',
+    borderRadius: 20, padding: 16, marginTop: 14,
+  },
+  tipIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: SUN, alignItems: 'center', justifyContent: 'center' },
+  tipCardTitle: { fontFamily: FONT_DISPLAY_SEMI, color: INK, fontSize: 15, marginBottom: 4 },
+  tipCardText: { color: INK_SOFT, fontSize: 12, fontWeight: '600', lineHeight: 17 },
   headerAvatar: { width: 44, height: 44, borderRadius: 22 },
   headerAvatarInitial: { color: LAVENDER, fontSize: 16, fontWeight: '900' },
   summaryCard: { flexDirection: 'column' },
