@@ -14,6 +14,7 @@ import { supabase } from '../config/supabase';
 import { buildApiUrl, getJson } from '../config/api';
 import { onAuthStateChanged, signOutUser } from '../services/supabaseService';
 import StudentWordOfDay from './StudentWordOfDay';
+import ErrorBoundary from '../components/ErrorBoundary';
 import ConfettiOverlay from '../components/ConfettiOverlay';
 import AchievementModal from './AchievementModal';
 import { getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
@@ -1577,7 +1578,12 @@ export default function StudentDashboard({ navigation }: any) {
                 </View>
               </View>
               <Text style={styles.homeHeroSub}>Bigkasin ang salitang ito nang tama!</Text>
-              <StudentWordOfDay log={wordOfDay} onResult={handleWordOfDayResult} definition={getWordDefinition(wordOfDay.word)} />
+              <ErrorBoundary
+                title="Hindi ma-access ang mikropono"
+                message="Nagkaroon ng problema sa pag-record. Subukan ulit."
+              >
+                <StudentWordOfDay log={wordOfDay} onResult={handleWordOfDayResult} definition={getWordDefinition(wordOfDay.word)} />
+              </ErrorBoundary>
             </View>
           ) : (
             <View style={styles.homeHeroCard}>

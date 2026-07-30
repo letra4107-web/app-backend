@@ -77,6 +77,20 @@ export default function StudentWordOfDay({
   // disabled button — state updates aren't synchronous, so a fast double-tap can
   // fire startRecording() twice before the button visually disables.
   const isStartingRef = useRef(false);
+  // Same reentrancy gap as isStartingRef, but for stop: the mic button's onPress
+  // decides stop-vs-start from local `isRecording` state, but stopRecording's own
+  // guard checks the native `recorder.isRecording`, which only flips after
+  // recorder.stop() resolves. A fast double-tap (or the 5s auto-stop timeout
+  // landing at nearly the same instant as a manual tap) can pass that guard twice
+  // and call recorder.stop() on the same native object concurrently — the second
+  // call then hits an already-released shared object and crashes natively instead
+  // of rejecting as a normal JS error.
+  const isStoppingRef = useRef(false);
+  // Guards every recorder access after an `await` — if the component unmounts
+  // (e.g. the student switches tabs) while prepareToRecordAsync/record/stop is
+  // still in flight, the resumed continuation must not touch the recorder, which
+  // may already be disposed.
+  const isMountedRef = useRef(true);
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
@@ -93,48 +107,61 @@ export default function StudentWordOfDay({
 
   // Unmount-only cleanup: if the screen is left while a recording is active
   // (e.g. the student navigates away mid-recording), stop it so it doesn't
-  // hold the audio session and block the next attempt.
+  // hold the audio session and block the next attempt. isMountedRef flips
+  // first so any in-flight startRecording/stopRecording continuation that
+  // resumes after this point knows not to touch the recorder again.
   useEffect(() => {
     return () => {
-      if (recorder.isRecording) {
-        recorder.stop().catch(() => {});
+      isMountedRef.current = false;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      try {
+        if (recorder.isRecording) {
+          recorder.stop().catch(() => {});
+        }
+      } catch {
+        // recorder may already be released — nothing to clean up
       }
     };
   }, []);
 
   const startRecording = async () => {
-    const alreadyBusy = isStartingRef.current || recorder.isRecording || processing;
+    const alreadyBusy = isStartingRef.current || isStoppingRef.current || recorder.isRecording || processing;
     if (alreadyBusy) return;
     isStartingRef.current = true;
     setStarting(true);
     setMessage('');
     try {
       const permission = await requestRecordingPermissionsAsync();
+      if (!isMountedRef.current) return;
       if (!permission.granted) {
         setMessage('Kailangan ng mikropono. I-enable ito sa device settings.');
         return;
       }
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      if (!isMountedRef.current) return;
 
       await recorder.prepareToRecordAsync();
+      if (!isMountedRef.current) return;
       recorder.record();
       setIsRecording(true);
       timeoutRef.current = setTimeout(() => void stopRecording(), 5000);
     } catch {
-      setMessage('Hindi ma-simulan ang pag-record. Subukan muli.');
+      if (isMountedRef.current) setMessage('Hindi ma-simulan ang pag-record. Subukan muli.');
     } finally {
       isStartingRef.current = false;
-      setStarting(false);
+      if (isMountedRef.current) setStarting(false);
     }
   };
 
   const stopRecording = async () => {
-    if (!recorder.isRecording) return;
+    if (isStoppingRef.current || !recorder.isRecording) return;
+    isStoppingRef.current = true;
     setProcessing(true);
     setIsRecording(false);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     try {
       await recorder.stop();
+      if (!isMountedRef.current) return;
       const uri = recorder.uri;
       if (!uri) throw new Error('No audio URI');
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
@@ -145,12 +172,14 @@ export default function StudentWordOfDay({
         target: log.word,
         language: 'tl-PH',
       }, 30000);
+      if (!isMountedRef.current) return;
       const score = similarity(response.transcript || '', log.word);
       const correct = score >= 80;
       const attempts = (log.attempts || 0) + 1;
       if (updateDailyLog && log.id) {
         await updateWordOfDayLog(log.id, attempts, correct || attempts >= 3 ? correct : false);
       }
+      if (!isMountedRef.current) return;
       // store last result locally so parent can read it if needed
       setLastScore(score);
       setLastTranscript(response.transcript || '');
@@ -163,14 +192,15 @@ export default function StudentWordOfDay({
       if (!correct) {
         // speak the correct word slowly after a short delay
         setTimeout(() => {
-          speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) });
+          if (isMountedRef.current) speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) });
         }, 2000);
       }
       await onResult(correct, attempts, score, response.transcript || '');
     } catch {
-      setMessage('Hindi naproseso ang audio. Subukan muli.');
+      if (isMountedRef.current) setMessage('Hindi naproseso ang audio. Subukan muli.');
     } finally {
-      setProcessing(false);
+      isStoppingRef.current = false;
+      if (isMountedRef.current) setProcessing(false);
     }
   };
 
