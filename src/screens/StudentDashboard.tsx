@@ -32,6 +32,7 @@ import { fetchWords } from '../services/wordsService';
 import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
+import { logPhonemeConfusion } from '../services/phonemeService';
 
 type ChildProfile = {
   id: string;
@@ -1085,6 +1086,7 @@ export default function StudentDashboard({ navigation }: any) {
 
   const savePronunciationSession = async (result: PracticeResult, word: string, durationSeconds: number | null) => {
     if (!child?.id) return false;
+    logPhonemeConfusion(child.id, word, result.transcript, 'practice');
     const payload = {
       student_id: child.id,
       word,

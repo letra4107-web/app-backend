@@ -9,6 +9,7 @@ import { buildApiUrl, postJson } from '../config/api';
 import { WordOfDayLog, updateWordOfDayLog } from '../services/wordOfDayService';
 import { WordDefinition } from '../services/wordDefinitionsService';
 import { speakPhrase, speakWord } from '../services/ttsService';
+import { logPhonemeConfusion } from '../services/phonemeService';
 
 const PRIMARY = '#4f46e5';
 const BORDER = '#e5e7eb';
@@ -173,6 +174,7 @@ export default function StudentWordOfDay({
         language: 'tl-PH',
       }, 30000);
       if (!isMountedRef.current) return;
+      logPhonemeConfusion(log.child_id, log.word, response.transcript || '', 'word_of_day');
       const score = similarity(response.transcript || '', log.word);
       const correct = score >= 80;
       const attempts = (log.attempts || 0) + 1;
