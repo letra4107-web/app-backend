@@ -299,6 +299,12 @@ export default function StudentDashboard({ navigation }: any) {
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const mascotPulse = useRef(new Animated.Value(1)).current;
   const handledTranscriptRef = useRef('');
+  // Android's on-device recognizer sometimes fires 'end' without ever
+  // sending a final result (isFinal:true) for short utterances - without
+  // this, evaluation would just never happen and the student would be left
+  // stuck on "Nakikinig ako" with no feedback. Holds the latest interim
+  // transcript so 'end' can fall back to treating it as final.
+  const latestInterimTranscriptRef = useRef('');
   const practiceStartRef = useRef<number | null>(null);
   const micPulse = useSharedValue(1);
   const micAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: micPulse.value }] }));
@@ -310,17 +316,29 @@ export default function StudentDashboard({ navigation }: any) {
     setPracticeProcessing(false);
     setPracticeStatus('Nakikinig ako. Sabihin ang salita!');
     practiceStartRef.current = Date.now();
+    latestInterimTranscriptRef.current = '';
   });
 
   useSpeechRecognitionEvent('end', () => {
     setPracticeListening(false);
-    setPracticeProcessing(false);
     setPracticeStatus('Tapos na ang pakikinig.');
+    // Fallback: recognition ended without ever sending a final result, but
+    // we did hear something. Treat the last interim transcript as final
+    // rather than leaving the student stuck with no evaluation.
+    const fallbackTranscript = latestInterimTranscriptRef.current;
+    if (fallbackTranscript && handledTranscriptRef.current !== fallbackTranscript) {
+      handledTranscriptRef.current = fallbackTranscript;
+      setPracticeProcessing(false);
+      handlePracticeResult(fallbackTranscript);
+    } else {
+      setPracticeProcessing(false);
+    }
   });
 
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = event.results?.[0]?.transcript || '';
     if (!transcript) return;
+    latestInterimTranscriptRef.current = transcript;
     setPracticeTranscript(transcript);
     setPracticeStatus(event.isFinal ? 'Narinig ko!' : 'Naririnig kita...');
 
@@ -1444,6 +1462,29 @@ export default function StudentDashboard({ navigation }: any) {
 
     return (
       <>
+        {/* Hero banner: brand gradient (deep purple -> magenta-purple ->
+            deep pink), diagonal top-left to bottom-right, via
+            expo-linear-gradient (already installed, not a new library).
+            Rendered outside the ScrollView below so it stays pinned while
+            content scrolls underneath it. */}
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBanner}
+        >
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity style={styles.heroLogoRow} onPress={openSidebar}>
+              <Ionicons name="menu-outline" size={20} color="#fff" />
+              <Ionicons name="book" size={16} color="#fff" />
+              <Text style={styles.heroLogoText}>LinawLetra</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.heroGreeting}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
+          <Text style={styles.heroSubtitle}>Handa ka na bang matuto ngayon?</Text>
+          <Image source={require('../../assets/waving.png')} style={styles.heroImage} resizeMode="contain" />
+        </LinearGradient>
+
         <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
           {!!error && (
             <View style={styles.homeErrorBanner}>
@@ -1456,27 +1497,6 @@ export default function StudentDashboard({ navigation }: any) {
               </View>
             </View>
           )}
-
-          {/* Hero banner: brand gradient (deep purple -> magenta-purple ->
-              deep pink), diagonal top-left to bottom-right, via
-              expo-linear-gradient (already installed, not a new library) */}
-          <LinearGradient
-            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroBanner}
-          >
-            <View style={styles.heroTopRow}>
-              <TouchableOpacity style={styles.heroLogoRow} onPress={openSidebar}>
-                <Ionicons name="menu-outline" size={20} color="#fff" />
-                <Ionicons name="book" size={16} color="#fff" />
-                <Text style={styles.heroLogoText}>LinawLetra</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.heroGreeting}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
-            <Text style={styles.heroSubtitle}>Handa ka na bang matuto ngayon?</Text>
-            <Image source={require('../../assets/waving.png')} style={styles.heroImage} resizeMode="contain" />
-          </LinearGradient>
 
           {/* Today's Reading Progress — real daily-goal data (same mechanic as
               the Practice tab's step-dots; resets every 5 attempts, not at
@@ -1880,32 +1900,33 @@ export default function StudentDashboard({ navigation }: any) {
       return (
         <View style={{ flex: 1 }}>
           <ConfettiOverlay visible={confettiVisible} />
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-            <LinearGradient
-              colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroBanner}
+          {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
+          <LinearGradient
+            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroBanner}
+          >
+            <TouchableOpacity
+              style={styles.heroBackRow}
+              onPress={() => {
+                ExpoSpeechRecognitionModule.abort();
+                setSelectedWord(null);
+                setPracticeResult(null);
+                setPracticeAttempts(0);
+                setPracticeTranscript('');
+                setPracticeProcessing(false);
+              }}
             >
-              <TouchableOpacity
-                style={styles.heroBackRow}
-                onPress={() => {
-                  ExpoSpeechRecognitionModule.abort();
-                  setSelectedWord(null);
-                  setPracticeResult(null);
-                  setPracticeAttempts(0);
-                  setPracticeTranscript('');
-                  setPracticeProcessing(false);
-                }}
-              >
-                <Ionicons name="arrow-back" size={20} color="#fff" />
-                <Text style={styles.heroBackText}>Bumalik</Text>
-              </TouchableOpacity>
-              <Text style={styles.heroGreeting}>Voice Reading{'\n'}Practice</Text>
-              <Text style={styles.heroSubtitle}>Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo.</Text>
-              <Image source={require('../../assets/singing.png')} style={styles.heroImage} resizeMode="contain" />
-            </LinearGradient>
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <Text style={styles.heroBackText}>Bumalik</Text>
+            </TouchableOpacity>
+            <Text style={styles.heroGreeting}>Voice Reading{'\n'}Practice</Text>
+            <Text style={styles.heroSubtitle}>Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo.</Text>
+            <Image source={require('../../assets/singing.png')} style={styles.heroImage} resizeMode="contain" />
+          </LinearGradient>
 
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
             <View style={styles.learnProgressCard}>
               <View style={styles.learnProgressTopRow}>
                 <View style={styles.practiceProgressTitleRow}>
@@ -2283,7 +2304,8 @@ export default function StudentDashboard({ navigation }: any) {
       : 100;
 
     return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <>
+      {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
       <LinearGradient
         colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
         start={{ x: 0, y: 0 }}
@@ -2302,6 +2324,7 @@ export default function StudentDashboard({ navigation }: any) {
         <Image source={require('../../assets/learn.png')} style={styles.learnHeroImage} resizeMode="contain" />
       </LinearGradient>
 
+      <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
           <Ionicons name="library" size={16} color={HOME_LAVENDER_DARK} />
@@ -2628,6 +2651,7 @@ export default function StudentDashboard({ navigation }: any) {
         </Text>
       </View>
     </ScrollView>
+    </>
     );
   };
 
@@ -2842,7 +2866,8 @@ export default function StudentDashboard({ navigation }: any) {
     };
 
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+      <>
+        {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <LinearGradient
           colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
           start={{ x: 0, y: 0 }}
@@ -2861,6 +2886,7 @@ export default function StudentDashboard({ navigation }: any) {
           <Image source={require('../../assets/clipboard.png')} style={styles.progressHeroImage} resizeMode="contain" />
         </LinearGradient>
 
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.progressHeroCard}>
           <Text style={styles.progressHeroTitle}>Overall Reading Progress</Text>
           <View style={styles.progressOverallRow}>
@@ -3174,6 +3200,7 @@ export default function StudentDashboard({ navigation }: any) {
           )}
         </View>
       </ScrollView>
+      </>
     );
   };
 
@@ -3311,7 +3338,8 @@ export default function StudentDashboard({ navigation }: any) {
     };
 
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+      <>
+        {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <LinearGradient
           colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
           start={{ x: 0, y: 0 }}
@@ -3330,6 +3358,7 @@ export default function StudentDashboard({ navigation }: any) {
           <Image source={require('../../assets/trophy.png')} style={styles.badgesHeroImage} resizeMode="contain" />
         </LinearGradient>
 
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.achievementSummaryCard}>
           <Text style={styles.progressHeroTitle}>Achievement Summary</Text>
           <View style={styles.achievementSummaryRow}>
@@ -3518,6 +3547,7 @@ export default function StudentDashboard({ navigation }: any) {
           </TouchableOpacity>
         </LinearGradient>
       </ScrollView>
+      </>
     );
   };
 
@@ -3591,7 +3621,8 @@ export default function StudentDashboard({ navigation }: any) {
     ];
 
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+      <>
+        {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <LinearGradient
           colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
           start={{ x: 0, y: 0 }}
@@ -3613,6 +3644,7 @@ export default function StudentDashboard({ navigation }: any) {
           <Image source={require('../../assets/bell.png')} style={styles.notifHeroImage} resizeMode="contain" />
         </LinearGradient>
 
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.notifSummaryCard}>
           <View style={[styles.notifSummaryIconWrap, { backgroundColor: unreadNotifCount > 0 ? VIVID_AMBER : SUCCESS }]}>
             <Ionicons name={unreadNotifCount > 0 ? 'notifications' : 'checkmark-circle'} size={22} color="#fff" />
@@ -3698,6 +3730,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         )}
       </ScrollView>
+      </>
     );
   };
 

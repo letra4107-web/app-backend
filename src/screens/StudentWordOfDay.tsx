@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
+import { useAudioRecorder, RecordingOptions, IOSOutputFormat, AudioQuality, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +37,39 @@ const TRY_PHRASES = [
   'Kaya mo yan! Subukan mo ulit.',
 ];
 
+// RecordingPresets.HIGH_QUALITY (AAC-in-M4A) was silently untranscribable:
+// Google Cloud Speech-to-Text's encoding enum has no AAC/M4A option at all,
+// and the backend's getEncoding() had no case for 'm4a' either, so no
+// encoding was ever sent - this is the real "doesn't hear the student" bug,
+// not a resurgence of the earlier released-object crash. AMR-NB (8kHz) is a
+// real trade-off (narrowband, lower fidelity than AAC) but is one of Google
+// STT's natively supported encodings, and is a proven expo-audio preset
+// pattern (matches RecordingPresets.LOW_QUALITY's Android config) rather
+// than an untested one. iOS is left on its existing AAC settings for now -
+// this app has no iOS build yet, so that path is unverified either way.
+const WORD_RECORDING_OPTIONS: RecordingOptions = {
+  extension: '.3gp',
+  sampleRate: 8000,
+  numberOfChannels: 1,
+  bitRate: 12200,
+  android: {
+    extension: '.3gp',
+    outputFormat: '3gp',
+    audioEncoder: 'amr_nb',
+  },
+  ios: {
+    outputFormat: IOSOutputFormat.MPEG4AAC,
+    audioQuality: AudioQuality.MAX,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: {
+    mimeType: 'audio/webm',
+    bitsPerSecond: 64000,
+  },
+};
+
 const similarity = (a: string, b: string) => {
   const left = a.toLowerCase().replace(/[^a-z]/g, '');
   const right = b.toLowerCase().replace(/[^a-z]/g, '');
@@ -64,7 +97,7 @@ export default function StudentWordOfDay({
   // expo-av pattern of constructing a fresh `Audio.Recording()` per attempt -
   // that's what made the old "stale Recording object" retry logic necessary
   // in the first place, so it's no longer needed here.
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder(WORD_RECORDING_OPTIONS);
   const [isRecording, setIsRecording] = useState(false);
   const [starting, setStarting] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -166,10 +199,18 @@ export default function StudentWordOfDay({
       const uri = recorder.uri;
       if (!uri) throw new Error('No audio URI');
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      // Must match WORD_RECORDING_OPTIONS per platform - Android now records
+      // AMR-NB in a 3gp container (the format Google STT can actually decode
+      // for this upload path), while iOS/web are unchanged from before.
+      const { mimeType, filename } = Platform.OS === 'android'
+        ? { mimeType: 'audio/amr', filename: 'word-of-day.3gp' }
+        : Platform.OS === 'web'
+          ? { mimeType: 'audio/webm', filename: 'word-of-day.webm' }
+          : { mimeType: 'audio/m4a', filename: 'word-of-day.m4a' };
       const response = await postJson<{ transcript: string }>(buildApiUrl('/speech/transcribe'), {
         audioBase64: base64,
-        mimeType: 'audio/m4a',
-        filename: 'word-of-day.m4a',
+        mimeType,
+        filename,
         target: log.word,
         language: 'tl-PH',
       }, 30000);

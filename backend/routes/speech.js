@@ -28,8 +28,18 @@ const getEncoding = (mimeType = '') => {
   if (normalized.includes('flac')) return 'FLAC';
   if (normalized.includes('wav') || normalized.includes('wave')) return 'LINEAR16';
   if (normalized.includes('mp3') || normalized.includes('mpeg')) return 'MP3';
+  // AMR-NB, always 8kHz - the Word of Day screen's Android recording format.
+  // NOTE: there is deliberately no case for m4a/aac here - Google Cloud
+  // Speech-to-Text's encoding enum has no AAC/M4A option at all, so an m4a
+  // upload can never be correctly decoded via this endpoint regardless of
+  // what string is returned.
+  if (normalized.includes('amr')) return 'AMR';
   return undefined;
 };
+
+// AMR requires an explicit sampleRateHertz (Google STT rejects the request
+// without it); other encodings here rely on their container's own header.
+const REQUIRED_SAMPLE_RATE_HERTZ = { AMR: 8000, AMR_WB: 16000 };
 
 /**
  * Legacy endpoint (kept for compatibility).
@@ -69,6 +79,7 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
       alternativeLanguageCodes: ['fil-PH', 'en-PH'],
       enableAutomaticPunctuation: false,
       ...(encoding ? { encoding } : {}),
+      ...(encoding && REQUIRED_SAMPLE_RATE_HERTZ[encoding] ? { sampleRateHertz: REQUIRED_SAMPLE_RATE_HERTZ[encoding] } : {}),
     };
 
     const [response] = await getSpeechClient().recognize({

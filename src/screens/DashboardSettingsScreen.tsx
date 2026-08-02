@@ -91,7 +91,17 @@ type AccountModal = 'password' | 'email' | null;
 export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
+  // `settings` is the DRAFT the user is currently editing (toggles update
+  // this immediately, for a responsive UI) - `savedSettings` is what's
+  // actually persisted on the backend. They diverge the moment a toggle is
+  // touched and stay in sync only right after a successful save. Both are
+  // set together from the same fetch on load, and both reset to fresh
+  // server data on remount - since this screen is conditionally rendered
+  // (not just hidden) when the student/parent switches tabs, navigating
+  // away without saving naturally discards the draft with no extra code.
   const [settings, setSettings] = useState<DashboardSettings | null>(null);
+  const [savedSettings, setSavedSettings] = useState<DashboardSettings | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -166,6 +176,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           avatar_url: profileData?.avatar_url || null,
         });
         setSettings(settingsData);
+        setSavedSettings(settingsData);
         setTtsEnabled(settingsData.tts_enabled);
         setSpeechRateSetting(settingsData.speech_rate || 'normal');
         setNewEmail(user.email || '');
@@ -262,25 +273,41 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     }
   };
 
-  const updateSetting = async <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => {
-    if (!authUid || !settings) return;
-    const previous = settings;
+  // Draft-only: updates local UI state and gives an immediate live preview
+  // for anything that's actual in-session app behavior (TTS voice, speech
+  // rate), but does NOT touch the backend. Persisting is only ever done by
+  // saveDraftSettings(), via the explicit "Save Changes" button.
+  const updateSetting = <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => {
+    if (!settings) return;
     setSettings({ ...settings, [key]: value });
     if (key === 'tts_enabled') setTtsEnabled(!!value);
     if (key === 'speech_rate') setSpeechRateSetting(value as SpeechRate);
-    setSavingKey(String(key));
+  };
+
+  const hasUnsavedSettingsChanges = !!settings && !!savedSettings && JSON.stringify(settings) !== JSON.stringify(savedSettings);
+
+  const saveDraftSettings = async () => {
+    if (!authUid || !settings || !hasUnsavedSettingsChanges) return;
+    setSavingSettings(true);
     try {
-      const saved = await updateDashboardSettings(authUid, role, { [key]: value } as Partial<DashboardSettings>);
+      const saved = await updateDashboardSettings(authUid, role, settings);
       setSettings(saved);
-      showSuccess('Setting saved.');
+      setSavedSettings(saved);
+      showSuccess('Settings saved.');
     } catch (e: any) {
-      setSettings(previous);
-      showError(e?.message || 'Could not save setting. Changes were reverted.');
-      if (key === 'tts_enabled') setTtsEnabled(!!previous.tts_enabled);
-      if (key === 'speech_rate') setSpeechRateSetting((previous.speech_rate || 'normal') as SpeechRate);
+      showError(e?.message || 'Could not save settings. Your changes are still here - try again.');
     } finally {
-      setSavingKey(null);
+      setSavingSettings(false);
     }
+  };
+
+  const discardDraftSettings = () => {
+    if (!savedSettings) return;
+    setSettings(savedSettings);
+    setTtsEnabled(!!savedSettings.tts_enabled);
+    setSpeechRateSetting((savedSettings.speech_rate || 'normal') as SpeechRate);
+    setMessage('');
+    setError('');
   };
 
   const submitPassword = async () => {
@@ -364,7 +391,6 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     <Switch
       value={!!value}
       onValueChange={(next) => updateSetting(key, next as any)}
-      disabled={savingKey === String(key)}
       trackColor={{ false: '#cbd5e1', true: 'rgba(124,111,207,0.4)' }}
       thumbColor={value ? LAVENDER : '#f8fafc'}
     />
@@ -379,7 +405,6 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             key={item}
             style={[styles.segmentButton, active && styles.segmentButtonActive]}
             onPress={() => updateSetting(key, item as any)}
-            disabled={savingKey === String(key)}
           >
             <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{item}</Text>
           </TouchableOpacity>
@@ -442,26 +467,30 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
 
   return (
     <Animated.View style={[styles.container, dark && styles.containerDark, { opacity: fade }]}>
+      {/* Student (heroMode) only: rendered outside the ScrollView below so it
+          stays pinned while content scrolls underneath it. Parent settings
+          (heroMode omitted) keeps its header inside the ScrollView, unchanged. */}
+      {heroMode && (
+        <LinearGradient
+          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBanner}
+        >
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity style={styles.heroLogoRow} onPress={onOpenSidebar}>
+              <Ionicons name="menu-outline" size={20} color="#fff" />
+              <Ionicons name="book" size={16} color="#fff" />
+              <Text style={styles.heroLogoText}>LinawLetra</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.heroGreeting}>Settings</Text>
+          <Text style={styles.heroSubtitle}>Make LinawLetra work best for you.</Text>
+          <Image source={require('../../assets/gear.png')} style={styles.heroImage} resizeMode="contain" />
+        </LinearGradient>
+      )}
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {heroMode ? (
-          <LinearGradient
-            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroBanner}
-          >
-            <View style={styles.heroTopRow}>
-              <TouchableOpacity style={styles.heroLogoRow} onPress={onOpenSidebar}>
-                <Ionicons name="menu-outline" size={20} color="#fff" />
-                <Ionicons name="book" size={16} color="#fff" />
-                <Text style={styles.heroLogoText}>LinawLetra</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.heroGreeting}>Settings</Text>
-            <Text style={styles.heroSubtitle}>Make LinawLetra work best for you.</Text>
-            <Image source={require('../../assets/gear.png')} style={styles.heroImage} resizeMode="contain" />
-          </LinearGradient>
-        ) : (
+        {heroMode ? null : (
           <View style={styles.header}>
             {!embedded && (
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -516,6 +545,20 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             <Text style={styles.viewProfileButtonText}>{heroMode ? 'Edit Profile' : 'View Profile'}</Text>
           </TouchableOpacity>
         </View>
+
+        {hasUnsavedSettingsChanges && (
+          <View style={[styles.unsavedBar, dark && styles.unsavedBarDark]}>
+            <Text style={[styles.unsavedBarText, dark && styles.textDark]}>You have unsaved changes.</Text>
+            <View style={styles.unsavedBarButtons}>
+              <TouchableOpacity style={styles.discardButton} onPress={discardDraftSettings} disabled={savingSettings}>
+                <Text style={styles.discardButtonText}>Discard</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveChangesButton} onPress={saveDraftSettings} disabled={savingSettings}>
+                {savingSettings ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveChangesButtonText}>Save Changes</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {isParent ? (
           <>
@@ -829,6 +872,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginTop: 14,
   },
   viewProfileButtonText: { color: LAVENDER_DARK, fontWeight: '900', fontSize: 14 },
+  unsavedBar: {
+    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: SUN, borderRadius: 16,
+    padding: 14, marginTop: 16, gap: 10,
+  },
+  unsavedBarDark: { backgroundColor: 'rgba(227,151,26,0.12)' },
+  unsavedBarText: { color: INK, fontWeight: '700', fontSize: 13 },
+  unsavedBarButtons: { flexDirection: 'row', gap: 10 },
+  discardButton: {
+    flex: 1, minHeight: 44, borderRadius: 999, borderWidth: 1.5, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  discardButtonText: { color: MUTED, fontWeight: '800', fontSize: 14 },
+  saveChangesButton: {
+    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: LAVENDER_DARK,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  saveChangesButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   grantedPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E9F7F1',
     borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
