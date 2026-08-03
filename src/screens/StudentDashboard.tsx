@@ -79,7 +79,11 @@ const HOME_LAVENDER_DARK = '#5F52B0';
 // Hero banner brand gradient only - not part of the general HOME_* palette
 // used elsewhere on the page.
 const HERO_GRADIENT_START = '#6D28D9';
-const HERO_GRADIENT_MID = '#A855F7';
+// Darkened ~10% from the original #A855F7 - that shade only gave white hero
+// text ~3.96:1 contrast at this gradient stop, below WCAG AA's 4.5:1 minimum
+// for normal-size text (the smaller heroSubtitle line specifically failed).
+// This keeps the same hue while clearing ~4.77:1.
+const HERO_GRADIENT_MID = '#974CDE';
 const HERO_GRADIENT_END = '#9D174D';
 // Quick Stats icon-circle fills only - deliberately more saturated than the
 // shared HOME_SAGE/HOME_CORAL/HOME_LAVENDER_DARK/HOME_SUN tokens (which stay
@@ -2599,10 +2603,10 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={styles.sectionSubtitle}>{upcomingCount} pending • {overdueCount} overdue</Text>
           </View>
           <View style={styles.calendarHeaderActions}>
-            <TouchableOpacity style={styles.monthButton} onPress={() => shiftCalendarMonth(-1)}>
+            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(-1)}>
               <Ionicons name="chevron-back" size={18} color={PRIMARY} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.monthButton} onPress={() => shiftCalendarMonth(1)}>
+            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(1)}>
               <Ionicons name="chevron-forward" size={18} color={PRIMARY} />
             </TouchableOpacity>
           </View>
@@ -3811,7 +3815,7 @@ export default function StudentDashboard({ navigation }: any) {
             end={{ x: 1, y: 1 }}
             style={styles.sidebarProfileCard}
           >
-            <TouchableOpacity style={styles.sidebarCloseButton} onPress={closeSidebar}>
+            <TouchableOpacity style={styles.sidebarCloseButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={closeSidebar}>
               <Ionicons name="close" size={18} color="#fff" />
             </TouchableOpacity>
             <View style={styles.sidebarProfileRow}>

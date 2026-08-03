@@ -56,7 +56,11 @@ const FONT_DISPLAY = 'Baloo2_800ExtraBold';
 // Same 3 stops used for every hero banner across Home/Learn/Practice/
 // Progress/Badges - duplicated locally like the rest of this file's token set.
 const HERO_GRADIENT_START = '#6D28D9';
-const HERO_GRADIENT_MID = '#A855F7';
+// Darkened ~10% from the original #A855F7 - that shade only gave white hero
+// text ~3.96:1 contrast at this gradient stop, below WCAG AA's 4.5:1 minimum
+// for normal-size text (the smaller heroSubtitle line specifically failed).
+// This keeps the same hue while clearing ~4.77:1.
+const HERO_GRADIENT_MID = '#974CDE';
 const HERO_GRADIENT_END = '#9D174D';
 // Cycled per-section (never per-row) so adjacent sections read as visually
 // distinct while staying inside the same 4-color family used elsewhere.

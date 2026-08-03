@@ -41,7 +41,11 @@ const HOME_SAGE = '#5C8047';
 const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
 const HERO_GRADIENT_START = '#6D28D9';
-const HERO_GRADIENT_MID = '#A855F7';
+// Darkened ~10% from the original #A855F7 - that shade only gave white hero
+// text ~3.96:1 contrast at this gradient stop, below WCAG AA's 4.5:1 minimum
+// for normal-size text (the smaller heroSubtitle line specifically failed).
+// This keeps the same hue while clearing ~4.77:1.
+const HERO_GRADIENT_MID = '#974CDE';
 const HERO_GRADIENT_END = '#9D174D';
 // Same daily-goal formula as the Student Dashboard (total_attempts mod
 // DAILY_GOAL) - kept identical so a child's "goal" means the same thing
@@ -1969,7 +1973,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.calendarCard}>
           <View style={styles.calendarCardHeader}>
-            <TouchableOpacity style={styles.monthButton} onPress={() => shiftCalendarMonth(-1)}>
+            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(-1)}>
               <Ionicons name="chevron-back" size={18} color={PRIMARY} />
             </TouchableOpacity>
             <Text style={styles.calendarMonth}>{monthLabel}</Text>
@@ -1983,7 +1987,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             >
               <Text style={styles.todayPillText}>Today</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.monthButton} onPress={() => shiftCalendarMonth(1)}>
+            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(1)}>
               <Ionicons name="chevron-forward" size={18} color={PRIMARY} />
             </TouchableOpacity>
           </View>
@@ -2410,7 +2414,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={openSidebar} style={styles.menuButton}>
+        <TouchableOpacity onPress={openSidebar} style={styles.menuButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
           <Ionicons name="menu-outline" size={26} color={PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.appTitle}>LinawLetra</Text>
