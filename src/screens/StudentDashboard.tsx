@@ -1482,7 +1482,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
           <Text style={styles.heroGreeting}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
           <Text style={styles.heroSubtitle}>Handa ka na bang matuto ngayon?</Text>
-          <Image source={require('../../assets/waving.png')} style={styles.heroImage} resizeMode="contain" />
+          <Image source={require('../../assets/waving.webp')} style={styles.heroImage} resizeMode="contain" />
         </LinearGradient>
 
         <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
@@ -1554,7 +1554,7 @@ export default function StudentDashboard({ navigation }: any) {
           {continueReadingLesson ? (
             <View style={styles.homeContinueCard}>
               <View style={styles.homeContinueImageWrap}>
-                <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.homeContinueTitle}>Continue Learning</Text>
@@ -1574,7 +1574,7 @@ export default function StudentDashboard({ navigation }: any) {
           ) : (
             <View style={styles.homeContinueCard}>
               <View style={styles.homeContinueImageWrap}>
-                <Image source={require('../../assets/reading.png')} style={styles.homeContinueImage} resizeMode="contain" />
+                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.homeContinueTitle}>Continue Learning</Text>
@@ -1659,7 +1659,7 @@ export default function StudentDashboard({ navigation }: any) {
           {/* Bottom encouragement banner */}
           <View style={styles.homeQuoteBanner}>
             <Text style={styles.homeQuoteText}>"Bawat salitang nababasa mo, lumalakas ka!"</Text>
-            <Image source={require('../../assets/thumbsup.png')} style={styles.homeQuoteImage} resizeMode="contain" />
+            <Image source={require('../../assets/thumbsup.webp')} style={styles.homeQuoteImage} resizeMode="contain" />
           </View>
 
           {/* Quick actions */}
@@ -1923,7 +1923,7 @@ export default function StudentDashboard({ navigation }: any) {
             </TouchableOpacity>
             <Text style={styles.heroGreeting}>Voice Reading{'\n'}Practice</Text>
             <Text style={styles.heroSubtitle}>Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo.</Text>
-            <Image source={require('../../assets/singing.png')} style={styles.heroImage} resizeMode="contain" />
+            <Image source={require('../../assets/singing.webp')} style={styles.heroImage} resizeMode="contain" />
           </LinearGradient>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
@@ -2033,7 +2033,7 @@ export default function StudentDashboard({ navigation }: any) {
                 />
 
                 <View style={styles.encourageCard}>
-                  <Image source={require('../../assets/book.png')} style={styles.encourageImage} resizeMode="contain" />
+                  <Image source={require('../../assets/book.webp')} style={styles.encourageImage} resizeMode="contain" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.encourageTitle}>Every practice makes you a better reader!</Text>
                     <Text style={styles.encourageSub}>
@@ -2321,7 +2321,7 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
         <Text style={styles.heroGreeting}>Matuto tayo,{'\n'}{getFirstName(child?.name || '')}!</Text>
         <Text style={styles.heroSubtitle}>Piliin ang aralin at ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
-        <Image source={require('../../assets/learn.png')} style={styles.learnHeroImage} resizeMode="contain" />
+        <Image source={require('../../assets/learn.webp')} style={styles.learnHeroImage} resizeMode="contain" />
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -2566,7 +2566,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
           <Text style={styles.categoryTitle}>Reading Tip</Text>
           <Text style={styles.categorySub}>Bigkasin ang bawat pantig nang dahan-dahan bago pagsamahin.</Text>
-          <Image source={require('../../assets/learnboypng.png')} style={styles.categoryTipImage} resizeMode="contain" />
+          <Image source={require('../../assets/learnboypng.webp')} style={styles.categoryTipImage} resizeMode="contain" />
         </View>
       </View>
 
@@ -2582,7 +2582,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={styles.learnContinueButtonText}>Ipagpatuloy</Text>
               </TouchableOpacity>
             </View>
-            <Image source={require('../../assets/learn2.png')} style={styles.learnContinueImage} resizeMode="contain" />
+            <Image source={require('../../assets/learn2.webp')} style={styles.learnContinueImage} resizeMode="contain" />
           </View>
         ) : (
           <View style={[styles.learnContinueCard, styles.learnBottomCard]}>
@@ -2595,7 +2595,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={styles.learnContinueButtonText}>Simulan</Text>
               </TouchableOpacity>
             </View>
-            <Image source={require('../../assets/learn2.png')} style={styles.learnContinueImage} resizeMode="contain" />
+            <Image source={require('../../assets/learn2.webp')} style={styles.learnContinueImage} resizeMode="contain" />
           </View>
         )}
 
@@ -2883,7 +2883,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
           <Text style={styles.heroGreeting}>My Reading{'\n'}Progress</Text>
           <Text style={styles.heroSubtitle}>See how much you've improved on your reading journey.</Text>
-          <Image source={require('../../assets/clipboard.png')} style={styles.progressHeroImage} resizeMode="contain" />
+          <Image source={require('../../assets/clipboard.webp')} style={styles.progressHeroImage} resizeMode="contain" />
         </LinearGradient>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
@@ -3355,7 +3355,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
           <Text style={styles.heroGreeting}>My Learning{'\n'}Badges</Text>
           <Text style={styles.heroSubtitle}>Celebrate every reading milestone you achieve!</Text>
-          <Image source={require('../../assets/trophy.png')} style={styles.badgesHeroImage} resizeMode="contain" />
+          <Image source={require('../../assets/trophy.webp')} style={styles.badgesHeroImage} resizeMode="contain" />
         </LinearGradient>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
@@ -3522,7 +3522,7 @@ export default function StudentDashboard({ navigation }: any) {
           end={{ x: 1, y: 1 }}
           style={styles.badgesCelebrateBanner}
         >
-          <Image source={require('../../assets/celebrate.png')} style={styles.badgesCelebrateImage} resizeMode="contain" />
+          <Image source={require('../../assets/celebrate.webp')} style={styles.badgesCelebrateImage} resizeMode="contain" />
           <View style={{ maxWidth: '62%' }}>
             <Text style={styles.badgesCelebrateTitle}>Fantastic Work!</Text>
             <Text style={styles.badgesCelebrateSub}>Every badge represents your hard work and growing reading skills.</Text>
@@ -3641,7 +3641,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
           <Text style={styles.heroGreeting}>Notifications</Text>
           <Text style={styles.heroSubtitle}>Stay updated on your reading journey.</Text>
-          <Image source={require('../../assets/bell.png')} style={styles.notifHeroImage} resizeMode="contain" />
+          <Image source={require('../../assets/bell.webp')} style={styles.notifHeroImage} resizeMode="contain" />
         </LinearGradient>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
@@ -3950,7 +3950,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={[styles.sidebarProgressFill, { width: `${Math.max(4, sidebarOverallPct)}%` }]} />
             </View>
             <Text style={styles.sidebarProgressMsg}>Keep going {getFirstName(child?.name || '')}! ✦</Text>
-            <Image source={require('../../assets/menu.png')} style={styles.sidebarProgressImage} resizeMode="contain" />
+            <Image source={require('../../assets/menu.webp')} style={styles.sidebarProgressImage} resizeMode="contain" />
           </View>
 
           <Text style={styles.sidebarSectionLabel}>QUICK ACCESS</Text>

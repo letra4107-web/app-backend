@@ -943,7 +943,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={styles.homeGreeting}>Good Day, {parentName || 'Loading...'}!</Text>
             <Text style={styles.homeGreetingSub}>Here's how your child is doing today.</Text>
           </View>
-          <Image source={require('../../assets/decorate.png')} style={styles.homeGreetingDecor} resizeMode="contain" />
+          <Image source={require('../../assets/decorate.webp')} style={styles.homeGreetingDecor} resizeMode="contain" />
         </View>
 
         <View style={styles.childSummaryCard}>
@@ -1002,7 +1002,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <View style={styles.heroDecorCircleLg} />
           <View style={styles.heroDecorCircleSm} />
-          <Image source={require('../../assets/parentreading.png')} style={styles.heroProgressImage} resizeMode="contain" />
+          <Image source={require('../../assets/parentreading.webp')} style={styles.heroProgressImage} resizeMode="contain" />
 
           <View style={styles.heroProgressTopRow}>
             <View style={{ flex: 1, paddingRight: 8 }}>
@@ -1195,7 +1195,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.supportBannerButtonText}>View Child Progress →</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../../assets/parentreading.png')} style={styles.supportBannerImage} resizeMode="contain" />
+          <Image source={require('../../assets/parentreading.webp')} style={styles.supportBannerImage} resizeMode="contain" />
         </LinearGradient>
 
         <View style={styles.quickActions}>
@@ -1910,7 +1910,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <View style={styles.heroDecorCircleLg} />
           <View style={styles.heroDecorCircleSm} />
-          <Image source={require('../../assets/calendar.png')} style={styles.calendarHeroImage} resizeMode="contain" />
+          <Image source={require('../../assets/calendar.webp')} style={styles.calendarHeroImage} resizeMode="contain" />
           <View style={styles.heroProgressEyebrowRow}>
             <View style={styles.heroProgressIconWrap}>
               <Ionicons name="calendar" size={12} color="#fff" />
@@ -2176,7 +2176,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.insightSeeMore}>View Child Progress →</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../../assets/parentreading.png')} style={styles.parentInsightImage} resizeMode="contain" />
+          <Image source={require('../../assets/parentreading.webp')} style={styles.parentInsightImage} resizeMode="contain" />
         </View>
       </>
     );

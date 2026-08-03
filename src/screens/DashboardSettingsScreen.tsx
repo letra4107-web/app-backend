@@ -486,7 +486,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           </View>
           <Text style={styles.heroGreeting}>Settings</Text>
           <Text style={styles.heroSubtitle}>Make LinawLetra work best for you.</Text>
-          <Image source={require('../../assets/gear.png')} style={styles.heroImage} resizeMode="contain" />
+          <Image source={require('../../assets/gear.webp')} style={styles.heroImage} resizeMode="contain" />
         </LinearGradient>
       )}
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
