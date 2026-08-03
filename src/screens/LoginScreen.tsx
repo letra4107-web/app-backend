@@ -411,7 +411,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.signUpRow}>
-          <Text style={styles.signUpLink}>Don't have an account? <Text style={styles.signUpLinkBold}>Sign Up</Text></Text>
+          <Text style={styles.signUpLink}>Don&apos;t have an account? <Text style={styles.signUpLinkBold}>Sign Up</Text></Text>
         </TouchableOpacity>
 
         <View style={styles.trustNote}>

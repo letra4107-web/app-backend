@@ -894,7 +894,7 @@ export default function StudentDashboard({ navigation }: any) {
     const first = new Date(year, month, 1);
     const startOffset = first.getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const cells: Array<{ key: string; date?: Date; inMonth: boolean }> = [];
+    const cells: { key: string; date?: Date; inMonth: boolean }[] = [];
 
     for (let i = 0; i < startOffset; i += 1) {
       cells.push({ key: `blank-${i}`, inMonth: false });
@@ -1503,7 +1503,7 @@ export default function StudentDashboard({ navigation }: any) {
               midnight, since there's no calendar-day tracking yet) */}
           <View style={styles.homeTodayCard}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.homeTodayTitle}>Today's Reading{'\n'}Progress</Text>
+              <Text style={styles.homeTodayTitle}>Today&apos;s Reading{'\n'}Progress</Text>
               <Text style={styles.homeTodayStatLine}>{goalDone} of {DAILY_GOAL} pagsasanay ngayon</Text>
               <TouchableOpacity style={styles.homeTodayButton} onPress={() => setSection('practice')}>
                 <Text style={styles.homeTodayButtonText}>Continue Practice</Text>
@@ -1658,7 +1658,7 @@ export default function StudentDashboard({ navigation }: any) {
 
           {/* Bottom encouragement banner */}
           <View style={styles.homeQuoteBanner}>
-            <Text style={styles.homeQuoteText}>"Bawat salitang nababasa mo, lumalakas ka!"</Text>
+            <Text style={styles.homeQuoteText}>&quot;Bawat salitang nababasa mo, lumalakas ka!&quot;</Text>
             <Image source={require('../../assets/thumbsup.webp')} style={styles.homeQuoteImage} resizeMode="contain" />
           </View>
 
@@ -1931,7 +1931,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={styles.learnProgressTopRow}>
                 <View style={styles.practiceProgressTitleRow}>
                   <Ionicons name="albums-outline" size={16} color={HOME_LAVENDER_DARK} />
-                  <Text style={styles.learnProgressTitle}>Today's Practice</Text>
+                  <Text style={styles.learnProgressTitle}>Today&apos;s Practice</Text>
                 </View>
                 {wordTotal > 0 && (
                   <View style={styles.practiceWordPill}>
@@ -2016,7 +2016,7 @@ export default function StudentDashboard({ navigation }: any) {
                   <Text style={styles.micTimerText}>{formatElapsed(recordingElapsed)} • Nakikinig...</Text>
                 )}
                 {!!practiceTranscript && (
-                  <Text style={styles.practiceTranscript}>Narinig ko: "{practiceTranscript}"</Text>
+                  <Text style={styles.practiceTranscript}>Narinig ko: &quot;{practiceTranscript}&quot;</Text>
                 )}
               </View>
             </View>
@@ -2086,7 +2086,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         <View style={styles.goalCard}>
           <View style={styles.goalTopRow}>
-            <Text style={styles.goalTitle}>Today's Practice</Text>
+            <Text style={styles.goalTitle}>Today&apos;s Practice</Text>
             {goalDone > 0 ? (
               <Text style={styles.goalCount}>{goalDone}/{DAILY_GOAL}</Text>
             ) : (
@@ -2882,7 +2882,7 @@ export default function StudentDashboard({ navigation }: any) {
             </TouchableOpacity>
           </View>
           <Text style={styles.heroGreeting}>My Reading{'\n'}Progress</Text>
-          <Text style={styles.heroSubtitle}>See how much you've improved on your reading journey.</Text>
+          <Text style={styles.heroSubtitle}>See how much you&apos;ve improved on your reading journey.</Text>
           <Image source={require('../../assets/clipboard.webp')} style={styles.progressHeroImage} resizeMode="contain" />
         </LinearGradient>
 
@@ -3445,7 +3445,7 @@ export default function StudentDashboard({ navigation }: any) {
                 </View>
               </View>
             </View>
-            <Text style={styles.spotlightHint}>You're getting closer! Keep practicing. →</Text>
+            <Text style={styles.spotlightHint}>You&apos;re getting closer! Keep practicing. →</Text>
             <TouchableOpacity style={styles.spotlightButton} onPress={() => setSection('practice')}>
               <Text style={styles.spotlightButtonText}>Practice Now</Text>
             </TouchableOpacity>

@@ -132,7 +132,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
         </View>
 
         <Text style={styles.title}>Forgot Your Password?</Text>
-        <Text style={styles.subtitle}>No worries. Enter your email and we'll send you a link to reset your password.</Text>
+        <Text style={styles.subtitle}>No worries. Enter your email and we&apos;ll send you a link to reset your password.</Text>
 
         <View style={styles.card}>
           {generalError ? <Text style={styles.errorBanner}>{generalError}</Text> : null}

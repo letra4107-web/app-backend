@@ -159,7 +159,7 @@ type ChildProgress = {
   streak: number;
   word_count?: number;
   completed_words: string[];
-  achievements: Array<{ id: string; unlockedAt: string }>;
+  achievements: { id: string; unlockedAt: string }[];
   total_attempts?: number;
   last_practice_date?: string | null;
   accuracy_sum?: number;
@@ -762,7 +762,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
     const first = new Date(year, month, 1);
-    const cells: Array<{ key: string; date?: Date }> = [];
+    const cells: { key: string; date?: Date }[] = [];
     for (let i = 0; i < first.getDay(); i += 1) cells.push({ key: `blank-${i}` });
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day += 1) {
@@ -796,7 +796,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.homeGreeting}>Good Day, {parentName || 'Loading...'}!</Text>
-              <Text style={styles.homeGreetingSub}>Here's how your child is doing today.</Text>
+              <Text style={styles.homeGreetingSub}>Here&apos;s how your child is doing today.</Text>
             </View>
           </View>
           <View style={styles.emptyState}>
@@ -941,7 +941,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.homeGreeting}>Good Day, {parentName || 'Loading...'}!</Text>
-            <Text style={styles.homeGreetingSub}>Here's how your child is doing today.</Text>
+            <Text style={styles.homeGreetingSub}>Here&apos;s how your child is doing today.</Text>
           </View>
           <Image source={require('../../assets/decorate.webp')} style={styles.homeGreetingDecor} resizeMode="contain" />
         </View>
@@ -1012,7 +1012,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 </View>
                 <Text style={styles.heroProgressEyebrow}>READING PROGRESS</Text>
               </View>
-              <Text style={styles.heroProgressTitle}>{selectedChild.name.split(' ')[0]}'s Reading Progress</Text>
+              <Text style={styles.heroProgressTitle}>{selectedChild.name.split(' ')[0]}&apos;s Reading Progress</Text>
             </View>
             <View style={styles.heroProgressRingWrap}>
               <ProgressRing
@@ -1073,7 +1073,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
         </View>
 
-        <Text style={styles.homeSectionTitle}>This Week's Activity</Text>
+        <Text style={styles.homeSectionTitle}>This Week&apos;s Activity</Text>
         <View style={styles.trendCard}>
           <View style={styles.weekBarRow}>
             {weekDayBars.map((day, i) => (
@@ -1115,7 +1115,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           )}
         </View>
 
-        <Text style={styles.homeSectionTitle}>This Week's Insight</Text>
+        <Text style={styles.homeSectionTitle}>This Week&apos;s Insight</Text>
         <Text style={styles.homeSectionSub}>Practice activity over last 7 days</Text>
         <View style={styles.weeklyInsightCard}>
           {skillMeta.map(({ key, label }) => {
@@ -1142,7 +1142,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.goalCard}>
           <View style={styles.goalCardHeader}>
             <Ionicons name="flag" size={18} color={HOME_SUN} />
-            <Text style={styles.homeSectionTitleInline}>Today's Reading Goal</Text>
+            <Text style={styles.homeSectionTitleInline}>Today&apos;s Reading Goal</Text>
           </View>
           <Text style={styles.goalCardValue}>{goalDone}/{DAILY_GOAL} Activities</Text>
           <View style={styles.goalCardTrack}>
@@ -1223,7 +1223,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <View style={styles.homeHeaderRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.homeGreeting}>Child Progress</Text>
-          <Text style={styles.homeGreetingSub}>Track your child's reading development.</Text>
+          <Text style={styles.homeGreetingSub}>Track your child&apos;s reading development.</Text>
         </View>
       </View>
     );
@@ -1558,7 +1558,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <View style={{ flex: 1 }}>
               <Text style={styles.recommendTitle}>Recommended Next Step</Text>
               <Text style={styles.recommendText}>
-                Continue practicing {weakestSkill.label.replace(' (approx.)', '')} - it's currently {selectedChild.name.split(' ')[0]}'s area with the most room to grow.
+                Continue practicing {weakestSkill.label.replace(' (approx.)', '')} - it&apos;s currently {selectedChild.name.split(' ')[0]}&apos;s area with the most room to grow.
               </Text>
               <TouchableOpacity style={styles.recommendButton} onPress={() => setSection('welcome')}>
                 <Text style={styles.recommendButtonText}>View Recommended Activities</Text>
@@ -1715,7 +1715,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={styles.homeHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.homeGreeting}>Calendar</Text>
-              <Text style={styles.homeGreetingSub}>Plan and follow your child's learning activities.</Text>
+              <Text style={styles.homeGreetingSub}>Plan and follow your child&apos;s learning activities.</Text>
             </View>
           </View>
           <View style={styles.emptyState}>
@@ -1919,7 +1919,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <Text style={styles.heroProgressTitle}>Calendar</Text>
           <Text style={[styles.heroProgressMessage, { maxWidth: '72%', marginTop: 6, marginBottom: 0 }]}>
-            Plan and follow {selectedChild.name.split(' ')[0]}'s learning activities.
+            Plan and follow {selectedChild.name.split(' ')[0]}&apos;s learning activities.
           </Text>
         </LinearGradient>
 
@@ -2029,7 +2029,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.selectedTasksCard}>
           <View style={styles.selectedTasksHeaderRow}>
             <Text style={styles.selectedTasksTitle}>
-              {new Date(`${selectedCalendarDate}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} • {selectedChild.name.split(' ')[0]}'s Activities
+              {new Date(`${selectedCalendarDate}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} • {selectedChild.name.split(' ')[0]}&apos;s Activities
             </Text>
           </View>
           {dayEntries.length ? (
@@ -2472,7 +2472,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <AddScheduledActivityModal
         visible={activityModalVisible}
         date={selectedCalendarDate}
-        children={children.map((child) => ({ id: child.id, name: child.name }))}
+        childOptions={children.map((child) => ({ id: child.id, name: child.name }))}
         defaultChildId={selectedChildId}
         editing={editingScheduledActivity}
         onClose={() => {

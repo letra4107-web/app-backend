@@ -85,7 +85,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const autoSendInFlightRef = useRef(false);
   const sendInFlightRef = useRef(false);
-  const otpRefs = useRef<Array<TextInput | null>>([]);
+  const otpRefs = useRef<(TextInput | null)[]>([]);
 
   const getVerificationUserId = () => currentUser?.id || routeUserId || '';
   const applyOtpQueuedState = (message: string, newExpiresAt?: string) => {
@@ -484,7 +484,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
           </TouchableOpacity>
 
           <View style={styles.resendRow}>
-            <Text style={styles.resendPrompt}>Didn't receive the code? </Text>
+            <Text style={styles.resendPrompt}>Didn&apos;t receive the code? </Text>
             <TouchableOpacity
               onPress={handleSendOTP}
               disabled={loading || resendCooldown > 0}

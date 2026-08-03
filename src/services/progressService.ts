@@ -15,7 +15,7 @@ export type ChildProgress = {
   completed_words: string[];
   word_count?: number;
   total_attempts: number;
-  achievements: Array<{ id: string; unlockedAt: string }>;
+  achievements: { id: string; unlockedAt: string }[];
   badges: any[];
   updated_at?: string;
   // Baseline accuracy is captured once, on the student's first scored practice,

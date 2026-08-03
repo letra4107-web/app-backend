@@ -228,7 +228,7 @@ export function NotificationsView({
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Notifications</Text>
-          <Text style={styles.subtitle}>Stay updated on your child's learning journey.</Text>
+          <Text style={styles.subtitle}>Stay updated on your child&apos;s learning journey.</Text>
         </View>
         {!!unreadCount && (
           <TouchableOpacity style={styles.markAllButton} onPress={markAllRead}>
@@ -246,7 +246,7 @@ export function NotificationsView({
             <Text style={styles.summaryTitle}>
               You have {unreadCount} new notification{unreadCount === 1 ? '' : 's'}
             </Text>
-            <Text style={styles.summarySub}>Here are the latest updates about your child's learning progress.</Text>
+            <Text style={styles.summarySub}>Here are the latest updates about your child&apos;s learning progress.</Text>
           </View>
         </View>
       )}

@@ -21,7 +21,7 @@ type ChildOption = { id: string; name: string };
 type Props = {
   visible: boolean;
   date: string;
-  children: ChildOption[];
+  childOptions: ChildOption[];
   defaultChildId?: string | null;
   editing: ScheduledActivity | null;
   onClose: () => void;
@@ -61,7 +61,7 @@ const timeValueToKey = (value: string | null | undefined) => {
 export default function AddScheduledActivityModal({
   visible,
   date,
-  children,
+  childOptions,
   defaultChildId,
   editing,
   onClose,
@@ -87,7 +87,7 @@ export default function AddScheduledActivityModal({
       setTimeKey(timeValueToKey(editing.start_time));
       setStatus(editing.status);
     } else {
-      setChildId(defaultChildId || children[0]?.id || '');
+      setChildId(defaultChildId || childOptions[0]?.id || '');
       setActivityType('reminder');
       setTitle('');
       setDescription('');
@@ -95,7 +95,7 @@ export default function AddScheduledActivityModal({
       setStatus('scheduled');
     }
     setError('');
-  }, [visible, editing, defaultChildId, children]);
+  }, [visible, editing, defaultChildId, childOptions]);
 
   const dateLabel = date
     ? new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
@@ -176,11 +176,11 @@ export default function AddScheduledActivityModal({
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
             {!!dateLabel && <Text style={styles.dateLabel}>{dateLabel}</Text>}
 
-            {children.length > 1 && (
+            {childOptions.length > 1 && (
               <>
                 <Text style={styles.label}>Para kanino</Text>
                 <View style={styles.chipRow}>
-                  {children.map((child) => (
+                  {childOptions.map((child) => (
                     <TouchableOpacity
                       key={child.id}
                       style={[styles.chip, childId === child.id && styles.chipActive]}

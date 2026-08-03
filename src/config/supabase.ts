@@ -82,7 +82,6 @@ let clientOptions: any = { auth: { detectSessionInUrl: false, flowType: 'pkce' }
 if (Platform.OS !== 'web') {
   try {
     // Require dynamically so bundlers targeting web don't try to resolve native-only packages.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const AsyncStorage = require('@react-native-async-storage/async-storage');
     const storage = AsyncStorage?.default || AsyncStorage;
     clientOptions = {

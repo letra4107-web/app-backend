@@ -438,8 +438,8 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         <View style={styles.topHeader}>
           <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Create Your Account</Text>
-          <Text style={styles.subtitle}>Let's get started with LinawLetra.</Text>
-          <Text style={styles.supportingText}>Create a parent account to support your child's reading journey.</Text>
+          <Text style={styles.subtitle}>Let&apos;s get started with LinawLetra.</Text>
+          <Text style={styles.supportingText}>Create a parent account to support your child&apos;s reading journey.</Text>
         </View>
 
         <View style={styles.card}>
