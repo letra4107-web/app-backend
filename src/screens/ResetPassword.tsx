@@ -109,7 +109,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
         </View>
 
         <View style={styles.topHeader}>
-          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
 
         <View style={styles.iconBadge}>

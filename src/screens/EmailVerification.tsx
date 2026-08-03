@@ -382,7 +382,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         </View>
 
         <View style={styles.topHeader}>
-          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
 
         <View style={styles.iconBadgeWrap}>

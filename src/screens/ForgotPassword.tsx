@@ -123,7 +123,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
         </View>
 
         <View style={styles.topHeader}>
-          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.tagline}>Clearer Reading. Brighter Learning.</Text>
         </View>
 

@@ -287,7 +287,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         </View>
 
         <View style={styles.topHeader}>
-          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Welcome back!</Text>
           <Text style={styles.subtitle}>Login to continue your reading journey.</Text>
         </View>

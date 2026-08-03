@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "LinawLm",
+    "name": "LinawLetra",
     "slug": "LinawLm",
     "version": "1.0.0",
     "scheme": "linawletra",
@@ -8,7 +8,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/Logo.jpg",
+      "image": "./assets/Logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,7 +21,7 @@
     "android": {
       "package": "com.linawletra.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Logo.jpg",
+        "foregroundImage": "./assets/Logo.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -44,6 +44,12 @@
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox"
           ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Payagan ang LinawLetra na ma-access ang iyong mga larawan para sa profile photo."
         }
       ]
     ]
