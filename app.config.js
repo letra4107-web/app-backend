@@ -39,6 +39,7 @@ module.exports = ({ config }) => {
       expoBuildPropertiesPlugin,
       'expo-font',
       'expo-web-browser',
+      'expo-asset',
       [
         'expo-audio',
         {
