@@ -26,6 +26,7 @@ import {
   SpeechRate,
 } from '../services/settingsService';
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
+import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 
 // Same palette as the Student Dashboard redesign, duplicated locally since
 // this file doesn't share module scope - keeps the Parent Dashboard visually
@@ -238,6 +239,34 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [parentPhone, setParentPhone] = useState('');
   const [parentAvatarUrl, setParentAvatarUrl] = useState<string | null>(null);
   const [parentSettings, setParentSettings] = useState<DashboardSettings | null>(null);
+  // Last-persisted snapshot, separate from the draft above - lets the
+  // Settings tab offer real manual Save/Discard (matching the student
+  // Settings tab's pattern) instead of saving on every toggle.
+  const [savedParentSettings, setSavedParentSettings] = useState<DashboardSettings | null>(null);
+  const { highContrast, a11yFont, a11ySize, setAccessibilitySettings } = useAccessibility();
+  // Same real-effect treatment as StudentDashboard's hero banners, scaled
+  // from each style's own actual base size (22/13 for the Home-style
+  // greeting used on Home/Progress/Calendar, 18/12 for the plain Settings
+  // header) rather than one shared absolute size, so relative hierarchy
+  // between the two is preserved at every text-size setting.
+  const heroTitleA11yStyle = {
+    fontSize: a11ySize(22),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const heroSubtitleA11yStyle = {
+    fontSize: a11ySize(13),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+    ...(highContrast ? { color: HOME_INK } : {}),
+  };
+  const settingsHeaderTitleA11yStyle = {
+    fontSize: a11ySize(18),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const settingsHeaderSubA11yStyle = {
+    fontSize: a11ySize(12),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+    ...(highContrast ? { color: HOME_INK } : {}),
+  };
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [savingSettingKey, setSavingSettingKey] = useState<string | null>(null);
   const [editProfileVisible, setEditProfileVisible] = useState(false);
@@ -431,6 +460,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     try {
       const data = await fetchDashboardSettings(id, 'parent');
       setParentSettings(data);
+      setSavedParentSettings(data);
+      setAccessibilitySettings(accessibilityFromSettings(data));
       setTtsEnabled(data.tts_enabled);
       setSpeechRateSetting(data.speech_rate || 'normal');
     } catch (error: any) {
@@ -444,26 +475,47 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (section === 'settings' && parentId && !parentSettings && !settingsLoading) {
       void loadParentSettings(parentId);
     }
+    // loadParentSettings is intentionally invoked only when the Settings
+    // section first opens; including its per-render function identity would
+    // repeatedly refetch and discard an in-progress settings draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, parentId, parentSettings, settingsLoading]);
 
-  const updateParentSetting = async <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => {
-    if (!parentId || !parentSettings) return;
-    const previous = parentSettings;
+  // Draft-only, like the student Settings tab's updateSetting: gives an
+  // immediate live preview for in-session behavior (TTS voice, speech rate)
+  // but does not touch the backend. Persisting only happens via the explicit
+  // Save Changes button (saveParentSettingsDraft).
+  const updateParentSetting = <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => {
+    if (!parentSettings) return;
     setParentSettings({ ...parentSettings, [key]: value });
     if (key === 'tts_enabled') setTtsEnabled(!!value);
     if (key === 'speech_rate') setSpeechRateSetting(value as SpeechRate);
-    setSavingSettingKey(String(key));
+  };
+
+  const hasUnsavedParentSettingsChanges =
+    !!parentSettings && !!savedParentSettings && JSON.stringify(parentSettings) !== JSON.stringify(savedParentSettings);
+
+  const saveParentSettingsDraft = async () => {
+    if (!parentId || !parentSettings || !hasUnsavedParentSettingsChanges) return;
+    setSavingSettingKey('__all__');
     try {
-      const saved = await updateDashboardSettings(parentId, 'parent', { [key]: value } as Partial<DashboardSettings>);
+      const saved = await updateDashboardSettings(parentId, 'parent', parentSettings);
       setParentSettings(saved);
+      setSavedParentSettings(saved);
+      setAccessibilitySettings(accessibilityFromSettings(saved));
     } catch (error: any) {
-      console.warn('[ParentDashboard] setting update failed:', error?.message || error);
-      setParentSettings(previous);
-      if (key === 'tts_enabled') setTtsEnabled(!!previous.tts_enabled);
-      if (key === 'speech_rate') setSpeechRateSetting((previous.speech_rate || 'normal') as SpeechRate);
+      console.warn('[ParentDashboard] settings save failed:', error?.message || error);
     } finally {
       setSavingSettingKey(null);
     }
+  };
+
+  const discardParentSettingsDraft = () => {
+    if (!savedParentSettings) return;
+    setParentSettings(savedParentSettings);
+    setAccessibilitySettings(accessibilityFromSettings(savedParentSettings));
+    setTtsEnabled(!!savedParentSettings.tts_enabled);
+    setSpeechRateSetting((savedParentSettings.speech_rate || 'normal') as SpeechRate);
   };
 
   const submitEmailChange = async () => {
@@ -679,8 +731,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.homeAvatarText}>{initials}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.homeGreeting}>Good Day, {parentName || 'Loading...'}!</Text>
-              <Text style={styles.homeGreetingSub}>Here&apos;s how your child is doing today.</Text>
+              <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Good Day, {parentName || 'Loading...'}!</Text>
+              <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Here&apos;s how your child is doing today.</Text>
             </View>
           </View>
           <View style={styles.emptyState}>
@@ -824,8 +876,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={styles.homeAvatarText}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.homeGreeting}>Good Day, {parentName || 'Loading...'}!</Text>
-            <Text style={styles.homeGreetingSub}>Here&apos;s how your child is doing today.</Text>
+            <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Good Day, {parentName || 'Loading...'}!</Text>
+            <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Here&apos;s how your child is doing today.</Text>
           </View>
           <Image source={require('../../assets/decorate.webp')} style={styles.homeGreetingDecor} resizeMode="contain" />
         </View>
@@ -1106,8 +1158,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const header = (
       <View style={styles.homeHeaderRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.homeGreeting}>Child Progress</Text>
-          <Text style={styles.homeGreetingSub}>Track your child&apos;s reading development.</Text>
+          <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Child Progress</Text>
+          <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Track your child&apos;s reading development.</Text>
         </View>
       </View>
     );
@@ -1499,8 +1551,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <>
           <View style={styles.homeHeaderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.homeGreeting}>Calendar</Text>
-              <Text style={styles.homeGreetingSub}>Plan and follow your child&apos;s learning activities.</Text>
+              <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Calendar</Text>
+              <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Plan and follow your child&apos;s learning activities.</Text>
             </View>
           </View>
           <View style={styles.emptyState}>
@@ -1986,7 +2038,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <Switch
         value={!!value}
         onValueChange={(next) => updateParentSetting(key, next as any)}
-        disabled={savingSettingKey === String(key)}
+        disabled={savingSettingKey === '__all__'}
         trackColor={{ false: '#cbd5e1', true: 'rgba(95,82,176,0.4)' }}
         thumbColor={value ? HOME_LAVENDER_DARK : '#f8fafc'}
       />
@@ -1997,10 +2049,36 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     <>
       <View style={styles.sectionHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.sectionHeaderTitle}>Settings</Text>
-          <Text style={styles.sectionHeaderSub}>Manage your account and preferences.</Text>
+          <Text style={[styles.sectionHeaderTitle, settingsHeaderTitleA11yStyle]}>Settings</Text>
+          <Text style={[styles.sectionHeaderSub, settingsHeaderSubA11yStyle]}>Manage your account and preferences.</Text>
         </View>
       </View>
+
+      {hasUnsavedParentSettingsChanges && (
+        <View style={styles.unsavedSettingsBar}>
+          <Text style={styles.unsavedSettingsBarText}>You have unsaved changes.</Text>
+          <View style={styles.unsavedSettingsBarButtons}>
+            <TouchableOpacity
+              style={styles.discardSettingsButton}
+              onPress={discardParentSettingsDraft}
+              disabled={savingSettingKey === '__all__'}
+            >
+              <Text style={styles.discardSettingsButtonText}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.saveSettingsButton}
+              onPress={saveParentSettingsDraft}
+              disabled={savingSettingKey === '__all__'}
+            >
+              {savingSettingKey === '__all__' ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.saveSettingsButtonText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <View style={styles.accountCard}>
         <View style={styles.accountCardTop}>
@@ -2777,6 +2855,23 @@ const styles = StyleSheet.create({
     paddingVertical: 11, alignItems: 'center', marginTop: 14,
   },
   editProfileButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 13 },
+
+  unsavedSettingsBar: {
+    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: HOME_SUN, borderRadius: 16,
+    padding: 14, marginBottom: 16, gap: 10,
+  },
+  unsavedSettingsBarText: { color: HOME_INK, fontWeight: '700', fontSize: 13 },
+  unsavedSettingsBarButtons: { flexDirection: 'row', gap: 10 },
+  discardSettingsButton: {
+    flex: 1, minHeight: 44, borderRadius: 999, borderWidth: 1.5, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  discardSettingsButtonText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 14 },
+  saveSettingsButton: {
+    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: HOME_LAVENDER_DARK,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  saveSettingsButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
   settingsGroupTitle: { fontSize: 15, fontWeight: '900', color: HOME_INK, marginBottom: 10, marginTop: 4 },
   childSettingsCard: {

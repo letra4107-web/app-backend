@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  signUpUser, upsertUserProfile,
+  rollbackIncompleteSignup, signUpUser, upsertUserProfile,
   signInWithOAuthProvider, ensureUserProfileForOAuthUser, completeAuthSession, OAuthProvider,
 } from '../services/supabaseService';
 import { ensureParentProfile } from '../services/profileService';
@@ -268,6 +268,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       const normalizedEmail = sanitizeEmail(email);
       console.log('[Signup] Starting signup for:', normalizedEmail);
 
+      // Used only to compensate if a new Auth user cannot get its required
+      // profile row. The backend verifies this token and permits cleanup only
+      // for the new, unverified account.
+      const cleanupToken = Array.from({ length: 4 }, () => Math.random().toString(36).slice(2)).join('');
       const { data: signUpData, error: signUpError } = await signUpUser(normalizedEmail, password, {
 
         firstName: sanitizeName(firstName),
@@ -275,6 +279,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         middleInitial: middleInitial.toUpperCase() || '',
         role: 'parent',
         display_name: `${sanitizeName(firstName)} ${sanitizeName(lastName)}`,
+        signup_cleanup_token: cleanupToken,
       });
 
       if (signUpError || !signUpData?.user) {
@@ -306,14 +311,41 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       const fullName = `${sanitizeName(firstName)} ${sanitizeName(lastName)}`;
 
       console.log('[Signup] Creating user profile row:', { userId });
-      const { error: userProfileError } = await upsertUserProfile({
-        id: userId,
-        name: fullName,
-        email: normalizedEmail,
-        role: 'parent',
-        email_verified: false,
-      });
-      if (userProfileError) throw userProfileError;
+      // The Supabase Auth user above already exists at this point and we
+      // have no admin privileges here to delete/roll it back client-side -
+      // so instead of failing on the first transient error (the realistic
+      // cause; a real signup form re-submit would just hit "email already
+      // registered"), retry a couple of times before giving up.
+      let userProfileError: any = null;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const result = await upsertUserProfile({
+          id: userId,
+          name: fullName,
+          email: normalizedEmail,
+          role: 'parent',
+          email_verified: false,
+        });
+        userProfileError = result.error;
+        if (!userProfileError) break;
+        console.warn('[Signup] user profile upsert attempt failed:', { attempt, message: userProfileError?.message });
+        if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+      }
+      if (userProfileError) {
+        console.error('[Signup] user profile upsert failed after retries:', userProfileError);
+        try {
+          await rollbackIncompleteSignup(normalizedEmail, userId, cleanupToken);
+        } catch (rollbackError: any) {
+          // Keep the original failure visible; a later login can still repair
+          // a record only if the authenticated account could not be removed.
+          console.error('[Signup] incomplete-signup rollback failed:', rollbackError?.message || rollbackError);
+        }
+        setErrors((prev) => ({
+          ...prev,
+          general:
+            'We could not finish creating your account due to a connection issue. Please try signing up again.',
+        }));
+        return;
+      }
 
       console.log('[Signup] Creating parent profile row:', { userId });
       try {

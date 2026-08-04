@@ -66,13 +66,13 @@ test-speech.bat
 
 ### API Usage
 
-#### Endpoint: `POST /api/speech/recognize`
+#### Endpoint: `POST /api/speech/transcribe`
 
 **Content-Type**: `multipart/form-data`
 
 **Form Fields**:
-- `audio`: Audio file (m4a, wav, mp3, aac supported)
-- `language`: Language code (optional, defaults to 'tl' for Tagalog)
+- `audio`: Audio file (webm, ogg, flac, wav, mp3, or AMR)
+- `language`: Language code (optional, defaults to `tl-PH`)
 
 **Example Request** (JavaScript/React Native):
 
@@ -85,7 +85,7 @@ formData.append('audio', {
 });
 formData.append('language', 'tl');
 
-const response = await fetch('https://app-backend-production-f32c.up.railway.app/api/speech/recognize', {
+const response = await fetch('https://app-backend-production-f32c.up.railway.app/api/speech/transcribe', {
   method: 'POST',
   body: formData,
 });
@@ -97,8 +97,8 @@ const result = await response.json();
 ```json
 {
   "success": true,
-  "text": "recognized speech text here",
-  "language": "tl"
+  "transcript": "recognized speech text here",
+  "confidence": 0.93
 }
 ```
 
@@ -106,8 +106,7 @@ const result = await response.json();
 ```json
 {
   "success": false,
-  "message": "Speech recognition failed",
-  "error": "detailed error message"
+  "message": "Speech transcription failed"
 }
 ```
 

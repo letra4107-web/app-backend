@@ -948,6 +948,44 @@ router.delete('/cancel-verification', async (req, res) => {
   }
 });
 
+// Removes only the just-created, still-unverified Auth record when the
+// required follow-up profile write fails. This is deliberately not a general
+// account-deletion endpoint: it requires the per-signup metadata token and a
+// short creation window.
+router.post('/rollback-incomplete-signup', async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const userId = String(req.body?.userId || '').trim();
+    const cleanupToken = String(req.body?.cleanupToken || '').trim();
+    if (!isValidEmail(email) || !userId || cleanupToken.length < 20) {
+      return res.status(400).json({ success: false, message: 'Invalid cleanup request' });
+    }
+
+    const { data, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const user = data?.user;
+    if (error || !user || normalizeEmail(user.email) !== email) {
+      return res.status(404).json({ success: false, message: 'Signup account not found' });
+    }
+    const createdAt = Date.parse(user.created_at || '');
+    const isFresh = Number.isFinite(createdAt) && Date.now() - createdAt <= 15 * 60 * 1000;
+    const expectedToken = String(user.user_metadata?.signup_cleanup_token || '');
+    const tokensMatch = expectedToken.length === cleanupToken.length
+      && crypto.timingSafeEqual(Buffer.from(expectedToken), Buffer.from(cleanupToken));
+    if (user.email_confirmed_at || !isFresh || !tokensMatch) {
+      return res.status(403).json({ success: false, message: 'Signup cleanup is no longer available' });
+    }
+
+    await supabaseAdmin.from('users').delete().eq('id', userId);
+    await deleteOTPSession(userId);
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (deleteError) throw deleteError;
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[auth] incomplete-signup rollback failed:', error);
+    return res.status(500).json({ success: false, message: 'Could not clean up incomplete signup' });
+  }
+});
+
 router.post('/set-role', async (req, res) => {
   try {
     const { uid, role } = req.body;

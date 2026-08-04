@@ -41,26 +41,6 @@ const getEncoding = (mimeType = '') => {
 // without it); other encodings here rely on their container's own header.
 const REQUIRED_SAMPLE_RATE_HERTZ = { AMR: 8000, AMR_WB: 16000 };
 
-/**
- * Legacy endpoint (kept for compatibility).
- * If the app already calls /api/speech/recognize, it will still work but
- * this repo currently focuses on practice-word phoneme scoring.
- */
-router.post('/recognize', upload.single('audio'), async (req, res) => {
-  try {
-    // NOTE: existing frontend expects: { transcript, confidence }
-    // We don't have a full ASR implementation wired in this repo yet.
-    // Return a safe default.
-    const target = req.body?.target || req.body?.word || '';
-    postJson(res, 200, {
-      transcript: String(target || ''),
-      confidence: 0,
-    });
-  } catch (err) {
-    postJson(res, 500, { success: false, message: err?.message || 'recognize failed' });
-  }
-});
-
 router.post('/transcribe', upload.single('audio'), async (req, res) => {
   try {
     let audioBase64 = req.body?.audioBase64;
@@ -201,4 +181,3 @@ router.post('/practice-word', upload.single('audio'), async (req, res) => {
 });
 
 module.exports = router;
-

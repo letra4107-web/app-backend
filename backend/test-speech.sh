@@ -29,7 +29,7 @@ if [ -f "test_audio.wav" ]; then
     response=$(curl -s -X POST \
         -F "audio=@test_audio.wav" \
         -F "language=tl" \
-        https://app-backend-production-f32c.up.railway.app/api/speech/recognize)
+        https://app-backend-production-f32c.up.railway.app/api/speech/transcribe)
 
     echo "📄 Response:"
     echo "$response" | jq . 2>/dev/null || echo "$response"

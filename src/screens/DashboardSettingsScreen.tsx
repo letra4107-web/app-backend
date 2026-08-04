@@ -77,6 +77,11 @@ type Props = {
   // header. Parent settings (heroMode omitted) is untouched.
   heroMode?: boolean;
   onOpenSidebar?: () => void;
+  // Fired after a successful manual save, with the persisted settings - lets
+  // an embedding screen (e.g. StudentDashboard) sync its own copy of
+  // accessibility-relevant fields immediately, instead of only picking up
+  // the change the next time this screen mounts fresh.
+  onSaved?: (settings: DashboardSettings) => void;
 };
 
 type MicPermissionState = 'checking' | 'granted' | 'denied';
@@ -92,7 +97,7 @@ type ProfileState = {
 
 type AccountModal = 'password' | 'email' | null;
 
-export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar }: Props) {
+export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar, onSaved }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
   // `settings` is the DRAFT the user is currently editing (toggles update
@@ -297,6 +302,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       const saved = await updateDashboardSettings(authUid, role, settings);
       setSettings(saved);
       setSavedSettings(saved);
+      onSaved?.(saved);
       showSuccess('Settings saved.');
     } catch (e: any) {
       showError(e?.message || 'Could not save settings. Your changes are still here - try again.');
@@ -620,11 +626,16 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           </>
         ) : (
           <>
-            {/* Accessibility - dyslexia_font/font_size/high_contrast/reading_guide
-                and reading_theme (Dark Mode) all save/load for real, but none of
-                them are consumed anywhere else in the app yet (verified: no
-                screen reads these to change how text actually renders) - these
-                are genuine preferences, just not wired into the reading UI yet.
+            {/* Accessibility - dyslexia_font/font_size/high_contrast feed the
+                shared AccessibilityContext (see src/contexts/AccessibilityContext.tsx),
+                which StudentDashboard/ParentDashboardEnhanced apply to their
+                hero banner text in real time (a11yFont/a11ySize). Coverage is
+                currently the shared masthead across every tab, not literally
+                every Text node in the app - reading_guide ("highlight the
+                current line") has no real effect yet: this app has no
+                continuous-paragraph reading view for a line-highlight to
+                attach to, so it's a genuine saved preference without a UI
+                consumer, same as reading_theme (Dark Mode) below.
                 "Increased Line Spacing" and a plain contrast/2FA-style fake
                 toggle were deliberately left out rather than fabricated. */}
             <Section title="Accessibility" icon="accessibility-new">

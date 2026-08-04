@@ -34,6 +34,7 @@ import { createNotification, createParentNotification, fetchNotifications, markN
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 import { logPhonemeConfusion } from '../services/phonemeService';
+import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 
 type ChildProfile = {
   id: string;
@@ -197,6 +198,12 @@ export default function StudentDashboard({ navigation }: any) {
   const [activitiesError, setActivitiesError] = useState<string>('');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
+  // Set when a Learn tab category card (Letters/Syllables/Words) is tapped,
+  // so the Practice tab actually narrows to that category instead of always
+  // showing everything regardless of which card was pressed. Cleared
+  // whenever Practice is entered any other way (sidebar, "Continue
+  // Practice", etc.) so it never sticks around as a surprising filter.
+  const [practiceCategoryFilter, setPracticeCategoryFilter] = useState<'letters' | 'syllables' | 'words' | null>(null);
   type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
@@ -205,6 +212,20 @@ export default function StudentDashboard({ navigation }: any) {
   const [expandedBadgeId, setExpandedBadgeId] = useState<string | null>(null);
   const [pronunciationStats, setPronunciationStats] = useState<PronunciationStats | null>(null);
   const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings | null>(null);
+  const { highContrast, a11yFont, a11ySize, setAccessibilitySettings } = useAccessibility();
+  // Applied to every tab's hero banner title/subtitle (the shared masthead
+  // rendered at the top of Home/Learn/Practice/Progress/Badges/Notifications)
+  // so Text Size, Dyslexia-Friendly Font, and High Contrast have a real,
+  // visible, consistent effect rather than only being saved and never read.
+  const heroTitleA11yStyle = {
+    fontSize: a11ySize(26),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const heroSubtitleA11yStyle = {
+    fontSize: a11ySize(14),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+    ...(highContrast ? { color: '#ffffff' } : {}),
+  };
   const [badgeFilter, setBadgeFilter] = useState<'all' | AchievementCategory>('all');
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread' | 'lesson' | 'practice' | 'achievement'>('all');
   const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
@@ -413,6 +434,7 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       const result = await fetchDashboardSettings(authUid, 'student');
       setDashboardSettings(result);
+      setAccessibilitySettings(accessibilityFromSettings(result));
       setTtsEnabled(result.tts_enabled);
       setSpeechRateSetting(result.speech_rate || 'normal');
       return result;
@@ -430,12 +452,15 @@ export default function StudentDashboard({ navigation }: any) {
     if (!child?.auth_uid) return;
     const previous = dashboardSettings;
     setDashboardSettings((prev) => (prev ? { ...prev, dyslexia_font: next } : prev));
+    setAccessibilitySettings({ dyslexiaFont: next });
     try {
       const saved = await updateDashboardSettings(child.auth_uid, 'student', { dyslexia_font: next });
       setDashboardSettings(saved);
+      setAccessibilitySettings(accessibilityFromSettings(saved));
     } catch (error: any) {
       console.warn('[Sidebar] dyslexia_font toggle failed:', error?.message || error);
       setDashboardSettings(previous);
+      setAccessibilitySettings(accessibilityFromSettings(previous));
     }
   };
 
@@ -797,8 +822,19 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const navigateTo = (s: any) => {
+    if (s !== 'practice') setPracticeCategoryFilter(null);
     setSection(s);
     closeSidebar();
+  };
+
+  // Every entry point into the Practice tab goes through this, so the
+  // category filter is always explicit: generic entries (Continue Practice,
+  // sidebar, etc.) clear it back to "show everything" via the default
+  // argument, while the Learn tab's Letters/Syllables/Words cards are the
+  // only callers that pass a real category.
+  const goToPractice = (category: 'letters' | 'syllables' | 'words' | null = null) => {
+    setPracticeCategoryFilter(category);
+    setSection('practice');
   };
 
   const getFirstName = (full = '') => (full ? String(full).split(' ')[0] : 'Ka');
@@ -1376,8 +1412,8 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.heroLogoText}>LinawLetra</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.heroGreeting}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
-          <Text style={styles.heroSubtitle}>Handa ka na bang matuto ngayon?</Text>
+          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
+          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Handa ka na bang matuto ngayon?</Text>
           <Image source={require('../../assets/waving.webp')} style={styles.heroImage} resizeMode="contain" />
         </LinearGradient>
 
@@ -1401,7 +1437,7 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={{ flex: 1 }}>
               <Text style={styles.homeTodayTitle}>Today&apos;s Reading{'\n'}Progress</Text>
               <Text style={styles.homeTodayStatLine}>{goalDone} of {DAILY_GOAL} pagsasanay ngayon</Text>
-              <TouchableOpacity style={styles.homeTodayButton} onPress={() => setSection('practice')}>
+              <TouchableOpacity style={styles.homeTodayButton} onPress={() => goToPractice()}>
                 <Text style={styles.homeTodayButtonText}>Continue Practice</Text>
               </TouchableOpacity>
             </View>
@@ -1520,7 +1556,7 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.readyPracticeTitle}>Ready to Practice?</Text>
               <Text style={styles.readyPracticeSub}>Magsanay bumasa ng mga salita at mapabuti ang iyong bigkas gamit ang AI feedback.</Text>
             </View>
-            <TouchableOpacity style={styles.readyPracticeButton} onPress={() => setSection('practice')}>
+            <TouchableOpacity style={styles.readyPracticeButton} onPress={() => goToPractice()}>
               <Text style={styles.readyPracticeButtonText}>Start Practice</Text>
             </TouchableOpacity>
           </View>
@@ -1566,7 +1602,7 @@ export default function StudentDashboard({ navigation }: any) {
               </View>
               <Text style={styles.homeQuickLabel}>Learn</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.homeQuickCard, { backgroundColor: '#FBE7DF' }]} onPress={() => setSection('practice')}>
+            <TouchableOpacity style={[styles.homeQuickCard, { backgroundColor: '#FBE7DF' }]} onPress={() => goToPractice()}>
               <View style={[styles.homeQuickIconWrap, { backgroundColor: HOME_CORAL }]}>
                 <Ionicons name="mic-outline" size={20} color="#fff" />
               </View>
@@ -1630,6 +1666,12 @@ export default function StudentDashboard({ navigation }: any) {
     // this student's actual practice bank - but stay defined for the Learn
     // tab's Learning Categories counts.
     const letterWords = SKILL_LETTERS;
+    // Real syllable-form content (same array the Learn tab's "Syllables"
+    // category count is computed from) - only ever rendered as its own grid
+    // when explicitly filtered to via that category card, not mixed into
+    // the default word list (see the class comment above about not
+    // conflating unrelated content types).
+    const syllableWords = DEFAULT_PHONETIC_WORDS;
     // Teacher-uploaded lesson content and the generic Supabase word bank are
     // independently authored and can legitimately overlap (e.g. a Grade 5
     // lesson word also happens to be in the intermediate word bank) - de-dupe
@@ -1814,8 +1856,8 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="arrow-back" size={20} color="#fff" />
               <Text style={styles.heroBackText}>Bumalik</Text>
             </TouchableOpacity>
-            <Text style={styles.heroGreeting}>Voice Reading{'\n'}Practice</Text>
-            <Text style={styles.heroSubtitle}>Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo.</Text>
+            <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Voice Reading{'\n'}Practice</Text>
+            <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo.</Text>
             <Image source={require('../../assets/singing.webp')} style={styles.heroImage} resizeMode="contain" />
           </LinearGradient>
 
@@ -2067,72 +2109,116 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         </View>
 
-        <Text style={styles.practiceSectionTitle}>O Pumili ng Partikular na Salita</Text>
-
-        {/* Word-bank words: binary state only - done (real completed_words)
-            or available (tap anytime). No lock icon, no "next" gate - the
-            bank is a randomized sample from /api/words each fetch, so a
-            sequential lock would be gating against an order that isn't
-            stable across refetches. Same freely-tappable treatment as
-            Letters below. */}
-        {wordBankLoading && !wordListWords.length ? (
-          <View style={styles.centerBlock}>
-            <ActivityIndicator size="small" color={HOME_LAVENDER} />
-            <Text style={styles.empty}>Loading words...</Text>
-          </View>
-        ) : wordBankError && !wordListWords.length ? (
-          <View style={styles.errorBlock}>
-            <Text style={styles.error}>{wordBankError}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={retryWordBank}>
-              <Text style={styles.retryButtonText}>Subukan muli</Text>
+        {!!practiceCategoryFilter && (
+          <View style={styles.categoryFilterBar}>
+            <Text style={styles.categoryFilterBarText}>
+              Showing: {practiceCategoryFilter === 'letters' ? 'Letters' : practiceCategoryFilter === 'syllables' ? 'Syllables' : 'Words'}
+            </Text>
+            <TouchableOpacity onPress={() => setPracticeCategoryFilter(null)}>
+              <Text style={styles.categoryFilterBarReset}>Show All</Text>
             </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.wordGrid}>
-            {wordListWords.map((word, index) => {
-              const done = progress?.completed_words?.includes(word);
-              return (
-                <TouchableOpacity
-                  key={`${word}-${index}`}
-                  style={[styles.wordCard, done && styles.wordCardDone]}
-                  onPress={() => startWord(word, 'say')}
-                >
-                  {done && (
-                    <View style={styles.wordCardCheckBadge}>
-                      <Ionicons name="checkmark" size={14} color="#fff" />
-                    </View>
-                  )}
-                  <Text style={[styles.wordText, done && { color: SUCCESS }]}>{word}</Text>
-                </TouchableOpacity>
-              );
-            })}
           </View>
         )}
 
-        {/* Letters are a separate, non-linear practice bank - freely
-            tappable in any order, no sequential lock (same binary
-            done/available treatment as the words grid above). */}
-        <Text style={styles.practiceSectionTitle}>Mga Titik</Text>
+        {(!practiceCategoryFilter || practiceCategoryFilter === 'words') && (
+          <>
+            <Text style={styles.practiceSectionTitle}>O Pumili ng Partikular na Salita</Text>
 
-        <View style={styles.wordGrid}>
-          {letterWords.map((letter) => {
-            const done = progress?.completed_words?.includes(letter);
-            return (
-              <TouchableOpacity
-                key={letter}
-                style={[styles.wordCard, done && styles.wordCardDone]}
-                onPress={() => startWord(letter, 'say')}
-              >
-                {done && (
-                  <View style={styles.wordCardCheckBadge}>
-                    <Ionicons name="checkmark" size={14} color="#fff" />
-                  </View>
-                )}
-                <Text style={[styles.wordText, done && { color: SUCCESS }]}>{letter}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+            {/* Word-bank words: binary state only - done (real completed_words)
+                or available (tap anytime). No lock icon, no "next" gate - the
+                bank is a randomized sample from /api/words each fetch, so a
+                sequential lock would be gating against an order that isn't
+                stable across refetches. Same freely-tappable treatment as
+                Letters below. */}
+            {wordBankLoading && !wordListWords.length ? (
+              <View style={styles.centerBlock}>
+                <ActivityIndicator size="small" color={HOME_LAVENDER} />
+                <Text style={styles.empty}>Loading words...</Text>
+              </View>
+            ) : wordBankError && !wordListWords.length ? (
+              <View style={styles.errorBlock}>
+                <Text style={styles.error}>{wordBankError}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={retryWordBank}>
+                  <Text style={styles.retryButtonText}>Subukan muli</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.wordGrid}>
+                {wordListWords.map((word, index) => {
+                  const done = progress?.completed_words?.includes(word);
+                  return (
+                    <TouchableOpacity
+                      key={`${word}-${index}`}
+                      style={[styles.wordCard, done && styles.wordCardDone]}
+                      onPress={() => startWord(word, 'say')}
+                    >
+                      {done && (
+                        <View style={styles.wordCardCheckBadge}>
+                          <Ionicons name="checkmark" size={14} color="#fff" />
+                        </View>
+                      )}
+                      <Text style={[styles.wordText, done && { color: SUCCESS }]}>{word}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {(!practiceCategoryFilter || practiceCategoryFilter === 'letters') && (
+          <>
+            {/* Letters are a separate, non-linear practice bank - freely
+                tappable in any order, no sequential lock (same binary
+                done/available treatment as the words grid above). */}
+            <Text style={styles.practiceSectionTitle}>Mga Titik</Text>
+
+            <View style={styles.wordGrid}>
+              {letterWords.map((letter) => {
+                const done = progress?.completed_words?.includes(letter);
+                return (
+                  <TouchableOpacity
+                    key={letter}
+                    style={[styles.wordCard, done && styles.wordCardDone]}
+                    onPress={() => startWord(letter, 'say')}
+                  >
+                    {done && (
+                      <View style={styles.wordCardCheckBadge}>
+                        <Ionicons name="checkmark" size={14} color="#fff" />
+                      </View>
+                    )}
+                    <Text style={[styles.wordText, done && { color: SUCCESS }]}>{letter}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {practiceCategoryFilter === 'syllables' && (
+          <>
+            <Text style={styles.practiceSectionTitle}>Mga Pantig</Text>
+            <View style={styles.wordGrid}>
+              {syllableWords.map((syllableWord) => {
+                const done = progress?.completed_words?.includes(syllableWord);
+                return (
+                  <TouchableOpacity
+                    key={syllableWord}
+                    style={[styles.wordCard, done && styles.wordCardDone]}
+                    onPress={() => startWord(syllableWord, 'say')}
+                  >
+                    {done && (
+                      <View style={styles.wordCardCheckBadge}>
+                        <Ionicons name="checkmark" size={14} color="#fff" />
+                      </View>
+                    )}
+                    <Text style={[styles.wordText, done && { color: SUCCESS }]}>{syllableWord}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {renderSessionProgressCard()}
         {renderReadingTipCard()}
@@ -2212,8 +2298,8 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={styles.heroLogoText}>LinawLetra</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.heroGreeting}>Matuto tayo,{'\n'}{getFirstName(child?.name || '')}!</Text>
-        <Text style={styles.heroSubtitle}>Piliin ang aralin at ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
+        <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Matuto tayo,{'\n'}{getFirstName(child?.name || '')}!</Text>
+        <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Piliin ang aralin at ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
         <Image source={require('../../assets/learn.webp')} style={styles.learnHeroImage} resizeMode="contain" />
       </LinearGradient>
 
@@ -2432,21 +2518,21 @@ export default function StudentDashboard({ navigation }: any) {
 
       <Text style={styles.practiceSectionTitle}>Learning Categories</Text>
       <View style={styles.categoryGrid}>
-        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#F1E9FE' }]} onPress={() => setSection('practice')}>
+        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#F1E9FE' }]} onPress={() => goToPractice('letters')}>
           <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_VIOLET }]}>
             <Ionicons name="text" size={20} color="#fff" />
           </View>
           <Text style={styles.categoryTitle}>Letters</Text>
           <Text style={styles.categorySub}>{lettersDone} of {lettersTotal} practiced</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#E1F5F2' }]} onPress={() => setSection('practice')}>
+        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#E1F5F2' }]} onPress={() => goToPractice('syllables')}>
           <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_TEAL }]}>
             <Ionicons name="reader" size={20} color="#fff" />
           </View>
           <Text style={styles.categoryTitle}>Syllables</Text>
           <Text style={styles.categorySub}>{syllablesDone} of {syllablesTotal} practiced</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#E7ECF8' }]} onPress={() => setSection('practice')}>
+        <TouchableOpacity style={[styles.categoryCard, { backgroundColor: '#E7ECF8' }]} onPress={() => goToPractice('words')}>
           <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_NAVY }]}>
             <Ionicons name="book" size={20} color="#fff" />
           </View>
@@ -2484,7 +2570,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={styles.learnContinuePillText}>MGA PANTIG</Text>
               </View>
               <Text style={styles.learnContinueTitle}>Magsanay Magbasa</Text>
-              <TouchableOpacity style={styles.learnContinueButton} onPress={() => setSection('practice')}>
+              <TouchableOpacity style={styles.learnContinueButton} onPress={() => goToPractice()}>
                 <Text style={styles.learnContinueButtonText}>Simulan</Text>
               </TouchableOpacity>
             </View>
@@ -2682,8 +2768,8 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.heroLogoText}>LinawLetra</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.heroGreeting}>My Reading{'\n'}Progress</Text>
-          <Text style={styles.heroSubtitle}>See how much you&apos;ve improved on your reading journey.</Text>
+          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>My Reading{'\n'}Progress</Text>
+          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>See how much you&apos;ve improved on your reading journey.</Text>
           <Image source={require('../../assets/clipboard.webp')} style={styles.progressHeroImage} resizeMode="contain" />
         </LinearGradient>
 
@@ -3154,8 +3240,8 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.heroLogoText}>LinawLetra</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.heroGreeting}>My Learning{'\n'}Badges</Text>
-          <Text style={styles.heroSubtitle}>Celebrate every reading milestone you achieve!</Text>
+          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>My Learning{'\n'}Badges</Text>
+          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Celebrate every reading milestone you achieve!</Text>
           <Image source={require('../../assets/trophy.webp')} style={styles.badgesHeroImage} resizeMode="contain" />
         </LinearGradient>
 
@@ -3247,7 +3333,7 @@ export default function StudentDashboard({ navigation }: any) {
               </View>
             </View>
             <Text style={styles.spotlightHint}>You&apos;re getting closer! Keep practicing. →</Text>
-            <TouchableOpacity style={styles.spotlightButton} onPress={() => setSection('practice')}>
+            <TouchableOpacity style={styles.spotlightButton} onPress={() => goToPractice()}>
               <Text style={styles.spotlightButtonText}>Practice Now</Text>
             </TouchableOpacity>
           </View>
@@ -3343,7 +3429,7 @@ export default function StudentDashboard({ navigation }: any) {
               </Text>
             )}
           </View>
-          <TouchableOpacity style={styles.badgesCelebrateButton} onPress={() => setSection('practice')}>
+          <TouchableOpacity style={styles.badgesCelebrateButton} onPress={() => goToPractice()}>
             <Text style={styles.badgesCelebrateButtonText}>Continue Learning →</Text>
           </TouchableOpacity>
         </LinearGradient>
@@ -3440,8 +3526,8 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={styles.heroLogoText}>LinawLetra</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.heroGreeting}>Notifications</Text>
-          <Text style={styles.heroSubtitle}>Stay updated on your reading journey.</Text>
+          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Notifications</Text>
+          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Stay updated on your reading journey.</Text>
           <Image source={require('../../assets/bell.webp')} style={styles.notifHeroImage} resizeMode="contain" />
         </LinearGradient>
 
@@ -3544,6 +3630,10 @@ export default function StudentDashboard({ navigation }: any) {
       onOpenSidebar={openSidebar}
       gradeLevel={child?.grade_level}
       readingLevel={progress?.level}
+      onSaved={(saved) => {
+        setDashboardSettings(saved);
+        setAccessibilitySettings(accessibilityFromSettings(saved));
+      }}
     />
   );
 
@@ -4606,6 +4696,12 @@ const styles = StyleSheet.create({
   goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: HOME_LAVENDER },
   goalEmptyNote: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10 },
   practiceSectionTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16, marginBottom: 12, marginTop: 4 },
+  categoryFilterBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#EFECFB', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14,
+  },
+  categoryFilterBarText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
+  categoryFilterBarReset: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 13, textDecorationLine: 'underline' },
   practiceModeCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 20, padding: 14, marginBottom: 12,

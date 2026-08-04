@@ -27,7 +27,7 @@ if exist "test_audio.wav" (
     curl -s -X POST ^
         -F "audio=@test_audio.wav" ^
         -F "language=tl" ^
-        https://app-backend-production-f32c.up.railway.app/api/speech/recognize
+        https://app-backend-production-f32c.up.railway.app/api/speech/transcribe
 
     REM Clean up
     del test_audio.wav

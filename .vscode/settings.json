@@ -1,3 +1,10 @@
 {
-  "java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot"
+  "java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  "search.exclude": {
+    "**/node_modules": true
+  },
+  "files.exclude": {
+    "**/node_modules": true
+  }
 }

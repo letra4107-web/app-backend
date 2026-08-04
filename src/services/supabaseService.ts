@@ -8,7 +8,7 @@ import * as AuthSession from 'expo-auth-session';
 // wants just the code string, not the whole URL.
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { getSupabaseDebugInfo, supabase } from '../config/supabase';
-import { buildApiUrl, getJson } from '../config/api';
+import { buildApiUrl, getJson, postJson } from '../config/api';
 import { ensureParentProfile } from './profileService';
 
 // Recommended by Expo's docs so a pending native auth session (from
@@ -197,6 +197,14 @@ export const signUpUser = async (
     throw err;
   }
 };
+
+/** Compensates for a failed post-signup profile write. */
+export const rollbackIncompleteSignup = async (email: string, userId: string, cleanupToken: string) =>
+  postJson<{ success: boolean; message?: string }>(
+    buildApiUrl('/auth/rollback-incomplete-signup'),
+    { email, userId, cleanupToken },
+    15000,
+  );
 
 
 
@@ -434,6 +442,27 @@ export const completeAuthSession = async (
     console.log('[Auth] → ParentDashboard (teacher placeholder)');
     // TODO: navigation.replace('TeacherDashboard') once built
     navigation.replace('ParentDashboard');
+  } else if (isEmail) {
+    // Reaching here means: real Supabase Auth user, no `users` row, and no
+    // matching `children` row either - i.e. exactly the state a signup can
+    // be left in if the profile-row write failed right after the auth user
+    // was created (see SignUpScreen's retry+error-message for that case).
+    // Self-heal by creating the same parent profile signup would have, so
+    // the user isn't stuck at a dead-end "contact admin" message just
+    // because of a transient failure moments earlier. Not attempted for
+    // non-email (username/student) logins, where an unrecognized role is a
+    // different, unrelated problem this shouldn't guess an answer for.
+    console.warn('[Auth] No profile/child found for authenticated user - attempting to self-heal a parent profile:', user.id);
+    try {
+      const displayName = user.user_metadata?.display_name || user.user_metadata?.full_name || user.email || 'Parent';
+      await upsertUserProfile({ id: user.id, name: displayName, email: user.email, role: 'parent', email_verified: emailVerified });
+      await ensureParentProfile({ id: user.id, auth_uid: user.id, full_name: displayName, name: displayName, email: user.email });
+      console.log('[Auth] Self-heal succeeded → ParentDashboard');
+      navigation.replace('ParentDashboard');
+    } catch (healError: any) {
+      console.error('[Auth] Self-heal failed:', healError?.message || healError);
+      onUnknownRole?.('Hindi kilala ang account type. Makipag-ugnayan sa admin.');
+    }
   } else {
     console.error('[Auth] Could not determine role for user:', user.id);
     onUnknownRole?.('Hindi kilala ang account type. Makipag-ugnayan sa admin.');
