@@ -6,7 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, w
 import { Ionicons } from '@expo/vector-icons';
 import levenshtein from 'fast-levenshtein';
 import { buildApiUrl, postJson } from '../config/api';
-import { WordOfDayLog, updateWordOfDayLog } from '../services/wordOfDayService';
+import { WordOfDayLog } from '../services/wordOfDayService';
 import { WordDefinition } from '../services/wordDefinitionsService';
 import { speakPhrase, speakWord } from '../services/ttsService';
 import { logPhonemeConfusion } from '../services/phonemeService';
@@ -82,13 +82,11 @@ export default function StudentWordOfDay({
   log,
   disabled,
   onResult,
-  updateDailyLog = true,
   definition,
 }: {
   log: WordOfDayLog;
   disabled?: boolean;
-  onResult: (correct: boolean, attempts: number, score?: number, transcript?: string) => Promise<void>;
-  updateDailyLog?: boolean;
+  onResult: (correct: boolean, attempts: number, score?: number, transcript?: string, completion?: { streak?: number; longest_streak?: number }) => Promise<void>;
   definition?: WordDefinition;
 }) {
   // useAudioRecorder gives one persistent AudioRecorder instance for this
@@ -194,7 +192,12 @@ export default function StudentWordOfDay({
       if (!isMountedRef.current) return;
       const uri = recorder.uri;
       if (!uri) throw new Error('No audio URI');
+      const info = await FileSystem.getInfoAsync(uri);
+      if (!info.exists || !info.size || info.size < 256) {
+        throw new Error('The recording is empty. Please hold the microphone and try again.');
+      }
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      if (!base64.trim()) throw new Error('The recording is empty. Please try again.');
       // Must match WORD_RECORDING_OPTIONS per platform - Android now records
       // AMR-NB in a 3gp container (the format Google STT can actually decode
       // for this upload path), while iOS/web are unchanged from before.
@@ -203,21 +206,26 @@ export default function StudentWordOfDay({
         : Platform.OS === 'web'
           ? { mimeType: 'audio/webm', filename: 'word-of-day.webm' }
           : { mimeType: 'audio/m4a', filename: 'word-of-day.m4a' };
-      const response = await postJson<{ transcript: string }>(buildApiUrl('/speech/transcribe'), {
+      const response = await postJson<{ success: boolean; transcript: string; accuracy: number; message?: string; alreadyCompleted?: boolean; completion?: { attempts?: number; streak?: number; longest_streak?: number } }>(buildApiUrl('/speech/transcribe'), {
         audioBase64: base64,
         mimeType,
         filename,
-        target: log.word,
+        childId: log.child_id,
+        completeWordOfDay: true,
         language: 'tl-PH',
       }, 30000);
       if (!isMountedRef.current) return;
-      logPhonemeConfusion(log.child_id, log.word, response.transcript || '', 'word_of_day');
-      const score = similarity(response.transcript || '', log.word);
-      const correct = score >= 80;
-      const attempts = (log.attempts || 0) + 1;
-      if (updateDailyLog && log.id) {
-        await updateWordOfDayLog(log.id, attempts, correct || attempts >= 3 ? correct : false);
+      if (response.alreadyCompleted) {
+        setMessage(response.message || "You already completed today's Word of the Day. Come back tomorrow!");
+        return;
       }
+      if (!response.success || !response.transcript) throw new Error(response.message || 'Speech recognition did not return a transcript.');
+      logPhonemeConfusion(log.child_id, log.word, response.transcript || '', 'word_of_day');
+      // Accuracy is calculated by the server from the transcription. Keep the
+      // local fallback solely for compatibility with an older deployed API.
+      const score = Number.isFinite(response.accuracy) ? response.accuracy : similarity(response.transcript || '', log.word);
+      const correct = score >= 80;
+      const attempts = response.completion?.attempts ?? (log.attempts || 0) + 1;
       if (!isMountedRef.current) return;
 
       const phrase = correct
@@ -230,9 +238,9 @@ export default function StudentWordOfDay({
           if (isMountedRef.current) speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) });
         }, 2000);
       }
-      await onResult(correct, attempts, score, response.transcript || '');
-    } catch {
-      if (isMountedRef.current) setMessage('Hindi naproseso ang audio. Subukan muli.');
+      await onResult(correct, attempts, score, response.transcript || '', response.completion);
+    } catch (error: any) {
+      if (isMountedRef.current) setMessage(error?.data?.message || error?.message || 'Hindi naproseso ang audio. Subukan muli.');
     } finally {
       isStoppingRef.current = false;
       if (isMountedRef.current) setProcessing(false);

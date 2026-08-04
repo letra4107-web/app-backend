@@ -3,6 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const speech = require('@google-cloud/speech');
 const { scorePracticeWord } = require('./practiceWordScoring');
+const { supabaseAdmin } = require('../config/supabase');
 
 const router = express.Router();
 let speechClient = null;
@@ -40,6 +41,22 @@ const getEncoding = (mimeType = '') => {
 // AMR requires an explicit sampleRateHertz (Google STT rejects the request
 // without it); other encodings here rely on their container's own header.
 const REQUIRED_SAMPLE_RATE_HERTZ = { AMR: 8000, AMR_WB: 16000 };
+const normalizeWord = (value = '') => String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+const wordAccuracy = (spoken, expected) => {
+  const a = normalizeWord(spoken); const b = normalizeWord(expected);
+  if (!a || !b) return 0;
+  if (a === b) return 100;
+  const previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    let diagonal = previous[0]; previous[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const above = previous[j];
+      previous[j] = Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diagonal = above;
+    }
+  }
+  return Math.max(0, Math.round((1 - previous[b.length] / Math.max(a.length, b.length)) * 100));
+};
 
 router.post('/transcribe', upload.single('audio'), async (req, res) => {
   try {
@@ -49,11 +66,37 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
       audioBase64 = req.file.buffer.toString('base64');
     }
 
-    if (!audioBase64) {
+    if (!audioBase64 || typeof audioBase64 !== 'string') {
       return postJson(res, 400, { success: false, message: 'Missing audioBase64 or audio file' });
     }
 
+    const audioBytes = Buffer.from(audioBase64, 'base64');
+    if (audioBytes.length < 256) {
+      return postJson(res, 400, { success: false, message: 'The recording is empty or too short. Please hold the microphone and try again.' });
+    }
+    if (audioBytes.length > 8 * 1024 * 1024) {
+      return postJson(res, 413, { success: false, message: 'The recording is too large. Please try a shorter recording.' });
+    }
+
+    const completingWordOfDay = req.body?.completeWordOfDay === true || req.body?.completeWordOfDay === 'true';
+    let wordOfDay = null;
+    if (completingWordOfDay) {
+      const childId = String(req.body?.childId || '').trim();
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      if (!childId || !token) return postJson(res, 401, { success: false, message: 'Please sign in again before completing Word of the Day.' });
+      const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !auth?.user) return postJson(res, 401, { success: false, message: 'Your sign-in session has expired.' });
+      const { data: child, error: childError } = await supabaseAdmin.from('children').select('id,auth_uid').eq('id', childId).maybeSingle();
+      if (childError || !child || child.auth_uid !== auth.user.id) return postJson(res, 403, { success: false, message: 'You cannot complete this Word of the Day.' });
+      const { data: log, error: logError } = await supabaseAdmin.from('word_of_day_log').select('word,correct').eq('child_id', childId).eq('date', new Date().toISOString().slice(0, 10)).maybeSingle();
+      if (logError || !log) return postJson(res, 409, { success: false, message: "Today's word is not ready yet. Please reload and try again." });
+      if (log.correct) return postJson(res, 200, { success: true, alreadyCompleted: true, transcript: '', accuracy: 100, message: "You already completed today's Word of the Day. Come back tomorrow!" });
+      wordOfDay = { childId, word: log.word };
+    }
     const encoding = getEncoding(mimeType);
+    if (!encoding) {
+      return postJson(res, 415, { success: false, message: `Unsupported recording format: ${mimeType || 'unknown'}.` });
+    }
     const config = {
       languageCode: req.body?.language || 'tl-PH',
       alternativeLanguageCodes: ['fil-PH', 'en-PH'],
@@ -73,14 +116,36 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
       .trim();
     const confidence = response.results?.[0]?.alternatives?.[0]?.confidence || 0;
 
+    if (!transcript) {
+      return postJson(res, 422, { success: false, message: 'We could not hear a word clearly. Please move closer to the microphone and try again.' });
+    }
+    const accuracy = wordAccuracy(transcript, wordOfDay?.word || req.body?.target || '');
+    let completion = null;
+    if (wordOfDay) {
+      const { data, error } = await supabaseAdmin.rpc('complete_word_of_day_attempt', {
+        p_child_id: wordOfDay.childId, p_accuracy: accuracy, p_is_correct: accuracy >= 80,
+      });
+      if (error) throw error;
+      completion = Array.isArray(data) ? data[0] : data;
+    }
     postJson(res, 200, {
       success: true,
       transcript,
+      accuracy,
       confidence,
+      completion,
     });
   } catch (err) {
-    console.error('[SpeechAPI] transcribe failed:', err);
-    postJson(res, 500, { success: false, message: 'Speech transcription failed' });
+    // Log the full provider failure on the server, but return a stable,
+    // user-safe message to the device.
+    console.error('[SpeechAPI] transcribe failed:', { message: err?.message, code: err?.code, stack: err?.stack });
+    const unavailable = /credential|permission|unauthenticated|deadline|unavailable/i.test(String(err?.message || err?.code || ''));
+    postJson(res, unavailable ? 503 : 500, {
+      success: false,
+      message: unavailable
+        ? 'Speech recognition is temporarily unavailable. Please try again shortly.'
+        : 'We could not process that recording. Please try again.',
+    });
   }
 });
 

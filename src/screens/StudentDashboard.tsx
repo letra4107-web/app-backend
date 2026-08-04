@@ -993,14 +993,25 @@ export default function StudentDashboard({ navigation }: any) {
     }
   };
 
-  const handleWordOfDayResult = async (correct: boolean, attempts: number, score?: number, transcript?: string) => {
+  const handleWordOfDayResult = async (
+    correct: boolean,
+    attempts: number,
+    score?: number,
+    transcript?: string,
+    completion?: { streak?: number; longest_streak?: number },
+  ) => {
     try {
       if (!progress) return;
       const addXp = correct ? XP_CORRECT : XP_WRONG;
-      const next = buildNextProgress(progress, wordOfDay?.word || '', addXp, {
+      const computed = buildNextProgress(progress, wordOfDay?.word || '', addXp, {
         countsAsPracticeSession: false,
         accuracy: score,
       });
+      // The Word of the Day endpoint is the source of truth for the streak;
+      // never calculate or increment it from the device response.
+      const next = correct && completion
+        ? { ...computed, streak: completion.streak ?? computed.streak, longest_streak: completion.longest_streak ?? computed.longest_streak }
+        : computed;
       await saveProgress(next);
       setProgress(next);
       await notifyParent(
