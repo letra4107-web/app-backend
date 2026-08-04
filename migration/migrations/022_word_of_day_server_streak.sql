@@ -71,6 +71,14 @@ $$;
 -- Existing student ALL policy would let the client forge a completion.
 DROP POLICY IF EXISTS "students_manage_own_word_log" ON public.word_of_day_log;
 CREATE POLICY "students_insert_own_word_log" ON public.word_of_day_log
-  FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.children WHERE children.id = child_id AND children.auth_uid = auth.uid()::text));
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.children
+      -- Cast only inside the policy because this established log table has a
+      -- text child_id while the current children table uses UUID identifiers.
+      WHERE children.id::text = child_id
+        AND children.auth_uid::text = auth.uid()::text
+    )
+  );
 
 NOTIFY pgrst, 'reload schema';
