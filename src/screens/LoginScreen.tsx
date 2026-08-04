@@ -418,6 +418,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           <Text style={styles.signUpLink}>Don&apos;t have an account? <Text style={styles.signUpLinkBold}>Sign Up</Text></Text>
         </TouchableOpacity>
 
+        {/* Standalone re-entry point for a user who signed up, closed the app
+            before verifying, and has no active OTP session/route params to
+            resume from — distinct from the resendRow above, which only
+            appears right after a failed login tells us the email exists. */}
+        <TouchableOpacity onPress={() => navigation.navigate('ResendVerification')} style={styles.signUpRow}>
+          <Text style={styles.signUpLink}>Need to verify your email? <Text style={styles.signUpLinkBold}>Resend Code</Text></Text>
+        </TouchableOpacity>
+
         <View style={styles.trustNote}>
           <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
           <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
