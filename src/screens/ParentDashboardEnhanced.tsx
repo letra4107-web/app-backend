@@ -7,7 +7,6 @@ import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Polyline, Stop 
 import { supabase } from '../config/supabase';
 import { getUserProfileById, onAuthStateChanged, signOutUser } from '../services/supabaseService';
 import { fetchParentProfile } from '../services/profileService';
-import { ACHIEVEMENTS } from '../services/achievementService';
 import { fetchNotifications, subscribeToParentNotifications } from '../services/notificationService';
 import { fetchPublishedLessons, Lesson } from '../services/lessonService';
 import { fetchLessonProgress, LessonProgressRow } from '../services/lessonProgressService';
@@ -32,11 +31,9 @@ import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 // this file doesn't share module scope - keeps the Parent Dashboard visually
 // part of the same app while its own copy (below) stays more measured/adult
 // in tone than the student-facing screens.
-const HOME_CREAM = '#FBF3E2';
 const HOME_INK = '#3B322C';
 const HOME_INK_SOFT = '#8A8078';
 const HOME_SUN = '#E3971A';
-const HOME_CORAL = '#E06B4C';
 const HOME_SAGE = '#5C8047';
 const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
@@ -179,17 +176,7 @@ type ChildRow = {
   child_progress?: ChildProgress[];
 };
 
-type PracticeSessionRow = {
-  id: string;
-  student_id: string;
-  word: string;
-  spoken_text?: string | null;
-  accuracy_percentage: number;
-  created_at: string;
-};
-
 const PRIMARY = '#4f46e5';
-const PRIMARY_DARK = '#4338ca';
 const PRIMARY_LIGHT = '#eef2ff';
 const PRIMARY_TEXT = '#3730a3';
 const SURFACE = '#ffffff';
@@ -225,13 +212,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [scheduledActivities, setScheduledActivities] = useState<ScheduledActivity[]>([]);
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [editingScheduledActivity, setEditingScheduledActivity] = useState<ScheduledActivity | null>(null);
-  const [practiceSessions, setPracticeSessions] = useState<PracticeSessionRow[]>([]);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date().toISOString().slice(0, 10));
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [expandedChildId, setExpandedChildId] = useState<string | null>(null);
   const [section, setSection] = useState<Section>('welcome');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -250,7 +235,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [childCompletedLessons, setChildCompletedLessons] = useState<number | null>(null);
   const [childLessonProgressRows, setChildLessonProgressRows] = useState<LessonProgressRow[]>([]);
   const [childCurrentLesson, setChildCurrentLesson] = useState<{ title: string; status: string; openedAt: string | null } | null>(null);
-  const [childInsightsLoading, setChildInsightsLoading] = useState(false);
   const [parentPhone, setParentPhone] = useState('');
   const [parentAvatarUrl, setParentAvatarUrl] = useState<string | null>(null);
   const [parentSettings, setParentSettings] = useState<DashboardSettings | null>(null);
@@ -345,99 +329,60 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     }
   };
 
-  const loadPracticeSessionsForChildren = async (rows: ChildRow[]) => {
-    const childIds = rows.map((child) => child.id).filter(Boolean);
-    if (!childIds.length) {
-      setPracticeSessions([]);
-      return;
-    }
-
-    try {
-      const response = await getJson<{ success: boolean; sessions?: PracticeSessionRow[]; message?: string }>(
-        buildApiUrl(`/practice/sessions?limit=20&studentIds=${encodeURIComponent(childIds.join(','))}`),
-        15000,
-      );
-      setPracticeSessions(response.sessions || []);
-    } catch (error: any) {
-      console.warn('[ParentDashboard] practice sessions load failed, falling back to Supabase:', error?.message || error);
-
-      try {
-        const { data: sessions, error: supabaseError } = await supabase
-          .from('pronunciation_practice_sessions')
-          .select('id,student_id,word,spoken_text,accuracy_percentage,created_at')
-          .in('student_id', childIds)
-          .order('created_at', { ascending: false })
-          .limit(20);
-
-        if (supabaseError) throw supabaseError;
-        setPracticeSessions((sessions || []) as PracticeSessionRow[]);
-        console.log('[ParentDashboard] Supabase fallback succeeded for practice sessions');
-      } catch (supabaseErr: any) {
-        console.warn('[ParentDashboard] Supabase fallback for practice sessions failed:', supabaseErr?.message);
-        setPracticeSessions([]);
-      }
-    }
-  };
-
   const loadChildInsights = async (child: ChildRow) => {
-    setChildInsightsLoading(true);
-    try {
-      // No date filter here - the Progress tab's own 7/30/90/All period
-      // filter needs the full history to slice client-side (and to compute
-      // an equal-length "previous period" for the improvement delta).
-      // Row-count capped instead, which is generous for a single child's
-      // practice history.
-      const [sessionsResult, lessonsResult, currentLessonResult, lessonProgressResult] = await Promise.allSettled([
-        supabase
-          .from('pronunciation_practice_sessions')
-          .select('word, accuracy_percentage, is_correct, duration_seconds, created_at')
-          .eq('student_id', child.id)
-          .order('created_at', { ascending: false })
-          .limit(2000),
-        fetchPublishedLessons(child.grade_level),
-        supabase
-          .from('lesson_progress')
-          .select('lesson_id, status, opened_at, lessons(title)')
-          .eq('student_id', child.id)
-          .order('opened_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        fetchLessonProgress(child.id),
-      ]);
+    // No date filter here - the Progress tab's own 7/30/90/All period
+    // filter needs the full history to slice client-side (and to compute
+    // an equal-length "previous period" for the improvement delta).
+    // Row-count capped instead, which is generous for a single child's
+    // practice history.
+    const [sessionsResult, lessonsResult, currentLessonResult, lessonProgressResult] = await Promise.allSettled([
+      supabase
+        .from('pronunciation_practice_sessions')
+        .select('word, accuracy_percentage, is_correct, duration_seconds, created_at')
+        .eq('student_id', child.id)
+        .order('created_at', { ascending: false })
+        .limit(2000),
+      fetchPublishedLessons(child.grade_level),
+      supabase
+        .from('lesson_progress')
+        .select('lesson_id, status, opened_at, lessons(title)')
+        .eq('student_id', child.id)
+        .order('opened_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      fetchLessonProgress(child.id),
+    ]);
 
-      setChildSessions(
-        sessionsResult.status === 'fulfilled' && !sessionsResult.value.error
-          ? (sessionsResult.value.data as any[]) || []
-          : [],
-      );
-      setChildLessonsTotal(lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : null);
-      setChildLessonsList(lessonsResult.status === 'fulfilled' ? lessonsResult.value : []);
+    setChildSessions(
+      sessionsResult.status === 'fulfilled' && !sessionsResult.value.error
+        ? (sessionsResult.value.data as any[]) || []
+        : [],
+    );
+    setChildLessonsTotal(lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : null);
+    setChildLessonsList(lessonsResult.status === 'fulfilled' ? lessonsResult.value : []);
 
-      // Real completed-lesson count (lesson_progress rows with status
-      // 'completed') - previously the Home tab mistakenly used
-      // progress.activities_completed here, which actually counts turned-in
-      // assignments, not lesson completions.
-      setChildCompletedLessons(
-        lessonProgressResult.status === 'fulfilled'
-          ? lessonProgressResult.value.filter((row) => row.status === 'completed').length
-          : null,
-      );
-      setChildLessonProgressRows(lessonProgressResult.status === 'fulfilled' ? lessonProgressResult.value : []);
+    // Real completed-lesson count (lesson_progress rows with status
+    // 'completed') - previously the Home tab mistakenly used
+    // progress.activities_completed here, which actually counts turned-in
+    // assignments, not lesson completions.
+    setChildCompletedLessons(
+      lessonProgressResult.status === 'fulfilled'
+        ? lessonProgressResult.value.filter((row) => row.status === 'completed').length
+        : null,
+    );
+    setChildLessonProgressRows(lessonProgressResult.status === 'fulfilled' ? lessonProgressResult.value : []);
 
-      if (
-        currentLessonResult.status === 'fulfilled' &&
-        !currentLessonResult.value.error &&
-        currentLessonResult.value.data
-      ) {
-        const row = currentLessonResult.value.data as any;
-        setChildCurrentLesson({ title: row.lessons?.title || 'Lesson', status: row.status, openedAt: row.opened_at || null });
-      } else {
-        // lesson_progress may not be available yet (pending migration) or the
-        // child hasn't opened a lesson - omit the card rather than fabricate one.
-        setChildCurrentLesson(null);
-      }
-    } finally {
-      setChildInsightsLoading(false);
+    if (
+      currentLessonResult.status === 'fulfilled' &&
+      !currentLessonResult.value.error &&
+      currentLessonResult.value.data
+    ) {
+      const row = currentLessonResult.value.data as any;
+      setChildCurrentLesson({ title: row.lessons?.title || 'Lesson', status: row.status, openedAt: row.opened_at || null });
+    } else {
+      // lesson_progress may not be available yet (pending migration) or the
+      // child hasn't opened a lesson - omit the card rather than fabricate one.
+      setChildCurrentLesson(null);
     }
   };
 
@@ -449,7 +394,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (!selectedChildId || !children.some((child) => child.id === selectedChildId)) {
       setSelectedChildId(children[0].id);
     }
-  }, [children]);
+  }, [children, selectedChildId]);
 
   useEffect(() => {
     const child = children.find((c) => c.id === selectedChildId);
@@ -463,6 +408,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       return;
     }
     void loadChildInsights(child);
+    // `children` is intentionally omitted: this effect's job is "reload when
+    // the selected child changes." Reloading whenever the `children` array
+    // reference changes too would double-fire loadChildInsights alongside
+    // the real-time-subscription effect below, which already explicitly
+    // re-runs it after every children refresh (see its comment).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChildId]);
 
   const refreshNotifications = async (id: string) => {
@@ -493,7 +444,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (section === 'settings' && parentId && !parentSettings && !settingsLoading) {
       void loadParentSettings(parentId);
     }
-  }, [section, parentId]);
+  }, [section, parentId, parentSettings, settingsLoading]);
 
   const updateParentSetting = async <K extends keyof DashboardSettings>(key: K, value: DashboardSettings[K]) => {
     if (!parentId || !parentSettings) return;
@@ -551,7 +502,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         setParentPhone(parentData.phone_number || parentData.phone || '');
         setParentAvatarUrl(parentData.avatar_url || null);
         const rows = await loadChildren(id);
-        await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+        await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), refreshNotifications(id)]);
         loadedParentRef.current = id;
         return;
       }
@@ -568,15 +519,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         setParentEmail(email || '');
       }
       const rows = await loadChildren(id);
-      await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
+      await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), refreshNotifications(id)]);
       loadedParentRef.current = id;
     } catch (err) {
       console.error('Failed to load parent dashboard:', err);
       setError('Hindi ma-load ang parent profile.');
       try {
         const rows = await loadChildren(id);
-        await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), loadPracticeSessionsForChildren(rows), refreshNotifications(id)]);
-      } catch (_) {}
+        await Promise.all([loadActivitiesForChildren(rows, id), loadScheduledActivitiesForChildren(rows), refreshNotifications(id)]);
+      } catch {}
     } finally {
       loadingParentRef.current = null;
     }
@@ -602,6 +553,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     });
 
     return () => data.subscription.unsubscribe();
+    // loadParent is intentionally omitted: it's a plain (non-memoized)
+    // function that transitively calls several other unmemoized loaders
+    // (loadChildren, loadActivitiesForChildren, etc.), so a fresh reference
+    // every render would re-subscribe to auth state changes on every render
+    // instead of only on mount / when navigation changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation]);
 
   const selectedChildIdRef = useRef<string | null>(null);
@@ -616,7 +573,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       void loadChildren(parentId).then((rows) => {
         void loadActivitiesForChildren(rows);
         void loadScheduledActivitiesForChildren(rows);
-        void loadPracticeSessionsForChildren(rows);
         // child_progress-derived numbers refresh via the loadChildren() join
         // above, but the Progress tab's own session history/lesson totals/
         // current-lesson card only otherwise reload when selectedChildId
@@ -627,6 +583,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         if (currentChild) void loadChildInsights(currentChild);
       });
     });
+    // loadActivitiesForChildren (and the other loaders called above) are
+    // intentionally omitted: they're plain non-memoized functions, so
+    // including them would tear down and recreate this realtime subscription
+    // on every render instead of only when parentId changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentId]);
 
   const initials = useMemo(
@@ -669,78 +630,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
   const getLevelColor = (level: Level) => LEVEL_COLORS[level] || PRIMARY;
 
-  const getNextLevel = (level: Level) => {
-    if (level === 'Beginner') return 'Intermediate';
-    if (level === 'Intermediate') return 'Advanced';
-    return 'Master';
-  };
-
-  const getGreeting = (child: ChildRow) => {
-    const progress = child.child_progress?.[0];
-    const level = progress?.level || 'Beginner';
-    const streak = progress?.streak || 0;
-    const name = child.name.split(' ')[0];
-    if (streak >= 7) return `"Kahanga-hanga, ${name}! ${streak} araw na streak! 🔥"`;
-    if (streak >= 3) return `"Magaling, ${name}! Patuloy na mag-practice! ⭐"`;
-    if (level === 'Advanced') return `"Ikaw na, ${name}! Advanced level na! 🚀"`;
-    if (level === 'Intermediate') return `"Papalakas ka na, ${name}! 📈"`;
-    return `"Patuloy na matuto, ${name}! 📚"`;
-  };
-
-  const getInsights = (progress: ChildProgress | undefined, name: string) => {
-    const first = name.split(' ')[0];
-    if (!progress) return [`${name} ay wala pang naitala na progreso. Hikayatin siyang magsimula!`];
-    const out: string[] = [];
-
-    if (progress.streak >= 7) out.push(`🔥 ${first} ay may ${progress.streak}-araw na streak — kahanga-hanga!`);
-    else if (progress.streak >= 3) out.push(`✅ ${first} ay nag-practice ng ${progress.streak} araw. Ituloy!`);
-    else if (progress.streak === 0) out.push(`⚠️ ${first} ay hindi pa nag-practice ngayong araw. Paalalahanin siya!`);
-
-    const words = progress.word_count ?? progress.completed_words?.length ?? 0;
-    if (words >= 50) out.push(`🏆 ${first} ay nakumpleto na ang 50+ salita — advanced learner!`);
-    else if (words >= 10) out.push(`📚 ${first} ay natututo nang mabilis — ${words} salita na!`);
-    else out.push(`📖 ${first} ay nagsisimula pa lang (${words} salita). Dagdagan ang practice time.`);
-
-    if (progress.level === 'Advanced') out.push(`🚀 ${first} ay nasa pinakamataas na antas — Advanced!`);
-    else if (progress.level === 'Intermediate') out.push(`📈 ${first} ay umuusad — nasa Intermediate na siya!`);
-    else out.push(`💡 ${first} ay nasa Beginner level pa. 100 XP ang kailangan para sa Intermediate.`);
-
-    if (progress.total_attempts && progress.total_attempts > 0) {
-      const acc = Math.round((words / progress.total_attempts) * 100);
-      if (acc >= 80) out.push(`✅ Magandang accuracy: ${acc}% — panatilihin ito!`);
-      else if (acc < 50) out.push(`💡 Accuracy: ${acc}% — kailangan ng mas maraming repetition.`);
-    }
-
-    return out;
-  };
-
-  const recentActivities = useMemo(
-    () =>
-      children
-        .flatMap((child) =>
-          (child.child_progress?.[0]?.achievements || []).map((achievement) => ({
-            childName: child.name,
-            achievementId: achievement.id,
-            unlockedAt: achievement.unlockedAt,
-            def: ACHIEVEMENTS.find((d) => d.id === achievement.id),
-          })),
-        )
-        .sort((a, b) => new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime())
-        .slice(0, 10),
-    [children],
-  );
-
-  const achievementStats = useMemo(
-    () =>
-      ACHIEVEMENTS.map((achievement) => ({
-        achievement,
-        unlockedBy: children
-          .filter((child) => child.child_progress?.[0]?.achievements.some((item) => item.id === achievement.id))
-          .map((child) => child.name),
-      })),
-    [children],
-  );
-
   const getActivityDateKey = (activity: StudentActivity) => new Date(activity.deadline).toISOString().slice(0, 10);
   const SCHEDULED_TYPE_ICON: Record<ScheduledActivity['activity_type'], keyof typeof Ionicons.glyphMap> = {
     reading_lesson: 'book-outline',
@@ -779,15 +668,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const shiftCalendarMonth = (delta: number) => {
     setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
   };
-  const upcomingActivities = useMemo(
-    () =>
-      activities
-        .filter((activity) => activity.status !== 'completed')
-        .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
-        .slice(0, 4),
-    [activities],
-  );
-
   const renderWelcome = () => {
     const selectedChild = children.find((child) => child.id === selectedChildId) || children[0];
 
@@ -1610,105 +1490,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       </>
     );
   };
-
-  const renderInsights = () => (
-    <>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderTitle}>AI Reading Insights</Text>
-      </View>
-      {children.length ? (
-        children.map((child) => {
-          const progress = child.child_progress?.[0];
-          const insightRows = getInsights(progress, child.name);
-          return (
-            <View key={child.id} style={styles.insightCard}>
-              <Text style={styles.insightChildName}>{child.name}</Text>
-              {insightRows.map((insight, index) => (
-                <View
-                  key={index}
-                  style={[styles.insightRow, index === insightRows.length - 1 && { borderBottomWidth: 0 }]}
-                >
-                  <Text style={styles.insightText}>{insight}</Text>
-                </View>
-              ))}
-            </View>
-          );
-        })
-      ) : (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>💡</Text>
-          <Text style={styles.emptyText}>Wala pang anak na maaring magbigay ng insight.</Text>
-        </View>
-      )}
-    </>
-  );
-
-  const renderActivities = () => (
-    <>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderTitle}>Recent Activities</Text>
-      </View>
-      {recentActivities.length ? (
-        recentActivities.map((activity) => (
-          <View key={`${activity.childName}-${activity.achievementId}-${activity.unlockedAt}`} style={styles.activityRow}>
-            <View style={styles.activityEmoji}>
-              <Text style={styles.activityEmojiText}>🎯</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.activityChildName}>{activity.childName} — {activity.def?.title || activity.achievementId}</Text>
-              <Text style={styles.activityTitle}>{activity.def?.title || 'Achievement unlocked.'}</Text>
-              <Text style={styles.activityDate}>{new Date(activity.unlockedAt).toLocaleDateString()} · {new Date(activity.unlockedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-            </View>
-          </View>
-        ))
-      ) : (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>📭</Text>
-          <Text style={styles.emptyText}>Wala pang aktibidad na naitala.</Text>
-        </View>
-      )}
-    </>
-  );
-
-  const renderRewards = () => (
-    <>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderTitle}>Rewards & Achievements</Text>
-      </View>
-      <View style={styles.rewardsGrid}>
-        {achievementStats.map(({ achievement, unlockedBy }) => {
-          const unlocked = unlockedBy.length > 0;
-          return (
-            <View
-              key={achievement.id}
-              style={[
-                styles.rewardCell,
-                { backgroundColor: unlocked ? PRIMARY_LIGHT : '#f9fafb', borderColor: unlocked ? PRIMARY : BORDER },
-              ]}
-            >
-              <Image source={achievement.image} style={styles.rewardImage} resizeMode="contain" />
-              <Text style={styles.rewardTitle}>{achievement.title}</Text>
-              <View style={styles.rewardChildRow}>
-                {children.map((child) => {
-                  const childUnlocked = child.child_progress?.[0]?.achievements.some((item) => item.id === achievement.id);
-                  return (
-                    <View
-                      key={`${achievement.id}-${child.id}`}
-                      style={[styles.rewardChip, { backgroundColor: childUnlocked ? SUCCESS : '#fee2e2' }]}
-                    >
-                      <Text style={[styles.rewardChipText, { color: childUnlocked ? TEXT_PRIMARY : DANGER }]}> 
-                        {child.name.split(' ')[0]} {childUnlocked ? '✅' : '❌'}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    </>
-  );
 
   const renderCalendar = () => {
     const selectedChild = children.find((child) => child.id === selectedChildId) || children[0];

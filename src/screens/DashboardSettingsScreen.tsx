@@ -195,7 +195,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     return () => {
       mounted = false;
     };
-  }, [fade, navigation, role]);
+  }, [fade, navigation, role, isParent]);
 
   const initials = useMemo(() => {
     const name = profile.full_name || (isParent ? 'Parent' : 'Student');

@@ -43,13 +43,13 @@ let javacOutput;
 
 try {
   javaOutput = runCommand('java -version 2>&1');
-} catch (error) {
+} catch {
   fail('Java is not installed or not available on PATH. Install a JDK 17+ and set JAVA_HOME.');
 }
 
 try {
   javacOutput = runCommand('javac -version 2>&1');
-} catch (error) {
+} catch {
   fail('Javac is not available. Ensure a JDK is installed and JAVA_HOME points to the JDK, not a JRE.');
 }
 

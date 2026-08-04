@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -22,7 +22,7 @@ const WelcomeScreen: React.FC = () => {
     speakPhrase(message, { onError: setAudioError });
   };
 
-  const loadStudentName = async () => {
+  const loadStudentName = useCallback(async () => {
     const routeName = route.params?.studentName;
     const routeId = route.params?.studentId;
     if (routeName) {
@@ -47,13 +47,13 @@ const WelcomeScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [route.params]);
 
   useEffect(() => {
     const word = getWordOfTheDay();
     setWordOfTheDay(word);
     void loadStudentName();
-  }, []);
+  }, [loadStudentName]);
 
   useEffect(() => {
     if (wordOfTheDay && !loading) {

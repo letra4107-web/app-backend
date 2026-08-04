@@ -778,6 +778,9 @@ router.post('/resend-otp', async (req, res) => {
 
     // Using Supabase `otp_sessions` table
     const { data: sessionData, error: sessionErr } = await supabaseAdmin.from('otp_sessions').select('*').eq('user_id', userId).limit(1);
+    if (sessionErr) {
+      throw sessionErr;
+    }
     const sessionRow = Array.isArray(sessionData) && sessionData.length ? sessionData[0] : null;
 
     if (!sessionRow) {
@@ -883,7 +886,7 @@ router.post('/verify-otp', async (req, res) => {
       // Some Supabase Admin SDKs accept `email_confirmed_at` or `email_confirm` flags.
       // We'll set the timestamp field if supported.
       await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirmed_at: new Date().toISOString() });
-    } catch (e) {
+    } catch {
       try {
         await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true });
       } catch (err) {

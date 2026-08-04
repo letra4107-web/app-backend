@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -74,7 +74,6 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState(routeMessage);
-  const [timeoutSendError, setTimeoutSendError] = useState(false);
   const [otpQueued, setOtpQueued] = useState(Boolean(route.params?.otpSent));
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   // Real expiry from the backend's otpSession.expiresAt (backend/models/otp.js,
@@ -87,12 +86,11 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
   const sendInFlightRef = useRef(false);
   const otpRefs = useRef<(TextInput | null)[]>([]);
 
-  const getVerificationUserId = () => currentUser?.id || routeUserId || '';
+  const getVerificationUserId = useCallback(() => currentUser?.id || routeUserId || '', [currentUser, routeUserId]);
   const applyOtpQueuedState = (message: string, newExpiresAt?: string) => {
     setSuccessMessage(message);
     setInfoMessage('');
     setResendCooldown(RESEND_COOLDOWN_SECONDS);
-    setTimeoutSendError(false);
     setOtpQueued(true);
     setOtp('');
     if (newExpiresAt) setExpiresAt(newExpiresAt);
@@ -158,7 +156,6 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         const message = error?.message || 'Failed to send verification code. Please try again.';
         const isTimeout = /timed out|timeout/i.test(message);
         setErrorMessage(isTimeout ? 'Request timed out, please try again.' : message);
-        setTimeoutSendError(isTimeout);
       } finally {
         autoSendInFlightRef.current = false;
         setLoading(false);
@@ -168,7 +165,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
     // Small delay to ensure state is settled before auto-send
     const timer = setTimeout(autoSendOTP, 500);
     return () => clearTimeout(timer);
-  }, [email, route.params?.otpSent, routeUserId]);
+  }, [email, route.params?.otpSent, routeUserId, getVerificationUserId]);
 
   // Resend-button cooldown (60s) — separate from the code's own 5-minute
   // validity window below.
@@ -209,7 +206,6 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
     setErrorMessage('');
     setSuccessMessage('');
     setInfoMessage('');
-    setTimeoutSendError(false);
 
     // Validation
     const emailValidation = validateEmail(email);
@@ -255,7 +251,6 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       const message = error?.message || 'Failed to send verification code. Please try again later.';
       const isTimeout = /timed out|timeout/i.test(message);
       setErrorMessage(isTimeout ? 'Request timed out, please try again.' : message);
-      setTimeoutSendError(isTimeout);
     } finally {
       sendInFlightRef.current = false;
       setLoading(false);

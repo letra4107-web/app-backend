@@ -19,7 +19,7 @@ export default function EditProfile() {
         if (!user) return;
         const p = await fetchProfile(user.id);
         setProfile(p || {});
-      } catch (e) {
+      } catch {
         Alert.alert('Error', 'Could not load profile');
       } finally {
         setLoading(false);
@@ -38,7 +38,7 @@ export default function EditProfile() {
       if (!result.cancelled) {
         setProfile({ ...profile, avatar_url: result.uri });
       }
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Could not pick image');
     }
   };

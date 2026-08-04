@@ -30,7 +30,7 @@ async function migrate(sourceBucketName, targetBucketName, prefix = '') {
       const metadata = (await file.getMetadata())[0];
       const fileBuffer = fs.readFileSync(tmpPath);
       const uploadPath = file.name.replace(/^\//, '');
-      const { data, error } = await supabase.storage.from(targetBucketName).upload(uploadPath, fileBuffer, { contentType: metadata.contentType });
+      const { error } = await supabase.storage.from(targetBucketName).upload(uploadPath, fileBuffer, { contentType: metadata.contentType });
       if (error) {
         console.error('Upload error for', file.name, error.message || error);
       } else {

@@ -2,7 +2,6 @@
 // Usage: node migrate_users.js firebase_users_export.json output.csv
 
 const fs = require('fs');
-const path = require('path');
 const { parse } = require('json2csv');
 
 function usage() {

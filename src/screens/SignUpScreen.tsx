@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -32,8 +32,6 @@ interface FormErrors {
   confirmPassword: string;
   terms: string;
   general: string;
-  phoneNumber?: string;
-  otp?: string;
 }
 
 interface FormValid {
@@ -45,9 +43,6 @@ interface FormValid {
   confirmPassword: boolean;
   terms: boolean;
 }
-
-type DeliveryMethod = 'email' | 'sms' | null;
-type SignUpStep = 'form' | 'otp';
 
 // Same warm "reading journey" identity tokens used on the Login screen and
 // across the redesigned dashboard — this screen should read as a
@@ -69,24 +64,17 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // OTP fields
-  const [otp, setOtp] = useState('');
-  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(null);
 
   const [resendCooldown, setResendCooldown] = useState(0);
 
   // UI states
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
-  const [verifying, setVerifying] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [successInfo, setSuccessInfo] = useState('');
-  const [step, setStep] = useState<SignUpStep>('form');
 
   const [errors, setErrors] = useState<FormErrors>({
     firstName: '',
@@ -97,8 +85,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     confirmPassword: '',
     terms: '',
     general: '',
-    phoneNumber: '',
-    otp: '',
   });
 
   const [valid, setValid] = useState<FormValid>({
@@ -123,48 +109,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   const sanitizeName = (name: string) => name.replace(/[^a-zA-Z\s'-]/g, '').trim();
   const sanitizeEmail = (email: string) => email.toLowerCase().trim();
 
-  // Cooldown timer for resend
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    if (resendCooldown > 0) {
-      interval = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [resendCooldown]);
-
-  useEffect(() => {
-    validateField('firstName', firstName);
-  }, [firstName]);
-
-  useEffect(() => {
-    validateField('lastName', lastName);
-  }, [lastName]);
-
-  useEffect(() => {
-    validateField('middleInitial', middleInitial);
-  }, [middleInitial]);
-
-  useEffect(() => {
-    validateField('email', email);
-  }, [email]);
-
-  useEffect(() => {
-    validateField('password', password);
-  }, [password]);
-
-  useEffect(() => {
-    validateField('confirmPassword', confirmPassword);
-  }, [confirmPassword]);
-
-  useEffect(() => {
-    validateField('terms', termsAccepted);
-  }, [termsAccepted]);
-
-  const validateField = (field: string, value: any) => {
+  // Depends on `password` (for the confirmPassword-match check below) -
+  // memoized so the field-validation effects only re-run when the field
+  // they actually track changes, not on every render.
+  const validateField = useCallback((field: string, value: any) => {
     let error = '';
     let isValid = false;
 
@@ -209,7 +157,48 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
     setErrors((prev) => ({ ...prev, [field]: error }));
     setValid((prev) => ({ ...prev, [field]: isValid }));
-  };
+  }, [password]);
+
+  // Cooldown timer for resend
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendCooldown]);
+
+  useEffect(() => {
+    validateField('firstName', firstName);
+  }, [firstName, validateField]);
+
+  useEffect(() => {
+    validateField('lastName', lastName);
+  }, [lastName, validateField]);
+
+  useEffect(() => {
+    validateField('middleInitial', middleInitial);
+  }, [middleInitial, validateField]);
+
+  useEffect(() => {
+    validateField('email', email);
+  }, [email, validateField]);
+
+  useEffect(() => {
+    validateField('password', password);
+  }, [password, validateField]);
+
+  useEffect(() => {
+    validateField('confirmPassword', confirmPassword);
+  }, [confirmPassword, validateField]);
+
+  useEffect(() => {
+    validateField('terms', termsAccepted);
+  }, [termsAccepted, validateField]);
 
   const getPasswordStrength = () => {
     let score = 0;
@@ -334,7 +323,6 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           full_name: fullName,
           name: fullName,
           email: normalizedEmail,
-          phone_number: phoneNumber.trim() || undefined,
         });
       } catch (parentProfileError) {
         console.error('[Signup] Failed to create parent profile row:', parentProfileError);

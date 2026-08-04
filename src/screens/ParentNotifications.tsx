@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
@@ -75,7 +75,7 @@ export function NotificationsView({
   const [filter, setFilter] = useState<FilterKey>('all');
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats | null>(null);
 
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError('');
@@ -88,7 +88,7 @@ export function NotificationsView({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, onUnreadChange]);
 
   const childIdsKey = childList.map((child) => child.id).filter(Boolean).join(',');
 
@@ -96,7 +96,7 @@ export function NotificationsView({
     void loadItems();
     const unsubscribe = subscribeToParentNotifications(userId, () => void loadItems());
     return unsubscribe;
-  }, [userId]);
+  }, [userId, loadItems]);
 
   useEffect(() => {
     const childIds = childIdsKey ? childIdsKey.split(',') : [];

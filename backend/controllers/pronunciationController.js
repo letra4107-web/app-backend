@@ -30,7 +30,7 @@ function splitPhonemes(word) {
 }
 
 async function processRequest(body = {}, headers = {}) {
-  const { user_id, word, audio_base64, language = 'tl-PH', retries_used = 0 } = body;
+  const { user_id, word, audio_base64, retries_used = 0 } = body;
   if (!user_id || !word || !audio_base64) {
     const err = new Error('Missing required fields: user_id, word, audio_base64');
     err.status = 400;
@@ -113,7 +113,7 @@ async function processRequest(body = {}, headers = {}) {
       latency_ms: null // set by actual handler if measured
     };
     console.log('[PronunciationMetric]', JSON.stringify(log));
-  } catch (e) {
+  } catch {
     // ignore logging errors
   }
 

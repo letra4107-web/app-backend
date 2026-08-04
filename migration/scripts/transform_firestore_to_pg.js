@@ -2,7 +2,6 @@
 // Usage: node transform_firestore_to_pg.js /path/to/collection-export.json output.csv --fields id,email,name,role
 
 const fs = require('fs');
-const path = require('path');
 const { parse } = require('json2csv');
 
 function usage() {

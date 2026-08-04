@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
@@ -17,7 +17,7 @@ export default function ParentMessagesTab({ parentId, onUnreadChange }: { parent
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -35,11 +35,11 @@ export default function ParentMessagesTab({ parentId, onUnreadChange }: { parent
     } finally {
       setLoading(false);
     }
-  };
+  }, [parentId, onUnreadChange]);
 
   useEffect(() => {
     void loadMessages();
-  }, [parentId]);
+  }, [loadMessages]);
 
   const openMessage = async (message: Message) => {
     if (!message.read) {

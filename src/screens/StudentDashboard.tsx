@@ -54,10 +54,7 @@ type Upload = {
 };
 
 const PRIMARY = '#4f46e5';
-const PRIMARY_DARK = '#4338ca';
 const PRIMARY_LIGHT = '#eef2ff';
-const SURFACE = '#ffffff';
-const BACKGROUND = '#f5f3ff';
 const BORDER = '#e5e7eb';
 const TEXT_PRIMARY = '#111827';
 const TEXT_SECONDARY = '#6b7280';
@@ -169,7 +166,6 @@ const emptyProgress = (childId: string): ChildProgress => ({
   activities_completed: 0,
 });
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
 const formatElapsed = (totalSeconds: number) => {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
@@ -220,15 +216,9 @@ export default function StudentDashboard({ navigation }: any) {
   const [todaySessions, setTodaySessions] = useState<{ word: string; accuracy_percentage: number; is_correct: boolean; duration_seconds: number | null; created_at: string }[]>([]);
   const [practiceStatus, setPracticeStatus] = useState('Pindutin ang mikropono kapag handa ka na.');
   const [confettiVisible, setConfettiVisible] = useState(false);
-  const [speechEnabled, setSpeechEnabled] = useState<boolean>(true);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayKey());
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
   const sidebarAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const mascotPulse = useRef(new Animated.Value(1)).current;
@@ -721,6 +711,11 @@ export default function StudentDashboard({ navigation }: any) {
         subscription.unsubscribe();
       }
     };
+    // loadStudent is intentionally omitted: it's a plain (non-memoized)
+    // function that transitively calls ~9 other unmemoized loaders, so a
+    // fresh reference every render would re-run this whole auth+data-load
+    // effect on every render instead of only on mount / explicit retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, retryKey]);
 
   useEffect(() => {
@@ -728,6 +723,11 @@ export default function StudentDashboard({ navigation }: any) {
     return subscribeToPublishedLessons(() => {
       loadPublishedLessons(Number(child.grade_level || 1));
     });
+    // Narrowed to the two primitive fields actually read below (both already
+    // in the deps array), rather than the whole `child` object - depending on
+    // the object would re-subscribe to the realtime lessons listener whenever
+    // any unrelated child field changes (e.g. name), not just grade_level.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [child?.id, child?.grade_level]);
 
   useEffect(() => {
@@ -741,7 +741,7 @@ export default function StudentDashboard({ navigation }: any) {
     } else {
       micPulse.value = withTiming(1);
     }
-  }, [practiceListening]);
+  }, [practiceListening, micPulse]);
 
   useEffect(() => {
     if (!practiceListening) {
@@ -809,42 +809,6 @@ export default function StudentDashboard({ navigation }: any) {
     if (days === 1) return 'Kahapon';
     if (days < 7) return `${days} araw na ang nakalipas`;
     return new Date(iso).toLocaleDateString();
-  };
-
-  const getNextLevelInfo = (xp: number, level: string) => {
-    if (level === 'Beginner') return { next: 'Intermediate', need: 100, current: xp, max: 100 };
-    if (level === 'Intermediate') return { next: 'Advanced', need: 250, current: xp, max: 250 };
-    return { next: null, need: 0, current: xp, max: xp };
-  };
-
-  const getActivityDateKey = (activity: StudentActivity) => new Date(activity.deadline).toISOString().slice(0, 10);
-
-  const getActivitiesForDate = (dateKey: string) =>
-    activities.filter((activity) => getActivityDateKey(activity) === dateKey);
-
-  const getCalendarDays = () => {
-    const year = calendarMonth.getFullYear();
-    const month = calendarMonth.getMonth();
-    const first = new Date(year, month, 1);
-    const startOffset = first.getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const cells: { key: string; date?: Date; inMonth: boolean }[] = [];
-
-    for (let i = 0; i < startOffset; i += 1) {
-      cells.push({ key: `blank-${i}`, inMonth: false });
-    }
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      const date = new Date(year, month, day);
-      cells.push({ key: date.toISOString(), date, inMonth: true });
-    }
-    while (cells.length % 7 !== 0) {
-      cells.push({ key: `trail-${cells.length}`, inMonth: false });
-    }
-    return cells;
-  };
-
-  const shiftCalendarMonth = (delta: number) => {
-    setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
   };
 
   const getStatusColor = (status: string) => {
@@ -1325,8 +1289,6 @@ export default function StudentDashboard({ navigation }: any) {
     </View>
   );
 
-  const levelInfo = getNextLevelInfo(stats.xp, stats.level);
-
   const renderWordOfDay = () => {
     // Resets every 5 attempts, not at actual midnight - there's no calendar-
     // day boundary tracked yet. A true calendar-day version (reset at real
@@ -1631,10 +1593,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <TouchableOpacity
                   key={activity.id}
                   style={styles.homeActivityRow}
-                  onPress={() => {
-                    setSelectedCalendarDate(getActivityDateKey(activity));
-                    setSection('learn');
-                  }}
+                  onPress={() => setSection('learn')}
                 >
                   <View style={[styles.homeStatusDot, { backgroundColor: getStatusColor(activity.status) }]} />
                   <View style={{ flex: 1 }}>
@@ -2586,98 +2545,6 @@ export default function StudentDashboard({ navigation }: any) {
       </View>
     </ScrollView>
     </>
-    );
-  };
-
-  const renderCalendar = () => {
-    const selectedActivities = getActivitiesForDate(selectedCalendarDate);
-    const monthLabel = calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    const upcomingCount = activities.filter((activity) => activity.status === 'pending').length;
-    const overdueCount = activities.filter((activity) => activity.status === 'overdue').length;
-
-    return (
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.calendarHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>Activity Calendar</Text>
-            <Text style={styles.sectionSubtitle}>{upcomingCount} pending • {overdueCount} overdue</Text>
-          </View>
-          <View style={styles.calendarHeaderActions}>
-            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(-1)}>
-              <Ionicons name="chevron-back" size={18} color={PRIMARY} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(1)}>
-              <Ionicons name="chevron-forward" size={18} color={PRIMARY} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {!!activitiesError && (
-          <View style={styles.errorBlock}>
-            <Text style={styles.error}>{activitiesError}</Text>
-          </View>
-        )}
-
-        <View style={styles.calendarCard}>
-          <Text style={styles.calendarMonth}>{monthLabel}</Text>
-          <View style={styles.weekHeader}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <Text key={day} style={styles.weekHeaderText}>{day}</Text>
-            ))}
-          </View>
-          <View style={styles.calendarGrid}>
-            {getCalendarDays().map((cell) => {
-              if (!cell.date) return <View key={cell.key} style={styles.dayCell} />;
-              const key = cell.date.toISOString().slice(0, 10);
-              const dayActivities = getActivitiesForDate(key);
-              const selected = key === selectedCalendarDate;
-              const hasOverdue = dayActivities.some((activity) => activity.status === 'overdue');
-              const hasCompleted = dayActivities.some((activity) => activity.status === 'completed' || activity.status === 'completed_late');
-              return (
-                <TouchableOpacity
-                  key={cell.key}
-                  style={[styles.dayCell, selected && styles.dayCellSelected]}
-                  onPress={() => setSelectedCalendarDate(key)}
-                >
-                  <Text style={[styles.dayText, selected && styles.dayTextSelected]}>{cell.date.getDate()}</Text>
-                  {!!dayActivities.length && (
-                    <View style={styles.dayDots}>
-                      <View style={[styles.dayDot, { backgroundColor: hasOverdue ? DANGER : hasCompleted ? SUCCESS : WARNING }]} />
-                      {dayActivities.length > 1 && <Text style={styles.dayCount}>{dayActivities.length}</Text>}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.selectedTasksCard}>
-          <Text style={styles.selectedTasksTitle}>
-            {new Date(selectedCalendarDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
-          </Text>
-          {selectedActivities.length ? (
-            selectedActivities.map((activity) => (
-              <View key={activity.id} style={styles.activityTaskRow}>
-                <View style={[styles.statusStrip, { backgroundColor: getStatusColor(activity.status) }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.activityTaskTitle}>{activity.title}</Text>
-                  <Text style={styles.activityTaskMeta}>
-                    {activity.subject || 'Activity'} • {new Date(activity.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                  {!!activity.description && <Text style={styles.activityTaskDescription}>{activity.description}</Text>}
-                </View>
-                <Text style={[styles.statusBadge, { color: getStatusColor(activity.status) }]}>{getStatusLabel(activity.status)}</Text>
-              </View>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>📅</Text>
-              <Text style={styles.empty}>Walang activity sa araw na ito.</Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
     );
   };
 
@@ -3668,43 +3535,6 @@ export default function StudentDashboard({ navigation }: any) {
     );
   };
 
-  const renderProfile = () => (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.sectionTitle}>Student Profile</Text>
-      <View style={styles.profileHero}>
-        <View style={styles.profileAvatar}>
-          <Text style={styles.profileAvatarText}>{initials}</Text>
-        </View>
-        <Text style={styles.profileName}>{child?.name || 'Estudyante'}</Text>
-        <Text style={styles.profileUsername}>{child?.username || 'student account'}</Text>
-      </View>
-
-      <View style={styles.profileCard}>
-        <View style={styles.profileRow}>
-          <Ionicons name="school-outline" size={22} color={PRIMARY} />
-          <View>
-            <Text style={styles.profileLabel}>Grade Level</Text>
-            <Text style={styles.profileValue}>Grade {child?.grade_level || '-'}</Text>
-          </View>
-        </View>
-        <View style={styles.profileRow}>
-          <Ionicons name="flame-outline" size={22} color={PRIMARY} />
-          <View>
-            <Text style={styles.profileLabel}>Current Streak</Text>
-            <Text style={styles.profileValue}>{stats.streak} days</Text>
-          </View>
-        </View>
-        <View style={styles.profileRow}>
-          <Ionicons name="star-outline" size={22} color={PRIMARY} />
-          <View>
-            <Text style={styles.profileLabel}>Learning XP</Text>
-            <Text style={styles.profileValue}>{stats.xp} XP</Text>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
-  );
-
   const renderSettings = () => (
     <DashboardSettingsScreen
       role="student"
@@ -4025,7 +3855,7 @@ function PracticeResultCard({
       tension: 80,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [scaleAnim]);
 
   const { correct, score, transcript, feedback, xpAward } = result;
   const ringColor = score >= 85 ? SUCCESS : score >= 60 ? WARNING : DANGER;
@@ -4458,7 +4288,7 @@ const styles = StyleSheet.create({
   skeletonLineShort: { width: '45%', height: 16, borderRadius: 8, backgroundColor: '#E5E7EB', marginBottom: 22 },
   skeletonGrid: { width: '92%', flexDirection: 'row', justifyContent: 'space-between' },
   skeletonBlock: { width: '48%', height: 100, borderRadius: 14, backgroundColor: '#E5E7EB' },
-  practicePanel: { marginTop: 18, padding: 16, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  practicePanel: { marginTop: 18, padding: 16, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: BORDER },
   practiceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   practiceTitle: { fontSize: 18, fontWeight: '900', color: '#111827' },
   practiceClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
@@ -5050,7 +4880,7 @@ const styles = StyleSheet.create({
     padding: 18,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: BORDER,
     marginBottom: 14,
   },
   profileAvatar: {
@@ -5070,7 +4900,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: BORDER,
   },
   profileRow: {
     flexDirection: 'row',
@@ -5093,7 +4923,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#eef2ff',
+    backgroundColor: PRIMARY_LIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -5102,7 +4932,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: BORDER,
   },
   calendarMonth: { fontSize: 16, fontWeight: '900', color: TEXT_PRIMARY, marginBottom: 12 },
   weekHeader: { flexDirection: 'row', marginBottom: 8 },
@@ -5127,7 +4957,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: BORDER,
     marginTop: 14,
   },
   selectedTasksTitle: { color: TEXT_PRIMARY, fontWeight: '900', fontSize: 16, marginBottom: 10 },

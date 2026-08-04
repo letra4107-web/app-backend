@@ -157,7 +157,6 @@ export const signUpUser = async (
 
   try {
     const startRequestAt = Date.now();
-    const MAX_ATTEMPTS = 2;
 
     const attempt = async (attemptNo: number) => {
       console.log('[Supabase] signUp attempt:', { attemptNo, msSinceStart: Date.now() - startedAt });

@@ -95,7 +95,7 @@ export default function AchievementModal({
         xpTranslateY.value = withDelay(180, withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) }));
       }),
     );
-  }, [visible, title, isMeta]);
+  }, [visible, title, isMeta, scale, opacity, rotation, nameOpacity, nameTranslateY, xpOpacity, xpTranslateY]);
 
   useEffect(() => {
     if (!visible || !isMeta) {
@@ -103,7 +103,7 @@ export default function AchievementModal({
       return;
     }
     glow.value = withRepeat(withSequence(withTiming(0.85, { duration: 700 }), withTiming(0.35, { duration: 700 })), -1, true);
-  }, [visible, isMeta]);
+  }, [visible, isMeta, glow]);
 
   const badgeStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -54,7 +54,7 @@ export default function ConfettiOverlay({ visible }: { visible: boolean }) {
       ]);
     });
     Animated.stagger(60, animations).start();
-  }, [visible]);
+  }, [visible, pieces]);
 
   if (!visible) return null;
 

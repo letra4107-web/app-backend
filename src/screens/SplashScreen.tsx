@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, ImageBackground, Image, Dimensions, Platform } from 'react-native';
+import { Text, StyleSheet, Animated, ImageBackground, Image, Dimensions, Platform } from 'react-native';
 import { supabase } from '../config/supabase';
 import { completeAuthSession } from '../services/supabaseService';
 
@@ -56,7 +56,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
   );
 };
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -63,7 +63,7 @@ try {
   if (parsed.protocol !== 'https:') {
     console.warn(`[Supabase] SUPABASE_URL should use https://. Got: ${SUPABASE_URL}`);
   }
-} catch (e) {
+} catch {
   console.warn(`[Supabase] SUPABASE_URL is not a valid URL: "${SUPABASE_URL}"`);
 }
 
@@ -82,6 +82,9 @@ let clientOptions: any = { auth: { detectSessionInUrl: false, flowType: 'pkce' }
 if (Platform.OS !== 'web') {
   try {
     // Require dynamically so bundlers targeting web don't try to resolve native-only packages.
+    // A static `import` would be resolved/bundled eagerly for every platform,
+    // including web, defeating the point of this Platform.OS guard.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const AsyncStorage = require('@react-native-async-storage/async-storage');
     const storage = AsyncStorage?.default || AsyncStorage;
     clientOptions = {

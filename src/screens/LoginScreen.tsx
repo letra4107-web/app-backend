@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,11 +40,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [touchedPassword, setTouchedPassword] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  useEffect(() => {
-    loadAttempts();
-  }, []);
-
-  const loadAttempts = async () => {
+  const loadAttempts = useCallback(async () => {
     const storedAttempts = await AsyncStorage.getItem('loginAttempts');
     const storedBlocked = await AsyncStorage.getItem('blockedUntil');
     if (storedAttempts) setAttempts(parseInt(storedAttempts));
@@ -56,7 +52,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         resetAttempts();
       }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAttempts();
+  }, [loadAttempts]);
 
   const saveAttempts = async () => {
     await AsyncStorage.setItem('loginAttempts', attempts.toString());

@@ -11,12 +11,6 @@ const ENV_VARS = {
   SUPABASE_ANON_KEY: 'SUPABASE_ANON_KEY',
 };
 
-const SMTP_VARS = {
-  EMAIL_USER: 'EMAIL_USER or SMTP_USER',
-  EMAIL_PASS: 'EMAIL_PASS or SMTP_PASS',
-  EMAIL_FROM: 'EMAIL_FROM or SMTP_FROM',
-};
-
 function validateEnv() {
   const missing = [];
   const supabaseUrl = process.env[ENV_VARS.SUPABASE_URL]?.trim();
@@ -24,9 +18,6 @@ function validateEnv() {
   const anonKey = process.env[ENV_VARS.SUPABASE_ANON_KEY]?.trim();
   const effectiveSmtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
   const effectiveSmtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s/g, '');
-  const effectiveSmtpFrom = (process.env.SMTP_FROM || process.env.EMAIL_FROM || '')
-    .trim()
-    .replace(/^"(.*)"$/, '$1');
 
   if (!supabaseUrl) {
     missing.push(ENV_VARS.SUPABASE_URL);

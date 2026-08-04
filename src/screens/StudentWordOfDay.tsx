@@ -19,7 +19,6 @@ const DANGER = '#ef4444';
 const SUCCESS = '#10b981';
 const WARNING = '#f59e0b';
 // Matches the Home tab hero card palette (assets/sdbg.jpg storybook theme)
-const HOME_INK = '#3B322C';
 const HOME_INK_SOFT = '#8A7B6C';
 const HOME_LAVENDER = '#7C6FCF';
 const HOME_LAVENDER_DARK = '#5F52B0';
@@ -102,9 +101,6 @@ export default function StudentWordOfDay({
   const [starting, setStarting] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState('');
-  const [lastScore, setLastScore] = useState<number | null>(null);
-  const [lastTranscript, setLastTranscript] = useState<string>('');
-  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const pulse = useSharedValue(1);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Closes the gap between a tap and `starting` state actually re-rendering the
@@ -137,7 +133,7 @@ export default function StudentWordOfDay({
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [isRecording]);
+  }, [isRecording, pulse]);
 
   // Unmount-only cleanup: if the screen is left while a recording is active
   // (e.g. the student navigates away mid-recording), stop it so it doesn't
@@ -156,7 +152,7 @@ export default function StudentWordOfDay({
         // recorder may already be released — nothing to clean up
       }
     };
-  }, []);
+  }, [recorder]);
 
   const startRecording = async () => {
     const alreadyBusy = isStartingRef.current || isStoppingRef.current || recorder.isRecording || processing;
@@ -223,10 +219,6 @@ export default function StudentWordOfDay({
         await updateWordOfDayLog(log.id, attempts, correct || attempts >= 3 ? correct : false);
       }
       if (!isMountedRef.current) return;
-      // store last result locally so parent can read it if needed
-      setLastScore(score);
-      setLastTranscript(response.transcript || '');
-      setLastCorrect(correct);
 
       const phrase = correct
         ? SUCCESS_PHRASES[Math.floor(Math.random() * SUCCESS_PHRASES.length)]

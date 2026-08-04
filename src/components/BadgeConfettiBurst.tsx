@@ -22,7 +22,7 @@ function Particle({ index, particleCount, colors }: ParticleProps) {
 
   useEffect(() => {
     progress.value = withTiming(1, { duration, easing: Easing.out(Easing.quad) });
-  }, []);
+  }, [progress, duration]);
 
   const style = useAnimatedStyle(() => {
     const p = progress.value;
