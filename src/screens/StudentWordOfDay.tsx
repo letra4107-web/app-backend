@@ -262,6 +262,14 @@ export default function StudentWordOfDay({
         </View>
       )}
 
+      {log.correct ? (
+        <View style={styles.completedTodayBanner}>
+          <Text style={styles.completedTodayText}>✅ Already completed today.</Text>
+          <Text style={styles.completedTodaySubtext}>Come back tomorrow for a new word!</Text>
+        </View>
+      ) : (
+        <>
+
       <TouchableOpacity
         style={styles.listenButton}
         onPress={() => speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) })}
@@ -305,6 +313,8 @@ export default function StudentWordOfDay({
           <Text style={styles.doneText}>Tapos na ang mga pagkakataon ngayon. 💪</Text>
           <Text style={styles.doneSubtext}>Bumalik bukas para subukan muli!</Text>
         </View>
+      )}
+        </>
       )}
     </View>
   );
@@ -366,4 +376,7 @@ const styles = StyleSheet.create({
   doneBanner: { marginTop: 20, alignItems: 'center' },
   doneText: { fontWeight: '800', color: TEXT_PRIMARY, fontSize: 15 },
   doneSubtext: { color: TEXT_SECONDARY, marginTop: 4 },
+  completedTodayBanner: { marginTop: 12, padding: 14, width: '100%', borderRadius: 14, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: SUCCESS, alignItems: 'center' },
+  completedTodayText: { color: SUCCESS, fontWeight: '800', fontSize: 15 },
+  completedTodaySubtext: { color: TEXT_SECONDARY, fontWeight: '600', marginTop: 4, textAlign: 'center' },
 });
