@@ -464,14 +464,18 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
         <View style={styles.card}>
           {errors.general ? (
-            <View style={styles.messageBanner}>
+            <View style={styles.messageBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
               <Ionicons name="alert-circle" size={20} color={HOME_CORAL} style={styles.messageIcon} />
               <Text style={styles.errorBannerText}>{errors.general}</Text>
             </View>
           ) : null}
 
           {successMessage ? (
-            <View style={[styles.messageBanner, styles.successBanner]}>
+            <View
+              style={[styles.messageBanner, styles.successBanner]}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
               <Ionicons name="checkmark-circle" size={20} color={SUCCESS} style={styles.messageIcon} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.successBannerText}>{successMessage}</Text>
@@ -496,6 +500,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   onBlur={() => setTouchedFirstName(true)}
                   editable={!isBusy}
                   autoCapitalize="words"
+                  accessibilityLabel="First name input"
                 />
                 {valid.firstName && !errors.firstName && (
                   <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
@@ -524,6 +529,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   onBlur={() => setTouchedLastName(true)}
                   editable={!isBusy}
                   autoCapitalize="words"
+                  accessibilityLabel="Last name input"
                 />
                 {valid.lastName && !errors.lastName && (
                   <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
@@ -556,6 +562,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 onBlur={() => setTouchedMiddleInitial(true)}
                 maxLength={1}
                 editable={!isBusy}
+                accessibilityLabel="Middle initial input, optional"
               />
               {middleInitial.length > 0 && valid.middleInitial && !errors.middleInitial && (
                 <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
@@ -586,6 +593,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isBusy}
+                accessibilityLabel="Email input"
               />
               {valid.email && !errors.email && (
                 <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
@@ -616,8 +624,15 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 editable={!isBusy}
+                accessibilityLabel="Password input"
+                accessibilityHint="Create a password. Password is hidden by default"
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
                 <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
               </TouchableOpacity>
             </View>
@@ -702,8 +717,15 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
                 editable={!isBusy}
+                accessibilityLabel="Confirm password input"
+                accessibilityHint="Re-enter your password. Password is hidden by default"
               />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={styles.eyeButton}
+                accessibilityRole="button"
+                accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
                 <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
               </TouchableOpacity>
             </View>
@@ -716,7 +738,13 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           </View>
 
           <View style={styles.termsContainer}>
-            <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkbox}>
+            <TouchableOpacity
+              onPress={() => setTermsAccepted(!termsAccepted)}
+              style={styles.checkbox}
+              accessibilityRole="checkbox"
+              accessibilityLabel="I agree to the Terms of Use and Privacy Policy"
+              accessibilityState={{ checked: termsAccepted }}
+            >
               <Ionicons
                 name={termsAccepted ? 'checkbox' : 'square-outline'}
                 size={22}
@@ -972,7 +1000,10 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   eyeButton: {
-    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: -4,
   },
   errorContainer: {

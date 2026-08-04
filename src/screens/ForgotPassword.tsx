@@ -135,10 +135,14 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
         <Text style={styles.subtitle}>No worries. Enter your email and we&apos;ll send you a link to reset your password.</Text>
 
         <View style={styles.card}>
-          {generalError ? <Text style={styles.errorBanner}>{generalError}</Text> : null}
+          {generalError ? (
+            <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              {generalError}
+            </Text>
+          ) : null}
 
           {submitted ? (
-            <View style={styles.successBanner}>
+            <View style={styles.successBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
               <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
               <Text style={styles.successBannerText}>{REASSURANCE_TEXT}</Text>
             </View>
@@ -161,6 +165,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     editable={!loading}
+                    accessibilityLabel="Email input"
                   />
                 </View>
                 {touched && emailError ? (

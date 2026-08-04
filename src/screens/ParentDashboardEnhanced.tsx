@@ -33,7 +33,7 @@ import { accessibilityFromSettings, useAccessibility } from '../contexts/Accessi
 // part of the same app while its own copy (below) stays more measured/adult
 // in tone than the student-facing screens.
 const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#8A8078';
+const HOME_INK_SOFT = '#5F5044';
 const HOME_SUN = '#E3971A';
 const HOME_SAGE = '#5C8047';
 const HOME_LAVENDER = '#7C6FCF';
@@ -266,6 +266,82 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     fontSize: a11ySize(12),
     ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
     ...(highContrast ? { color: HOME_INK } : {}),
+  };
+  // Broadened a11y wiring (audit follow-up) - grouped by shared style
+  // constant/visual level rather than one bespoke override per Text, each
+  // scaled from that group's own current base fontSize so relative
+  // hierarchy is preserved at every text-size setting.
+  const heroCardTitleA11yStyle = {
+    fontSize: a11ySize(19),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const sectionTitleA11yStyle = {
+    fontSize: a11ySize(16),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const sectionTitleInlineA11yStyle = {
+    fontSize: a11ySize(15),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const cardTitleA11yStyle = {
+    fontSize: a11ySize(17),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const childNameA11yStyle = {
+    fontSize: a11ySize(18),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const accountNameA11yStyle = {
+    fontSize: a11ySize(16),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const accountSubA11yStyle = {
+    fontSize: a11ySize(12),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const toggleTitleA11yStyle = {
+    fontSize: a11ySize(14),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const toggleSubA11yStyle = {
+    fontSize: a11ySize(11),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const overviewValueA11yStyle = {
+    fontSize: a11ySize(20),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const overviewLabelA11yStyle = {
+    fontSize: a11ySize(12),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const overallStatValueA11yStyle = {
+    fontSize: a11ySize(17),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const overallStatLabelA11yStyle = {
+    fontSize: a11ySize(10),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const weekStatValueA11yStyle = {
+    fontSize: a11ySize(20),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const weekStatLabelA11yStyle = {
+    fontSize: a11ySize(10.5),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const goalCardValueA11yStyle = {
+    fontSize: a11ySize(22),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const saveDiscardBarTextA11yStyle = {
+    fontSize: a11ySize(13),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const saveDiscardButtonTextA11yStyle = {
+    fontSize: a11ySize(14),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
   };
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [savingSettingKey, setSavingSettingKey] = useState<string | null>(null);
@@ -888,7 +964,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.childSummaryEyebrow}>Your Child</Text>
-            <Text style={styles.childSummaryName}>{selectedChild.name}</Text>
+            <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
                 <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
@@ -903,7 +979,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
           </View>
           {children.length > 1 && (
-            <TouchableOpacity style={styles.switchChildButton} onPress={() => setChildPickerOpen((open) => !open)}>
+            <TouchableOpacity
+              style={styles.switchChildButton}
+              onPress={() => setChildPickerOpen((open) => !open)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
+            >
               <Text style={styles.switchChildButtonText}>Switch Child</Text>
               <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={HOME_LAVENDER_DARK} />
             </TouchableOpacity>
@@ -916,6 +998,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <TouchableOpacity
                 key={child.id}
                 style={styles.childPickerRow}
+                accessibilityRole="button"
+                accessibilityLabel={`Switch to ${child.name}`}
                 onPress={() => {
                   setSelectedChildId(child.id);
                   setChildPickerOpen(false);
@@ -948,7 +1032,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 </View>
                 <Text style={styles.heroProgressEyebrow}>READING PROGRESS</Text>
               </View>
-              <Text style={styles.heroProgressTitle}>{selectedChild.name.split(' ')[0]}&apos;s Reading Progress</Text>
+              <Text style={[styles.heroProgressTitle, heroCardTitleA11yStyle]}>{selectedChild.name.split(' ')[0]}&apos;s Reading Progress</Text>
             </View>
             <View style={styles.heroProgressRingWrap}>
               <ProgressRing
@@ -983,33 +1067,33 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </TouchableOpacity>
         </LinearGradient>
 
-        <Text style={styles.homeSectionTitle}>Quick Overview</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Quick Overview</Text>
         <View style={styles.overviewGrid}>
           <View style={[styles.overviewCard, { backgroundColor: '#EFECFB' }]}>
             <Ionicons name="school" size={20} color={HOME_LAVENDER} />
-            <Text style={[styles.overviewValue, { color: HOME_LAVENDER }]}>
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_LAVENDER }]}>
               {lessonsCompleted}{childLessonsTotal !== null ? `/${childLessonsTotal}` : ''}
             </Text>
-            <Text style={styles.overviewLabel}>Lessons Completed</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Lessons Completed</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#FFF3DC' }]}>
             <Ionicons name="mic" size={20} color={HOME_SUN} />
-            <Text style={[styles.overviewValue, { color: HOME_SUN }]}>{practiceSessionsThisWeek}</Text>
-            <Text style={styles.overviewLabel}>Reading Practice (this week)</Text>
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SUN }]}>{practiceSessionsThisWeek}</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Reading Practice (this week)</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
             <Ionicons name="book" size={20} color={HOME_LAVENDER_DARK} />
-            <Text style={[styles.overviewValue, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
-            <Text style={styles.overviewLabel}>Words Practiced</Text>
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Words Practiced</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="checkmark-circle" size={20} color={HOME_SAGE} />
-            <Text style={[styles.overviewValue, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-            <Text style={styles.overviewLabel}>Reading Accuracy</Text>
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Reading Accuracy</Text>
           </View>
         </View>
 
-        <Text style={styles.homeSectionTitle}>This Week&apos;s Activity</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>This Week&apos;s Activity</Text>
         <View style={styles.trendCard}>
           <View style={styles.weekBarRow}>
             {weekDayBars.map((day, i) => (
@@ -1031,7 +1115,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </Text>
         </View>
 
-        <Text style={styles.homeSectionTitle}>Reading Skills Overview</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Reading Skills Overview</Text>
         <View style={styles.currentLessonCard}>
           {childCurrentLesson ? (
             <>
@@ -1051,7 +1135,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           )}
         </View>
 
-        <Text style={styles.homeSectionTitle}>This Week&apos;s Insight</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>This Week&apos;s Insight</Text>
         <Text style={styles.homeSectionSub}>Practice activity over last 7 days</Text>
         <View style={styles.weeklyInsightCard}>
           {skillMeta.map(({ key, label }) => {
@@ -1078,9 +1162,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.goalCard}>
           <View style={styles.goalCardHeader}>
             <Ionicons name="flag" size={18} color={HOME_SUN} />
-            <Text style={styles.homeSectionTitleInline}>Today&apos;s Reading Goal</Text>
+            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Today&apos;s Reading Goal</Text>
           </View>
-          <Text style={styles.goalCardValue}>{goalDone}/{DAILY_GOAL} Activities</Text>
+          <Text style={[styles.goalCardValue, goalCardValueA11yStyle]}>{goalDone}/{DAILY_GOAL} Activities</Text>
           <View style={styles.goalCardTrack}>
             <View style={[styles.goalCardFill, { width: `${goalPct}%` }]} />
           </View>
@@ -1094,7 +1178,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
 
         <View style={styles.recentHeaderRow}>
-          <Text style={styles.homeSectionTitleInline}>Recent</Text>
+          <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Recent</Text>
           <TouchableOpacity onPress={() => setSection('progress')}>
             <Text style={styles.viewAllLink}>View All Activity →</Text>
           </TouchableOpacity>
@@ -1135,15 +1219,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </LinearGradient>
 
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickAction} onPress={() => setShowEnroll(true)}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => setShowEnroll(true)} accessibilityRole="button" accessibilityLabel="Enroll a child">
             <Ionicons name="person-add" size={16} color={HOME_LAVENDER_DARK} />
             <Text style={styles.quickActionText}>Enroll Child</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View reports">
             <Ionicons name="bar-chart" size={16} color={HOME_LAVENDER_DARK} />
             <Text style={styles.quickActionText}>View Reports</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Manage profile">
             <Ionicons name="person-circle" size={16} color={HOME_LAVENDER_DARK} />
             <Text style={styles.quickActionText}>Manage Profile</Text>
           </TouchableOpacity>
@@ -1326,6 +1410,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           style={styles.viewingSelector}
           onPress={() => children.length > 1 && setChildPickerOpen((open) => !open)}
           activeOpacity={children.length > 1 ? 0.7 : 1}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={`Viewing ${selectedChild.name}${children.length > 1 ? '. Tap to switch child' : ''}`}
         >
           <Text style={styles.viewingSelectorText}>Viewing: {selectedChild.name}</Text>
           {children.length > 1 && <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={HOME_LAVENDER_DARK} />}
@@ -1337,6 +1424,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <TouchableOpacity
                 key={child.id}
                 style={styles.childPickerRow}
+                accessibilityRole="button"
+                accessibilityLabel={`Switch to ${child.name}`}
                 onPress={() => {
                   setSelectedChildId(child.id);
                   setChildPickerOpen(false);
@@ -1356,7 +1445,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.childSummaryName}>{selectedChild.name}</Text>
+            <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
                 <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
@@ -1372,7 +1461,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
         </View>
 
-        <Text style={styles.homeSectionTitle}>Progress Overview</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Progress Overview</Text>
         <Text style={styles.periodFilterLabel}>TIME PERIOD FILTER</Text>
         <View style={styles.periodFilterRow}>
           {PERIOD_LABELS.map((period) => (
@@ -1380,6 +1469,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               key={period.key}
               style={[styles.periodChip, progressPeriod === period.key && styles.periodChipActive]}
               onPress={() => setProgressPeriod(period.key)}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Show progress for ${period.label}`}
             >
               <Text style={[styles.periodChipText, progressPeriod === period.key && styles.periodChipTextActive]}>{period.label}</Text>
             </TouchableOpacity>
@@ -1388,7 +1480,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.readingProgressCard}>
           <View style={styles.readingProgressHeader}>
-            <Text style={styles.readingProgressTitle}>Overall Reading Progress</Text>
+            <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>Overall Reading Progress</Text>
             <Ionicons name="book" size={24} color={HOME_LAVENDER} />
           </View>
           <View style={{ alignItems: 'center', marginVertical: 12 }}>
@@ -1408,7 +1500,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <Text style={styles.readingProgressMessage}>{tierMessage(periodAvg)}</Text>
         </View>
 
-        <Text style={styles.homeSectionTitle}>Reading Performance</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Reading Performance</Text>
         <View style={styles.trendCard}>
           {bucketsWithData.length >= 2 ? (
             <>
@@ -1430,25 +1522,25 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           )}
         </View>
 
-        <Text style={styles.homeSectionTitle}>Reading Skills</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Reading Skills</Text>
         <View style={styles.overallStatsRow}>
           <View style={styles.overallStatCell}>
-            <Text style={styles.overallStatValue}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
-            <Text style={styles.overallStatLabel}>Overall</Text>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Overall</Text>
           </View>
           <View style={styles.overallStatCell}>
-            <Text style={styles.overallStatValue}>{totalWords}</Text>
-            <Text style={styles.overallStatLabel}>Total Words</Text>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{totalWords}</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Total Words</Text>
           </View>
           <View style={styles.overallStatCell}>
-            <Text style={styles.overallStatValue}>{correctCount}</Text>
-            <Text style={styles.overallStatLabel}>Correct</Text>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{correctCount}</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Correct</Text>
           </View>
           <View style={styles.overallStatCell}>
-            <Text style={[styles.overallStatValue, { color: periodDelta === null ? HOME_INK : periodDelta >= 0 ? SUCCESS : DANGER }]}>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle, { color: periodDelta === null ? HOME_INK : periodDelta >= 0 ? SUCCESS : DANGER }]}>
               {periodDelta === null ? '--' : `${periodDelta >= 0 ? '+' : ''}${periodDelta}%`}
             </Text>
-            <Text style={styles.overallStatLabel}>Improvement</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Improvement</Text>
           </View>
         </View>
 
@@ -1496,7 +1588,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.recommendText}>
                 Continue practicing {weakestSkill.label.replace(' (approx.)', '')} - it&apos;s currently {selectedChild.name.split(' ')[0]}&apos;s area with the most room to grow.
               </Text>
-              <TouchableOpacity style={styles.recommendButton} onPress={() => setSection('welcome')}>
+              <TouchableOpacity
+                style={styles.recommendButton}
+                onPress={() => setSection('welcome')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="View recommended activities"
+              >
                 <Text style={styles.recommendButtonText}>View Recommended Activities</Text>
               </TouchableOpacity>
             </View>
@@ -1514,7 +1612,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
         )}
 
-        <Text style={styles.homeSectionTitle}>Recent Learning History</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Recent Learning History</Text>
         <View style={styles.selectedTasksCard}>
           {visibleHistory.length ? (
             visibleHistory.map((session, i) => (
@@ -1754,7 +1852,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
             <Text style={styles.heroProgressEyebrow}>PLAN & TRACK</Text>
           </View>
-          <Text style={styles.heroProgressTitle}>Calendar</Text>
+          <Text style={[styles.heroProgressTitle, heroCardTitleA11yStyle]}>Calendar</Text>
           <Text style={[styles.heroProgressMessage, { maxWidth: '72%', marginTop: 6, marginBottom: 0 }]}>
             Plan and follow {selectedChild.name.split(' ')[0]}&apos;s learning activities.
           </Text>
@@ -1766,7 +1864,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.childSummaryEyebrow}>Viewing Calendar For</Text>
-            <Text style={styles.childSummaryName}>{selectedChild.name}</Text>
+            <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
                 <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
@@ -1777,7 +1875,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
           </View>
           {children.length > 1 && (
-            <TouchableOpacity style={styles.switchChildButton} onPress={() => setChildPickerOpen((open) => !open)}>
+            <TouchableOpacity
+              style={styles.switchChildButton}
+              onPress={() => setChildPickerOpen((open) => !open)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
+            >
               <Text style={styles.switchChildButtonText}>Switch Child</Text>
               <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={HOME_LAVENDER_DARK} />
             </TouchableOpacity>
@@ -1790,6 +1894,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <TouchableOpacity
                 key={child.id}
                 style={styles.childPickerRow}
+                accessibilityRole="button"
+                accessibilityLabel={`Switch to ${child.name}`}
                 onPress={() => {
                   setSelectedChildId(child.id);
                   setChildPickerOpen(false);
@@ -1806,7 +1912,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.calendarCard}>
           <View style={styles.calendarCardHeader}>
-            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(-1)}>
+            <TouchableOpacity
+              style={styles.monthButton}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              onPress={() => shiftCalendarMonth(-1)}
+              accessibilityRole="button"
+              accessibilityLabel="Go to previous month"
+            >
               <Ionicons name="chevron-back" size={18} color={PRIMARY} />
             </TouchableOpacity>
             <Text style={styles.calendarMonth}>{monthLabel}</Text>
@@ -1817,10 +1929,19 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
                 setSelectedCalendarDate(now.toISOString().slice(0, 10));
               }}
+              hitSlop={{ top: 7, bottom: 7, left: 6, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel="Jump to today"
             >
               <Text style={styles.todayPillText}>Today</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.monthButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => shiftCalendarMonth(1)}>
+            <TouchableOpacity
+              style={styles.monthButton}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              onPress={() => shiftCalendarMonth(1)}
+              accessibilityRole="button"
+              accessibilityLabel="Go to next month"
+            >
               <Ionicons name="chevron-forward" size={18} color={PRIMARY} />
             </TouchableOpacity>
           </View>
@@ -1841,6 +1962,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   key={cell.key}
                   style={[styles.dayCell, selected && styles.dayCellSelected]}
                   onPress={() => setSelectedCalendarDate(key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${cell.date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${hasAnyDot ? ', has activity' : ''}${selected ? ', selected' : ''}`}
                 >
                   <Text style={[styles.dayText, selected && styles.dayTextSelected]}>{cell.date.getDate()}</Text>
                   {hasAnyDot && (
@@ -1893,17 +2016,29 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   <Text style={styles.dayEntryMeta}>{entry.meta}</Text>
                 </View>
                 {entry.actionLabel && entry.onPress ? (
-                  <TouchableOpacity style={[styles.dayEntryAction, { borderColor: entry.pillColor }]} onPress={entry.onPress}>
+                  <TouchableOpacity
+                    style={[styles.dayEntryAction, { borderColor: entry.pillColor }]}
+                    onPress={entry.onPress}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${entry.actionLabel} for ${entry.title}`}
+                  >
                     <Text style={[styles.dayEntryActionText, { color: entry.pillColor }]}>{entry.actionLabel}</Text>
                   </TouchableOpacity>
                 ) : entry.scheduledItem ? (
                   <TouchableOpacity
                     style={styles.scheduledCompleteButton}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     onPress={(event) => {
                       event.stopPropagation();
                       void toggleScheduledComplete(entry.scheduledItem!);
                     }}
                     disabled={entry.scheduledItem.status === 'completed'}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      entry.scheduledItem.status === 'completed'
+                        ? `${entry.title} marked complete`
+                        : `Mark ${entry.title} as complete`
+                    }
                   >
                     <Ionicons
                       name={entry.scheduledItem.status === 'completed' ? 'checkmark-circle' : 'checkmark-circle-outline'}
@@ -1922,20 +2057,20 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.weekSummaryCard}>
           <View style={styles.weekSummaryHeaderRow}>
             <Ionicons name="bar-chart" size={16} color={HOME_SAGE} />
-            <Text style={styles.homeSectionTitleInline}>This Week</Text>
+            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>This Week</Text>
           </View>
           <View style={styles.weekSummaryStatsRow}>
             <View style={styles.weekSummaryStat}>
-              <Text style={[styles.weekSummaryStatValue, { color: HOME_LAVENDER_DARK }]}>{weekLessonsCompleted}</Text>
-              <Text style={styles.weekSummaryStatLabel}>Lessons</Text>
+              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: HOME_LAVENDER_DARK }]}>{weekLessonsCompleted}</Text>
+              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Lessons</Text>
             </View>
             <View style={styles.weekSummaryStat}>
-              <Text style={[styles.weekSummaryStatValue, { color: CALENDAR_PRACTICE_BLUE }]}>{weekSessions.length}</Text>
-              <Text style={styles.weekSummaryStatLabel}>Practice Sessions</Text>
+              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: CALENDAR_PRACTICE_BLUE }]}>{weekSessions.length}</Text>
+              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Practice Sessions</Text>
             </View>
             <View style={styles.weekSummaryStat}>
-              <Text style={[styles.weekSummaryStatValue, { color: HOME_SAGE }]}>{activeDaysThisWeek}</Text>
-              <Text style={styles.weekSummaryStatLabel}>Active Days</Text>
+              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: HOME_SAGE }]}>{activeDaysThisWeek}</Text>
+              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Active Days</Text>
             </View>
           </View>
           <View style={styles.weekProgressTrack}>
@@ -1947,7 +2082,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.upcomingCard}>
           <View style={styles.upcomingHeaderRow}>
             <Ionicons name="alarm" size={16} color={HOME_SUN} />
-            <Text style={styles.homeSectionTitleInline}>Upcoming Reminders</Text>
+            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Upcoming Reminders</Text>
           </View>
           {upcomingReminders.length ? (
             upcomingReminders.map((item) => (
@@ -1971,15 +2106,17 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               setEditingScheduledActivity(null);
               setActivityModalVisible(true);
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Add a reminder"
           >
             <Ionicons name="add-circle" size={16} color={HOME_LAVENDER_DARK} />
             <Text style={styles.quickActionText}>Add Reminder</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View progress">
             <Ionicons name="bar-chart" size={16} color={HOME_LAVENDER_DARK} />
             <Text style={styles.quickActionText}>View Progress</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Open notification settings">
             <Ionicons name="settings" size={16} color={HOME_LAVENDER_DARK} />
             <Text style={styles.quickActionText}>Notification Settings</Text>
           </TouchableOpacity>
@@ -1988,13 +2125,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.overviewGrid}>
           <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
             <Ionicons name="book" size={20} color={HOME_LAVENDER_DARK} />
-            <Text style={[styles.overviewValue, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
-            <Text style={styles.overviewLabel}>Words Practiced</Text>
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Words Practiced</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="checkmark-circle" size={20} color={HOME_SAGE} />
-            <Text style={[styles.overviewValue, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-            <Text style={styles.overviewLabel}>Average Accuracy</Text>
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Average Accuracy</Text>
           </View>
         </View>
 
@@ -2002,7 +2139,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={{ flex: 1, paddingRight: 8 }}>
             <View style={styles.upcomingHeaderRow}>
               <Ionicons name="bulb" size={16} color={HOME_LAVENDER_DARK} />
-              <Text style={[styles.homeSectionTitleInline, { fontSize: 14 }]}>Parent Insight</Text>
+              <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle, { fontSize: a11ySize(14) }]}>Parent Insight</Text>
             </View>
             <Text style={styles.parentInsightText}>
               {hasEnoughInsightData
@@ -2032,8 +2169,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     <View style={[styles.settingsToggleRow, isLast && { borderBottomWidth: 0 }]}>
       <Ionicons name={icon} size={20} color={HOME_LAVENDER_DARK} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.settingsRowTitle}>{title}</Text>
-        <Text style={styles.settingsRowSub}>{subtitle}</Text>
+        <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>{title}</Text>
+        <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{subtitle}</Text>
       </View>
       <Switch
         value={!!value}
@@ -2041,6 +2178,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         disabled={savingSettingKey === '__all__'}
         trackColor={{ false: '#cbd5e1', true: 'rgba(95,82,176,0.4)' }}
         thumbColor={value ? HOME_LAVENDER_DARK : '#f8fafc'}
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityHint={subtitle}
       />
     </View>
   );
@@ -2056,24 +2196,28 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
       {hasUnsavedParentSettingsChanges && (
         <View style={styles.unsavedSettingsBar}>
-          <Text style={styles.unsavedSettingsBarText}>You have unsaved changes.</Text>
+          <Text style={[styles.unsavedSettingsBarText, saveDiscardBarTextA11yStyle]}>You have unsaved changes.</Text>
           <View style={styles.unsavedSettingsBarButtons}>
             <TouchableOpacity
               style={styles.discardSettingsButton}
               onPress={discardParentSettingsDraft}
               disabled={savingSettingKey === '__all__'}
+              accessibilityRole="button"
+              accessibilityLabel="Discard unsaved changes"
             >
-              <Text style={styles.discardSettingsButtonText}>Discard</Text>
+              <Text style={[styles.discardSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Discard</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.saveSettingsButton}
               onPress={saveParentSettingsDraft}
               disabled={savingSettingKey === '__all__'}
+              accessibilityRole="button"
+              accessibilityLabel="Save changes"
             >
               {savingSettingKey === '__all__' ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.saveSettingsButtonText}>Save Changes</Text>
+                <Text style={[styles.saveSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Save Changes</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -2090,8 +2234,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
           )}
           <View style={{ flex: 1 }}>
-            <Text style={styles.accountName}>{parentName}</Text>
-            <Text style={styles.accountEmail}>{parentEmail}</Text>
+            <Text style={[styles.accountName, accountNameA11yStyle]}>{parentName}</Text>
+            <Text style={[styles.accountEmail, accountSubA11yStyle]}>{parentEmail}</Text>
             <View style={styles.accountBadge}>
               <Text style={styles.accountBadgeText}>Parent Account</Text>
             </View>
@@ -2112,8 +2256,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.accountAvatarInitial}>{childInitials}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.accountName}>{child.name}</Text>
-              <Text style={styles.accountEmail}>
+              <Text style={[styles.accountName, accountNameA11yStyle]}>{child.name}</Text>
+              <Text style={[styles.accountEmail, accountSubA11yStyle]}>
                 Grade {child.grade_level}
                 {level ? ` - ${level}` : ''}
               </Text>
@@ -2124,6 +2268,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 setSelectedChildId(child.id);
                 setSection('progress');
               }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Manage ${child.name}`}
             >
               <Text style={styles.manageChildButtonText}>Manage Child</Text>
             </TouchableOpacity>
@@ -2140,8 +2287,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <TouchableOpacity style={styles.settingsRow} onPress={() => setEditProfileVisible(true)}>
           <Ionicons name="person-outline" size={20} color={HOME_LAVENDER_DARK} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.settingsRowTitle}>Personal Information</Text>
-            <Text style={styles.settingsRowSub}>Update your name and phone number</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Personal Information</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Update your name and phone number</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
         </TouchableOpacity>
@@ -2155,8 +2302,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.settingsRowTitle}>Email Address</Text>
-            <Text style={styles.settingsRowSub}>{parentEmail}</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Email Address</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentEmail}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
         </TouchableOpacity>
@@ -2184,8 +2331,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <View style={[styles.settingsToggleRow, { borderBottomWidth: 0 }]}>
               <Ionicons name="speedometer-outline" size={20} color={HOME_LAVENDER_DARK} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.settingsRowTitle}>Speech Speed</Text>
-                <Text style={styles.settingsRowSub}>{parentSettings.speech_rate || 'normal'}</Text>
+                <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Speech Speed</Text>
+                <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentSettings.speech_rate || 'normal'}</Text>
               </View>
               <View style={styles.speedSegment}>
                 {(['slow', 'normal', 'fast'] as SpeechRate[]).map((opt) => (
@@ -2210,8 +2357,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <TouchableOpacity style={styles.settingsRow} onPress={contactSupport}>
           <Ionicons name="headset-outline" size={20} color={HOME_LAVENDER_DARK} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.settingsRowTitle}>Contact Support</Text>
-            <Text style={styles.settingsRowSub}>Get help from our team</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Contact Support</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Get help from our team</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
         </TouchableOpacity>
@@ -2221,15 +2368,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <Ionicons name="shield-checkmark-outline" size={20} color={HOME_LAVENDER_DARK} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.settingsRowTitle}>Privacy Policy</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Privacy Policy</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
         </TouchableOpacity>
         <View style={[styles.settingsRow, { borderBottomWidth: 0 }]}>
           <Ionicons name="information-circle-outline" size={20} color={HOME_LAVENDER_DARK} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.settingsRowTitle}>App Version</Text>
-            <Text style={styles.settingsRowSub}>{appVersion} - Up to date</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>App Version</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{appVersion} - Up to date</Text>
           </View>
         </View>
       </View>
@@ -2282,7 +2429,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.topBarSpacer} />
       </View>
 
-      {!!error && <Text style={styles.errorBanner}>{error}</Text>}
+      {!!error && (
+        <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      )}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {renderSection()}
@@ -2306,6 +2457,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               key={item.key}
               style={[styles.navItem, section === item.key && styles.navItemActive]}
               onPress={() => navigateTo(item.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: section === item.key }}
+              accessibilityLabel={item.label}
             >
               <Ionicons name={item.icon as any} size={20} color={section === item.key ? PRIMARY_TEXT : '#fff'} />
               <Text style={[styles.navLabel, section === item.key && styles.navLabelActive]}>{item.label}</Text>
@@ -2382,7 +2536,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               placeholder="Bagong email"
               placeholderTextColor={HOME_INK_SOFT}
             />
-            {!!emailModalError && <Text style={styles.emailModalError}>{emailModalError}</Text>}
+            {!!emailModalError && (
+              <Text style={styles.emailModalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                {emailModalError}
+              </Text>
+            )}
             <TouchableOpacity style={[styles.emailModalSubmit, savingEmail && { opacity: 0.6 }]} onPress={submitEmailChange} disabled={savingEmail}>
               {savingEmail ? <ActivityIndicator color="#fff" /> : <Text style={styles.emailModalSubmitText}>I-save</Text>}
             </TouchableOpacity>

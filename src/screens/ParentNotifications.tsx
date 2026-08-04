@@ -8,12 +8,16 @@ import {
   NotificationItem,
   subscribeToParentNotifications,
 } from '../services/notificationService';
+import { useAccessibility } from '../contexts/AccessibilityContext';
 
 // Same palette as the rest of the Parent Dashboard redesign, duplicated
 // locally since this file doesn't share module scope with
 // ParentDashboardEnhanced.tsx.
 const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#8A8078';
+// Darkened from the original #8A8078 (~3.86:1 on white, failed WCAG AA) to
+// the same warm brown-gray family at ~7.7:1, matching ParentDashboardEnhanced's
+// HOME_INK_SOFT fix.
+const HOME_INK_SOFT = '#5F5044';
 const HOME_SUN = '#E3971A';
 const HOME_CORAL = '#E06B4C';
 const HOME_SAGE = '#5C8047';
@@ -74,6 +78,45 @@ export function NotificationsView({
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats | null>(null);
+
+  // This screen previously had zero a11y wiring - grouped scaled style
+  // objects (same pattern as ParentDashboardEnhanced.tsx) so the
+  // dyslexia-font/text-size settings reach the notification title, card
+  // text, spotlight card, and filter chips too, each scaled from that
+  // group's own current base fontSize.
+  const { a11yFont, a11ySize } = useAccessibility();
+  const titleA11yStyle = {
+    fontSize: a11ySize(20),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const subtitleA11yStyle = {
+    fontSize: a11ySize(13),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const filterChipTextA11yStyle = {
+    fontSize: a11ySize(12),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const cardTitleA11yStyle = {
+    fontSize: a11ySize(14),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const cardBodyA11yStyle = {
+    fontSize: a11ySize(13),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const spotlightTitleA11yStyle = {
+    fontSize: a11ySize(17),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const spotlightSubA11yStyle = {
+    fontSize: a11ySize(12),
+    ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
+  };
+  const spotlightStatValueA11yStyle = {
+    fontSize: a11ySize(22),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
 
   const loadItems = useCallback(async () => {
     if (!userId) return;
@@ -195,20 +238,33 @@ export function NotificationsView({
     const date = item.created_at ? new Date(item.created_at) : null;
     const childName = childList.length > 1 ? getChildName(item) : null;
     return (
-      <TouchableOpacity key={item.id} style={styles.card} onPress={() => void openItem(item)} activeOpacity={0.9}>
+      <TouchableOpacity
+        key={item.id}
+        style={styles.card}
+        onPress={() => void openItem(item)}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel={`${isUnread ? 'Unread. ' : ''}${item.title}. ${childName ? `${childName}: ${body}` : body}`}
+      >
         <View style={[styles.cardIconWrap, { backgroundColor: `${meta.color}1A` }]}>
           <Ionicons name={meta.icon} size={20} color={meta.color} />
         </View>
         <View style={{ flex: 1 }}>
           <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
+            <Text style={[styles.cardTitle, cardTitleA11yStyle]}>{item.title}</Text>
             {isUnread && <View style={styles.unreadDot} />}
           </View>
-          <Text style={styles.cardBody}>{childName ? `${childName}: ${body}` : body}</Text>
+          <Text style={[styles.cardBody, cardBodyA11yStyle]}>{childName ? `${childName}: ${body}` : body}</Text>
           <View style={styles.cardFooterRow}>
             <Text style={styles.cardDate}>{date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : ''}</Text>
             {!!onNavigate && (
-              <TouchableOpacity style={styles.actionButton} onPress={() => onNavigate(meta.section)}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => onNavigate(meta.section)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={`${meta.actionLabel} for ${item.title}`}
+              >
                 <Text style={styles.actionButtonText}>{meta.actionLabel}</Text>
                 <Ionicons name="chevron-forward" size={13} color={HOME_LAVENDER_DARK} />
               </TouchableOpacity>
@@ -227,11 +283,17 @@ export function NotificationsView({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Notifications</Text>
-          <Text style={styles.subtitle}>Stay updated on your child&apos;s learning journey.</Text>
+          <Text style={[styles.title, titleA11yStyle]}>Notifications</Text>
+          <Text style={[styles.subtitle, subtitleA11yStyle]}>Stay updated on your child&apos;s learning journey.</Text>
         </View>
         {!!unreadCount && (
-          <TouchableOpacity style={styles.markAllButton} onPress={markAllRead}>
+          <TouchableOpacity
+            style={styles.markAllButton}
+            onPress={markAllRead}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Mark all ${unreadCount} notification${unreadCount === 1 ? '' : 's'} as read`}
+          >
             <Text style={styles.markAllText}>Mark all as read</Text>
           </TouchableOpacity>
         )}
@@ -257,14 +319,22 @@ export function NotificationsView({
             key={f.key}
             style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
             onPress={() => setFilter(f.key)}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter: ${f.label}`}
+            accessibilityState={{ selected: filter === f.key }}
           >
-            <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>{f.label}</Text>
+            <Text style={[styles.filterChipText, filterChipTextA11yStyle, filter === f.key && styles.filterChipTextActive]}>{f.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {loading && <ActivityIndicator color={HOME_LAVENDER_DARK} style={{ marginVertical: 12 }} />}
-      {!!error && <Text style={styles.error}>{error}</Text>}
+      {!!error && (
+        <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      )}
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {!!grouped.todayItems.length && (
@@ -297,22 +367,22 @@ export function NotificationsView({
             <View style={styles.spotlightBadge}>
               <Text style={styles.spotlightBadgeText}>THIS WEEK</Text>
             </View>
-            <Text style={styles.spotlightTitle}>Weekly Progress</Text>
-            <Text style={styles.spotlightSub}>
+            <Text style={[styles.spotlightTitle, spotlightTitleA11yStyle]}>Weekly Progress</Text>
+            <Text style={[styles.spotlightSub, spotlightSubA11yStyle]}>
               {weeklyStats!.sessionsLast7} practice session{weeklyStats!.sessionsLast7 === 1 ? '' : 's'} in the last 7
               days.
             </Text>
             <View style={styles.spotlightStatsRow}>
               {weeklyStats!.avgPrior7 !== null && (
                 <View style={styles.spotlightStatCell}>
-                  <Text style={styles.spotlightStatLabel}>Previous accuracy</Text>
-                  <Text style={styles.spotlightStatValue}>{Math.round(weeklyStats!.avgPrior7)}%</Text>
+                  <Text style={[styles.spotlightStatLabel, spotlightSubA11yStyle]}>Previous accuracy</Text>
+                  <Text style={[styles.spotlightStatValue, spotlightStatValueA11yStyle]}>{Math.round(weeklyStats!.avgPrior7)}%</Text>
                 </View>
               )}
               <View style={styles.spotlightStatCell}>
-                <Text style={styles.spotlightStatLabel}>Current accuracy</Text>
+                <Text style={[styles.spotlightStatLabel, spotlightSubA11yStyle]}>Current accuracy</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.spotlightStatValue}>{Math.round(weeklyStats!.avgLast7!)}%</Text>
+                  <Text style={[styles.spotlightStatValue, spotlightStatValueA11yStyle]}>{Math.round(weeklyStats!.avgLast7!)}%</Text>
                   {delta !== null && (
                     <Text style={[styles.spotlightDelta, { color: delta >= 0 ? HOME_SAGE : DANGER }]}>
                       {delta >= 0 ? '+' : ''}
@@ -323,7 +393,12 @@ export function NotificationsView({
               </View>
             </View>
             {!!onNavigate && (
-              <TouchableOpacity style={styles.spotlightButton} onPress={() => onNavigate('progress')}>
+              <TouchableOpacity
+                style={styles.spotlightButton}
+                onPress={() => onNavigate('progress')}
+                accessibilityRole="button"
+                accessibilityLabel="View full progress"
+              >
                 <Text style={styles.spotlightButtonText}>View Full Progress</Text>
               </TouchableOpacity>
             )}

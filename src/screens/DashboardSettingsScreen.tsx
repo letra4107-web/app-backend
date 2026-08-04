@@ -36,6 +36,7 @@ import {
   updateDashboardSettings,
 } from '../services/settingsService';
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
+import { useAccessibility } from '../contexts/AccessibilityContext';
 
 const BG = '#F4F1FB';
 const SURFACE = '#ffffff';
@@ -129,6 +130,20 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   const systemScheme = useColorScheme();
   const theme: ReadingTheme = settings?.reading_theme === 'sepia' ? 'light' : (settings?.reading_theme || 'light');
   const dark = theme === 'system' ? systemScheme === 'dark' : theme === 'dark';
+  // Wires the Accessibility section's own row labels (Dyslexia Font / Text
+  // Size / High Contrast) to the very settings they control - previously
+  // those three rows always rendered at a fixed size/font no matter what was
+  // saved. Matches styles.rowTitle (fontWeight '700', fontSize 15) and
+  // styles.rowSubtitle (fontSize 13) below, just scaled/font-swapped.
+  const { a11yFont, a11ySize } = useAccessibility();
+  const rowTitleA11y = {
+    fontSize: a11ySize(15),
+    ...(a11yFont('bold') ? { fontFamily: a11yFont('bold') } : {}),
+  };
+  const rowSubtitleA11y = {
+    fontSize: a11ySize(12),
+    ...(a11yFont('regular') ? { fontFamily: a11yFont('regular') } : {}),
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -448,6 +463,12 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     right,
     onPress,
     danger,
+    // Optional per-row scaled style, used by the Accessibility section below
+    // so its own Dyslexia Font / Text Size / High Contrast row labels
+    // actually respect the setting they control, instead of always
+    // rendering at a fixed size/font regardless of what's saved.
+    titleA11yStyle,
+    subtitleA11yStyle,
   }: {
     icon: string;
     title: string;
@@ -455,12 +476,14 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     right?: React.ReactNode;
     onPress?: () => void;
     danger?: boolean;
+    titleA11yStyle?: object;
+    subtitleA11yStyle?: object;
   }) => (
     <TouchableOpacity style={styles.row} activeOpacity={onPress ? 0.72 : 1} onPress={onPress}>
       <MaterialIcons name={icon as any} size={22} color={danger ? DANGER : LAVENDER_DARK} />
       <View style={styles.rowText}>
-        <Text style={[styles.rowTitle, dark && styles.textDark, danger && { color: DANGER }]}>{title}</Text>
-        {!!subtitle && <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{subtitle}</Text>}
+        <Text style={[styles.rowTitle, dark && styles.textDark, danger && { color: DANGER }, titleA11yStyle]}>{title}</Text>
+        {!!subtitle && <Text style={[styles.rowSubtitle, dark && styles.mutedDark, subtitleA11yStyle]}>{subtitle}</Text>}
       </View>
       {right}
     </TouchableOpacity>
@@ -639,9 +662,28 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                 "Increased Line Spacing" and a plain contrast/2FA-style fake
                 toggle were deliberately left out rather than fabricated. */}
             <Section title="Accessibility" icon="accessibility-new">
-              <Row icon="text-fields" title="Dyslexia-Friendly Font" subtitle="Use an easier-to-read font" right={renderSwitch('dyslexia_font', settings.dyslexia_font)} />
-              <Row icon="format-size" title="Text Size" subtitle={settings.font_size} right={renderSegment<FontSize>('font_size', settings.font_size, ['small', 'medium', 'large'])} />
-              <Row icon="contrast" title="High Contrast" right={renderSwitch('high_contrast', settings.high_contrast)} />
+              <Row
+                icon="text-fields"
+                title="Dyslexia-Friendly Font"
+                subtitle="Use an easier-to-read font"
+                right={renderSwitch('dyslexia_font', settings.dyslexia_font)}
+                titleA11yStyle={rowTitleA11y}
+                subtitleA11yStyle={rowSubtitleA11y}
+              />
+              <Row
+                icon="format-size"
+                title="Text Size"
+                subtitle={settings.font_size}
+                right={renderSegment<FontSize>('font_size', settings.font_size, ['small', 'medium', 'large'])}
+                titleA11yStyle={rowTitleA11y}
+                subtitleA11yStyle={rowSubtitleA11y}
+              />
+              <Row
+                icon="contrast"
+                title="High Contrast"
+                right={renderSwitch('high_contrast', settings.high_contrast)}
+                titleA11yStyle={rowTitleA11y}
+              />
               <Row icon="view-day" title="Reading Guide Overlay" subtitle="Highlight the current line while reading" right={renderSwitch('reading_guide', settings.reading_guide)} />
               <View style={styles.themeRow}>
                 {(['light', 'system', 'dark'] as ReadingTheme[]).map((opt) => {

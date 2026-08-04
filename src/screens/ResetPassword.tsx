@@ -140,7 +140,11 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
             <Text style={styles.title}>Set New Password</Text>
             <Text style={styles.subtitle}>Choose a new password for your account.</Text>
 
-            {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
+            {error ? (
+              <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                {error}
+              </Text>
+            ) : null}
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>New Password</Text>
@@ -155,8 +159,15 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   editable={!loading}
+                  accessibilityLabel="New password input"
+                  accessibilityHint="Enter your new password. Password is hidden by default"
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                >
                   <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
                 </TouchableOpacity>
               </View>
@@ -176,8 +187,15 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                   editable={!loading}
+                  accessibilityLabel="Confirm new password input"
+                  accessibilityHint="Re-enter your new password. Password is hidden by default"
                 />
-                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
                   <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
                 </TouchableOpacity>
               </View>
@@ -346,7 +364,10 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   eyeButton: {
-    padding: 6,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorFieldText: {
     color: '#B3441F',

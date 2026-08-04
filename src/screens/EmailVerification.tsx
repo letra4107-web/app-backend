@@ -407,6 +407,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
                 autoCapitalize="none"
                 onChangeText={setEmail}
                 editable={!loading && !verifying}
+                accessibilityLabel="Email input"
               />
             </View>
           </View>
@@ -415,21 +416,21 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         <Text style={styles.supportingText}>Please check your inbox and enter the code below.</Text>
 
         {errorMessage ? (
-          <View style={[styles.banner, styles.errorBanner]}>
+          <View style={[styles.banner, styles.errorBanner]} accessibilityRole="alert" accessibilityLiveRegion="polite">
             <Ionicons name="alert-circle" size={18} color={HOME_CORAL} />
             <Text style={styles.bannerText}>{errorMessage}</Text>
           </View>
         ) : null}
 
         {successMessage ? (
-          <View style={[styles.banner, styles.successBanner]}>
+          <View style={[styles.banner, styles.successBanner]} accessibilityRole="alert" accessibilityLiveRegion="polite">
             <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
             <Text style={styles.bannerText}>{successMessage}</Text>
           </View>
         ) : null}
 
         {infoMessage ? (
-          <View style={[styles.banner, styles.infoBanner]}>
+          <View style={[styles.banner, styles.infoBanner]} accessibilityRole="alert" accessibilityLiveRegion="polite">
             <Ionicons name="information-circle" size={18} color={HOME_LAVENDER_DARK} />
             <Text style={styles.bannerText}>{infoMessage}</Text>
           </View>
@@ -448,6 +449,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
                 onKeyPress={(event) => handleOtpKeyPress(event, index)}
                 editable={!verifying && !isCodeExpired}
                 selectionColor={HOME_LAVENDER_DARK}
+                accessibilityLabel={`Verification code digit ${index + 1} of 6`}
                 ref={(ref) => {
                   otpRefs.current[index] = ref;
                 }}
@@ -456,12 +458,12 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
           </View>
 
           {secondsRemaining !== null && !isCodeExpired && (
-            <Text style={styles.countdownText}>
+            <Text style={styles.countdownText} accessibilityLiveRegion="polite">
               Code expires in <Text style={[styles.countdownValue, secondsRemaining <= 30 && { color: HOME_CORAL }]}>{formatCountdown(secondsRemaining)}</Text>
             </Text>
           )}
           {isCodeExpired && (
-            <Text style={[styles.countdownText, { color: HOME_CORAL, fontWeight: '700' }]}>
+            <Text style={[styles.countdownText, { color: HOME_CORAL, fontWeight: '700' }]} accessibilityLiveRegion="polite">
               This code has expired. Please resend to get a new one.
             </Text>
           )}

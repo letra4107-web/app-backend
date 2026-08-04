@@ -293,7 +293,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         </View>
 
         <View style={styles.card}>
-          {globalError ? <Text style={styles.globalError}>{globalError}</Text> : null}
+          {globalError ? (
+            <Text style={styles.globalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              {globalError}
+            </Text>
+          ) : null}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
