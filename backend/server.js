@@ -17,7 +17,7 @@ const PUBLIC_BACKEND_URL = trimTrailingSlash(
     ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
     : process.env.BACKEND_PUBLIC_URL ||
         process.env.PUBLIC_BACKEND_URL ||
-        'https://app-backend-production-7738.up.railway.app',
+        'https://app-backend-production-f32c.up.railway.app',
 );
 
 const splitOrigins = (value = '') =>

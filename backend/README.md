@@ -52,18 +52,18 @@ cp .env.example .env
 npm run dev
 ```
 
-Server runs on `https://app-backend-production-7738.up.railway.app`
+Server runs on `https://app-backend-production-f32c.up.railway.app`
 
 ### 4. Test OTP Flow
 
 ```bash
 # Send OTP
-curl -X POST https://app-backend-production-7738.up.railway.app/api/auth/send-email-otp \
+curl -X POST https://app-backend-production-f32c.up.railway.app/api/auth/send-email-otp \
   -H "Content-Type: application/json" \
   -d '{"email":"test@gmail.com","userId":"user-123"}'
 
 # Verify OTP (use code from email)
-curl -X POST https://app-backend-production-7738.up.railway.app/api/auth/verify-otp \
+curl -X POST https://app-backend-production-f32c.up.railway.app/api/auth/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"otp":"123456","userId":"user-123","deliveryMethod":"email"}'
 ```
@@ -119,13 +119,13 @@ Ensure CI injects these securely and does not echo them in logs.
 ### Health Check
 
 ```bash
-curl https://app-backend-production-7738.up.railway.app/health
+curl https://app-backend-production-f32c.up.railway.app/health
 ```
 
 ### Send OTP
 
 ```bash
-curl -X POST https://app-backend-production-7738.up.railway.app/api/auth/send-email-otp \
+curl -X POST https://app-backend-production-f32c.up.railway.app/api/auth/send-email-otp \
   -H "Content-Type: application/json" \
   -d '{
     "email":"parent@example.com",
@@ -136,7 +136,7 @@ curl -X POST https://app-backend-production-7738.up.railway.app/api/auth/send-em
 ### Verify OTP
 
 ```bash
-curl -X POST https://app-backend-production-7738.up.railway.app/api/auth/verify-otp \
+curl -X POST https://app-backend-production-f32c.up.railway.app/api/auth/verify-otp \
   -H "Content-Type: application/json" \
   -d '{
     "otp":"123456",
@@ -181,8 +181,8 @@ The React Native app's `src/config/api.ts` automatically resolves:
 
 ```typescript
 export const API_BASE_URL = getLocalApiHost();
-// Returns: https://app-backend-production-7738.up.railway.app/api (dev)
-// or https://app-backend-production-7738.up.railway.app/api (Android emulator)
+// Returns: https://app-backend-production-f32c.up.railway.app/api (dev)
+// or https://app-backend-production-f32c.up.railway.app/api (Android emulator)
 ```
 
 No additional configuration needed! The app will automatically call your local backend.
@@ -212,7 +212,7 @@ heroku logs --tail
 ## 📞 Support
 
 For issues:
-1. Check health: `curl https://app-backend-production-7738.up.railway.app/health`
+1. Check health: `curl https://app-backend-production-f32c.up.railway.app/health`
 2. Review logs: `npm run dev`
 3. Verify `.env`: Compare with `.env.example`
 4. Verify Supabase URL and service role key are correct

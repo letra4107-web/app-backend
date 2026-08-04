@@ -4,7 +4,7 @@ echo =====================================
 
 REM Check if backend is running
 echo 📡 Checking if backend is running on port 5002...
-curl -s https://app-backend-production-7738.up.railway.app/health >nul 2>&1
+curl -s https://app-backend-production-f32c.up.railway.app/health >nul 2>&1
 if %errorlevel% equ 0 (
     echo ✅ Backend is running
 ) else (
@@ -27,7 +27,7 @@ if exist "test_audio.wav" (
     curl -s -X POST ^
         -F "audio=@test_audio.wav" ^
         -F "language=tl" ^
-        https://app-backend-production-7738.up.railway.app/api/speech/recognize
+        https://app-backend-production-f32c.up.railway.app/api/speech/recognize
 
     REM Clean up
     del test_audio.wav

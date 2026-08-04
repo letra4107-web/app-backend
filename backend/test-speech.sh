@@ -6,7 +6,7 @@ echo "====================================="
 
 # Check if backend is running
 echo "📡 Checking if backend is running on port 5002..."
-if curl -s https://app-backend-production-7738.up.railway.app/health > /dev/null; then
+if curl -s https://app-backend-production-f32c.up.railway.app/health > /dev/null; then
     echo "✅ Backend is running"
 else
     echo "❌ Backend is not running. Please start it with: npm start"
@@ -29,7 +29,7 @@ if [ -f "test_audio.wav" ]; then
     response=$(curl -s -X POST \
         -F "audio=@test_audio.wav" \
         -F "language=tl" \
-        https://app-backend-production-7738.up.railway.app/api/speech/recognize)
+        https://app-backend-production-f32c.up.railway.app/api/speech/recognize)
 
     echo "📄 Response:"
     echo "$response" | jq . 2>/dev/null || echo "$response"

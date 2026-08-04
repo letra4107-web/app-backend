@@ -16,8 +16,7 @@ function validateEnv() {
   const supabaseUrl = process.env[ENV_VARS.SUPABASE_URL]?.trim();
   const serviceRoleKey = process.env[ENV_VARS.SUPABASE_SERVICE_ROLE_KEY]?.trim();
   const anonKey = process.env[ENV_VARS.SUPABASE_ANON_KEY]?.trim();
-  const effectiveSmtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-  const effectiveSmtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim().replace(/\s/g, '');
+  const effectiveBrevoKey = (process.env.BREVO_API_KEY || '').trim();
 
   if (!supabaseUrl) {
     missing.push(ENV_VARS.SUPABASE_URL);
@@ -27,10 +26,10 @@ function validateEnv() {
     missing.push(`${ENV_VARS.SUPABASE_SERVICE_ROLE_KEY} or ${ENV_VARS.SUPABASE_ANON_KEY}`);
   }
 
-  const smtpConfigured = Boolean(effectiveSmtpUser && effectiveSmtpPass);
+  const smtpConfigured = Boolean(effectiveBrevoKey);
   if (!smtpConfigured) {
     console.warn(
-      '[Env] SMTP credentials are not configured. Email delivery will be disabled. Set SMTP_USER/SMTP_PASS or EMAIL_USER/EMAIL_PASS for OTP email support.'
+      '[Env] BREVO_API_KEY is not configured. Email delivery will be disabled. Set BREVO_API_KEY for OTP email support.'
     );
   }
 

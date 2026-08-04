@@ -1,81 +1,30 @@
-const nodemailer = require('nodemailer');
-
 const stripQuotes = (value = '') => String(value).trim().replace(/^"(.*)"$/, '$1');
 
-const emailUser = process.env.SMTP_USER || process.env.EMAIL_USER;
-const emailPass = stripQuotes(process.env.SMTP_PASS || process.env.EMAIL_PASS || '').replace(/\s/g, '');
-const emailHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
-const emailPort = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
-const emailFrom = stripQuotes(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>');
-const emailService = process.env.EMAIL_SERVICE || process.env.SMTP_SERVICE || '';
-const rejectUnauthorized = String(process.env.SMTP_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
-const isProduction = (process.env.NODE_ENV || 'development') === 'production';
-const smtpConfigured = Boolean(emailUser && emailPass);
-const SMTP_TIMEOUT_MS = parseInt(process.env.SMTP_TIMEOUT_MS || '30000', 10);
-const SMTP_SEND_TIMEOUT_MS = parseInt(process.env.SMTP_SEND_TIMEOUT_MS || '45000', 10);
-const smtpSecure = String(process.env.SMTP_SECURE || '').trim()
-  ? String(process.env.SMTP_SECURE).toLowerCase() === 'true'
-  : emailPort === 465;
+const BREVO_API_KEY = (process.env.BREVO_API_KEY || '').trim();
+const BREVO_SEND_URL = 'https://api.brevo.com/v3/smtp/email';
+const BREVO_ACCOUNT_URL = 'https://api.brevo.com/v3/account';
 
-let transporter = null;
+const emailFrom = stripQuotes(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>');
+const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+const smtpConfigured = Boolean(BREVO_API_KEY);
+const SEND_TIMEOUT_MS = parseInt(process.env.SMTP_SEND_TIMEOUT_MS || '45000', 10);
+const VERIFY_TIMEOUT_MS = parseInt(process.env.SMTP_TIMEOUT_MS || '30000', 10);
 
 const mailerLog = (level, message, meta = {}) => {
-  console[level](`[Mailer] ${message}`, { timestamp: new Date().toISOString(), ...meta });
+  console[level](`[Mailer:Brevo] ${message}`, { timestamp: new Date().toISOString(), ...meta });
 };
 
-const buildTransportOptions = () => {
-  if (emailService && emailService.toLowerCase() !== 'gmail') {
-    return {
-      service: emailService,
-      auth: { user: emailUser, pass: emailPass },
-      pool: false,
-      connectionTimeout: SMTP_TIMEOUT_MS,
-      greetingTimeout: 5000,
-      socketTimeout: SMTP_SEND_TIMEOUT_MS,
-      tls: { rejectUnauthorized },
-    };
+const parseSender = (raw) => {
+  const value = stripQuotes(raw);
+  const match = value.match(/^(.*)<(.+)>$/);
+  if (match) {
+    const name = match[1].trim().replace(/^"|"$/g, '');
+    return { name: name || 'LinawLetra', email: match[2].trim() };
   }
-
-  return {
-    host: emailHost,
-    port: emailPort,
-    secure: smtpSecure,
-    requireTLS: emailPort === 587 || !smtpSecure,
-    auth: { user: emailUser, pass: emailPass },
-    pool: false,
-    tls: { rejectUnauthorized },
-    connectionTimeout: SMTP_TIMEOUT_MS,
-    greetingTimeout: 5000,
-    socketTimeout: SMTP_SEND_TIMEOUT_MS,
-  };
+  return { name: 'LinawLetra', email: value };
 };
 
-const logMailerStatus = () => {
-  if (!smtpConfigured) {
-    const msg = 'SMTP is not configured. Email delivery will not work until EMAIL_USER and EMAIL_PASS are provided.';
-    if (isProduction) {
-      mailerLog('error', msg);
-    } else {
-      mailerLog('warn', msg);
-    }
-    return;
-  }
-
-  const transportSummary = emailService
-    ? `service=${emailService}`
-    : `host=${emailHost} port=${emailPort} secure=${smtpSecure}`;
-
-  mailerLog('log', 'configuring SMTP', {
-    transport: transportSummary,
-    user: emailUser,
-    from: emailFrom,
-    timeoutMs: SMTP_TIMEOUT_MS,
-    sendTimeoutMs: SMTP_SEND_TIMEOUT_MS,
-  });
-  transporter = nodemailer.createTransport(buildTransportOptions());
-};
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sender = parseSender(emailFrom);
 
 const withTimeout = (promise, timeoutMs, label) => {
   let timeoutId;
@@ -90,99 +39,131 @@ const withTimeout = (promise, timeoutMs, label) => {
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
 };
 
-const sendWithRetry = async (mailOptions, maxAttempts = 2) => {
-  if (!transporter) {
-    throw new Error('SMTP transporter is not initialized');
+const parseBrevoResponse = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+};
+
+const sendMail = async (mailOptions) => {
+  if (!smtpConfigured) {
+    throw new Error('BREVO_API_KEY is not configured');
   }
 
-  let lastError = null;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      mailerLog('log', 'sendMail attempt started', {
-        attempt,
-        maxAttempts,
-        email: mailOptions.to,
-        host: emailHost,
-        port: emailPort,
-        service: emailService || 'direct',
-      });
-      const info = await withTimeout(transporter.sendMail(mailOptions), SMTP_SEND_TIMEOUT_MS, 'SMTP sendMail');
-      return info;
-    } catch (error) {
-      lastError = error;
-      const message = error && error.message ? error.message : String(error);
-      mailerLog('warn', 'sendMail attempt failed', {
-        attempt,
-        maxAttempts,
-        email: mailOptions.to,
-        host: emailHost,
-        port: emailPort,
-        service: emailService || 'direct',
-        code: error?.code,
-        response: error?.response,
-        message,
-      });
+  const toList = (Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to]).filter(Boolean);
+  const payload = {
+    sender,
+    to: toList.map((email) => ({ email: String(email).trim() })),
+    subject: mailOptions.subject,
+  };
+  if (mailOptions.text) payload.textContent = mailOptions.text;
+  if (mailOptions.html) payload.htmlContent = mailOptions.html;
+  if (mailOptions.replyTo) payload.replyTo = parseSender(String(mailOptions.replyTo));
 
-      if (attempt < maxAttempts) {
-        const delayMs = 1000 * Math.pow(2, attempt - 1);
-        mailerLog('warn', 'retrying sendMail after backoff', { delayMs, nextAttempt: attempt + 1, maxAttempts });
-        await sleep(delayMs);
-      }
-    }
+  mailerLog('log', 'sendTransacEmail attempt started', { to: mailOptions.to, subject: mailOptions.subject });
+  const startMs = Date.now();
+
+  const response = await withTimeout(
+    fetch(BREVO_SEND_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+    SEND_TIMEOUT_MS,
+    'Brevo sendTransacEmail',
+  );
+
+  const body = await parseBrevoResponse(response);
+
+  if (!response.ok) {
+    const error = new Error(body?.message || `Brevo API responded with HTTP ${response.status}`);
+    error.code = body?.code || `HTTP_${response.status}`;
+    error.responseCode = response.status;
+    error.response = JSON.stringify(body);
+    throw error;
   }
 
-  throw lastError;
+  mailerLog('log', 'sendTransacEmail attempt succeeded', {
+    to: mailOptions.to,
+    messageId: body.messageId,
+    httpStatus: response.status,
+    elapsedMs: Date.now() - startMs,
+  });
+
+  return { messageId: body.messageId, response: `Brevo accepted (HTTP ${response.status})` };
 };
 
 const verifyMailerConnection = async () => {
-  if (!transporter) {
-    console.warn('[Mailer] Transporter not initialized. Skipping verification.');
-    return;
+  if (!smtpConfigured) {
+    console.warn('[Mailer:Brevo] BREVO_API_KEY not set. Skipping verification.');
+    return null;
   }
 
   try {
-    mailerLog('log', 'Verifying SMTP connection');
+    mailerLog('log', 'Verifying Brevo API key');
     const startMs = Date.now();
-    await withTimeout(transporter.verify(), SMTP_TIMEOUT_MS, 'SMTP verify');
-    mailerLog('log', 'SMTP connection verified', {
-      service: emailService || 'direct',
-      host: emailHost,
-      port: emailPort,
-      secure: smtpSecure,
+    const response = await withTimeout(
+      fetch(BREVO_ACCOUNT_URL, { headers: { 'api-key': BREVO_API_KEY, Accept: 'application/json' } }),
+      VERIFY_TIMEOUT_MS,
+      'Brevo account verify',
+    );
+    const body = await parseBrevoResponse(response);
+
+    if (!response.ok) {
+      const error = new Error(body?.message || `Brevo account check failed with HTTP ${response.status}`);
+      error.responseCode = response.status;
+      throw error;
+    }
+
+    mailerLog('log', 'Brevo API key verified', {
+      account: body?.email,
+      plan: Array.isArray(body?.plan) ? body.plan.map((p) => p.type) : undefined,
       verifyTimeMs: Date.now() - startMs,
     });
+    return body;
   } catch (error) {
-    mailerLog('error', 'SMTP connection verification failed', {
-      service: emailService || 'direct',
-      host: emailHost,
-      port: emailPort,
-      secure: smtpSecure,
-      code: error?.code,
+    mailerLog('error', 'Brevo API key verification failed', {
+      responseCode: error?.responseCode,
       message: error?.message || String(error),
-      possibleCauses: {
-        'ENOTFOUND': 'DNS resolution failed. Check SMTP_HOST and network connectivity.',
-        'ECONNREFUSED': 'Connection refused. Verify SMTP_HOST:SMTP_PORT are correct.',
-        'ETIMEDOUT': 'Connection timed out. Check firewall or SMTP service availability.',
-        'AUTHFAILED': 'Authentication failed. Check EMAIL_USER and EMAIL_PASS.',
-      },
     });
+    throw error;
   }
+};
+
+const logMailerStatus = () => {
+  if (!smtpConfigured) {
+    const msg = 'BREVO_API_KEY is not configured. Email delivery will not work until it is set.';
+    if (isProduction) {
+      mailerLog('error', msg);
+    } else {
+      mailerLog('warn', msg);
+    }
+    return;
+  }
+
+  mailerLog('log', 'configured Brevo transactional email API', { from: emailFrom, sender });
 };
 
 logMailerStatus();
 if (smtpConfigured) {
   setTimeout(() => {
     verifyMailerConnection().catch((error) =>
-      console.warn('[Mailer] startup verify failed (non-fatal):', error?.message || String(error))
+      mailerLog('warn', 'startup verify failed (non-fatal)', { message: error?.message || String(error) })
     );
   }, 2000);
-} else {
-  mailerLog('warn', 'SMTP is disabled at startup; email sending will remain disabled until credentials are configured.');
 }
 
 const sendOTPEmail = async (email, otp) => {
   if (!smtpConfigured) {
-    const message = 'SMTP credentials are missing. Cannot send OTP email.';
+    const message = 'BREVO_API_KEY is missing. Cannot send OTP email.';
     mailerLog('error', 'sendOTPEmail blocked', { message, email });
     if (isProduction) {
       throw new Error(message);
@@ -191,7 +172,6 @@ const sendOTPEmail = async (email, otp) => {
   }
 
   const mailOptions = {
-    from: emailFrom,
     to: email,
     replyTo: emailFrom,
     subject: 'LinawLetra Email Verification',
@@ -267,44 +247,39 @@ const sendOTPEmail = async (email, otp) => {
         </body>
       </html>
     `,
-    headers: {
-      'X-Priority': '1',
-      'X-Mailer': 'LinawLetra OTP Service',
-    },
   };
 
   try {
-    const info = await sendWithRetry(mailOptions, 2);
+    const info = await sendMail(mailOptions);
     mailerLog('log', 'OTP email sent', { to: email, messageId: info.messageId, response: info.response });
     return { success: true, messageId: info.messageId, response: info.response };
   } catch (error) {
     mailerLog('error', 'failed to send OTP email', {
       to: email,
       code: error?.code,
-      command: error?.command,
       responseCode: error?.responseCode,
       response: error?.response,
       message: error && error.message ? error.message : String(error),
     });
     const wrapped = new Error(`Failed to send OTP email: ${error.message || error}`);
     wrapped.code = error?.code;
-    wrapped.command = error?.command;
     wrapped.responseCode = error?.responseCode;
     wrapped.response = error?.response;
     throw wrapped;
   }
 };
 
+// Nodemailer-shaped adapter so existing call sites (server.js /health/smtp,
+// routes/auth.js's direct transactional send) don't need to change.
+const transporter = {
+  sendMail,
+  verify: verifyMailerConnection,
+};
+
 module.exports = {
-  get transporter() {
-    return transporter;
-  },
+  transporter,
   sendOTPEmail,
   smtpConfigured,
   emailFrom,
-  emailHost,
-  emailPort,
-  emailService,
-  smtpSecure,
   verifyMailerConnection,
 };

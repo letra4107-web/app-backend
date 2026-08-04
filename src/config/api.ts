@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 const DEFAULT_TIMEOUT_MS = 30000;
 
 export const PRODUCTION_BACKEND_URL =
-  'https://app-backend-production-7738.up.railway.app';
+  'https://app-backend-production-f32c.up.railway.app';
 
 /* -------------------------
    CLEAN URL

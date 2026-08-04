@@ -2,7 +2,7 @@
 
 # Quick test script for backend endpoints
 
-BASE_URL="${1:-https://app-backend-production-7738.up.railway.app}"
+BASE_URL="${1:-https://app-backend-production-f32c.up.railway.app}"
 echo "Testing backend at: $BASE_URL"
 echo ""
 
