@@ -15,7 +15,8 @@
     "test:smoke": "node tests/server_smoke.test.js",
     "test:practice-auth": "node tests/practice_auth.test.js",
     "test:personalization": "node tests/personalization.test.js",
-    "test:pronunciation": "node tests/pronunciation_tests.js"
+    "test:pronunciation": "node tests/pronunciation_tests.js",
+    "seed:reading-content": "node scripts/seedReadingContent.js"
   },
   "dependencies": {
     "@google-cloud/speech": "^7.3.1",

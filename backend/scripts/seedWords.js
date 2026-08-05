@@ -1,4 +1,4 @@
-// Seeds public.words from Tagalog_Phonetic_Words_Dyslexia_App.xlsx.
+// Seeds public.words from Tagalog_Phonetic_Words_Dyslexia_App_Updated.xlsx.
 // Safe to re-run: fetches existing (word, level) pairs first and only
 // inserts rows that don't already exist.
 //
@@ -8,7 +8,7 @@ const path = require('path');
 const XLSX = require('xlsx');
 const { supabaseAdmin } = require('../config/supabase');
 
-const FILE_PATH = path.join(__dirname, 'Tagalog_Phonetic_Words_Dyslexia_App.xlsx');
+const FILE_PATH = path.join(__dirname, 'Tagalog_Phonetic_Words_Dyslexia_App_Updated.xlsx');
 const SHEET_TO_LEVEL = {
   'Level 1 Simple': 'beginner',
   'Level 2 Intermediate': 'intermediate',
