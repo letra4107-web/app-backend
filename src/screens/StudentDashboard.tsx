@@ -1083,14 +1083,34 @@ export default function StudentDashboard({ navigation }: any) {
 
   const savePronunciationSession = async (result: PracticeResult, word: string, durationSeconds: number | null) => {
     if (!child?.id) return false;
-    logPhonemeConfusion(child.id, word, result.transcript, 'practice');
+    const difficultyAtAttempt = progress?.level?.toLowerCase() || null;
+    const normalizedWord = word.toLowerCase().replace(/[\s-]+/g, '');
+    let wordId: string | null = null;
+
+    if (difficultyAtAttempt) {
+      const { data: wordRow, error: wordError } = await supabase
+        .from('words')
+        .select('id')
+        .eq('word', normalizedWord)
+        .eq('level', difficultyAtAttempt)
+        .maybeSingle();
+      if (wordError) {
+        console.warn('[Practice] stable word id lookup failed; saving the attempt without word_id:', wordError.message || wordError);
+      } else {
+        wordId = wordRow?.id || null;
+      }
+    }
+
     const payload = {
       student_id: child.id,
+      word_id: wordId,
       word,
       spoken_text: result.transcript,
       accuracy_percentage: result.score,
       is_correct: result.correct,
       duration_seconds: durationSeconds,
+      difficulty_level_at_attempt: difficultyAtAttempt,
+      practice_source: 'practice',
       created_at: new Date().toISOString(),
     };
 
@@ -1107,6 +1127,7 @@ export default function StudentDashboard({ navigation }: any) {
       return false;
     }
 
+    logPhonemeConfusion(child.id, word, result.transcript, 'practice', data?.id);
     console.debug('[Practice] pronunciation session saved:', data);
     return true;
   };

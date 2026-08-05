@@ -8,7 +8,13 @@ import { analyzePhonology } from '../utils/tagalogPhonemes';
  * supplementary diagnostic side channel, never part of pass/fail scoring,
  * and never throws into the caller.
  */
-export const logPhonemeConfusion = (childId: string | undefined | null, targetWord: string, transcript: string, source: string = 'practice'): void => {
+export const logPhonemeConfusion = (
+  childId: string | undefined | null,
+  targetWord: string,
+  transcript: string,
+  source: string = 'practice',
+  sessionId: string | undefined | null = null,
+): void => {
   if (!childId || !transcript) return;
   try {
     const { confusionKeys } = analyzePhonology(targetWord, transcript);
@@ -19,6 +25,7 @@ export const logPhonemeConfusion = (childId: string | undefined | null, targetWo
       target_word: targetWord,
       transcript_word: transcript,
       source,
+      session_id: sessionId,
     }));
     supabase.from('phoneme_confusion').insert(rows).then(({ error }) => {
       if (error) console.warn('[Phoneme] confusion log failed:', error.message || error);
