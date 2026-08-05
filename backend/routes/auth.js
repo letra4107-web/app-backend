@@ -20,6 +20,10 @@ const otpRequestCache = new Map();
 const otpRequestInFlight = new Map();
 
 const isValidEmail = (email) => OTP_EMAIL_REGEX.test(String(email || '').trim());
+const bearerTokenFrom = (authorization = '') => {
+  const match = String(authorization).match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
+};
 const makeUuid = () => crypto.randomUUID ? crypto.randomUUID() : `child-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 const gradeFromAge = (age) => {
   const numericAge = Number(age);
@@ -404,21 +408,39 @@ router.post('/set-role', async (req, res) => {
 
 router.post('/enroll-child', async (req, res) => {
   try {
+    const token = bearerTokenFrom(req.headers.authorization);
+    if (!token) return res.status(401).json({ success: false, message: 'Authentication is required.' });
+    const { data: authenticated, error: authenticationError } = await supabaseAdmin.auth.getUser(token);
+    if (authenticationError || !authenticated?.user?.id) {
+      return res.status(401).json({ success: false, message: 'Your sign-in session is invalid or expired.' });
+    }
+    const { data: parentProfile, error: parentProfileError } = await supabaseAdmin
+      .from('users')
+      .select('id,role,email')
+      .eq('id', authenticated.user.id)
+      .maybeSingle();
+    if (parentProfileError) throw parentProfileError;
+    const authenticatedRole = parentProfile?.role || authenticated.user.user_metadata?.role;
+    if (authenticatedRole !== 'parent') {
+      return res.status(403).json({ success: false, message: 'Only authenticated parent accounts can enroll a child.' });
+    }
+    const parentId = authenticated.user.id;
+    const parentEmail = authenticated.user.email || parentProfile?.email;
+
     const {
-      parentId,
-      parentEmail,
       childName,
       age,
       readingDifficulty,
+      placementOverrideReason,
       gradeLevel,
       username,
       password,
     } = req.body;
 
-    if (!parentId || !parentEmail || !childName || !username || !password) {
+    if (!parentEmail || !childName || !username || !password) {
       return res.status(400).json({
         success: false,
-        message: 'parentId, parentEmail, childName, username and password are required',
+        message: 'A parent email, childName, username and password are required',
       });
     }
 
@@ -426,6 +448,13 @@ router.post('/enroll-child', async (req, res) => {
     const numericAge = Number(age);
     const finalGradeLevel = Number.isFinite(numericAge) ? gradeFromAge(numericAge) : Number(gradeLevel || 1);
     const level = cleanDifficulty(readingDifficulty);
+    const overrideReason = String(placementOverrideReason || '').trim();
+    if (level !== 'Beginner' && overrideReason.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'A specific placementOverrideReason is required for non-Beginner enrollment.',
+      });
+    }
 
     if (!isValidEmail(authEmail) || !authEmail.endsWith('@linawletra.edu.ph')) {
       return res.status(400).json({ success: false, message: 'Generated username is invalid' });
@@ -469,6 +498,8 @@ router.post('/enroll-child', async (req, res) => {
 
     const { error: progressError } = await supabaseAdmin.from('child_progress').insert({
       child_id: childId,
+      // Beginner is the default. A higher value is valid only alongside the
+      // separately inserted, attributable placement override below.
       level,
       xp: 0,
       streak: 0,
@@ -479,6 +510,16 @@ router.post('/enroll-child', async (req, res) => {
       updated_at: new Date().toISOString(),
     });
     if (progressError) throw progressError;
+
+    if (level !== 'Beginner') {
+      const { error: overrideError } = await supabaseAdmin.from('student_reading_level_overrides').insert({
+        student_id: childId,
+        override_level: level,
+        reason: overrideReason,
+        created_by_auth_uid: parentId,
+      });
+      if (overrideError) throw overrideError;
+    }
 
     const hashedPassword = await hashPassword(password);
     const { error: credentialsError } = await supabaseAdmin.from('child_credentials').insert({
@@ -512,6 +553,8 @@ Reading Level: ${level}
       success: true,
       username: authEmail,
       childId,
+      readingLevel: level,
+      placementOverrideRecorded: level !== 'Beginner',
     });
   } catch (error) {
     console.error('Error in enroll-child:', error);

@@ -8,8 +8,6 @@ type ReadingDifficulty = 'Beginner' | 'Intermediate' | 'Advanced';
 
 type Props = {
   visible: boolean;
-  parentId: string;
-  parentEmail: string;
   onClose: () => void;
   onEnrolled: () => void;
 };
@@ -34,10 +32,11 @@ const makeBaseUsername = (name: string) => {
   return `${first[0] || 'b'}${last}`.replace(/\s+/g, '');
 };
 
-export default function EnrollChildModal({ visible, parentId, parentEmail, onClose, onEnrolled }: Props) {
+export default function EnrollChildModal({ visible, onClose, onEnrolled }: Props) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [difficulty, setDifficulty] = useState<ReadingDifficulty>('Beginner');
+  const [placementOverrideReason, setPlacementOverrideReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState('');
@@ -51,6 +50,7 @@ export default function EnrollChildModal({ visible, parentId, parentEmail, onClo
     setName('');
     setAge('');
     setDifficulty('Beginner');
+    setPlacementOverrideReason('');
     setErrors({});
     setSuccess('');
   };
@@ -71,6 +71,9 @@ export default function EnrollChildModal({ visible, parentId, parentEmail, onClo
     const numericAge = Number(age);
     if (name.trim().length < 2) next.name = 'Ilagay ang buong pangalan.';
     if (!Number.isInteger(numericAge) || numericAge < 4 || numericAge > 18) next.age = 'Edad ay dapat 4 hanggang 18.';
+    if (difficulty !== 'Beginner' && placementOverrideReason.trim().length < 10) {
+      next.placementOverrideReason = 'Maglagay ng malinaw na dahilan (hindi bababa sa 10 character).';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -84,11 +87,10 @@ export default function EnrollChildModal({ visible, parentId, parentEmail, onClo
       const username = await getAvailableUsername();
       const password = makePassword();
       await postJson(buildApiUrl('/auth/enroll-child'), {
-        parentId,
-        parentEmail,
         childName: name.trim(),
         age: Number(age),
         readingDifficulty: difficulty,
+        placementOverrideReason: difficulty === 'Beginner' ? null : placementOverrideReason.trim(),
         gradeLevel,
         username,
         password,
@@ -96,8 +98,8 @@ export default function EnrollChildModal({ visible, parentId, parentEmail, onClo
       setSuccess('Naka-enroll na ang bata. Naipadala ang credentials sa email ng magulang.');
       reset();
       onEnrolled();
-    } catch {
-      setErrors({ general: 'Hindi naisama ang bata. Subukan muli.' });
+    } catch (error: any) {
+      setErrors({ general: error?.data?.message || 'Hindi naisama ang bata. Subukan muli.' });
     } finally {
       setSaving(false);
     }
@@ -125,7 +127,7 @@ export default function EnrollChildModal({ visible, parentId, parentEmail, onClo
           <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="number-pad" placeholder="4-18" />
           {!!errors.age && <Text style={styles.error}>{errors.age}</Text>}
 
-          <Text style={styles.label}>Reading Difficulty</Text>
+          <Text style={styles.label}>Starting Reading Level</Text>
           <View style={styles.segmentRow}>
             {DIFFICULTIES.map((item) => (
               <TouchableOpacity
@@ -137,6 +139,21 @@ export default function EnrollChildModal({ visible, parentId, parentEmail, onClo
               </TouchableOpacity>
             ))}
           </View>
+
+          {difficulty !== 'Beginner' && (
+            <>
+              <Text style={styles.label}>Placement Override Reason</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 76, textAlignVertical: 'top' }]}
+                value={placementOverrideReason}
+                onChangeText={setPlacementOverrideReason}
+                placeholder="Hal. Resulta ng teacher-administered placement assessment"
+                multiline
+              />
+              {!!errors.placementOverrideReason && <Text style={styles.error}>{errors.placementOverrideReason}</Text>}
+              <Text style={styles.hint}>Ang non-Beginner placement ay ise-save bilang audited override; walang completion na gagawin.</Text>
+            </>
+          )}
 
           <Text style={styles.hint}>Grade Level: {gradeLevel}</Text>
 

@@ -2475,8 +2475,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
       <EnrollChildModal
         visible={showEnroll}
-        parentId={parentId}
-        parentEmail={parentEmail}
         onClose={() => setShowEnroll(false)}
         onEnrolled={async () => {
           setShowEnroll(false);

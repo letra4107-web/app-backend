@@ -35,6 +35,15 @@ import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../servic
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 import { logPhonemeConfusion } from '../services/phonemeService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
+import {
+  fetchCompletedContentIds,
+  fetchOfficialReadingProgress,
+  fetchReadingContent,
+  OfficialReadingProgress,
+  ReadingContentItem,
+  ReadingContentType,
+  recordReadingContentAttempt,
+} from '../services/readingContentService';
 
 type ChildProfile = {
   id: string;
@@ -140,6 +149,7 @@ const SKILL_LONG_WORDS = [
 ];
 
 type SkillCategory = 'letters' | 'syllables' | 'words';
+type CurriculumPracticeType = Exclude<ReadingContentType, 'paragraph'>;
 
 const categorizeWord = (word: string): SkillCategory => {
   const clean = word.replace(/-/g, '');
@@ -204,13 +214,19 @@ export default function StudentDashboard({ navigation }: any) {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string>('');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
   // Set when a Learn tab category card (Letters/Syllables/Words) is tapped,
   // so the Practice tab actually narrows to that category instead of always
   // showing everything regardless of which card was pressed. Cleared
   // whenever Practice is entered any other way (sidebar, "Continue
   // Practice", etc.) so it never sticks around as a surprising filter.
-  const [practiceCategoryFilter, setPracticeCategoryFilter] = useState<'letters' | 'syllables' | 'words' | null>(null);
+  const [practiceCategoryFilter, setPracticeCategoryFilter] = useState<CurriculumPracticeType | null>(null);
+  const [readingContent, setReadingContent] = useState<ReadingContentItem[]>([]);
+  const [completedContentIds, setCompletedContentIds] = useState<Set<string>>(new Set());
+  const [officialProgression, setOfficialProgression] = useState<OfficialReadingProgress | null>(null);
+  const [curriculumLoading, setCurriculumLoading] = useState(false);
+  const [curriculumError, setCurriculumError] = useState('');
   type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
@@ -550,6 +566,31 @@ export default function StudentDashboard({ navigation }: any) {
     if (progress?.level) void loadWordBank(progress.level);
   };
 
+  const loadOfficialCurriculum = async (studentId: string) => {
+    setCurriculumLoading(true);
+    setCurriculumError('');
+    try {
+      const [content, completionIds, progressionSnapshot] = await Promise.all([
+        fetchReadingContent(),
+        fetchCompletedContentIds(studentId),
+        fetchOfficialReadingProgress(),
+      ]);
+      setReadingContent(content);
+      setCompletedContentIds(completionIds);
+      setOfficialProgression(progressionSnapshot);
+      // The official server snapshot is authoritative over any stale level
+      // embedded in the profile response.
+      setProgress((current) => current ? { ...current, level: progressionSnapshot.effective_level } : current);
+      return { content, completionIds, progressionSnapshot };
+    } catch (error: any) {
+      console.warn('[StudentDashboard] official curriculum load failed:', error?.message || error);
+      setCurriculumError(error?.message || 'Hindi ma-load ang official reading curriculum.');
+      return null;
+    } finally {
+      setCurriculumLoading(false);
+    }
+  };
+
   const retryActivities = () => {
     if (child) void loadStudentActivities(child.auth_uid, child.id);
   };
@@ -676,6 +717,7 @@ export default function StudentDashboard({ navigation }: any) {
         console.warn('[StudentDashboard] word definitions load failed:', err?.message || err);
         return new Map<string, WordDefinition>();
       }),
+      loadOfficialCurriculum(profile.id),
     ]);
     setWordDefinitions(definitions);
 
@@ -855,9 +897,9 @@ export default function StudentDashboard({ navigation }: any) {
   // Every entry point into the Practice tab goes through this, so the
   // category filter is always explicit: generic entries (Continue Practice,
   // sidebar, etc.) clear it back to "show everything" via the default
-  // argument, while the Learn tab's Letters/Syllables/Words cards are the
+  // argument, while the Learn tab's official curriculum cards are the
   // only callers that pass a real category.
-  const goToPractice = (category: 'letters' | 'syllables' | 'words' | null = null) => {
+  const goToPractice = (category: CurriculumPracticeType | null = null) => {
     setPracticeCategoryFilter(category);
     setSection('practice');
   };
@@ -1083,11 +1125,14 @@ export default function StudentDashboard({ navigation }: any) {
 
   const savePronunciationSession = async (result: PracticeResult, word: string, durationSeconds: number | null) => {
     if (!child?.id) return false;
-    const difficultyAtAttempt = progress?.level?.toLowerCase() || null;
+    const curriculumItem = selectedContentId
+      ? readingContent.find((item) => item.id === selectedContentId) || null
+      : null;
+    const difficultyAtAttempt = (curriculumItem?.level || progress?.level)?.toLowerCase() || null;
     const normalizedWord = word.toLowerCase().replace(/[\s-]+/g, '');
-    let wordId: string | null = null;
+    let wordId: string | null = curriculumItem?.word_id || null;
 
-    if (difficultyAtAttempt) {
+    if (!curriculumItem && difficultyAtAttempt) {
       const { data: wordRow, error: wordError } = await supabase
         .from('words')
         .select('id')
@@ -1268,6 +1313,33 @@ export default function StudentDashboard({ navigation }: any) {
       void loadTodaySessions(child?.id);
       void loadPronunciationStats(child?.id);
 
+      let progressionAfterAttempt: OfficialReadingProgress | null = null;
+      if (selectedContentId) {
+        try {
+          const recorded = await recordReadingContentAttempt({
+            contentId: selectedContentId,
+            accuracy: score,
+            transcript,
+            durationSeconds,
+            // Paragraphs are assessment-only and are never routed through
+            // this practice handler, so no practice attempt can accidentally
+            // claim a full paragraph submission.
+            isFullSubmission: false,
+            source: 'practice',
+          });
+          progressionAfterAttempt = recorded.result.progression;
+          setOfficialProgression(recorded.result.progression);
+          setProgress((current) => current
+            ? { ...current, level: recorded.result.progression.effective_level }
+            : current);
+          if (recorded.result.completion_awarded) {
+            setCompletedContentIds((current) => new Set([...current, selectedContentId]));
+          }
+        } catch (contentError: any) {
+          console.warn('[Practice] official curriculum attempt recording failed:', contentError?.message || contentError);
+        }
+      }
+
       if (!correct) {
         console.debug('[Practice] invalid pronunciation; skipping progress, XP, streak, achievements, and notifications.', {
           score,
@@ -1280,10 +1352,13 @@ export default function StudentDashboard({ navigation }: any) {
       await savePracticeFeedbackNotification(result, selectedWord);
       if (!progress) return;
       const beforeStreak = progress.streak || 0;
-      const next = buildNextProgress(progress, selectedWord, xpAward, {
+      const computedNext = buildNextProgress(progress, selectedWord, xpAward, {
         countsAsPracticeSession: true,
         accuracy: score,
       });
+      const next = progressionAfterAttempt
+        ? { ...computedNext, level: progressionAfterAttempt.effective_level }
+        : computedNext;
       console.debug('[Practice] streak update decision:', {
         previousStreak: beforeStreak,
         nextStreak: next.streak,
@@ -1773,38 +1848,35 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderPractice = () => {
-    // Letters (single-character phonics tiles) and words (real teacher
-    // reading_activities content plus the real, level-filtered Supabase word
-    // bank) are two unrelated content types - kept as separate lists so
-    // neither's progress can gate the other (previously concatenated into
-    // one array, which made a civics vocabulary word lock every single
-    // letter tile behind it). DEFAULT_PHONETIC_WORDS/SKILL_LONG_WORDS are no
-    // longer used as a word source here - they're real content, just not
-    // this student's actual practice bank - but stay defined for the Learn
-    // tab's Learning Categories counts.
-    const letterWords = SKILL_LETTERS;
-    // Real syllable-form content (same array the Learn tab's "Syllables"
-    // category count is computed from) - only ever rendered as its own grid
-    // when explicitly filtered to via that category card, not mixed into
-    // the default word list (see the class comment above about not
-    // conflating unrelated content types).
-    const syllableWords = DEFAULT_PHONETIC_WORDS;
-    // Teacher-uploaded lesson content and the generic Supabase word bank are
-    // independently authored and can legitimately overlap (e.g. a Grade 5
-    // lesson word also happens to be in the intermediate word bank) - de-dupe
-    // by value so the same word never renders twice with no visual way to
-    // tell the two "copies" apart.
-    const wordListWords = Array.from(new Set([...practiceWords, ...wordBank]));
-    const cycleList = (word: string | null) => (word && letterWords.includes(word) ? letterWords : wordListWords);
+    const currentLevel = officialProgression?.effective_level || progress?.level || 'Beginner';
+    const practiceTypeLabels: Record<CurriculumPracticeType, string> = {
+      word: 'Words', phonetic: 'Phonetics', phrase: 'Phrases', sentence: 'Sentences',
+    };
+    const levelCurriculum = readingContent.filter((item) => item.level === currentLevel && !item.is_assessment);
+    const wordCurriculum = levelCurriculum.filter((item) => item.content_type === 'word');
+    const filteredCurriculum = practiceCategoryFilter
+      ? levelCurriculum.filter((item) => item.content_type === practiceCategoryFilter)
+      : wordCurriculum;
+    const curriculumByText = new Map(levelCurriculum.map((item) => [normalizeWordKey(item.content_text), item]));
 
-    const nextWord = wordListWords.length
-      ? wordListWords.find((word) => !progress?.completed_words?.includes(word)) || wordListWords[0]
-      : null;
+    // Personalized/teacher word text remains supported, but canonical matches
+    // are resolved back to a level-specific reading_content id before scoring.
+    // This is what removes the duplicate-word-across-levels ambiguity.
+    const wordListWords = Array.from(new Set([...practiceWords, ...wordBank]));
+    const visibleItems = practiceCategoryFilter
+      ? filteredCurriculum
+      : wordListWords.map((word) => curriculumByText.get(normalizeWordKey(word)) || {
+        id: '', content_text: word, content_type: 'word' as const,
+      });
+    const cycleList = () => visibleItems.map((item) => item.content_text);
+
+    const nextItem = visibleItems.find((item) => !item.id || !completedContentIds.has(item.id)) || visibleItems[0] || null;
+    const nextWord = nextItem?.content_text || null;
 
     // Real position of the selected word within today's active word bank -
     // not a fabricated lesson number.
-    const wordPosition = selectedWord ? wordListWords.indexOf(selectedWord) + 1 : 0;
-    const wordTotal = wordListWords.length;
+    const wordPosition = selectedWord ? visibleItems.findIndex((item) => item.content_text === selectedWord) + 1 : 0;
+    const wordTotal = visibleItems.length;
 
     const wordsPracticedToday = todaySessions.length;
     const correctToday = todaySessions.filter((s) => s.is_correct).length;
@@ -1813,12 +1885,13 @@ export default function StudentDashboard({ navigation }: any) {
       : 0;
     const remainingWords = Math.max(
       0,
-      wordTotal - wordListWords.filter((w) => progress?.completed_words?.includes(w)).length
+      wordTotal - visibleItems.filter((item) => item.id && completedContentIds.has(item.id)).length
     );
 
-    const startWord = (word: string, mode: 'say' | 'listen') => {
+    const startWord = (word: string, mode: 'say' | 'listen', contentId?: string | null) => {
       setPracticeMode(mode);
       setSelectedWord(word);
+      setSelectedContentId(contentId || curriculumByText.get(normalizeWordKey(word))?.id || null);
       setPracticeResult(null);
       setPracticeAttempts(0);
       setPracticeTranscript('');
@@ -1839,6 +1912,7 @@ export default function StudentDashboard({ navigation }: any) {
               onPress={() => {
                 stopSpeaking();
                 setSelectedWord(null);
+                setSelectedContentId(null);
               }}
               style={styles.backButton}
               accessibilityRole="button"
@@ -1877,10 +1951,11 @@ export default function StudentDashboard({ navigation }: any) {
             <TouchableOpacity
               style={styles.listenNextButton}
               onPress={() => {
-                const list = cycleList(selectedWord);
+                const list = cycleList();
                 const currentIndex = list.indexOf(selectedWord);
                 const next = list[(currentIndex + 1) % list.length];
-                startWord(next, 'listen');
+                const item = visibleItems.find((candidate) => candidate.content_text === next);
+                startWord(next, 'listen', item?.id);
               }}
               accessibilityRole="button"
               accessibilityLabel="Next word"
@@ -1900,10 +1975,11 @@ export default function StudentDashboard({ navigation }: any) {
     };
     const handleNextWord = () => {
       if (!selectedWord) return;
-      const list = cycleList(selectedWord);
+      const list = cycleList();
       const currentIndex = list.indexOf(selectedWord);
       const next = list[(currentIndex + 1) % list.length];
-      startWord(next, 'say');
+      const item = visibleItems.find((candidate) => candidate.content_text === next);
+      startWord(next, 'say', item?.id);
     };
 
     const renderSessionProgressCard = () => (
@@ -1970,6 +2046,7 @@ export default function StudentDashboard({ navigation }: any) {
               onPress={() => {
                 ExpoSpeechRecognitionModule.abort();
                 setSelectedWord(null);
+                setSelectedContentId(null);
                 setPracticeResult(null);
                 setPracticeAttempts(0);
                 setPracticeTranscript('');
@@ -2211,7 +2288,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         <TouchableOpacity
           style={styles.practiceModeCard}
-          onPress={() => nextWord && startWord(nextWord, 'say')}
+          onPress={() => nextWord && startWord(nextWord, 'say', nextItem?.id)}
           accessibilityRole="button"
           accessibilityLabel="Start Say the Word practice mode"
         >
@@ -2232,7 +2309,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         <TouchableOpacity
           style={styles.practiceModeCard}
-          onPress={() => nextWord && startWord(nextWord, 'listen')}
+          onPress={() => nextWord && startWord(nextWord, 'listen', nextItem?.id)}
           accessibilityRole="button"
           accessibilityLabel="Start Listen and Read practice mode"
         >
@@ -2267,7 +2344,7 @@ export default function StudentDashboard({ navigation }: any) {
         {!!practiceCategoryFilter && (
           <View style={styles.categoryFilterBar}>
             <Text style={[styles.categoryFilterBarText, bodyA11y]}>
-              Showing: {practiceCategoryFilter === 'letters' ? 'Letters' : practiceCategoryFilter === 'syllables' ? 'Syllables' : 'Words'}
+              Showing: {practiceTypeLabels[practiceCategoryFilter]}
             </Text>
             <TouchableOpacity
               onPress={() => setPracticeCategoryFilter(null)}
@@ -2279,115 +2356,49 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         )}
 
-        {(!practiceCategoryFilter || practiceCategoryFilter === 'words') && (
-          <>
-            <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>O Pumili ng Partikular na Salita</Text>
+        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>
+          {practiceCategoryFilter ? practiceTypeLabels[practiceCategoryFilter] : 'O Pumili ng Partikular na Salita'}
+        </Text>
 
-            {/* Word-bank words: binary state only - done (real completed_words)
-                or available (tap anytime). No lock icon, no "next" gate - the
-                bank is a randomized sample from /api/words each fetch, so a
-                sequential lock would be gating against an order that isn't
-                stable across refetches. Same freely-tappable treatment as
-                Letters below. */}
-            {wordBankLoading && !wordListWords.length ? (
-              <View style={styles.centerBlock}>
-                <ActivityIndicator size="small" color={HOME_LAVENDER} />
-                <Text style={styles.empty}>Loading words...</Text>
-              </View>
-            ) : wordBankError && !wordListWords.length ? (
-              <View style={styles.errorBlock}>
-                <Text style={[styles.error, bodyA11y]}>{wordBankError}</Text>
+        {(curriculumLoading || (wordBankLoading && !practiceCategoryFilter)) && !visibleItems.length ? (
+          <View style={styles.centerBlock}>
+            <ActivityIndicator size="small" color={HOME_LAVENDER} />
+            <Text style={styles.empty}>Loading official curriculum...</Text>
+          </View>
+        ) : (curriculumError || (!practiceCategoryFilter && wordBankError)) && !visibleItems.length ? (
+          <View style={styles.errorBlock}>
+            <Text style={[styles.error, bodyA11y]}>{curriculumError || wordBankError}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => child?.id && void loadOfficialCurriculum(child.id)}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading official curriculum"
+            >
+              <Text style={[styles.retryButtonText, buttonA11y]}>Subukan muli</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.wordGrid}>
+            {visibleItems.map((item, index) => {
+              const done = Boolean(item.id && completedContentIds.has(item.id));
+              return (
                 <TouchableOpacity
-                  style={styles.retryButton}
-                  onPress={retryWordBank}
+                  key={item.id || `${item.content_text}-${index}`}
+                  style={[styles.wordCard, done && styles.wordCardDone]}
+                  onPress={() => startWord(item.content_text, 'say', item.id)}
                   accessibilityRole="button"
-                  accessibilityLabel="Retry loading words"
+                  accessibilityLabel={`Practice ${item.content_text}${done ? ', completed' : ''}`}
                 >
-                  <Text style={[styles.retryButtonText, buttonA11y]}>Subukan muli</Text>
+                  {done && (
+                    <View style={styles.wordCardCheckBadge}>
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                    </View>
+                  )}
+                  <Text style={[styles.wordText, done && { color: SUCCESS }, a11yText(15, 'bold')]}>{item.content_text}</Text>
                 </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.wordGrid}>
-                {wordListWords.map((word, index) => {
-                  const done = progress?.completed_words?.includes(word);
-                  return (
-                    <TouchableOpacity
-                      key={`${word}-${index}`}
-                      style={[styles.wordCard, done && styles.wordCardDone]}
-                      onPress={() => startWord(word, 'say')}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Practice word ${word}${done ? ', completed' : ''}`}
-                    >
-                      {done && (
-                        <View style={styles.wordCardCheckBadge}>
-                          <Ionicons name="checkmark" size={14} color="#fff" />
-                        </View>
-                      )}
-                      <Text style={[styles.wordText, done && { color: SUCCESS }, a11yText(15, 'bold')]}>{word}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        )}
-
-        {(!practiceCategoryFilter || practiceCategoryFilter === 'letters') && (
-          <>
-            {/* Letters are a separate, non-linear practice bank - freely
-                tappable in any order, no sequential lock (same binary
-                done/available treatment as the words grid above). */}
-            <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Mga Titik</Text>
-
-            <View style={styles.wordGrid}>
-              {letterWords.map((letter) => {
-                const done = progress?.completed_words?.includes(letter);
-                return (
-                  <TouchableOpacity
-                    key={letter}
-                    style={[styles.wordCard, done && styles.wordCardDone]}
-                    onPress={() => startWord(letter, 'say')}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Practice letter ${letter}${done ? ', completed' : ''}`}
-                  >
-                    {done && (
-                      <View style={styles.wordCardCheckBadge}>
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                      </View>
-                    )}
-                    <Text style={[styles.wordText, done && { color: SUCCESS }, a11yText(15, 'bold')]}>{letter}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        )}
-
-        {practiceCategoryFilter === 'syllables' && (
-          <>
-            <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Mga Pantig</Text>
-            <View style={styles.wordGrid}>
-              {syllableWords.map((syllableWord) => {
-                const done = progress?.completed_words?.includes(syllableWord);
-                return (
-                  <TouchableOpacity
-                    key={syllableWord}
-                    style={[styles.wordCard, done && styles.wordCardDone]}
-                    onPress={() => startWord(syllableWord, 'say')}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Practice syllables ${syllableWord}${done ? ', completed' : ''}`}
-                  >
-                    {done && (
-                      <View style={styles.wordCardCheckBadge}>
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                      </View>
-                    )}
-                    <Text style={[styles.wordText, done && { color: SUCCESS }, a11yText(15, 'bold')]}>{syllableWord}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
+              );
+            })}
+          </View>
         )}
 
         {renderSessionProgressCard()}
@@ -2432,25 +2443,33 @@ export default function StudentDashboard({ navigation }: any) {
     const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
     const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
 
-    // Learning Categories - real taxonomy (categorizeWord) already used for
-    // the Progress tab's skill breakdown, scored here against completed_words.
-    const completedWordsList = progress?.completed_words || [];
-    const lettersTotal = SKILL_LETTERS.length;
-    const lettersDone = SKILL_LETTERS.filter((w) => completedWordsList.includes(w)).length;
-    const syllablesPool = DEFAULT_PHONETIC_WORDS;
-    const syllablesTotal = syllablesPool.length;
-    const syllablesDone = syllablesPool.filter((w) => completedWordsList.includes(w)).length;
-    const wordsPool = SKILL_LONG_WORDS;
-    const wordsTotal = wordsPool.length;
-    const wordsDone = wordsPool.filter((w) => completedWordsList.includes(w)).length;
+    // Official workbook curriculum and stable-id completions replace the
+    // historical local arrays/completed_words string matching.
+    const currentReadingLevel = officialProgression?.effective_level || progress?.level || 'Beginner';
+    const currentLevelContent = readingContent.filter((item) => item.level === currentReadingLevel);
+    const wordItems = currentLevelContent.filter((item) => item.content_type === 'word');
+    const companionType: CurriculumPracticeType = currentReadingLevel === 'Beginner'
+      ? 'phonetic'
+      : currentReadingLevel === 'Intermediate' ? 'phrase' : 'sentence';
+    const companionItems = currentLevelContent.filter((item) => item.content_type === companionType);
+    const assessmentItems = readingContent.filter((item) => item.content_type === 'paragraph' && item.is_assessment);
+    const completedCount = (items: ReadingContentItem[]) => items.filter((item) => completedContentIds.has(item.id)).length;
+    const wordsDone = completedCount(wordItems);
+    const companionDone = completedCount(companionItems);
+    const assessmentsDone = completedCount(assessmentItems);
+    const companionLabel = companionType === 'phonetic' ? 'Phonetics' : companionType === 'phrase' ? 'Phrases' : 'Sentences';
 
     const lessonStateLabel = (state: 'not_started' | 'in_progress' | 'completed') =>
       state === 'completed' ? 'Nabasa na' : state === 'in_progress' ? 'Binabasa' : 'Hindi pa binuksan';
 
-    const levelNextThreshold = progress?.level === 'Advanced' ? null : progress?.level === 'Intermediate' ? 250 : 100;
-    const journeyPct = levelNextThreshold
-      ? Math.min(100, Math.round(((progress?.xp || 0) / levelNextThreshold) * 100))
-      : 100;
+    const currentRequirements = officialProgression?.requirements.filter((row) => row.level === currentReadingLevel) || [];
+    const requiredTotal = currentRequirements.reduce((sum, row) => sum + row.required_count, 0);
+    const officialCompletedTotal = currentRequirements.reduce(
+      (sum, row) => sum + Math.min(row.completed_count, row.required_count),
+      0,
+    );
+    const journeyPct = requiredTotal ? Math.round((officialCompletedTotal / requiredTotal) * 100) : 0;
+    const journeyRemaining = Math.max(0, requiredTotal - officialCompletedTotal);
 
     return (
     <>
@@ -2733,40 +2752,38 @@ export default function StudentDashboard({ navigation }: any) {
       <View style={styles.categoryGrid}>
         <TouchableOpacity
           style={[styles.categoryCard, { backgroundColor: '#F1E9FE' }]}
-          onPress={() => goToPractice('letters')}
+          onPress={() => goToPractice('word')}
           accessibilityRole="button"
-          accessibilityLabel={`Practice Letters, ${lettersDone} of ${lettersTotal} practiced`}
+          accessibilityLabel={`Practice Words, ${wordsDone} of ${wordItems.length} completed`}
         >
           <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_VIOLET }]}>
-            <Ionicons name="text" size={20} color="#fff" />
+            <Ionicons name="book" size={20} color="#fff" />
           </View>
-          <Text style={[styles.categoryTitle, cardTitleA11y]}>Letters</Text>
-          <Text style={[styles.categorySub, bodyA11y]}>{lettersDone} of {lettersTotal} practiced</Text>
+          <Text style={[styles.categoryTitle, cardTitleA11y]}>Words</Text>
+          <Text style={[styles.categorySub, bodyA11y]}>{wordsDone} of {wordItems.length} completed</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.categoryCard, { backgroundColor: '#E1F5F2' }]}
-          onPress={() => goToPractice('syllables')}
+          onPress={() => goToPractice(companionType)}
           accessibilityRole="button"
-          accessibilityLabel={`Practice Syllables, ${syllablesDone} of ${syllablesTotal} practiced`}
+          accessibilityLabel={`Practice ${companionLabel}, ${companionDone} of ${companionItems.length} completed`}
         >
           <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_TEAL }]}>
             <Ionicons name="reader" size={20} color="#fff" />
           </View>
-          <Text style={[styles.categoryTitle, cardTitleA11y]}>Syllables</Text>
-          <Text style={[styles.categorySub, bodyA11y]}>{syllablesDone} of {syllablesTotal} practiced</Text>
+          <Text style={[styles.categoryTitle, cardTitleA11y]}>{companionLabel}</Text>
+          <Text style={[styles.categorySub, bodyA11y]}>{companionDone} of {companionItems.length} completed</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.categoryCard, { backgroundColor: '#E7ECF8' }]}
-          onPress={() => goToPractice('words')}
-          accessibilityRole="button"
-          accessibilityLabel={`Practice Words, ${wordsDone} of ${wordsTotal} practiced`}
-        >
-          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_NAVY }]}>
-            <Ionicons name="book" size={20} color="#fff" />
+        {currentReadingLevel === 'Advanced' && (
+          <View style={[styles.categoryCard, { backgroundColor: '#E7ECF8' }]}>
+            <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_NAVY }]}>
+              <Ionicons name="document-text" size={20} color="#fff" />
+            </View>
+            <Text style={[styles.categoryTitle, cardTitleA11y]}>Paragraph Assessments</Text>
+            <Text style={[styles.categorySub, bodyA11y]}>{assessmentsDone} of {assessmentItems.length} submitted</Text>
+            <Text style={[styles.categorySub, smallLabelA11y]}>Assessment content — not ordinary practice</Text>
           </View>
-          <Text style={[styles.categoryTitle, cardTitleA11y]}>Words</Text>
-          <Text style={[styles.categorySub, bodyA11y]}>{wordsDone} of {wordsTotal} practiced</Text>
-        </TouchableOpacity>
+        )}
         <View style={[styles.categoryCard, styles.categoryTipCard, { backgroundColor: '#FEF3D6' }]}>
           <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_AMBER }]}>
             <Ionicons name="bulb" size={20} color="#fff" />
@@ -2862,14 +2879,14 @@ export default function StudentDashboard({ navigation }: any) {
 
       <View style={styles.learnJourneyCard}>
         <Text style={styles.learnJourneyTitle}>Iyong Paglalakbay sa Pagbasa</Text>
-        <Text style={styles.learnJourneyLevel}>{progress?.level || 'Beginner'}</Text>
+        <Text style={styles.learnJourneyLevel}>{currentReadingLevel}</Text>
         <View style={styles.learnJourneyTrack}>
           <View style={[styles.learnJourneyFill, { width: `${Math.max(4, journeyPct)}%` }]} />
         </View>
         <Text style={styles.learnJourneyMsg}>
-          {levelNextThreshold
-            ? `${Math.max(0, levelNextThreshold - (progress?.xp || 0))} XP na lang papunta sa susunod na level!`
-            : 'Dalubhasa ka na sa pagbasa! 🎉'}
+          {officialProgression?.program_complete
+            ? 'Nakumpleto mo na ang official reading program!'
+            : `${journeyRemaining} official curriculum item${journeyRemaining === 1 ? '' : 's'} remaining at this level.`}
         </Text>
       </View>
     </ScrollView>
