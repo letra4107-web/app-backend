@@ -1,69 +1,77 @@
-# Personalized Difficulty Recommendation Methodology
+# Personalized Reading Recommendation Methodology
 
-## System boundary
+## System boundary and authoritative progression
 
-LinawLetra separates reading progression into two concepts:
+LinawLetra separates engagement rewards from reading progression:
 
-1. **XP progression** is the existing engagement mechanic. Cumulative XP maps
-   to Beginner, Intermediate, or Advanced. It is not evidence that an
-   advancement decision was pedagogically successful and is not used as the
-   supervised ML target.
-2. **Readiness recommendation** uses recent practice behavior to decide whether
-   the next practice set should remain at the current difficulty or move to the
-   next difficulty. This is the personalization component.
+1. **XP is reward currency only.** Practice and achievement badges may award
+   XP, but XP never selects or changes a reading level.
+2. **Reading level is curriculum completion.** The client-approved Reading
+   Level Progression Plan is stored in `reading_level_requirements` and is the
+   only automatic advancement gate.
+3. **Personalization ranks eligible practice.** Accuracy, confusion, recency,
+   and structural signals order curriculum items, but cannot bypass the
+   official completion gate.
 
-Keeping these concepts separate prevents a future model from merely learning
-the deterministic XP thresholds.
+The official requirements are:
 
-## Data pipeline
+| Current level | Required completion | Result |
+| --- | --- | --- |
+| Beginner | 200 words and 200 phonetics | Intermediate |
+| Intermediate | 200 words and 200 phrases | Advanced |
+| Advanced | 200 words, 200 sentences, and all 20 paragraph assessments | Program complete |
 
-Each pronunciation session records the stable word identifier when it can be
-resolved, difficulty at the time of the attempt, practice source, accuracy,
-correctness, response duration, and timestamp. Phoneme-confusion events can
-reference the exact pronunciation session.
+Words, phonetics, phrases, and sentences complete at an accuracy of at least
+75%. A paragraph assessment completes after a full scored submission regardless
+of score. Its score remains reportable, but the assessment is not converted
+into a repeat-until-passed drill.
 
-The offline Python feature pipeline produces:
+New students start at Beginner. A higher placement requires a separately
+logged `student_reading_level_overrides` row with the responsible authenticated
+parent and a written reason. The system never fabricates completions to place a
+student at a higher level.
 
-- leakage-safe historical readiness snapshots using only events before each
-  cutoff;
-- the latest readiness features per student; and
-- student/candidate-word feature rows.
+## Curriculum and data pipeline
 
-Readiness features include recent average accuracy, accuracy slope and
-variation, recent success rate, response time and missingness, days since
-practice, recomputed streak, experience and word breadth, and normalized
-30-day confusion-pair rates.
+The unchanged 600-row `words` bank remains the pronunciation-word source.
+`reading_content` is the canonical curriculum layer:
 
-Student identifiers are grouping keys, not predictive features. Raw names,
-parent details, and transcripts are not features.
+- each of the 600 word entries links to its stable `words.id`;
+- 200 Beginner phonetics;
+- 200 Intermediate phrases;
+- 200 Advanced sentences; and
+- 20 Advanced paragraph assessments.
 
-## Confusion-data interpretation
+`student_content_attempts` is an immutable scored event log.
+`student_content_completions` contains at most one qualifying completion per
+student/content pair. A service-role-only database function records the attempt,
+applies the content-type policy, awards completion, recomputes the official
+level, and updates `child_progress` in one transaction. Student clients have
+read access but no direct write policy for these progression records.
 
-Confusion events compare the target word's spelling with Google Speech-to-Text
-output. They are supplementary text-inferred substitution signals, not direct
-acoustic phoneme measurements. Speech recognition can correct or distort what
-was said, so the methodology must not claim that these rows prove a particular
-physical mispronunciation.
+Pronunciation sessions separately retain stable word id when applicable,
+difficulty at attempt, source, accuracy, correctness, response duration, and
+timestamp. Phoneme-confusion events can link to the exact session.
 
-## Cold-start readiness rubric
+## Superseded cold-start gate
 
-The project does not yet have enough students and outcome labels to train or
-evaluate a generalizable Decision Tree or Random Forest. During cold start, an
-advancement recommendation requires all of the following:
+An earlier prototype proposed an accuracy-based advancement rubric: five recent
+attempts, at least 80% mean accuracy, four correct attempts, and a non-declining
+trend. It was designed before the authoritative client curriculum was supplied.
 
-- five recent attempts are available;
-- average accuracy over those attempts is at least 80%;
-- at least four of five attempts are correct; and
-- the accuracy slope is no worse than -2 percentage points per attempt.
+That rubric was **superseded before any Decision Tree or Random Forest was
+trained**. It is not a ground-truth label and is no longer used at runtime.
+This change is methodologically important: the earlier prototype validated the
+feature and audit pipeline, while the later client specification supplied the
+actual progression construct. Retiring the informal gate prevented the system
+from presenting accuracy as equivalent to curriculum completion.
 
-With fewer than five attempts, the system always stays at the current level.
-The resulting `bootstrap_readiness_label` is a provisional rubric label, not
-independent ground truth. It may validate data flow and cold-start behavior but
-must not be presented as evidence that an ML model discovered readiness.
+Runtime output now uses `official_progression_eligible`. Recent accuracy and
+trend remain descriptive ranking features only.
 
-## Transparent weakness-based ranking
+## Transparent curriculum ranker
 
-The deployed cold-start strategy is `cold-start-ranker-v1`:
+The current strategy is `cold-start-ranker-v2-official-progression`:
 
 ```text
 ranking_score =
@@ -73,71 +81,91 @@ ranking_score =
   + 0.10 * structural_fit
 ```
 
-All components are normalized to the range 0–1:
+The candidate pool is determined by official progression:
 
-- `weakness_match` measures whether the candidate exposes phonemes from the
-  student's recent confusion pairs;
-- `mastery_gap` prioritizes attempted words with lower prior accuracy, while
-  assigning unseen words a neutral 0.50 rather than treating them as proven
-  weaknesses;
-- `recency_need` increases over 14 days and is 1.0 for unseen words; and
-- `structural_fit` compares syllable, diphthong, and consonant-cluster load to
-  a conservative target of 0.40 when staying or 0.65 when advancing.
+- Beginner: words and phonetics;
+- Intermediate: words and phrases;
+- Advanced: words and sentences.
 
-### Design decision and limitation: manual weights
+Paragraph assessments are surfaced separately and are never rankable practice
+items. When the current requirements are complete, candidates come from the
+next official level. Otherwise, they remain at the current level.
+
+The normalized components are:
+
+- `weakness_match`: exposure to the student's recent confusion pairs;
+- `mastery_gap`: lower prior content accuracy receives higher priority, while
+  an unseen item receives a neutral 0.50;
+- `recency_need`: increases across 14 days and is 1.0 for unseen content; and
+- `structural_fit`: compares content type and text load with a conservative
+  target for the recommended level.
+
+### Manual-weight limitation
 
 The weights **0.45/0.25/0.20/0.10 were manually selected using domain
-reasoning**. Weakness-targeting received the largest weight because the main
-purpose is to practice the student's recurring difficulty areas. These values
-were not learned, tuned, or empirically validated against student outcomes.
+reasoning**, prioritizing weakness-targeting. They were not learned, tuned, or
+empirically validated against student outcomes. The ranking score is therefore
+not a calibrated probability, and the API stores/returns
+`predictedProbability: null`.
 
-This is a stated limitation, not an ML result. Once
-`personalization_recommendation_outcomes` contains enough multi-student
+Once `personalization_recommendation_outcomes` contains enough multi-student
 outcomes, future work should tune the weights through a documented validation
-procedure and compare the tuned ranker with this frozen version.
+procedure and compare them against this frozen version.
 
-The ranking score is not a calibrated probability. The API therefore stores
-and returns `predictedProbability: null` during cold start.
+## Confusion-data interpretation
+
+Confusion events compare target spelling with speech-to-text output. They are
+supplementary text-inferred substitution signals, not direct acoustic phoneme
+measurements. Speech recognition may correct or distort what was spoken, so a
+`d-r` row must not be claimed as proof of a physical mispronunciation.
 
 ## Explainability and audit log
 
-Every recommendation records:
+Every recommendation stores:
 
 - strategy and feature-schema versions;
-- the exact readiness feature snapshot;
-- current and recommended difficulty;
-- the advance/stay decision;
+- the official requirement snapshot and eligibility decision;
+- recent accuracy, trend, streak, and confusion-rate descriptors;
+- current/recommended difficulty and advance/stay decision;
 - manually selected weights and their stated origin;
-- ranked stable word IDs and total scores;
-- all four component scores; and
+- ranked stable `reading_content.id` values and optional `words.id` links;
+- content type, total score, and all four component scores; and
 - reason codes such as `targets_confusion_pair`, `low_prior_accuracy`,
-  `not_practiced_recently`, `unseen_diagnostic_word`, and
+  `not_practiced_recently`, `unseen_curriculum_item`, and
   `appropriate_structural_load`.
 
-This event log permits the same decision to be explained during evaluation and
-later connected to a genuine outcome label.
+This permits each decision to be reproduced and later linked to a genuine
+outcome label.
 
-## Future supervised target
+## Future supervised model
 
-XP changes must not be used as labels. The intended binary outcome is whether
-an advancement was successful during a fixed evaluation window. The initial
-definition is successful when the first five attempts at the recommended next
-level have at least 75% average accuracy and at least four correct attempts.
+No Decision Tree or Random Forest is trained yet because the project lacks
+adequate multi-student outcomes containing both target classes. XP and the
+retired accuracy rubric must not be used as supervised labels.
 
-These observations populate
-`personalization_recommendation_outcomes.readiness_label`. Model training is
-deferred until there are multiple students, adequate histories, and both label
-classes. Evaluation should then use student-grouped or time-aware splits to
-avoid placing correlated attempts from the same student on both sides of a
-random split.
+The intended future binary target is whether a recommendation/advancement led
+to successful subsequent performance during a fixed observation window. Once
+enough real outcomes exist, evaluation should report accuracy, precision,
+recall, confusion matrix, and feature importance using student-grouped or
+time-aware splits so correlated attempts from one student do not leak across
+training and test sets.
 
 ## Runtime and fallback
 
-`POST /api/personalization/recommend` accepts no authoritative student ID from
-the client. It verifies the Supabase Bearer token and resolves the student only
-through `children.auth_uid`.
+`POST /api/personalization/recommend` resolves the student exclusively from the
+Supabase Bearer token. It loads official progression, selects eligible canonical
+curriculum, ranks it, and writes the rationale audit record.
 
-The mobile app requests ranked words when loading the practice bank. If the
-endpoint is unavailable, returns no words, or rejects the request, the app
-loads the ordinary difficulty-filtered word bank. Personalization therefore
-cannot prevent the student from practicing.
+The app requests ranked curriculum when loading practice. If personalization
+is unavailable or empty, it falls back to the ordinary level word bank.
+Personalization therefore cannot block practice.
+
+## Current limitations
+
+- Cold start: new students have little individualized accuracy/confusion data,
+  so unseen-item and structural signals dominate early rankings.
+- Confusion signals are spelling/STT-inferred rather than acoustic.
+- Manual weights have not been outcome-tuned.
+- Placement overrides depend on a human-supplied reason and should be audited.
+- The future classifier remains deferred until real outcome labels and both
+  readiness classes exist.

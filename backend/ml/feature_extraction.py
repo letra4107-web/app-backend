@@ -2,8 +2,8 @@
 
 This module deliberately does not train a model. It converts immutable
 practice history into snapshots suitable for a future Decision Tree or Random
-Forest and exposes the cold-start rubric label as an explicitly provisional
-field. Phoneme-confusion events are inferred from spelling versus STT text;
+Forest. Official curriculum completion is the only readiness gate; accuracy
+features remain descriptive inputs. Phoneme-confusion events are inferred from spelling versus STT text;
 they are not acoustic pronunciation measurements.
 """
 
@@ -23,8 +23,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 MANILA = timezone(timedelta(hours=8), name="Asia/Manila")
-FEATURE_SCHEMA_VERSION = "readiness-v1"
-BOOTSTRAP_LABEL_SOURCE = "bootstrap_rubric_v1"
+FEATURE_SCHEMA_VERSION = "readiness-v2-official-progression"
+OFFICIAL_LABEL_SOURCE = "authoritative_client_curriculum_v1"
 CONFUSION_WINDOW_DAYS = 30
 CONFUSION_PAIRS = (
     "d-r", "b-p", "d-t", "g-k", "n-ng", "m-n",
@@ -97,6 +97,7 @@ def build_readiness_features(
     confusions: list[dict[str, Any]],
     cutoff: datetime,
     progress_level: Any = None,
+    official_progression: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     history = sorted(history, key=lambda row: parse_datetime(row["created_at"]))
     recent_five = history[-5:]
@@ -129,13 +130,8 @@ def build_readiness_features(
         if recent_five else None
     )
     slope = accuracy_slope(accuracies)
-    bootstrap_label = None
-    if len(recent_five) == 5 and avg_accuracy is not None and success_rate is not None:
-        bootstrap_label = int(
-            avg_accuracy >= 80
-            and success_rate >= 0.8
-            and slope >= -2.0
-        )
+    official = official_progression or {}
+    official_level = official.get("effective_level") or progress_level
 
     row: dict[str, Any] = {
         "student_id": student_id,
@@ -153,10 +149,13 @@ def build_readiness_features(
         "current_streak": current_streak(history, cutoff),
         "total_attempts_prior": len(history),
         "distinct_words_last_10": len({normalize_word(row.get("word")) for row in recent_ten}),
-        "current_difficulty": latest_level(history, progress_level),
+        "current_difficulty": str(official_level).lower() if str(official_level).lower() in LEVELS else latest_level(history, progress_level),
         "recent_confusion_event_rate": round(len(recent_confusions) / exposure_denominator, 6),
-        "bootstrap_readiness_label": bootstrap_label,
-        "label_source": BOOTSTRAP_LABEL_SOURCE if bootstrap_label is not None else None,
+        "official_progression_eligible": official.get("official_progression_eligible"),
+        "official_earned_level": official.get("official_earned_level"),
+        "placement_override_level": official.get("placement_override_level"),
+        "program_complete": official.get("program_complete"),
+        "label_source": OFFICIAL_LABEL_SOURCE if official else None,
     }
     for pair in CONFUSION_PAIRS:
         row[f"confusion_{pair.replace('-', '_')}_rate"] = round(pair_counts[pair] / exposure_denominator, 6)
@@ -167,6 +166,80 @@ def next_level(level: str | None) -> str:
     if level not in LEVELS:
         return "beginner"
     return LEVELS[min(LEVELS.index(level) + 1, len(LEVELS) - 1)]
+
+
+def derive_official_progression(
+    student_id: str,
+    reading_content: list[dict[str, Any]],
+    completions: list[dict[str, Any]],
+    requirements: list[dict[str, Any]],
+    overrides: list[dict[str, Any]],
+    cutoff: datetime,
+) -> dict[str, Any]:
+    """Reconstruct the official gate using only records observable at cutoff."""
+    content_by_id = {str(row.get("id")): row for row in reading_content}
+    counts: Counter[tuple[str, str]] = Counter()
+    for completion in completions:
+        if str(completion.get("student_id")) != student_id:
+            continue
+        completed_at = parse_datetime(completion.get("completed_at"))
+        if completed_at >= cutoff:
+            continue
+        content = content_by_id.get(str(completion.get("content_id")))
+        if content:
+            counts[(str(content.get("level")), str(content.get("content_type")))] += 1
+
+    requirement_rows = []
+    level_complete = {}
+    for level in ("Beginner", "Intermediate", "Advanced"):
+        rows = [row for row in requirements if row.get("level") == level]
+        level_complete[level] = bool(rows) and all(
+            counts[(level, str(row.get("content_type")))] >= int(row.get("required_count") or 0)
+            for row in rows
+        )
+        for row in rows:
+            completed = counts[(level, str(row.get("content_type")))]
+            required = int(row.get("required_count") or 0)
+            requirement_rows.append({
+                "level": level,
+                "content_type": row.get("content_type"),
+                "completed_count": completed,
+                "required_count": required,
+                "requirement_met": completed >= required,
+            })
+
+    official_level = "Advanced" if level_complete.get("Beginner") and level_complete.get("Intermediate") \
+        else "Intermediate" if level_complete.get("Beginner") else "Beginner"
+    active_overrides = []
+    for row in overrides:
+        if str(row.get("student_id")) != student_id or parse_datetime(row.get("created_at")) >= cutoff:
+            continue
+        revoked_at = row.get("revoked_at")
+        if revoked_at and parse_datetime(revoked_at) < cutoff:
+            continue
+        active_overrides.append(row)
+    active_overrides.sort(key=lambda row: parse_datetime(row.get("created_at")))
+    override_level = active_overrides[-1].get("override_level") if active_overrides else None
+    if override_level == "Advanced":
+        effective_level = "Advanced"
+    elif override_level == "Intermediate":
+        effective_level = "Advanced" if level_complete.get("Intermediate") else "Intermediate"
+    else:
+        effective_level = official_level
+    eligible = level_complete.get(effective_level, False)
+    program_complete = bool(level_complete.get("Advanced") and (
+        override_level == "Advanced"
+        or (override_level == "Intermediate" and level_complete.get("Intermediate"))
+        or (not override_level and level_complete.get("Beginner") and level_complete.get("Intermediate"))
+    ))
+    return {
+        "official_earned_level": official_level,
+        "placement_override_level": override_level,
+        "effective_level": effective_level,
+        "official_progression_eligible": eligible,
+        "program_complete": program_complete,
+        "requirements": requirement_rows,
+    }
 
 
 def word_phonemes(word: Any) -> list[str]:
@@ -200,7 +273,7 @@ def build_candidate_word_features(
     cutoff: datetime,
 ) -> list[dict[str, Any]]:
     current = readiness_row.get("current_difficulty") or "beginner"
-    should_advance = readiness_row.get("bootstrap_readiness_label") == 1
+    should_advance = readiness_row.get("official_progression_eligible") is True
     recommended = next_level(current) if should_advance else current
     candidates = [row for row in words if str(row.get("level") or "").lower() == recommended]
     output = []
@@ -257,6 +330,10 @@ def build_datasets(
     words: list[dict[str, Any]],
     progress: list[dict[str, Any]] | None = None,
     now: datetime | None = None,
+    reading_content: list[dict[str, Any]] | None = None,
+    completions: list[dict[str, Any]] | None = None,
+    requirements: list[dict[str, Any]] | None = None,
+    overrides: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     sessions_by_student: dict[str, list[dict[str, Any]]] = defaultdict(list)
     confusions_by_student: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -270,16 +347,39 @@ def build_datasets(
     latest: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
     snapshot_now = now or datetime.now(timezone.utc)
+    content_rows = reading_content or []
+    completion_rows = completions or []
+    requirement_rows = requirements or []
+    override_rows = overrides or []
     for student_id, student_sessions in sessions_by_student.items():
         ordered = sorted(student_sessions, key=lambda row: parse_datetime(row["created_at"]))
         student_confusions = confusions_by_student.get(student_id, [])
         for index, next_attempt in enumerate(ordered):
             cutoff = parse_datetime(next_attempt["created_at"])
-            snapshot = build_readiness_features(student_id, ordered[:index], student_confusions, cutoff)
+            official = derive_official_progression(
+                student_id, content_rows, completion_rows, requirement_rows, override_rows, cutoff,
+            ) if requirement_rows else {}
+            snapshot = build_readiness_features(
+                student_id, ordered[:index], student_confusions, cutoff,
+                official_progression=official,
+            )
             snapshot["next_session_id"] = next_attempt.get("id")
             historical.append(snapshot)
         progress_level = progress_by_student.get(student_id, {}).get("level")
-        current = build_readiness_features(student_id, ordered, student_confusions, snapshot_now, progress_level)
+        official = derive_official_progression(
+            student_id, content_rows, completion_rows, requirement_rows, override_rows, snapshot_now,
+        ) if requirement_rows else {
+            "effective_level": progress_level or "Beginner",
+            "official_earned_level": progress_level or "Beginner",
+            "placement_override_level": None,
+            "official_progression_eligible": False,
+            "program_complete": False,
+            "requirements": [],
+        }
+        current = build_readiness_features(
+            student_id, ordered, student_confusions, snapshot_now, progress_level,
+            official_progression=official,
+        )
         latest.append(current)
         candidates.extend(build_candidate_word_features(current, ordered, words, snapshot_now))
     return historical, latest, candidates
@@ -329,7 +429,20 @@ def load_from_supabase() -> tuple[list[dict[str, Any]], ...]:
         "id,word,level,syllable_count,has_diphthong,has_consonant_cluster",
     )
     progress = fetch_supabase_table(base_url, service_key, "child_progress", "child_id,level")
-    return sessions, confusions, words, progress
+    reading_content = fetch_supabase_table(
+        base_url, service_key, "reading_content", "id,word_id,content_text,content_type,level,is_active",
+    )
+    completions = fetch_supabase_table(
+        base_url, service_key, "student_content_completions", "student_id,content_id,completed_at",
+    )
+    requirements = fetch_supabase_table(
+        base_url, service_key, "reading_level_requirements", "level,content_type,required_count,completion_policy",
+    )
+    overrides = fetch_supabase_table(
+        base_url, service_key, "student_reading_level_overrides",
+        "student_id,override_level,created_at,revoked_at",
+    )
+    return sessions, confusions, words, progress, reading_content, completions, requirements, overrides
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -351,10 +464,14 @@ def main() -> None:
     parser.add_argument("--confusions")
     parser.add_argument("--words")
     parser.add_argument("--progress")
+    parser.add_argument("--reading-content")
+    parser.add_argument("--completions")
+    parser.add_argument("--requirements")
+    parser.add_argument("--overrides")
     parser.add_argument("--output-dir", default="ml/output")
     args = parser.parse_args()
     if args.from_supabase:
-        sessions, confusions, words, progress = load_from_supabase()
+        sessions, confusions, words, progress, reading_content, completions, requirements, overrides = load_from_supabase()
     else:
         if not args.sessions or not args.words:
             parser.error("--sessions and --words are required unless --from-supabase is used")
@@ -362,7 +479,17 @@ def main() -> None:
         confusions = load_json(args.confusions)
         words = load_json(args.words)
         progress = load_json(args.progress)
-    historical, latest, candidates = build_datasets(sessions, confusions, words, progress)
+        reading_content = load_json(args.reading_content)
+        completions = load_json(args.completions)
+        requirements = load_json(args.requirements)
+        overrides = load_json(args.overrides)
+    historical, latest, candidates = build_datasets(
+        sessions, confusions, words, progress,
+        reading_content=reading_content,
+        completions=completions,
+        requirements=requirements,
+        overrides=overrides,
+    )
     output = Path(args.output_dir)
     write_csv(output / "readiness_historical.csv", historical)
     write_csv(output / "readiness_latest.csv", latest)

@@ -9,17 +9,17 @@ process.env.EMAIL_PASS = 'testpass';
 process.env.NODE_ENV = 'test';
 
 const { createPersonalizationRouter } = require('../routes/personalization');
-const { RANKING_WEIGHTS, rankWords } = require('../services/coldStartRanker');
+const { RANKING_WEIGHTS, STRATEGY_VERSION, rankCurriculum } = require('../services/coldStartRanker');
 
-const studentId = '00000000-0000-0000-0000-000000000001';
+const studentId = '00000000-0000-4000-8000-000000000001';
 const now = new Date();
 const isoDaysAgo = (days, minutes = 0) => new Date(now.getTime() - (days * 86400000) + (minutes * 60000)).toISOString();
 const sessions = [0, 1, 2, 3, 4].map((index) => ({
   id: `session-${index}`,
   student_id: studentId,
-  word_id: `beginner-word-${index}`,
+  word_id: `legacy-word-${index}`,
   word: `salita${index}`,
-  accuracy_percentage: 82 + (index * 3),
+  accuracy_percentage: 90 + index,
   is_correct: true,
   duration_seconds: 8 - index,
   difficulty_level_at_attempt: 'beginner',
@@ -27,32 +27,56 @@ const sessions = [0, 1, 2, 3, 4].map((index) => ({
   created_at: isoDaysAgo(5 - index),
 }));
 const confusions = [
-  { id: 'confusion-1', student_id: studentId, session_id: 'session-3', confusion_key: 'd-r', target_word: 'radyo', source: 'practice', created_at: isoDaysAgo(1, 1) },
-  { id: 'confusion-2', student_id: studentId, session_id: 'session-4', confusion_key: 'd-r', target_word: 'radyo', source: 'practice', created_at: isoDaysAgo(0, -1) },
+  { id: 'confusion-1', student_id: studentId, session_id: 'session-4', confusion_key: 'd-r', target_word: 'dahon', source: 'practice', created_at: isoDaysAgo(0) },
 ];
-const words = [
-  { id: 'word-radyo', word: 'radyo', level: 'intermediate', syllable_count: 3, has_diphthong: false, has_consonant_cluster: false },
-  { id: 'word-pluma', word: 'pluma', level: 'intermediate', syllable_count: 5, has_diphthong: false, has_consonant_cluster: true },
-  { id: 'word-bata', word: 'bata', level: 'beginner', syllable_count: 2, has_diphthong: false, has_consonant_cluster: false },
+const contentAttempts = [];
+const curriculum = [
+  { id: 'content-beginner-da', word_id: null, content_text: 'da', content_type: 'phonetic', level: 'Beginner', is_assessment: false },
+  { id: 'content-beginner-bata', word_id: 'word-bata', content_text: 'bata', content_type: 'word', level: 'Beginner', is_assessment: false },
+  { id: 'content-intermediate-radyo', word_id: 'word-radyo', content_text: 'radyo', content_type: 'word', level: 'Intermediate', is_assessment: false },
+  { id: 'content-intermediate-phrase', word_id: null, content_text: 'malinaw na radyo', content_type: 'phrase', level: 'Intermediate', is_assessment: false },
+  { id: 'content-advanced-paragraph', word_id: null, content_text: 'Tatlong pangungusap.', content_type: 'paragraph', level: 'Advanced', is_assessment: true },
 ];
+const officialProgression = (eligible = false) => ({
+  effective_level: 'Beginner',
+  official_earned_level: 'Beginner',
+  placement_override_level: null,
+  official_progression_eligible: eligible,
+  program_complete: false,
+  requirements: [
+    { level: 'Beginner', content_type: 'word', completed_count: eligible ? 200 : 10, required_count: 200 },
+    { level: 'Beginner', content_type: 'phonetic', completed_count: eligible ? 200 : 8, required_count: 200 },
+  ],
+});
 
 const testPureRanking = () => {
   assert(Math.abs(Object.values(RANKING_WEIGHTS).reduce((sum, value) => sum + value, 0) - 1) < Number.EPSILON);
-  const result = rankWords({ sessions, confusions, words, progressLevel: 'Beginner', now, limit: 2 });
-  assert.strictEqual(result.strategy, 'cold-start-ranker-v1');
-  assert.strictEqual(result.predictedProbability, null);
-  assert.strictEqual(result.shouldAdvance, true);
-  assert.strictEqual(result.recommendedDifficulty, 'intermediate');
-  assert.strictEqual(result.words[0].id, 'word-radyo');
-  assert(result.words[0].reasonCodes.includes('targets_confusion_pair'));
-  assert(result.words[0].reasonCodes.includes('unseen_diagnostic_word'));
-  assert(result.words[0].reasonCodes.includes('appropriate_structural_load'));
 
-  const insufficient = rankWords({ sessions: sessions.slice(0, 4), confusions, words, progressLevel: 'Beginner', now });
-  assert.strictEqual(insufficient.readiness.bootstrap_readiness, null);
-  assert.strictEqual(insufficient.shouldAdvance, false);
-  assert.strictEqual(insufficient.recommendedDifficulty, 'beginner');
-  return result;
+  // Perfect recent accuracy cannot bypass incomplete official requirements.
+  const staying = rankCurriculum({
+    sessions, confusions, contentAttempts, curriculum,
+    officialProgression: officialProgression(false), now, limit: 4,
+  });
+  assert.strictEqual(staying.strategy, STRATEGY_VERSION);
+  assert.strictEqual(staying.predictedProbability, null);
+  assert.strictEqual(staying.shouldAdvance, false);
+  assert.strictEqual(staying.recommendedDifficulty, 'beginner');
+  assert.strictEqual(staying.readiness.official_progression_eligible, false);
+  assert(!Object.prototype.hasOwnProperty.call(staying.readiness, 'bootstrap_readiness'));
+  assert(staying.items.some((item) => item.contentType === 'phonetic'));
+  assert(staying.items.every((item) => ['word', 'phonetic'].includes(item.contentType)));
+  assert(staying.items[0].reasonCodes.includes('targets_confusion_pair'));
+
+  const advancing = rankCurriculum({
+    sessions, confusions, contentAttempts, curriculum,
+    officialProgression: officialProgression(true), now, limit: 4,
+  });
+  assert.strictEqual(advancing.shouldAdvance, true);
+  assert.strictEqual(advancing.recommendedDifficulty, 'intermediate');
+  assert(advancing.items.every((item) => ['word', 'phrase'].includes(item.contentType)));
+  assert(advancing.items.every((item) => item.level === 'intermediate'));
+  assert(!advancing.items.some((item) => item.contentType === 'paragraph'));
+  return staying;
 };
 
 class FakeQuery {
@@ -64,6 +88,7 @@ class FakeQuery {
   }
   select() { return this; }
   eq(column, value) { this.filters.push([column, value]); return this; }
+  neq(column, value) { this.filters.push([`${column}:neq`, value]); return this; }
   order() { return this; }
   limit() { return this.execute(); }
   insert(value) { this.inserted = value; this.state.inserts[this.table] = value; return this; }
@@ -80,8 +105,14 @@ class FakeQuery {
       this.state.confusionFilter = this.filters.find(([column]) => column === 'student_id')?.[1];
       return { data: confusions, error: null };
     }
-    if (this.table === 'child_progress') return { data: { level: 'Beginner' }, error: null };
-    if (this.table === 'words') return { data: words, error: null };
+    if (this.table === 'student_content_attempts') {
+      this.state.attemptFilter = this.filters.find(([column]) => column === 'student_id')?.[1];
+      return { data: contentAttempts, error: null };
+    }
+    if (this.table === 'reading_content') {
+      const level = this.filters.find(([column]) => column === 'level')?.[1];
+      return { data: curriculum.filter((item) => item.level === level && item.content_type !== 'paragraph'), error: null };
+    }
     if (this.table === 'personalization_recommendations') {
       return { data: single ? { id: 'recommendation-1', created_at: now.toISOString() } : null, error: null };
     }
@@ -91,7 +122,7 @@ class FakeQuery {
 }
 
 const createFakeSupabase = () => {
-  const state = { inserts: {}, sessionFilter: null, confusionFilter: null };
+  const state = { inserts: {}, sessionFilter: null, confusionFilter: null, attemptFilter: null };
   return {
     state,
     auth: {
@@ -102,6 +133,11 @@ const createFakeSupabase = () => {
       },
     },
     from(table) { return new FakeQuery(table, state); },
+    async rpc(name, params) {
+      assert.strictEqual(name, 'get_student_reading_progress');
+      assert.strictEqual(params.p_student_id, studentId);
+      return { data: officialProgression(false), error: null };
+    },
   };
 };
 
@@ -132,17 +168,19 @@ const testEndpoint = async () => {
     const response = await request({
       port: server.address().port,
       headers: { Authorization: 'Bearer valid-token' },
-      body: { limit: 2, studentId: 'forged-victim-id' },
+      body: { limit: 2, studentId: 'forged-victim-id', level: 'Advanced' },
     });
     assert.strictEqual(response.status, 200);
     assert.strictEqual(supabase.state.sessionFilter, studentId);
     assert.strictEqual(supabase.state.confusionFilter, studentId);
+    assert.strictEqual(supabase.state.attemptFilter, studentId);
     assert.strictEqual(supabase.state.inserts.personalization_recommendations.student_id, studentId);
-    assert.strictEqual(response.body.recommendation.words[0].word, 'radyo');
-    assert.deepStrictEqual(
-      supabase.state.inserts.personalization_recommendation_words[0].reason_codes.component_scores,
-      response.body.recommendation.words[0].componentScores,
-    );
+    assert.strictEqual(response.body.recommendation.shouldAdvance, false);
+    assert.strictEqual(response.body.recommendation.readiness.official_progression_eligible, false);
+    assert(response.body.recommendation.items.length > 0);
+    const logged = supabase.state.inserts.personalization_recommendation_words[0];
+    assert.strictEqual(logged.content_id, response.body.recommendation.items[0].contentId);
+    assert.deepStrictEqual(logged.reason_codes.component_scores, response.body.recommendation.items[0].componentScores);
     return response.body.recommendation;
   } finally {
     await new Promise((resolve) => server.close(resolve));
@@ -160,7 +198,8 @@ const testEndpoint = async () => {
     recommendedDifficulty: sample.recommendedDifficulty,
     shouldAdvance: sample.shouldAdvance,
     predictedProbability: sample.predictedProbability,
-    words: sample.words.slice(0, 2),
+    officialProgressionEligible: sample.readiness.official_progression_eligible,
+    items: sample.items.slice(0, 2),
   }, null, 2));
 })().catch((error) => {
   console.error(error);

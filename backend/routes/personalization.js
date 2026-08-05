@@ -1,6 +1,6 @@
 const express = require('express');
 const { supabaseAdmin } = require('../config/supabase');
-const { rankWords, STRATEGY_VERSION } = require('../services/coldStartRanker');
+const { rankCurriculum, STRATEGY_VERSION } = require('../services/coldStartRanker');
 
 const bearerTokenFrom = (authorization = '') => {
   const match = String(authorization).match(/^Bearer\s+(.+)$/i);
@@ -46,7 +46,7 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
         ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 24)
         : 10;
 
-      const [sessionsResult, confusionsResult, progressResult, wordsResult] = await Promise.all([
+      const [sessionsResult, confusionsResult, attemptsResult, progressionResult] = await Promise.all([
         supabase
           .from('pronunciation_practice_sessions')
           .select('id,student_id,word_id,word,accuracy_percentage,is_correct,duration_seconds,difficulty_level_at_attempt,practice_source,created_at')
@@ -60,30 +60,50 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
           .order('created_at', { ascending: true })
           .limit(1000),
         supabase
-          .from('child_progress')
-          .select('level')
-          .eq('child_id', studentId)
-          .maybeSingle(),
-        supabase
-          .from('words')
-          .select('id,word,level,syllable_count,has_diphthong,has_consonant_cluster'),
+          .from('student_content_attempts')
+          .select('id,student_id,content_id,accuracy,is_full_submission,source,created_at')
+          .eq('student_id', studentId)
+          .order('created_at', { ascending: true })
+          .limit(1000),
+        supabase.rpc('get_student_reading_progress', { p_student_id: studentId }),
       ]);
 
-      const readError = sessionsResult.error || confusionsResult.error || progressResult.error || wordsResult.error;
+      const readError = sessionsResult.error || confusionsResult.error || attemptsResult.error || progressionResult.error;
       if (readError) {
         console.error('[Personalization] feature data load failed:', readError.message || readError);
         return res.status(503).json({ success: false, message: 'Personalized recommendations are temporarily unavailable.' });
       }
 
-      const result = rankWords({
+      const officialProgression = progressionResult.data || {};
+      const currentLevel = String(officialProgression.effective_level || 'Beginner');
+      const canAdvance = currentLevel !== 'Advanced' && officialProgression.official_progression_eligible === true;
+      const targetLevel = canAdvance
+        ? ({ Beginner: 'Intermediate', Intermediate: 'Advanced' }[currentLevel] || currentLevel)
+        : currentLevel;
+      // A level contains at most 400 rankable items (200 words + 200 companion
+      // activities), so this query stays below the project 1,000-row cap.
+      const curriculumResult = await supabase
+        .from('reading_content')
+        .select('id,word_id,content_text,content_type,level,sequence_no,pattern_note,is_assessment')
+        .eq('level', targetLevel)
+        .eq('is_active', true)
+        .neq('content_type', 'paragraph')
+        .order('sequence_no', { ascending: true });
+      if (curriculumResult.error) {
+        console.error('[Personalization] curriculum load failed:', curriculumResult.error.message || curriculumResult.error);
+        return res.status(503).json({ success: false, message: 'Personalized recommendations are temporarily unavailable.' });
+      }
+
+      const result = rankCurriculum({
         sessions: sessionsResult.data || [],
         confusions: confusionsResult.data || [],
-        words: wordsResult.data || [],
-        progressLevel: progressResult.data?.level || 'Beginner',
+        contentAttempts: attemptsResult.data || [],
+        curriculum: curriculumResult.data || [],
+        officialProgression,
         limit,
       });
-      if (!result.words.length) {
-        return res.status(503).json({ success: false, message: 'No personalized practice words are available yet.' });
+      if (!result.items.length) {
+        return res.status(503).json({ success: false, message: 'No personalized curriculum practice is available yet.' });
       }
 
       const { data: recommendation, error: recommendationError } = await supabase
@@ -112,19 +132,21 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
         return res.status(503).json({ success: false, message: 'Unable to record the personalized recommendation.' });
       }
 
-      const recommendationWords = result.words.map((word) => ({
+      const recommendationWords = result.items.map((item) => ({
         recommendation_id: recommendation.id,
-        word_id: word.id,
-        rank: word.rank,
-        ranking_score: word.rankingScore,
+        content_id: item.contentId,
+        word_id: item.wordId,
+        rank: item.rank,
+        ranking_score: item.rankingScore,
         reason_codes: {
-          codes: word.reasonCodes,
-          component_scores: word.componentScores,
-          matched_confusion_pairs: word.matchedConfusionPairs,
-          prior_attempt_count: word.priorAttemptCount,
-          prior_average_accuracy: word.priorAverageAccuracy,
-          days_since_practiced: word.daysSincePracticed,
-          structural_load: word.structuralLoad,
+          codes: item.reasonCodes,
+          content_type: item.contentType,
+          component_scores: item.componentScores,
+          matched_confusion_pairs: item.matchedConfusionPairs,
+          prior_attempt_count: item.priorAttemptCount,
+          prior_average_accuracy: item.priorAverageAccuracy,
+          days_since_practiced: item.daysSincePracticed,
+          structural_load: item.structuralLoad,
         },
       }));
       const { error: wordsLogError } = await supabase

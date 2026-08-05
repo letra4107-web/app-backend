@@ -1,7 +1,12 @@
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
+const PRACTICE_TYPES_BY_LEVEL = Object.freeze({
+  beginner: ['word', 'phonetic'],
+  intermediate: ['word', 'phrase'],
+  advanced: ['word', 'sentence'],
+});
 const CONFUSION_PAIRS = ['d-r', 'b-p', 'd-t', 'g-k', 'n-ng', 'm-n', 'l-r', 's-ts', 'e-i', 'o-u', 'a-o'];
-const STRATEGY_VERSION = 'cold-start-ranker-v1';
-const FEATURE_SCHEMA_VERSION = 'readiness-v1';
+const STRATEGY_VERSION = 'cold-start-ranker-v2-official-progression';
+const FEATURE_SCHEMA_VERSION = 'readiness-v2-official-progression';
 const OUTCOME_WINDOW_DAYS = 30;
 
 // DESIGN LIMITATION: these weights were manually chosen from domain reasoning
@@ -26,7 +31,8 @@ const asDate = (value) => {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
-const normalizeWord = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+const normalizeText = (value) => String(value || '').toLowerCase().normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
 const dateKeyManila = (date) => new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
 }).format(date);
@@ -60,8 +66,8 @@ const currentStreak = (sessions, now) => {
   return streak;
 };
 
-const wordPhonemes = (word) => {
-  const normalized = normalizeWord(word).replace(/gui/g, 'gi').replace(/gue/g, 'ge');
+const textPhonemes = (text) => {
+  const normalized = normalizeText(text).replace(/\s/g, '').replace(/gui/g, 'gi').replace(/gue/g, 'ge');
   const phonemes = [];
   for (let index = 0; index < normalized.length;) {
     const digraph = ['ng', 'ts', 'ny'].find((value) => normalized.startsWith(value, index));
@@ -76,49 +82,39 @@ const wordPhonemes = (word) => {
   return phonemes;
 };
 
-const pairExposure = (word) => {
-  const counts = wordPhonemes(word).reduce((map, phoneme) => ({ ...map, [phoneme]: (map[phoneme] || 0) + 1 }), {});
+const pairExposure = (text) => {
+  const counts = textPhonemes(text).reduce((map, phoneme) => ({ ...map, [phoneme]: (map[phoneme] || 0) + 1 }), {});
   return Object.fromEntries(CONFUSION_PAIRS.map((pair) => {
     const [left, right] = pair.split('-');
     return [pair, (counts[left] || 0) + (counts[right] || 0)];
   }));
 };
 
-const structuralLoad = (word) => clamp(
-  (Math.max(1, asNumber(word.syllable_count) || 1) / 5)
-  + (word.has_diphthong ? 0.15 : 0)
-  + (word.has_consonant_cluster ? 0.20 : 0),
-);
-
-const latestDifficulty = (sessions, progressLevel) => {
-  for (const session of [...sessions].reverse()) {
-    const level = String(session.difficulty_level_at_attempt || '').toLowerCase();
-    if (LEVELS.includes(level)) return level;
-  }
-  const fallback = String(progressLevel || '').toLowerCase();
-  return LEVELS.includes(fallback) ? fallback : 'beginner';
+const structuralLoad = (item) => {
+  const typeBase = { phonetic: 0.15, word: 0.30, phrase: 0.50, sentence: 0.72 }[item.content_type] || 0.5;
+  const textLengthLoad = clamp(normalizeText(item.content_text).replace(/\s/g, '').length / 80) * 0.20;
+  return clamp(typeBase + textLengthLoad);
 };
 
-const rankWords = ({ sessions = [], confusions = [], words = [], progressLevel = 'beginner', now = new Date(), limit = 10 }) => {
-  const orderedSessions = [...sessions]
-    .filter((row) => asDate(row.created_at))
+const nextLevel = (level) => LEVELS[LEVELS.indexOf(level) + 1] || level;
+
+const rankCurriculum = ({
+  sessions = [], confusions = [], contentAttempts = [], curriculum = [],
+  officialProgression = {}, now = new Date(), limit = 10,
+}) => {
+  const orderedSessions = [...sessions].filter((row) => asDate(row.created_at))
     .sort((left, right) => asDate(left.created_at) - asDate(right.created_at));
   const recentFive = orderedSessions.slice(-5);
   const accuracies = recentFive.map((row) => asNumber(row.accuracy_percentage)).filter((value) => value !== null);
   const averageAccuracy = accuracies.length ? accuracies.reduce((sum, value) => sum + value, 0) / accuracies.length : null;
   const successRate = recentFive.length ? recentFive.filter((row) => row.is_correct === true).length / recentFive.length : null;
   const trend = accuracySlope(accuracies);
-  const hasMinimumHistory = recentFive.length === 5;
-  const bootstrapReadiness = hasMinimumHistory
-    ? averageAccuracy >= 80 && successRate >= 0.8 && trend >= -2
-    : null;
 
-  const currentDifficulty = latestDifficulty(orderedSessions, progressLevel);
-  const canAdvance = currentDifficulty !== 'advanced';
-  const shouldAdvance = bootstrapReadiness === true && canAdvance;
-  const recommendedDifficulty = shouldAdvance
-    ? LEVELS[LEVELS.indexOf(currentDifficulty) + 1]
-    : currentDifficulty;
+  const currentDifficultyRaw = String(officialProgression.effective_level || 'Beginner').toLowerCase();
+  const currentDifficulty = LEVELS.includes(currentDifficultyRaw) ? currentDifficultyRaw : 'beginner';
+  const officialProgressionEligible = officialProgression.official_progression_eligible === true;
+  const shouldAdvance = officialProgressionEligible && currentDifficulty !== 'advanced';
+  const recommendedDifficulty = shouldAdvance ? nextLevel(currentDifficulty) : currentDifficulty;
 
   const windowStart = now.getTime() - (OUTCOME_WINDOW_DAYS * 86400000);
   const windowSessions = orderedSessions.filter((row) => asDate(row.created_at).getTime() >= windowStart);
@@ -134,65 +130,64 @@ const rankWords = ({ sessions = [], confusions = [], words = [], progressLevel =
   }, {});
   const confusionRates = Object.fromEntries(CONFUSION_PAIRS.map((pair) => [pair, (confusionCounts[pair] || 0) / denominator]));
 
-  const candidatePool = words.filter((word) => String(word.level || '').toLowerCase() === recommendedDifficulty);
-  const targetStructuralLoad = shouldAdvance ? 0.65 : 0.40;
-  const rawCandidates = candidatePool.map((word) => {
-    const attempts = orderedSessions.filter((session) => (
-      (session.word_id && String(session.word_id) === String(word.id))
-      || (!session.word_id
-        && normalizeWord(session.word) === normalizeWord(word.word)
-        && String(session.difficulty_level_at_attempt || '').toLowerCase() === recommendedDifficulty)
-    ));
-    const priorAccuracies = attempts.map((row) => asNumber(row.accuracy_percentage)).filter((value) => value !== null);
+  const allowedTypes = PRACTICE_TYPES_BY_LEVEL[recommendedDifficulty];
+  const candidatePool = curriculum.filter((item) => (
+    String(item.level || '').toLowerCase() === recommendedDifficulty
+    && allowedTypes.includes(item.content_type)
+    && item.content_type !== 'paragraph'
+    && item.is_assessment !== true
+  ));
+  const targetStructuralLoad = { beginner: 0.35, intermediate: 0.55, advanced: 0.75 }[recommendedDifficulty];
+  const rawCandidates = candidatePool.map((item) => {
+    let attempts = contentAttempts.filter((attempt) => String(attempt.content_id) === String(item.id));
+    if (!attempts.length && item.word_id) {
+      attempts = orderedSessions.filter((session) => String(session.word_id || '') === String(item.word_id))
+        .map((session) => ({ accuracy: session.accuracy_percentage, created_at: session.created_at }));
+    }
+    const priorAccuracies = attempts.map((row) => asNumber(row.accuracy ?? row.accuracy_percentage)).filter((value) => value !== null);
     const priorAverage = priorAccuracies.length
       ? priorAccuracies.reduce((sum, value) => sum + value, 0) / priorAccuracies.length
       : null;
     const lastPracticed = attempts.map((row) => asDate(row.created_at)).filter(Boolean).sort((a, b) => b - a)[0] || null;
-    const exposures = pairExposure(word.word);
+    const exposures = pairExposure(item.content_text);
     const matchedPairs = CONFUSION_PAIRS.filter((pair) => exposures[pair] > 0 && confusionRates[pair] > 0);
     const weaknessRaw = CONFUSION_PAIRS.reduce(
-      (sum, pair) => sum + (confusionRates[pair] * Math.min(exposures[pair], 2)),
-      0,
+      (sum, pair) => sum + (confusionRates[pair] * Math.min(exposures[pair], 2)), 0,
     );
     return {
-      word,
-      attempts: attempts.length,
-      priorAverage,
-      lastPracticed,
-      matchedPairs,
-      weaknessRaw,
+      item, attempts: attempts.length, priorAverage, lastPracticed, matchedPairs, weaknessRaw,
       masteryGap: priorAverage === null ? 0.50 : clamp(1 - (priorAverage / 100)),
       recencyNeed: lastPracticed ? clamp(daysBetweenManila(lastPracticed, now) / 14) : 1,
-      structuralLoad: structuralLoad(word),
+      structuralLoad: structuralLoad(item),
     };
   });
   const maxWeakness = Math.max(0, ...rawCandidates.map((candidate) => candidate.weaknessRaw));
-  const rankedWords = rawCandidates.map((candidate) => {
+  const rankedItems = rawCandidates.map((candidate) => {
     const weaknessMatch = maxWeakness ? candidate.weaknessRaw / maxWeakness : 0;
-    const structuralFit = clamp(1 - Math.abs(candidate.structuralLoad - targetStructuralLoad));
-    const components = {
-      weakness_match: round(weaknessMatch),
-      mastery_gap: round(candidate.masteryGap),
-      recency_need: round(candidate.recencyNeed),
-      structural_fit: round(structuralFit),
+    const fit = clamp(1 - Math.abs(candidate.structuralLoad - targetStructuralLoad));
+    const componentScores = {
+      weakness_match: round(weaknessMatch), mastery_gap: round(candidate.masteryGap),
+      recency_need: round(candidate.recencyNeed), structural_fit: round(fit),
     };
     const rankingScore = round(Object.entries(RANKING_WEIGHTS).reduce(
-      (sum, [key, weight]) => sum + (components[key] * weight),
-      0,
+      (sum, [key, weight]) => sum + (componentScores[key] * weight), 0,
     ));
     const reasonCodes = [];
     if (candidate.matchedPairs.length) reasonCodes.push('targets_confusion_pair');
     if (candidate.priorAverage !== null && candidate.priorAverage < 75) reasonCodes.push('low_prior_accuracy');
     if (candidate.lastPracticed && daysBetweenManila(candidate.lastPracticed, now) >= 14) reasonCodes.push('not_practiced_recently');
-    if (!candidate.attempts) reasonCodes.push('unseen_diagnostic_word');
-    if (structuralFit >= 0.80) reasonCodes.push('appropriate_structural_load');
+    if (!candidate.attempts) reasonCodes.push(candidate.item.content_type === 'word' ? 'unseen_diagnostic_word' : 'unseen_curriculum_item');
+    if (fit >= 0.80) reasonCodes.push('appropriate_structural_load');
     return {
-      id: candidate.word.id,
-      word: candidate.word.word,
-      level: candidate.word.level,
-      syllableCount: candidate.word.syllable_count,
+      id: candidate.item.id,
+      contentId: candidate.item.id,
+      wordId: candidate.item.word_id || null,
+      contentText: candidate.item.content_text,
+      word: candidate.item.content_text,
+      contentType: candidate.item.content_type,
+      level: recommendedDifficulty,
       rankingScore,
-      componentScores: components,
+      componentScores,
       reasonCodes,
       matchedConfusionPairs: candidate.matchedPairs,
       priorAttemptCount: candidate.attempts,
@@ -203,7 +198,7 @@ const rankWords = ({ sessions = [], confusions = [], words = [], progressLevel =
   }).sort((left, right) => (
     right.rankingScore - left.rankingScore
     || Number(right.priorAttemptCount === 0) - Number(left.priorAttemptCount === 0)
-    || String(left.word).localeCompare(String(right.word), 'fil')
+    || String(left.contentText).localeCompare(String(right.contentText), 'fil')
   )).slice(0, Math.min(Math.max(Number(limit) || 10, 1), 24));
 
   const readiness = {
@@ -213,11 +208,16 @@ const rankWords = ({ sessions = [], confusions = [], words = [], progressLevel =
     accuracy_trend_last_5: round(trend),
     current_streak: currentStreak(orderedSessions, now),
     total_attempts: orderedSessions.length,
-    bootstrap_readiness: bootstrapReadiness,
-    label_source: hasMinimumHistory ? 'bootstrap_rubric_v1' : null,
+    official_progression_eligible: officialProgressionEligible,
+    official_earned_level: officialProgression.official_earned_level || 'Beginner',
+    placement_override_level: officialProgression.placement_override_level || null,
+    program_complete: officialProgression.program_complete === true,
+    official_requirements: officialProgression.requirements || [],
+    label_source: 'authoritative_client_curriculum_v1',
     confusion_window_days: OUTCOME_WINDOW_DAYS,
     confusion_rates: Object.fromEntries(Object.entries(confusionRates).map(([key, value]) => [key, round(value)])),
   };
+  const ranked = rankedItems.map((item, index) => ({ ...item, rank: index + 1 }));
   return {
     strategy: STRATEGY_VERSION,
     featureSchemaVersion: FEATURE_SCHEMA_VERSION,
@@ -227,14 +227,18 @@ const rankWords = ({ sessions = [], confusions = [], words = [], progressLevel =
     shouldAdvance,
     predictedProbability: null,
     readiness,
-    words: rankedWords.map((word, index) => ({ ...word, rank: index + 1 })),
+    items: ranked,
+    // Temporary response alias for older app builds. Entries now carry stable
+    // contentId/contentType and may be non-word curriculum.
+    words: ranked,
   };
 };
 
 module.exports = {
   CONFUSION_PAIRS,
   FEATURE_SCHEMA_VERSION,
+  PRACTICE_TYPES_BY_LEVEL,
   RANKING_WEIGHTS,
   STRATEGY_VERSION,
-  rankWords,
+  rankCurriculum,
 };

@@ -11,8 +11,12 @@ export type WordBankEntry = {
   has_consonant_cluster: boolean;
 };
 
-export type RankedWordEntry = {
+export type RankedContentEntry = {
   id: string;
+  contentId: string;
+  wordId: string | null;
+  contentText: string;
+  contentType: 'word' | 'phonetic' | 'phrase' | 'sentence';
   word: string;
   level: WordLevel;
   rank: number;
@@ -46,13 +50,14 @@ export const fetchWords = async (level: string, limit = 24): Promise<string[]> =
 export const fetchPersonalizedWords = async (limit = 24): Promise<string[]> => {
   const response = await postJson<{
     success: boolean;
-    recommendation?: { words?: RankedWordEntry[] };
+    recommendation?: { items?: RankedContentEntry[]; words?: RankedContentEntry[] };
     message?: string;
   }>(buildApiUrl('/personalization/recommend'), { limit }, 15000);
-  if (!response?.success || !response.recommendation?.words?.length) {
+  const ranked = response.recommendation?.items || response.recommendation?.words || [];
+  if (!response?.success || !ranked.length) {
     throw new Error(response?.message || 'No personalized words are available.');
   }
-  return response.recommendation.words.map((entry) => entry.word);
+  return ranked.map((entry) => entry.contentText || entry.word);
 };
 
 type PracticeWordLoader = (level: string, limit: number) => Promise<string[]>;

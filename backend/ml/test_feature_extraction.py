@@ -47,15 +47,44 @@ class FeatureExtractionTests(unittest.TestCase):
         self.assertIsNone(historical[0]["avg_accuracy_last_5"])
         self.assertEqual(historical[-1]["total_attempts_prior"], 5)
         self.assertEqual(historical[-1]["avg_accuracy_last_5"], 70.0)
-        self.assertEqual(historical[-1]["bootstrap_readiness_label"], 0)
         self.assertEqual(latest[0]["avg_accuracy_last_5"], 90.0)
-        self.assertEqual(latest[0]["bootstrap_readiness_label"], 1)
+        self.assertFalse(latest[0]["official_progression_eligible"])
+        self.assertNotIn("bootstrap_readiness_label", latest[0])
 
-    def test_candidate_rows_target_next_level_after_bootstrap_advance(self):
+    def test_accuracy_does_not_advance_without_official_completions(self):
         _, _, candidates = build_datasets(
             self.sessions, self.confusions, self.words,
             now=datetime(2026, 8, 7, tzinfo=timezone.utc),
         )
+        self.assertEqual([row["word_id"] for row in candidates], ["word-bata", "word-dahon"])
+        self.assertTrue(all(row["candidate_difficulty"] == "beginner" for row in candidates))
+
+    def test_candidate_rows_advance_after_official_requirements(self):
+        reading_content = [
+            {"id": "content-word", "word_id": "word-bata", "content_type": "word", "level": "Beginner"},
+            {"id": "content-phonetic", "word_id": None, "content_type": "phonetic", "level": "Beginner"},
+        ]
+        requirements = [
+            {"level": "Beginner", "content_type": "word", "required_count": 1},
+            {"level": "Beginner", "content_type": "phonetic", "required_count": 1},
+            {"level": "Intermediate", "content_type": "word", "required_count": 1},
+            {"level": "Intermediate", "content_type": "phrase", "required_count": 1},
+            {"level": "Advanced", "content_type": "word", "required_count": 1},
+            {"level": "Advanced", "content_type": "sentence", "required_count": 1},
+            {"level": "Advanced", "content_type": "paragraph", "required_count": 1},
+        ]
+        completions = [
+            {"student_id": self.student, "content_id": "content-word", "completed_at": "2026-08-06T01:00:00+00:00"},
+            {"student_id": self.student, "content_id": "content-phonetic", "completed_at": "2026-08-06T01:01:00+00:00"},
+        ]
+        _, latest, candidates = build_datasets(
+            self.sessions, self.confusions, self.words,
+            now=datetime(2026, 8, 7, tzinfo=timezone.utc),
+            reading_content=reading_content,
+            completions=completions,
+            requirements=requirements,
+        )
+        self.assertTrue(latest[0]["official_progression_eligible"])
         self.assertEqual([row["word_id"] for row in candidates], ["word-radyo"])
         self.assertEqual(candidates[0]["candidate_difficulty"], "intermediate")
         self.assertGreater(candidates[0]["weakness_match_score"], 0)

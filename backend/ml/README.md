@@ -10,13 +10,19 @@ data.
   each historical attempt.
 - `readiness_latest.csv`: one current readiness row per student.
 - `candidate_word_features.csv`: one row per student and candidate word at the
-  difficulty selected by the provisional cold-start rubric.
+  difficulty selected by official curriculum eligibility.
 
-The provisional `bootstrap_readiness_label` is **not ground truth**. It is 1
-only after five recent attempts when average accuracy is at least 80%, at least
-four attempts are correct, and the accuracy slope is no worse than -2 points
-per attempt. It exists to validate the pipeline and cold-start behavior. Future
-training must prefer `personalization_recommendation_outcomes.readiness_label`.
+`official_progression_eligible` is reconstructed from
+`student_content_completions`, `reading_content`,
+`reading_level_requirements`, and audited placement overrides using only rows
+observable at the snapshot cutoff. Accuracy and trend never set this field.
+The earlier accuracy-based bootstrap label was superseded before model training
+when the client supplied the authoritative curriculum plan.
+
+This official gate is still not the future supervised outcome target. Future
+training must use observed
+`personalization_recommendation_outcomes.readiness_label` rows once sufficient
+multi-student outcomes and both classes exist.
 
 Confusion features are event rates over the preceding 30 days. The underlying
 events compare target spelling with Speech-to-Text output and must not be
@@ -42,6 +48,10 @@ python -m ml.feature_extraction `
   --confusions confusions.json `
   --words words.json `
   --progress progress.json `
+  --reading-content reading_content.json `
+  --completions completions.json `
+  --requirements requirements.json `
+  --overrides overrides.json `
   --output-dir ml/output
 ```
 
