@@ -173,17 +173,32 @@ async function main() {
     console.log(`Seeded canonical rows ${index + 1}-${index + batch.length}.`);
   }
 
-  const { data: seeded, error: verifyError } = await supabaseAdmin
-    .from('reading_content')
-    .select('id,word_id,content_type,level,is_assessment,is_active');
-  if (verifyError) throw new Error(`Could not verify reading_content: ${verifyError.message || verifyError}`);
-  const active = (seeded || []).filter((row) => row.is_active);
-  const linkedWords = active.filter((row) => row.content_type === 'word' && row.word_id).length;
-  const assessments = active.filter((row) => row.content_type === 'paragraph' && row.is_assessment).length;
-  if (active.length !== 1220 || linkedWords !== 600 || assessments !== 20) {
-    throw new Error(`Seed verification failed: active=${active.length}, linkedWords=${linkedWords}, assessments=${assessments}.`);
+  // Use HEAD + exact counts so verification is not truncated by PostgREST's
+  // configured maximum response size (currently 1,000 rows).
+  const countQueries = await Promise.all([
+    supabaseAdmin.from('reading_content').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabaseAdmin.from('reading_content').select('id', { count: 'exact', head: true })
+      .eq('is_active', true).eq('content_type', 'word').not('word_id', 'is', null),
+    supabaseAdmin.from('reading_content').select('id', { count: 'exact', head: true })
+      .eq('is_active', true).eq('content_type', 'phonetic'),
+    supabaseAdmin.from('reading_content').select('id', { count: 'exact', head: true })
+      .eq('is_active', true).eq('content_type', 'phrase'),
+    supabaseAdmin.from('reading_content').select('id', { count: 'exact', head: true })
+      .eq('is_active', true).eq('content_type', 'sentence'),
+    supabaseAdmin.from('reading_content').select('id', { count: 'exact', head: true })
+      .eq('is_active', true).eq('content_type', 'paragraph').eq('is_assessment', true),
+  ]);
+  const countError = countQueries.find((result) => result.error)?.error;
+  if (countError) throw new Error(`Could not verify reading_content: ${countError.message || countError}`);
+  const [active, linkedWords, phonetics, phrases, sentences, assessments] = countQueries.map((result) => result.count);
+  if (active !== 1220 || linkedWords !== 600 || phonetics !== 200 || phrases !== 200 || sentences !== 200 || assessments !== 20) {
+    throw new Error(
+      `Seed verification failed: active=${active}, linkedWords=${linkedWords}, phonetics=${phonetics}, phrases=${phrases}, sentences=${sentences}, assessments=${assessments}.`,
+    );
   }
-  console.log(`Verified reading_content: active=${active.length}, linkedWords=${linkedWords}, paragraphAssessments=${assessments}.`);
+  console.log(
+    `Verified reading_content: active=${active}, linkedWords=${linkedWords}, phonetics=${phonetics}, phrases=${phrases}, sentences=${sentences}, paragraphAssessments=${assessments}.`,
+  );
 }
 
 if (require.main === module) {
