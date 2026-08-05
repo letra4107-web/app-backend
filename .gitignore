@@ -37,6 +37,11 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Python ML batch artifacts and privacy-sensitive generated datasets
+__pycache__/
+*.pyc
+/backend/ml/output/
+
 # generated native folders
 /ios
 /android
