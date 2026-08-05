@@ -1,0 +1,2 @@
+# The feature-extraction pipeline intentionally has no third-party packages.
+# Runtime requirement: CPython 3.11 or newer.

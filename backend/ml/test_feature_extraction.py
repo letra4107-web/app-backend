@@ -1,7 +1,7 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from ml.feature_extraction import build_datasets
+from ml.feature_extraction import MANILA, build_datasets, build_readiness_features
 
 
 class FeatureExtractionTests(unittest.TestCase):
@@ -45,6 +45,11 @@ class FeatureExtractionTests(unittest.TestCase):
         self.assertEqual(len(historical), 6)
         self.assertEqual(historical[0]["total_attempts_prior"], 0)
         self.assertIsNone(historical[0]["avg_accuracy_last_5"])
+        self.assertEqual(historical[0]["recent_confusion_event_rate"], 0.0)
+        # The confusion occurs one minute after the second snapshot cutoff and
+        # must not leak backward into that historical training row.
+        self.assertEqual(historical[1]["recent_confusion_event_rate"], 0.0)
+        self.assertEqual(historical[2]["recent_confusion_event_rate"], 0.5)
         self.assertEqual(historical[-1]["total_attempts_prior"], 5)
         self.assertEqual(historical[-1]["avg_accuracy_last_5"], 70.0)
         self.assertEqual(latest[0]["avg_accuracy_last_5"], 90.0)
@@ -59,7 +64,7 @@ class FeatureExtractionTests(unittest.TestCase):
         self.assertEqual([row["word_id"] for row in candidates], ["word-bata", "word-dahon"])
         self.assertTrue(all(row["candidate_difficulty"] == "beginner" for row in candidates))
 
-    def test_candidate_rows_advance_after_official_requirements(self):
+    def test_candidate_rows_use_new_level_after_official_requirements(self):
         reading_content = [
             {"id": "content-word", "word_id": "word-bata", "content_type": "word", "level": "Beginner"},
             {"id": "content-phonetic", "word_id": None, "content_type": "phonetic", "level": "Beginner"},
@@ -84,11 +89,38 @@ class FeatureExtractionTests(unittest.TestCase):
             completions=completions,
             requirements=requirements,
         )
-        self.assertTrue(latest[0]["official_progression_eligible"])
+        # Completing Beginner moves the student to Intermediate. Eligibility
+        # then describes whether the now-current Intermediate level is complete,
+        # so it remains false until Intermediate's own requirements are met.
+        self.assertEqual(latest[0]["current_difficulty"], "intermediate")
+        self.assertEqual(latest[0]["official_earned_level"], "Intermediate")
+        self.assertFalse(latest[0]["official_progression_eligible"])
         self.assertEqual([row["word_id"] for row in candidates], ["word-radyo"])
         self.assertEqual(candidates[0]["candidate_difficulty"], "intermediate")
         self.assertGreater(candidates[0]["weakness_match_score"], 0)
         self.assertEqual(candidates[0]["unseen_word"], 1)
+
+    def test_manila_timezone_is_fixed_utc_plus_8_without_iana_database(self):
+        self.assertEqual(MANILA.utcoffset(None), timedelta(hours=8))
+        self.assertEqual(MANILA.tzname(None), "Asia/Manila")
+
+        # Both timestamps have the same UTC date, but cross midnight in Manila.
+        # The feature must therefore report one local calendar day elapsed.
+        history = [{
+            "student_id": self.student,
+            "word": "bata",
+            "accuracy_percentage": 80,
+            "is_correct": True,
+            "created_at": "2026-08-06T15:30:00+00:00",
+        }]
+        row = build_readiness_features(
+            self.student,
+            history,
+            [],
+            datetime(2026, 8, 6, 16, 30, tzinfo=timezone.utc),
+        )
+        self.assertEqual(row["days_since_last_practice"], 1)
+        self.assertEqual(row["current_streak"], 1)
 
 
 if __name__ == "__main__":

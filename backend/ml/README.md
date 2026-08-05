@@ -4,6 +4,28 @@ This directory builds datasets for the personalized difficulty system. It does
 not train a model while the project has insufficient multi-student outcome
 data.
 
+## Python environment
+
+Install 64-bit CPython 3.11 or newer from the official Python Windows installer
+and enable both **Add Python to PATH** and the Python launcher. Python 3.13 is
+the recommended version for this project. Close and reopen PowerShell after
+installation so the updated PATH is loaded, then verify it from `backend/`:
+
+```powershell
+py -3.13 --version
+py -3.13 -m pip install -r ml/requirements.txt
+py -3.13 -m unittest -v ml.test_feature_extraction
+```
+
+The pipeline currently uses only the Python standard library, so
+`requirements.txt` contains no third-party dependencies. Manila calendar-day
+features use a fixed UTC+8 offset via `datetime.timezone`; they intentionally do
+not require the optional IANA `tzdata` package. The Philippines does not
+currently observe daylight saving time, making UTC+8 appropriate for this
+application's current date calculations. If that policy changes, replace the
+fixed offset with `zoneinfo.ZoneInfo("Asia/Manila")` and add `tzdata` for
+portable Windows support.
+
 ## Outputs
 
 - `readiness_historical.csv`: one leakage-safe snapshot immediately before
@@ -34,7 +56,7 @@ Use a service-role credential in the batch environment; never ship it in the
 mobile application:
 
 ```powershell
-python -m ml.feature_extraction --from-supabase --output-dir ml/output
+py -3.13 -m ml.feature_extraction --from-supabase --output-dir ml/output
 ```
 
 Required environment variables are `SUPABASE_URL` and
@@ -43,7 +65,7 @@ Required environment variables are `SUPABASE_URL` and
 The extractor can also read JSON-array fixtures or secure exports:
 
 ```powershell
-python -m ml.feature_extraction `
+py -3.13 -m ml.feature_extraction `
   --sessions sessions.json `
   --confusions confusions.json `
   --words words.json `
@@ -58,5 +80,5 @@ python -m ml.feature_extraction `
 Run its dependency-free tests from `backend/`:
 
 ```powershell
-python -m unittest ml.test_feature_extraction
+py -3.13 -m unittest -v ml.test_feature_extraction
 ```
