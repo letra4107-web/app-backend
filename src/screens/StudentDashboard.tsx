@@ -29,7 +29,7 @@ import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } fr
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { PRACTICE_PASSING_SCORE, scorePronunciation, scoreMessage } from '../utils/scorePronunciation';
-import { fetchWords } from '../services/wordsService';
+import { fetchPracticeWords } from '../services/wordsService';
 import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
@@ -535,7 +535,7 @@ export default function StudentDashboard({ navigation }: any) {
     setWordBankLoading(true);
     setWordBankError('');
     try {
-      const words = await fetchWords(level.toLowerCase(), 24);
+      const words = await fetchPracticeWords(level.toLowerCase(), 24);
       setWordBank(words);
     } catch (error: any) {
       console.warn('[StudentDashboard] word bank load failed:', error?.message || error);
