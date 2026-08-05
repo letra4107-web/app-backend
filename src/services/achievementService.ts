@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase';
 import { createParentNotification } from './notificationService';
 import { speakPhrase } from './ttsService';
-import { ChildProgress, levelForXp } from './progressService';
+import { ChildProgress } from './progressService';
 
 export type PronunciationStats = {
   maxSingleAccuracy: number;
@@ -25,7 +25,7 @@ export type AchievementDefinition = {
   description: string;
   image: any;
   category: AchievementCategory;
-  // XP actually granted (added to the student's real xp/level) the moment
+  // XP actually granted as reward currency the moment
   // this badge unlocks - shown in the celebration modal, so it must stay a
   // real, applied value rather than a display-only number.
   xpReward: number;
@@ -331,7 +331,8 @@ export const unlockAchievements = async (
   const updatedProgress: ChildProgress = {
     ...progress,
     xp: nextXp,
-    level: levelForXp(nextXp),
+    // Badge XP never changes the official curriculum-derived reading level.
+    level: progress.level,
     achievements: [
       ...(progress.achievements || []),
       ...newlyUnlocked.map((achievement) => ({ id: achievement.id, unlockedAt })),

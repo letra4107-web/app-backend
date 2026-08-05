@@ -28,12 +28,6 @@ export type ChildProgress = {
   activities_completed?: number;
 };
 
-export const levelForXp = (xp: number): ReadingLevel => {
-  if (xp >= 250) return 'Advanced';
-  if (xp >= 100) return 'Intermediate';
-  return 'Beginner';
-};
-
 const toDateKey = (date = new Date()) => date.toISOString().slice(0, 10);
 
 const yesterdayKey = () => {
@@ -76,7 +70,9 @@ export const buildNextProgress = (
     xp,
     streak,
     longest_streak: longestStreak,
-    level: levelForXp(xp),
+    // XP is reward currency only. Reading level is recalculated by the
+    // server-owned curriculum completion transaction.
+    level: current.level,
     last_practice_date: lastPracticeDate,
     completed_words: completedWords,
     word_count: completedWords.length,
@@ -94,8 +90,6 @@ export const saveProgress = async (progress: ChildProgress) => {
   // on `progress` (this function's argument) can be stale if another save
   // raced ahead of it, so callers must not use it to decide what's "new".
   return postJson<{ success: boolean; progress: ChildProgress; newlyPersistedAchievementIds?: string[] }>(buildApiUrl('/progress/update'), {
-    childId: progress.child_id,
-    student_id: progress.child_id,
     xp: progress.xp,
     streak: progress.streak,
     longestStreak: progress.longest_streak ?? 0,
@@ -107,7 +101,6 @@ export const saveProgress = async (progress: ChildProgress) => {
     word_count: progress.word_count ?? progress.completed_words?.length ?? 0,
     achievements: progress.achievements,
     badges: progress.badges,
-    level: progress.level,
     totalAttempts: progress.total_attempts,
     baselineAccuracy: progress.baseline_accuracy ?? null,
     accuracySum: progress.accuracy_sum ?? 0,

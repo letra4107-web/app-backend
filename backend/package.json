@@ -14,6 +14,7 @@
     "test:env": "node tests/env_validation.test.js",
     "test:smoke": "node tests/server_smoke.test.js",
     "test:practice-auth": "node tests/practice_auth.test.js",
+    "test:progress-auth": "node tests/progress_auth.test.js",
     "test:personalization": "node tests/personalization.test.js",
     "test:pronunciation": "node tests/pronunciation_tests.js",
     "seed:reading-content": "node scripts/seedReadingContent.js"
