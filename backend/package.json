@@ -13,6 +13,7 @@
     "test": "node tests/run_tests.js",
     "test:env": "node tests/env_validation.test.js",
     "test:smoke": "node tests/server_smoke.test.js",
+    "test:practice-auth": "node tests/practice_auth.test.js",
     "test:pronunciation": "node tests/pronunciation_tests.js"
   },
   "dependencies": {
