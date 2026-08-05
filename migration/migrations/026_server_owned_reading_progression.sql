@@ -1,9 +1,24 @@
 -- Official reading progression is completion-driven and server-owned. XP is
 -- deliberately absent from every function in this migration.
 
--- Remove the historical client-write policy. Students retain SELECT access,
--- but only the backend service role can mutate child_progress.
-DROP POLICY IF EXISTS "students_manage_own_child_progress" ON public.child_progress;
+-- Remove every historical client-write policy, including environment-specific
+-- names not present in the repository migrations. Students retain SELECT
+-- access, but only the backend service role can mutate child_progress.
+DO $$
+DECLARE
+  policy_row RECORD;
+BEGIN
+  FOR policy_row IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'child_progress'
+      AND cmd IN ('ALL', 'INSERT', 'UPDATE', 'DELETE')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.child_progress', policy_row.policyname);
+  END LOOP;
+END
+$$;
 DROP POLICY IF EXISTS "Students read own child progress" ON public.child_progress;
 CREATE POLICY "Students read own child progress"
   ON public.child_progress FOR SELECT TO authenticated
