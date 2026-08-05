@@ -1,5 +1,9 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- The deployed children.id column is UUID. This intentionally follows the
+-- live schema rather than the repository's historical 001_schema.sql TEXT
+-- declaration, which predates the production UUID conversion.
+
 -- Canonical, workbook-backed curriculum. The existing public.words table is
 -- intentionally unchanged: each of its 600 rows is represented here through
 -- a stable word_id, while non-word curriculum has no words-table surrogate.
@@ -77,7 +81,7 @@ ON CONFLICT (level, content_type) DO UPDATE SET
 -- the full assessment; its score is retained but never used as a pass gate.
 CREATE TABLE IF NOT EXISTS public.student_content_attempts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id TEXT NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
   content_id UUID NOT NULL REFERENCES public.reading_content(id) ON DELETE RESTRICT,
   accuracy NUMERIC(5,2) NOT NULL CHECK (accuracy >= 0 AND accuracy <= 100),
   transcript TEXT,
@@ -98,7 +102,7 @@ CREATE INDEX IF NOT EXISTS student_content_attempts_content_idx
 -- may create this row after applying the requirement's completion policy.
 CREATE TABLE IF NOT EXISTS public.student_content_completions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id TEXT NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
   content_id UUID NOT NULL REFERENCES public.reading_content(id) ON DELETE RESTRICT,
   qualifying_attempt_id UUID NOT NULL UNIQUE
     REFERENCES public.student_content_attempts(id) ON DELETE RESTRICT,
@@ -114,7 +118,7 @@ CREATE INDEX IF NOT EXISTS student_content_completion_summary_idx
 -- is retained on the same audit record rather than deleting history.
 CREATE TABLE IF NOT EXISTS public.student_reading_level_overrides (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id TEXT NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES public.children(id) ON DELETE CASCADE,
   override_level TEXT NOT NULL CHECK (override_level IN ('Beginner', 'Intermediate', 'Advanced')),
   reason TEXT NOT NULL CHECK (btrim(reason) <> ''),
   created_by_auth_uid TEXT NOT NULL,
