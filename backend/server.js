@@ -185,6 +185,7 @@ app.get('/api', (req, res) => {
       '/api/practice',
       '/api/personalization',
       '/api/words',
+      '/api/tts',
     ],
   });
 });
@@ -217,6 +218,7 @@ app.get('/api/routes', (req, res) => {
       '/api/practice',
       '/api/personalization',
       '/api/words',
+      '/api/tts',
     ],
   });
 });
@@ -269,6 +271,7 @@ mountRoute('/api/notifications', () => require('./routes/notifications'));
 mountRoute('/api/practice', () => require('./routes/practice'));
 mountRoute('/api/personalization', () => require('./routes/personalization'));
 mountRoute('/api/words', () => require('./routes/words'));
+mountRoute('/api/tts', () => require('./routes/tts'));
 
 app.use((req, res) => {
   res.status(404).json({

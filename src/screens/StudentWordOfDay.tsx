@@ -8,7 +8,8 @@ import levenshtein from 'fast-levenshtein';
 import { buildApiUrl, postJson } from '../config/api';
 import { WordOfDayLog } from '../services/wordOfDayService';
 import { WordDefinition } from '../services/wordDefinitionsService';
-import { speakPhrase, speakWord } from '../services/ttsService';
+import { speakPhrase } from '../services/ttsService';
+import { speakWordCloud } from '../services/cloudTtsService';
 import { logPhonemeConfusion } from '../services/phonemeService';
 
 const PRIMARY = '#4f46e5';
@@ -235,7 +236,7 @@ export default function StudentWordOfDay({
       if (!correct) {
         // speak the correct word slowly after a short delay
         setTimeout(() => {
-          if (isMountedRef.current) speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) });
+          if (isMountedRef.current) speakWordCloud(log.word, { onError: (errorMessage) => setMessage(errorMessage) });
         }, 2000);
       }
       await onResult(correct, attempts, score, response.transcript || '', response.completion);
@@ -272,7 +273,7 @@ export default function StudentWordOfDay({
 
       <TouchableOpacity
         style={styles.listenButton}
-        onPress={() => speakWord(log.word, { onError: (errorMessage) => setMessage(errorMessage) })}
+        onPress={() => speakWordCloud(log.word, { onError: (errorMessage) => setMessage(errorMessage) })}
       >
         <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
         <Text style={styles.listenText}>Pakinggan</Text>

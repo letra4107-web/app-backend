@@ -24,7 +24,8 @@ import {
   MIN_ATTEMPTS_FOR_AVERAGE_BADGE, CHALLENGING_WORDS_REQUIRED, IMPROVEMENT_POINTS_REQUIRED, averageAccuracy,
 } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
-import { speakPhrase, speakWord, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
+import { speakPhrase, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
+import { speakWordCloud, stopCloudSpeaking } from '../services/cloudTtsService';
 import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } from '../services/settingsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
@@ -1120,7 +1121,8 @@ export default function StudentDashboard({ navigation }: any) {
   const speakPracticeWord = (word = selectedWord || '') => {
     if (!word) return;
     stopSpeaking();
-    speakWord(word.replace(/-/g, ' '), { onError: (message) => setPracticeStatus(message) });
+    stopCloudSpeaking();
+    speakWordCloud(word.replace(/-/g, ' '), { onError: (message) => setPracticeStatus(message) });
   };
 
   const savePronunciationSession = async (result: PracticeResult, word: string, durationSeconds: number | null) => {
