@@ -17,6 +17,10 @@ const SHEET_TO_LEVEL = {
 
 const VOWELS = 'aeiou';
 const DIPHTHONGS = ['aw', 'ay', 'iw', 'oy', 'uy', 'ey'];
+// Client-approved correction to the workbook: "shorts" is an accidental
+// English entry, not a curriculum word. Keep the source workbook unchanged
+// for auditability while ensuring reruns never seed the rejected row.
+const CLIENT_DATA_EXCLUSIONS = new Set(['shorts|beginner']);
 
 const countSyllables = (word) => {
   const w = word.toLowerCase();
@@ -70,7 +74,7 @@ const readWordRows = () => {
       });
     });
   });
-  return rows;
+  return rows.filter((row) => !CLIENT_DATA_EXCLUSIONS.has(`${row.word}|${row.level}`));
 };
 
 async function main() {

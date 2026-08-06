@@ -81,6 +81,36 @@ export const subscribeToParentNotifications = (
   };
 };
 
+export const subscribeToStudentNotifications = (
+  studentIdOrUserId: string,
+  onChange: () => void,
+) => {
+  if (!studentIdOrUserId) return () => {};
+
+  notificationSubscriptionSeq += 1;
+  const topicBase = `student-notifications-${studentIdOrUserId}-${notificationSubscriptionSeq}-${Date.now()}`;
+
+  const channels = [] as any[];
+
+  // Subscribe to notifications addressed to the student_id
+  const c1 = supabase
+    .channel(`${topicBase}-student`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `student_id=eq.${studentIdOrUserId}` }, onChange)
+    .subscribe();
+  channels.push(c1);
+
+  // Subscribe to notifications addressed to the user_id (auth UID)
+  const c2 = supabase
+    .channel(`${topicBase}-user`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${studentIdOrUserId}` }, onChange)
+    .subscribe();
+  channels.push(c2);
+
+  return () => {
+    channels.forEach((ch) => supabase.removeChannel(ch));
+  };
+};
+
 export const createNotification = async (userId: string, title: string, body: string, type: string) => {
   if (!userId) {
     throw new Error('Cannot create notification without an authenticated user id.');

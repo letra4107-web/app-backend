@@ -5,7 +5,7 @@ const PRACTICE_TYPES_BY_LEVEL = Object.freeze({
   advanced: ['word', 'sentence'],
 });
 const CONFUSION_PAIRS = ['d-r', 'b-p', 'd-t', 'g-k', 'n-ng', 'm-n', 'l-r', 's-ts', 'e-i', 'o-u', 'a-o'];
-const STRATEGY_VERSION = 'cold-start-ranker-v2-official-progression';
+const STRATEGY_VERSION = 'cold-start-ranker-v3-sequential-frontier';
 const FEATURE_SCHEMA_VERSION = 'readiness-v2-official-progression';
 const OUTCOME_WINDOW_DAYS = 30;
 
@@ -20,6 +20,26 @@ const RANKING_WEIGHTS = Object.freeze({
   recency_need: 0.20,
   structural_fit: 0.10,
 });
+
+const sortableNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : Number.MAX_SAFE_INTEGER;
+};
+const compareCurriculumOrder = (left, right) => (
+  sortableNumber(left.sequence_no) - sortableNumber(right.sequence_no)
+  || sortableNumber(left.source_row) - sortableNumber(right.source_row)
+  || String(left.id).localeCompare(String(right.id))
+);
+
+const buildTrackFrontier = (curriculum, completedContentIds, allowedTypes) => {
+  const completed = new Set(Array.from(completedContentIds || [], String));
+  return allowedTypes.flatMap((contentType) => {
+    const firstIncomplete = curriculum
+      .filter((item) => item.content_type === contentType && !completed.has(String(item.id)))
+      .sort(compareCurriculumOrder)[0];
+    return firstIncomplete ? [firstIncomplete] : [];
+  });
+};
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const round = (value, digits = 6) => Number(Number(value).toFixed(digits));
@@ -100,7 +120,8 @@ const nextLevel = (level) => LEVELS[LEVELS.indexOf(level) + 1] || level;
 
 const rankCurriculum = ({
   sessions = [], confusions = [], contentAttempts = [], curriculum = [],
-  officialProgression = {}, now = new Date(), limit = 10,
+  completedContentIds = [], officialProgression = {}, now = new Date(), limit = 10,
+  allowedContentTypes = null,
 }) => {
   const orderedSessions = [...sessions].filter((row) => asDate(row.created_at))
     .sort((left, right) => asDate(left.created_at) - asDate(right.created_at));
@@ -130,14 +151,28 @@ const rankCurriculum = ({
   }, {});
   const confusionRates = Object.fromEntries(CONFUSION_PAIRS.map((pair) => [pair, (confusionCounts[pair] || 0) / denominator]));
 
-  const allowedTypes = PRACTICE_TYPES_BY_LEVEL[recommendedDifficulty];
-  const candidatePool = curriculum.filter((item) => (
+  const levelTypes = PRACTICE_TYPES_BY_LEVEL[recommendedDifficulty];
+  const requestedTypes = Array.isArray(allowedContentTypes) ? allowedContentTypes : levelTypes;
+  const allowedTypes = levelTypes.filter((contentType) => requestedTypes.includes(contentType));
+  const eligibleCurriculum = curriculum.filter((item) => (
     String(item.level || '').toLowerCase() === recommendedDifficulty
     && allowedTypes.includes(item.content_type)
     && item.content_type !== 'paragraph'
     && item.is_assessment !== true
   ));
-  const targetStructuralLoad = { beginner: 0.35, intermediate: 0.55, advanced: 0.75 }[recommendedDifficulty];
+  // Workbook order is binding inside each content track. Personalization is
+  // deliberately constrained to rank only the first incomplete item from
+  // each track; it can choose Word-vs-Phonetic (for example), but can never
+  // move Word 12 ahead of an incomplete Word 11.
+  const candidatePool = buildTrackFrontier(eligibleCurriculum, completedContentIds, allowedTypes);
+  const baseStructuralLoad = { beginner: 0.35, intermediate: 0.55, advanced: 0.75 }[recommendedDifficulty];
+  // Difficulty adapts only inside the authorized frontier. It never changes
+  // the official level or unlocks a later item in a content track.
+  const targetStructuralLoad = clamp(baseStructuralLoad + (
+    averageAccuracy !== null && averageAccuracy >= 90 ? 0.12
+      : averageAccuracy !== null && averageAccuracy < 75 ? -0.12
+        : 0
+  ));
   const rawCandidates = candidatePool.map((item) => {
     let attempts = contentAttempts.filter((attempt) => String(attempt.content_id) === String(item.id));
     if (!attempts.length && item.word_id) {
@@ -178,6 +213,13 @@ const rankCurriculum = ({
     if (candidate.lastPracticed && daysBetweenManila(candidate.lastPracticed, now) >= 14) reasonCodes.push('not_practiced_recently');
     if (!candidate.attempts) reasonCodes.push(candidate.item.content_type === 'word' ? 'unseen_diagnostic_word' : 'unseen_curriculum_item');
     if (fit >= 0.80) reasonCodes.push('appropriate_structural_load');
+    const primaryReason = candidate.matchedPairs.length
+      ? `Contains a sound connected to recent ${candidate.matchedPairs[0].toUpperCase()} confusion.`
+      : candidate.priorAverage !== null && candidate.priorAverage < 75
+        ? `Targets content with ${round(candidate.priorAverage)}% prior accuracy.`
+        : candidate.lastPracticed
+          ? `Current curriculum frontier; last practiced ${daysBetweenManila(candidate.lastPracticed, now)} days ago.`
+          : 'Current unlocked curriculum frontier and not previously practiced.';
     return {
       id: candidate.item.id,
       contentId: candidate.item.id,
@@ -189,6 +231,7 @@ const rankCurriculum = ({
       rankingScore,
       componentScores,
       reasonCodes,
+      recommendationReason: primaryReason,
       matchedConfusionPairs: candidate.matchedPairs,
       priorAttemptCount: candidate.attempts,
       priorAverageAccuracy: candidate.priorAverage === null ? null : round(candidate.priorAverage),
@@ -235,6 +278,8 @@ const rankCurriculum = ({
 };
 
 module.exports = {
+  buildTrackFrontier,
+  compareCurriculumOrder,
   CONFUSION_PAIRS,
   FEATURE_SCHEMA_VERSION,
   PRACTICE_TYPES_BY_LEVEL,

@@ -13,12 +13,21 @@ const { supabaseAdmin } = require('../config/supabase');
 
 const FILE_PATH = path.join(__dirname, 'Tagalog_Phonetic_Words_Dyslexia_App_Updated.xlsx');
 const EXPECTED_COUNTS = Object.freeze({
-  word: 600,
+  word: 599,
   phonetic: 200,
   phrase: 200,
   sentence: 200,
   paragraph: 20,
 });
+
+// Client-approved correction retained as an explicit, auditable exclusion:
+// the workbook's Beginner word "shorts" is English and was included by
+// mistake. Phonetic blend drills such as dra/dre/dri/dro/dru remain official.
+const CLIENT_DATA_EXCLUSIONS = new Set(['shorts|word|Beginner']);
+// TEMPORARY: the rejected row leaves 199 approved Beginner words. Restore
+// this to 200 only after the client supplies and approves a replacement.
+// No Intermediate or Advanced requirement is changed by this seed.
+const TEMPORARY_BEGINNER_WORD_REQUIREMENT = 199;
 
 const WORD_SHEETS = Object.freeze({
   'Level 1 Simple': 'Beginner',
@@ -91,7 +100,9 @@ const readWorkbookRows = (filePath = FILE_PATH) => {
     });
   });
 
-  return rows;
+  return rows.filter((row) => !CLIENT_DATA_EXCLUSIONS.has(
+    `${row.normalized_text}|${row.content_type}|${row.level}`,
+  ));
 };
 
 const validateWorkbookRows = (rows) => {
@@ -113,7 +124,10 @@ const validateWorkbookRows = (rows) => {
 
 const attachStableWordIds = (rows, databaseWords) => {
   const wordRows = rows.filter((row) => row.content_type === 'word');
-  const databaseMap = new Map((databaseWords || []).map((word) => [
+  const approvedDatabaseWords = (databaseWords || []).filter((word) => !CLIENT_DATA_EXCLUSIONS.has(
+    `${normalizeText(word.word)}|word|${String(word.level || '').toLowerCase() === 'beginner' ? 'Beginner' : String(word.level || '')}`,
+  ));
+  const databaseMap = new Map(approvedDatabaseWords.map((word) => [
     `${normalizeText(word.word)}|${String(word.level || '').toLowerCase()}`,
     word.id,
   ]));
@@ -121,9 +135,9 @@ const attachStableWordIds = (rows, databaseWords) => {
   const databaseKeys = new Set(databaseMap.keys());
   const missing = [...workbookKeys].filter((key) => !databaseKeys.has(key));
   const extra = [...databaseKeys].filter((key) => !workbookKeys.has(key));
-  if (databaseWords.length !== EXPECTED_COUNTS.word || missing.length || extra.length) {
+  if (approvedDatabaseWords.length !== EXPECTED_COUNTS.word || missing.length || extra.length) {
     throw new Error(
-      `Existing words bank does not exactly match the workbook: database=${databaseWords.length}, workbook=${wordRows.length}, missing=${missing.length}, extra=${extra.length}.`,
+      `Existing approved words bank does not exactly match the workbook: database=${approvedDatabaseWords.length}, workbook=${wordRows.length}, missing=${missing.length}, extra=${extra.length}.`,
     );
   }
   return rows.map((row) => row.content_type === 'word'
@@ -156,12 +170,30 @@ async function main() {
     .order('word');
   if (wordsError) throw new Error(`Could not read existing words: ${wordsError.message || wordsError}`);
   const linkedRows = attachStableWordIds(rows, databaseWords || []);
-  console.log('Confirmed: all 600 workbook words exactly match public.words and have stable ids.');
+  console.log(`Confirmed: all ${EXPECTED_COUNTS.word} approved workbook words exactly match public.words and have stable ids.`);
 
   if (dryRun) {
     console.log('--dry-run: validation passed; no reading_content rows written.');
     return;
   }
+
+  // A prior seed may already have activated a row that was later rejected by
+  // the client. Deactivate it before upserting the approved set; preserving
+  // the row avoids breaking historical foreign-key references.
+  const { error: exclusionError } = await supabaseAdmin
+    .from('reading_content')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('normalized_text', 'shorts')
+    .eq('content_type', 'word')
+    .eq('level', 'Beginner');
+  if (exclusionError) throw new Error(`Could not deactivate rejected curriculum rows: ${exclusionError.message || exclusionError}`);
+
+  const { error: requirementError } = await supabaseAdmin
+    .from('reading_level_requirements')
+    .update({ required_count: TEMPORARY_BEGINNER_WORD_REQUIREMENT })
+    .eq('level', 'Beginner')
+    .eq('content_type', 'word');
+  if (requirementError) throw new Error(`Could not apply temporary Beginner word requirement: ${requirementError.message || requirementError}`);
 
   const batchSize = 200;
   for (let index = 0; index < linkedRows.length; index += batchSize) {
@@ -191,7 +223,7 @@ async function main() {
   const countError = countQueries.find((result) => result.error)?.error;
   if (countError) throw new Error(`Could not verify reading_content: ${countError.message || countError}`);
   const [active, linkedWords, phonetics, phrases, sentences, assessments] = countQueries.map((result) => result.count);
-  if (active !== 1220 || linkedWords !== 600 || phonetics !== 200 || phrases !== 200 || sentences !== 200 || assessments !== 20) {
+  if (active !== 1219 || linkedWords !== 599 || phonetics !== 200 || phrases !== 200 || sentences !== 200 || assessments !== 20) {
     throw new Error(
       `Seed verification failed: active=${active}, linkedWords=${linkedWords}, phonetics=${phonetics}, phrases=${phrases}, sentences=${sentences}, assessments=${assessments}.`,
     );

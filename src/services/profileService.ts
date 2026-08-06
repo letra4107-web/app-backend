@@ -302,9 +302,14 @@ export async function upsertParentProfile(profile: Profile) {
   }
 }
 
-export async function fetchProfile(userId: string) {
-  const { data: sessionData } = await supabase.auth.getUser();
-  const user = sessionData?.user;
+type AuthenticatedProfileUser = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, any>;
+};
+
+export async function fetchProfile(userId: string, authenticatedUser?: AuthenticatedProfileUser) {
+  const user = authenticatedUser || (await supabase.auth.getUser()).data?.user;
   const fallbackName =
     user?.user_metadata?.display_name ||
     [user?.user_metadata?.firstName, user?.user_metadata?.lastName].filter(Boolean).join(' ') ||
@@ -312,7 +317,7 @@ export async function fetchProfile(userId: string) {
 
   const { data: parentData, error: parentErr } = await fetchParentProfile(userId, {
     full_name: fallbackName,
-    email: user?.email,
+    email: user?.email || undefined,
   });
   if (parentData) return parentData;
   if (parentErr && !isMissingRelationError(parentErr)) {
@@ -348,15 +353,13 @@ export async function fetchProfile(userId: string) {
 // and permanently masked their real name behind it. Avatar/phone have no
 // home on `children` yet, so those still round-trip through that shared
 // auxiliary row - only `full_name` needs to come from the real source.
-export async function fetchStudentProfile(authUid: string) {
-  const { data: childRow, error: childError } = await supabase
-    .from('children')
-    .select('name')
-    .eq('auth_uid', authUid)
-    .maybeSingle();
+export async function fetchStudentProfile(authUid: string, authenticatedUser?: AuthenticatedProfileUser) {
+  const [childResult, aux] = await Promise.all([
+    supabase.from('children').select('name').eq('auth_uid', authUid).maybeSingle(),
+    fetchProfile(authUid, authenticatedUser),
+  ]);
+  const { data: childRow, error: childError } = childResult;
   if (childError) throw childError;
-
-  const aux = await fetchProfile(authUid);
 
   return {
     ...aux,

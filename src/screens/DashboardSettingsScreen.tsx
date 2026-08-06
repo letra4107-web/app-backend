@@ -186,8 +186,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           return;
         }
         const [profileData, settingsData] = await Promise.all([
-          isParent ? fetchProfile(user.id) : fetchStudentProfile(user.id),
-          fetchDashboardSettings(user.id, role),
+          isParent ? fetchProfile(user.id, user) : fetchStudentProfile(user.id, user),
+          fetchDashboardSettings(user.id, role, user.id),
         ]);
         if (!mounted) return;
         setAuthUid(user.id);

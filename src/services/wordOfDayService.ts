@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { fetchPersonalizedWordOfDay } from './wordsService';
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const warnedMissingGrades = new Set<number>();
@@ -10,6 +11,9 @@ export type WordOfDayLog = {
   date: string;
   correct: boolean | null;
   attempts: number;
+  content_id?: string | null;
+  recommendation_id?: string | null;
+  recommendation_reason?: string | null;
 };
 
 const fetchWordOfDayRow = async (childId: string, date: string) => {
@@ -29,24 +33,48 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
   const existingRow = await fetchWordOfDayRow(childId, date);
   if (existingRow) return existingRow;
 
-  const activities = await supabase
-    .from('reading_activities')
-    .select('words')
-    .eq('grade', gradeLevel)
-    .maybeSingle();
-
-  if (activities.error) throw activities.error;
-  const words = Array.isArray(activities.data?.words) ? activities.data.words : [];
-  if (!words.length) {
-    if (!warnedMissingGrades.has(gradeLevel)) {
-      console.warn(`[WordOfDay] No words configured for grade ${gradeLevel}; showing the empty state.`);
-      warnedMissingGrades.add(gradeLevel);
+  let word = '';
+  let contentId: string | null = null;
+  let recommendationId: string | null = null;
+  let recommendationReason: string | null = null;
+  try {
+    const recommended = await fetchPersonalizedWordOfDay();
+    word = recommended.contentText;
+    contentId = recommended.contentId;
+    recommendationId = recommended.recommendationId || null;
+    recommendationReason = recommended.recommendationReason || 'Current unlocked curriculum frontier.';
+  } catch (personalizationError: any) {
+    // Keep Word of the Day usable during a backend rollout, but use a stable
+    // curriculum-configured fallback rather than a random selection.
+    console.warn('[WordOfDay] personalization unavailable; using configured grade fallback:', personalizationError?.message || personalizationError);
+    const activities = await supabase
+      .from('reading_activities')
+      .select('words')
+      .eq('grade', gradeLevel)
+      .maybeSingle();
+    if (activities.error) throw activities.error;
+    const words = Array.isArray(activities.data?.words) ? activities.data.words : [];
+    if (!words.length) {
+      if (!warnedMissingGrades.has(gradeLevel)) {
+        console.warn(`[WordOfDay] No words configured for grade ${gradeLevel}; showing the empty state.`);
+        warnedMissingGrades.add(gradeLevel);
+      }
+      return null;
     }
-    return null;
-  }
+    const index = Math.abs(`${childId}-${date}`.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % words.length;
+    word = words[index];
+    recommendationReason = 'Grade-appropriate fallback while personalized recommendations are unavailable.';
 
-  const index = Math.abs(`${childId}-${date}`.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % words.length;
-  const word = words[index];
+    const fallbackContentResult = await supabase
+      .from('reading_content')
+      .select('id')
+      .eq('content_text', word)
+      .limit(1)
+      .maybeSingle();
+    if (!fallbackContentResult.error && fallbackContentResult.data) {
+      contentId = fallbackContentResult.data.id;
+    }
+  }
 
   // Upsert with ignoreDuplicates instead of a plain insert: if a concurrent
   // call (e.g. the auth-state-change listener firing alongside the initial
@@ -55,7 +83,15 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
   // ever raised, unlike a raw insert racing against the unique constraint.
   const upserted = await supabase
     .from('word_of_day_log')
-    .upsert({ child_id: childId, word, date, attempts: 0 }, { onConflict: 'child_id,date', ignoreDuplicates: true })
+    .upsert({
+      child_id: childId,
+      word,
+      date,
+      attempts: 0,
+      content_id: contentId,
+      recommendation_id: recommendationId,
+      recommendation_reason: recommendationReason,
+    }, { onConflict: 'child_id,date', ignoreDuplicates: true })
     .select()
     .maybeSingle();
 

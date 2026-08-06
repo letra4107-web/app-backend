@@ -18,6 +18,10 @@ router.get('/', async (req, res) => {
     let query = supabaseAdmin
       .from('words')
       .select('id,word,level,syllable_count,has_diphthong,has_consonant_cluster');
+    // Explicit client-data correction. The canonical grid is sourced from
+    // reading_content, but this legacy fallback must not reintroduce the
+    // rejected English workbook row.
+    query = query.neq('word', 'shorts');
     if (level) {
       query = query.eq('level', level);
     }

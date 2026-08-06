@@ -440,7 +440,6 @@ export const completeAuthSession = async (
     navigation.replace('StudentDashboard');
   } else if (profileRole === 'teacher') {
     console.log('[Auth] → ParentDashboard (teacher placeholder)');
-    // TODO: navigation.replace('TeacherDashboard') once built
     navigation.replace('ParentDashboard');
   } else if (isEmail) {
     // Reaching here means: real Supabase Auth user, no `users` row, and no

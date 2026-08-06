@@ -29,6 +29,8 @@ export type RankedContentEntry = {
   };
   reasonCodes: string[];
   matchedConfusionPairs: string[];
+  recommendationReason?: string;
+  recommendationId?: string;
 };
 
 export const fetchWords = async (level: string, limit = 24): Promise<string[]> => {
@@ -48,6 +50,11 @@ export const fetchWords = async (level: string, limit = 24): Promise<string[]> =
 };
 
 export const fetchPersonalizedWords = async (limit = 24): Promise<string[]> => {
+  const ranked = await fetchPersonalizedContent(limit);
+  return ranked.map((entry) => entry.contentText || entry.word);
+};
+
+export const fetchPersonalizedContent = async (limit = 24): Promise<RankedContentEntry[]> => {
   const response = await postJson<{
     success: boolean;
     recommendation?: { items?: RankedContentEntry[]; words?: RankedContentEntry[] };
@@ -57,7 +64,20 @@ export const fetchPersonalizedWords = async (limit = 24): Promise<string[]> => {
   if (!response?.success || !ranked.length) {
     throw new Error(response?.message || 'No personalized words are available.');
   }
-  return ranked.map((entry) => entry.contentText || entry.word);
+  return ranked;
+};
+
+export const fetchPersonalizedWordOfDay = async (): Promise<RankedContentEntry> => {
+  const response = await postJson<{
+    success: boolean;
+    recommendation?: { id?: string; items?: RankedContentEntry[] };
+    message?: string;
+  }>(buildApiUrl('/personalization/recommend'), { limit: 1, purpose: 'word_of_day' }, 15000);
+  const item = response.recommendation?.items?.[0];
+  if (!response.success || !item || item.contentType !== 'word') {
+    throw new Error(response.message || 'No personalized Word of the Day is available.');
+  }
+  return { ...item, recommendationId: response.recommendation?.id };
 };
 
 type PracticeWordLoader = (level: string, limit: number) => Promise<string[]>;

@@ -9,6 +9,8 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
+import { createSpeechRecognitionSession } from '../utils/speechRecognitionSession';
+import { syllabifyText } from '../utils/tagalogSyllabification';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
 import { buildApiUrl, getJson } from '../config/api';
@@ -30,11 +32,13 @@ import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } fr
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { PRACTICE_PASSING_SCORE, scorePronunciation, scoreMessage } from '../utils/scorePronunciation';
-import { fetchPracticeWords } from '../services/wordsService';
-import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem } from '../services/notificationService';
+import { fetchPersonalizedContent } from '../services/wordsService';
+import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem, subscribeToStudentNotifications } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
 import { logPhonemeConfusion } from '../services/phonemeService';
+import { analyzePhonology } from '../utils/tagalogPhonemes';
+import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 import {
   fetchCompletedContentIds,
@@ -45,6 +49,12 @@ import {
   ReadingContentType,
   recordReadingContentAttempt,
 } from '../services/readingContentService';
+import {
+  buildTrackFrontier,
+  chooseRankedFrontier,
+  practiceItemState,
+  sortCurriculumItems,
+} from '../utils/sequentialPractice';
 
 type ChildProfile = {
   id: string;
@@ -119,7 +129,7 @@ const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 // when "closed".
 const SIDEBAR_WIDTH = 300;
 const XP_CORRECT = 50;
-const XP_WRONG = 30;
+const XP_WRONG = 0;
 const DAILY_GOAL = 5;
 
 type PracticeResult = {
@@ -139,16 +149,6 @@ const DEFAULT_PHONETIC_WORDS = [
   'Wa-la', 'Ya-ya',
 ];
 
-// Extra content added to give the Progress tab's "My Reading Skills"
-// breakdown real, distinct categories to score — before this, every
-// practice word was the same 2-syllable shape, so there was no honest
-// way to tell "letter recognition" apart from "word reading."
-const SKILL_LETTERS = ['A', 'E', 'I', 'O', 'U', 'B', 'K', 'D', 'G', 'H', 'L', 'M', 'N', 'P', 'S', 'T'];
-const SKILL_LONG_WORDS = [
-  'Ka-ba-yo', 'Ta-la-ba', 'Ma-ta-mis', 'Bu-la-klak',
-  'Ka-ra-bao', 'Sam-pa-gui-ta', 'Ba-la-hi-bo', 'Pa-la-ka-san',
-];
-
 type SkillCategory = 'letters' | 'syllables' | 'words';
 type CurriculumPracticeType = Exclude<ReadingContentType, 'paragraph'>;
 
@@ -159,16 +159,6 @@ const categorizeWord = (word: string): SkillCategory => {
   if (syllables.length <= 2) return 'syllables';
   return 'words';
 };
-const PRAISE_FEEDBACK = ['Magaling!', 'Napakahusay!', 'Ayos!', 'Ang galing mo!', 'Perfect!'];
-const SUPPORT_FEEDBACK = [
-  'Magaling! Ulitin natin.',
-  'Okay lang yan, subukan ulit!',
-  'Malapit na!',
-  'Kaya mo yan!',
-];
-
-const randomFrom = (items: string[]) => items[Math.floor(Math.random() * items.length)];
-
 const emptyProgress = (childId: string): ChildProgress => ({
   child_id: childId,
   xp: 0,
@@ -196,7 +186,6 @@ export default function StudentDashboard({ navigation }: any) {
   const [child, setChild] = useState<ChildProfile | null>(null);
   const [progress, setProgress] = useState<ChildProgress | null>(null);
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
-  const [practiceWords, setPracticeWords] = useState<string[]>([]);
   const [wordDefinitions, setWordDefinitions] = useState<Map<string, WordDefinition>>(new Map());
   const getWordDefinition = (word: string) => wordDefinitions.get(normalizeWordKey(word));
   const [recentSessions, setRecentSessions] = useState<{ word: string; accuracy_percentage: number; created_at: string }[]>([]);
@@ -204,9 +193,10 @@ export default function StudentDashboard({ navigation }: any) {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [lessonProgress, setLessonProgress] = useState<LessonProgressRow[]>([]);
-  const [wordBank, setWordBank] = useState<string[]>([]);
+  const [rankedContentIds, setRankedContentIds] = useState<string[]>([]);
+  const [recommendationReasons, setRecommendationReasons] = useState<Record<string, string>>({});
+  const [readingProfile, setReadingProfile] = useState<ReadingProfile | null>(null);
   const [wordBankLoading, setWordBankLoading] = useState(false);
-  const [wordBankError, setWordBankError] = useState('');
   const [lessonFilter, setLessonFilter] = useState<string>('Lahat');
   const [activities, setActivities] = useState<StudentActivity[]>([]);
   const [uploadsError, setUploadsError] = useState<string>('');
@@ -293,58 +283,58 @@ export default function StudentDashboard({ navigation }: any) {
   // transcript so 'end' can fall back to treating it as final.
   const latestInterimTranscriptRef = useRef('');
   const practiceStartRef = useRef<number | null>(null);
+  const recognitionSessionRef = useRef<any | null>(null);
   const micPulse = useSharedValue(1);
   const micAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: micPulse.value }] }));
 
   const UPLOADS_BUCKET = 'teacher-uploads'; // Update if your Supabase bucket name differs
 
   useSpeechRecognitionEvent('start', () => {
+    if (section !== 'practice') return;
     setPracticeListening(true);
     setPracticeProcessing(false);
-    setPracticeStatus('Nakikinig ako. Sabihin ang salita!');
+    setPracticeStatus('Nakikinig… Basahin nang malinaw.');
     practiceStartRef.current = Date.now();
     latestInterimTranscriptRef.current = '';
   });
 
   useSpeechRecognitionEvent('end', () => {
+    if (section !== 'practice') return;
     setPracticeListening(false);
     setPracticeStatus('Tapos na ang pakikinig.');
-    // Fallback: recognition ended without ever sending a final result, but
-    // we did hear something. Treat the last interim transcript as final
-    // rather than leaving the student stuck with no evaluation.
-    const fallbackTranscript = latestInterimTranscriptRef.current;
-    if (fallbackTranscript && handledTranscriptRef.current !== fallbackTranscript) {
-      handledTranscriptRef.current = fallbackTranscript;
-      setPracticeProcessing(false);
-      handlePracticeResult(fallbackTranscript);
-    } else {
-      setPracticeProcessing(false);
+    // Let the session finalize if it hasn't already submitted.
+    const submitted = recognitionSessionRef.current?.onRecognitionEnd() || false;
+    if (!submitted) {
+      const fallbackTranscript = latestInterimTranscriptRef.current;
+      if (fallbackTranscript && handledTranscriptRef.current !== fallbackTranscript) {
+        handledTranscriptRef.current = fallbackTranscript;
+        setPracticeProcessing(false);
+        handlePracticeResult(fallbackTranscript);
+      } else {
+        setPracticeProcessing(false);
+      }
     }
   });
 
   useSpeechRecognitionEvent('result', (event) => {
-    const transcript = event.results?.[0]?.transcript || '';
+    if (section !== 'practice') return;
+    const transcript = event.results?.[0]?.transcript?.trim() || '';
     if (!transcript) return;
     latestInterimTranscriptRef.current = transcript;
     setPracticeTranscript(transcript);
     setPracticeStatus(event.isFinal ? 'Narinig ko!' : 'Naririnig kita...');
 
-    if (event.isFinal) {
-      ExpoSpeechRecognitionModule.stop();
-      setPracticeProcessing(false);
-      if (handledTranscriptRef.current === transcript) return;
-      handledTranscriptRef.current = transcript;
-      handlePracticeResult(transcript);
-    }
+    recognitionSessionRef.current?.onTranscript(transcript, event.isFinal);
   });
 
   useSpeechRecognitionEvent('error', (event) => {
+    if (section !== 'practice') return;
     setPracticeListening(false);
     setPracticeProcessing(false);
     setPracticeStatus(
       event.error === 'no-speech'
         ? 'Hindi ko narinig. Subukan natin ulit.'
-        : 'May problema sa mikropono. Pakinggan muna ang salita, tapos ulit.'
+        : 'May problema sa mikropono. Subukan muli.'
     );
   });
 
@@ -550,21 +540,28 @@ export default function StudentDashboard({ navigation }: any) {
 
   const loadWordBank = async (level: string) => {
     setWordBankLoading(true);
-    setWordBankError('');
     try {
-      const words = await fetchPracticeWords(level.toLowerCase(), 24);
-      setWordBank(words);
+      const ranked = await fetchPersonalizedContent(24);
+      const contentIds = ranked
+        .map((item) => item.contentId)
+        .filter((id): id is string => Boolean(id));
+      setRankedContentIds(contentIds);
+      setRecommendationReasons(Object.fromEntries(ranked.map((item) => [
+        item.contentId,
+        item.recommendationReason || 'Current unlocked curriculum frontier.',
+      ])));
+      void fetchReadingProfile().then(setReadingProfile).catch((profileError) => {
+        console.warn('[StudentDashboard] reading profile unavailable:', profileError?.message || profileError);
+      });
     } catch (error: any) {
-      console.warn('[StudentDashboard] word bank load failed:', error?.message || error);
-      setWordBank([]);
-      setWordBankError(error?.message || 'Hindi ma-load ang mga salita.');
+      // Personalization chooses only between valid local track frontiers. If
+      // it is unavailable, deterministic workbook order remains fully usable.
+      console.warn('[StudentDashboard] frontier ranking unavailable; using curriculum order:', error?.message || error);
+      setRankedContentIds([]);
+      setRecommendationReasons({});
     } finally {
       setWordBankLoading(false);
     }
-  };
-
-  const retryWordBank = () => {
-    if (progress?.level) void loadWordBank(progress.level);
   };
 
   const loadOfficialCurriculum = async (studentId: string) => {
@@ -685,24 +682,11 @@ export default function StudentDashboard({ navigation }: any) {
     const currentProgress = profile.child_progress?.[0] || emptyProgress(profile.id);
     setProgress(currentProgress);
 
-    const readingActivitiesPromise = (async () => {
-      try {
-        return await supabase
-          .from('reading_activities')
-          .select('words')
-          .eq('grade', Number(profile.grade_level || 1));
-      } catch (err: any) {
-        console.warn('[StudentDashboard] reading activities load failed:', err?.message || err);
-        return { data: [], error: null };
-      }
-    })();
-
-    const [wordLog, readingActivities, uploads, lessonRows, assignedActivities, , , , , , , definitions] = await Promise.all([
+    const [wordLog, uploads, lessonRows, assignedActivities, , , , , , , definitions] = await Promise.all([
       getOrCreateWordOfDay(profile.id, Number(profile.grade_level || 1)).catch((err) => {
         console.warn('[StudentDashboard] word-of-day load failed:', err?.message || err);
         return null;
       }),
-      readingActivitiesPromise,
       fetchTeacherUploads(Number(profile.grade_level || 1)),
       loadPublishedLessons(Number(profile.grade_level || 1)),
       loadStudentActivities(profile.auth_uid, profile.id),
@@ -726,13 +710,6 @@ export default function StudentDashboard({ navigation }: any) {
       setWordOfDay(wordLog);
     }
 
-    if (readingActivities.error) {
-      console.warn('[StudentDashboard] reading activities query failed:', readingActivities.error?.message || readingActivities.error);
-    }
-    const practiceWordsList = (readingActivities.data || []).flatMap((row: any) =>
-      Array.isArray(row.words) ? row.words : []
-    );
-    setPracticeWords([...new Set(practiceWordsList.map(String))]);
     setUploads(uploads);
     setLessons(lessonRows);
     setActivities(assignedActivities);
@@ -813,9 +790,18 @@ export default function StudentDashboard({ navigation }: any) {
 
   useEffect(() => {
     if (!child) return undefined;
-    return subscribeToPublishedLessons(() => {
+    const unsubLessons = subscribeToPublishedLessons(() => {
       loadPublishedLessons(Number(child.grade_level || 1));
     });
+    // Also subscribe to realtime notifications targeting this student (by
+    // auth UID or by student_id) so the UI reflects new notices in real time.
+    const unsubNotifications = subscribeToStudentNotifications(child.auth_uid || child.id, () => {
+      if (child?.auth_uid) void loadNotifications(child.auth_uid);
+    });
+    return () => {
+      unsubLessons?.();
+      unsubNotifications?.();
+    };
     // Narrowed to the two primitive fields actually read below (both already
     // in the deps array), rather than the whole `child` object - depending on
     // the object would re-subscribe to the realtime lessons listener whenever
@@ -1075,19 +1061,24 @@ export default function StudentDashboard({ navigation }: any) {
     attempts: number,
     score?: number,
     transcript?: string,
-    completion?: { streak?: number; longest_streak?: number },
+    completion?: { streak?: number; longest_streak?: number; xp_awarded?: number; total_xp?: number },
   ) => {
     try {
       if (!progress) return;
-      const addXp = correct ? XP_CORRECT : XP_WRONG;
-      const computed = buildNextProgress(progress, wordOfDay?.word || '', addXp, {
+      const addXp = completion?.xp_awarded ?? 0;
+      const computed = buildNextProgress(progress, wordOfDay?.word || '', 0, {
         countsAsPracticeSession: false,
         accuracy: score,
       });
       // The Word of the Day endpoint is the source of truth for the streak;
       // never calculate or increment it from the device response.
       const next = correct && completion
-        ? { ...computed, streak: completion.streak ?? computed.streak, longest_streak: completion.longest_streak ?? computed.longest_streak }
+        ? {
+            ...computed,
+            xp: completion.total_xp ?? computed.xp,
+            streak: completion.streak ?? computed.streak,
+            longest_streak: completion.longest_streak ?? computed.longest_streak,
+          }
         : computed;
       await saveProgress(next);
       setProgress(next);
@@ -1158,6 +1149,13 @@ export default function StudentDashboard({ navigation }: any) {
       duration_seconds: durationSeconds,
       difficulty_level_at_attempt: difficultyAtAttempt,
       practice_source: 'practice',
+      attempts: Math.max(1, practiceAttempts + 1),
+      confidence_score: Math.round(
+        (result.score * 0.7)
+        + ((durationSeconds == null ? 70 : durationSeconds <= 15 ? 100 : Math.max(0, 100 - ((durationSeconds - 15) * 3))) * 0.1)
+        + (Math.max(0, 100 - (practiceAttempts * 20)) * 0.2),
+      ),
+      recommendation_reason: selectedContentId ? recommendationReasons[selectedContentId] || null : null,
       created_at: new Date().toISOString(),
     };
 
@@ -1175,6 +1173,7 @@ export default function StudentDashboard({ navigation }: any) {
     }
 
     logPhonemeConfusion(child.id, word, result.transcript, 'practice', data?.id);
+    void fetchReadingProfile().then(setReadingProfile).catch(() => undefined);
     console.debug('[Practice] pronunciation session saved:', data);
     return true;
   };
@@ -1276,7 +1275,21 @@ export default function StudentDashboard({ navigation }: any) {
       if (!selectedWord) return;
       const score = scorePronunciation(selectedWord, transcript);
       const correct = score >= PRACTICE_PASSING_SCORE;
-      const feedback = randomFrom(correct ? PRAISE_FEEDBACK : SUPPORT_FEEDBACK);
+      const previousSameWord = recentSessions.find(
+        (session) => normalizeWordKey(session.word) === normalizeWordKey(selectedWord),
+      );
+      const improvement = previousSameWord ? score - Number(previousSameWord.accuracy_percentage || 0) : 0;
+      const phonology = analyzePhonology(selectedWord, transcript);
+      const weakSound = phonology.confusionKeys[0]?.split('-')?.[0];
+      const feedback = improvement >= 5
+        ? `Napabuti ang pagbigkas mo nang ${Math.round(improvement)} puntos kumpara sa huling pagsubok.`
+        : correct
+          ? 'Magaling! Malinaw at tama ang pagbigkas mo.'
+          : weakSound
+            ? `Subukan nating linawin ang tunog na '${weakSound}'.`
+            : score >= 75
+              ? 'Malapit na! Basahin muna ang bawat pantig bago buuin ang salita.'
+              : `Mas mabagal na pagbasa ay makakatulong. Simulan sa '${selectedWord.split('-')[0]}'.`;
       const xpAward = correct ? XP_CORRECT : XP_WRONG;
       const result = { correct, score, transcript, feedback, xpAward };
       const newAttempts = (practiceAttempts || 0) + 1;
@@ -1291,8 +1304,10 @@ export default function StudentDashboard({ navigation }: any) {
       setPracticeAttempts(newAttempts);
       setPracticeResult(result);
       setPracticeStatus(scoreMessage(score));
-      setConfettiVisible(true);
-      setTimeout(() => setConfettiVisible(false), 2400);
+      if (correct) {
+        setConfettiVisible(true);
+        setTimeout(() => setConfettiVisible(false), 2400);
+      }
 
       stopSpeaking();
       speakPhrase(correct ? feedback : `${feedback} Pakinggan mo. ${selectedWord.replace(/-/g, ' ')}`, {
@@ -1336,6 +1351,9 @@ export default function StudentDashboard({ navigation }: any) {
             : current);
           if (recorded.result.completion_awarded) {
             setCompletedContentIds((current) => new Set([...current, selectedContentId]));
+            // Refresh only after the server-owned completion transaction so
+            // the ranker receives the newly advanced per-track frontiers.
+            void loadWordBank(recorded.result.progression.effective_level);
           }
         } catch (contentError: any) {
           console.warn('[Practice] official curriculum attempt recording failed:', contentError?.message || contentError);
@@ -1358,27 +1376,20 @@ export default function StudentDashboard({ navigation }: any) {
         countsAsPracticeSession: true,
         accuracy: score,
       });
+      // Practice sessions should never change the authoritative streak
+      // — only Word-of-the-Day completions (server-side) update streak.
       const next = progressionAfterAttempt
         ? { ...computedNext, level: progressionAfterAttempt.effective_level }
         : computedNext;
-      console.debug('[Practice] streak update decision:', {
-        previousStreak: beforeStreak,
-        nextStreak: next.streak,
-        previousLastPracticeDate: progress.last_practice_date,
-        nextLastPracticeDate: next.last_practice_date,
-        incrementsToday: (next.streak || 0) > beforeStreak,
-      });
+      // Preserve server-authoritative streak values from the existing progress
+      // record so practice does not increment/reset streak locally.
+      next.streak = progress.streak;
+      next.longest_streak = progress.longest_streak ?? next.longest_streak;
+
+      console.debug('[Practice] preserved streak (server authoritative):', { previousStreak: beforeStreak, nextStreak: next.streak });
       await saveProgress(next);
       setProgress(next);
       await notifyParent('XP Update', `${child?.name || 'Student'} earned ${xpAward} XP from speech practice.`, 'xp');
-      if ((next.streak || 0) > beforeStreak && [3, 7, 14, 30, 60, 100].includes(next.streak || 0)) {
-        await notifyParent('Streak Milestone', `${child?.name || 'Student'} reached a ${next.streak}-day practice streak.`, 'streak');
-        // The reference's "Daily Reading Reminder" is mapped to this real,
-        // already-firing streak milestone (genuine progress.streak, not a
-        // fabricated number) rather than a new proactive "haven't practiced
-        // today" push, which would need scheduling infra this backend doesn't have.
-        await notifyStudent('Daily Reading Reminder', `You're on a ${next.streak}-day reading streak! Keep it going.`, 'streak');
-      }
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
       if (newlyUnlocked?.length) {
         const saved = await saveProgress(updatedProgress);
@@ -1406,9 +1417,7 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       setPracticeResult(null);
       setPracticeTranscript('');
-      setPracticeStatus(
-        Platform.OS === 'web' ? 'Ihanda ang microphone para makinig...' : 'Humihingi ng microphone permission...'
-      );
+      setPracticeStatus('Pindutin ang mikropono at basahin ang salita.\nKusang titigil ang recording kapag tapos ka nang magsalita.');
       handledTranscriptRef.current = '';
 
       const available = await ExpoSpeechRecognitionModule.isRecognitionAvailable();
@@ -1429,6 +1438,17 @@ export default function StudentDashboard({ navigation }: any) {
         }
       }
 
+      // Reset any previous session, then create a new one which will manage
+      // silence/hard timeouts and ensure single submission.
+      recognitionSessionRef.current?.dispose?.();
+      recognitionSessionRef.current = createSpeechRecognitionSession({
+        stopRecognition: () => ExpoSpeechRecognitionModule.stop(),
+        submitTranscript: (transcript: string) => handlePracticeResult(transcript),
+        onStopRequested: () => setPracticeProcessing(true),
+        hardTimeoutMs: 12000,
+      });
+      recognitionSessionRef.current.start();
+
       ExpoSpeechRecognitionModule.start({
         lang: 'fil-PH',
         interimResults: true,
@@ -1437,8 +1457,9 @@ export default function StudentDashboard({ navigation }: any) {
         contextualStrings: [selectedWord, selectedWord.replace(/-/g, ''), ...DEFAULT_PHONETIC_WORDS],
         ...(Platform.OS === 'android' ? {
           androidIntentOptions: {
-            EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 1800,
-            EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 700,
+            EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2300,
+            EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2200,
+            EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 900,
             EXTRA_MASK_OFFENSIVE_WORDS: false,
           },
         } : {}),
@@ -1451,9 +1472,13 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const stopPracticeListening = () => {
-    ExpoSpeechRecognitionModule.stop();
+    try {
+      recognitionSessionRef.current?.manualStop?.();
+    } catch (err) {
+      ExpoSpeechRecognitionModule.stop();
+    }
     setPracticeProcessing(true);
-    setPracticeStatus('Sinusuri ang bigkas mo...');
+    setPracticeStatus('Sinusuri ang iyong pagbasa...');
   };
 
   if (loading) return (
@@ -1855,29 +1880,37 @@ export default function StudentDashboard({ navigation }: any) {
       word: 'Words', phonetic: 'Phonetics', phrase: 'Phrases', sentence: 'Sentences',
     };
     const levelCurriculum = readingContent.filter((item) => item.level === currentLevel && !item.is_assessment);
-    const wordCurriculum = levelCurriculum.filter((item) => item.content_type === 'word');
-    const filteredCurriculum = practiceCategoryFilter
+    const categoryFilteredCurriculum = practiceCategoryFilter
       ? levelCurriculum.filter((item) => item.content_type === practiceCategoryFilter)
-      : wordCurriculum;
-    const curriculumByText = new Map(levelCurriculum.map((item) => [normalizeWordKey(item.content_text), item]));
-
-    // Personalized/teacher word text remains supported, but canonical matches
-    // are resolved back to a level-specific reading_content id before scoring.
-    // This is what removes the duplicate-word-across-levels ambiguity.
-    const wordListWords = Array.from(new Set([...practiceWords, ...wordBank]));
+      : [];
+    const trackOrder: ReadingContentType[] = currentLevel === 'Beginner'
+      ? ['word', 'phonetic']
+      : currentLevel === 'Intermediate'
+      ? ['word', 'phrase']
+      : ['word', 'sentence'];
+    const frontier = buildTrackFrontier(levelCurriculum, completedContentIds, trackOrder);
+    const effectiveFrontier = practiceCategoryFilter
+      ? buildTrackFrontier(categoryFilteredCurriculum, completedContentIds, [practiceCategoryFilter])
+      : frontier;
+    const validRankedContentIds = rankedContentIds.filter((id) => effectiveFrontier.some((item) => item.id === id));
+    const recommendedItem = chooseRankedFrontier(
+      effectiveFrontier,
+      validRankedContentIds.length ? validRankedContentIds : rankedContentIds,
+    );
+    const currentContentId = recommendedItem?.id || null;
+    // The progress map follows workbook order inside each track. The ranker
+    // only chooses between the first incomplete item from each track and can
+    // no longer reorder the full bank.
+    const orderedCurriculum = trackOrder.flatMap((type) => sortCurriculumItems(
+      levelCurriculum.filter((item) => item.content_type === type),
+    ));
     const visibleItems = practiceCategoryFilter
-      ? filteredCurriculum
-      : wordListWords.map((word) => curriculumByText.get(normalizeWordKey(word)) || {
-        id: '', content_text: word, content_type: 'word' as const,
-      });
-    const cycleList = () => visibleItems.map((item) => item.content_text);
-
-    const nextItem = visibleItems.find((item) => !item.id || !completedContentIds.has(item.id)) || visibleItems[0] || null;
-    const nextWord = nextItem?.content_text || null;
+      ? sortCurriculumItems(categoryFilteredCurriculum)
+      : orderedCurriculum;
 
     // Real position of the selected word within today's active word bank -
     // not a fabricated lesson number.
-    const wordPosition = selectedWord ? visibleItems.findIndex((item) => item.content_text === selectedWord) + 1 : 0;
+    const wordPosition = selectedContentId ? visibleItems.findIndex((item) => item.id === selectedContentId) + 1 : 0;
     const wordTotal = visibleItems.length;
 
     const wordsPracticedToday = todaySessions.length;
@@ -1893,7 +1926,7 @@ export default function StudentDashboard({ navigation }: any) {
     const startWord = (word: string, mode: 'say' | 'listen', contentId?: string | null) => {
       setPracticeMode(mode);
       setSelectedWord(word);
-      setSelectedContentId(contentId || curriculumByText.get(normalizeWordKey(word))?.id || null);
+      setSelectedContentId(contentId || null);
       setPracticeResult(null);
       setPracticeAttempts(0);
       setPracticeTranscript('');
@@ -1953,16 +1986,12 @@ export default function StudentDashboard({ navigation }: any) {
             <TouchableOpacity
               style={styles.listenNextButton}
               onPress={() => {
-                const list = cycleList();
-                const currentIndex = list.indexOf(selectedWord);
-                const next = list[(currentIndex + 1) % list.length];
-                const item = visibleItems.find((candidate) => candidate.content_text === next);
-                startWord(next, 'listen', item?.id);
+                startWord(selectedWord, 'say', selectedContentId);
               }}
               accessibilityRole="button"
-              accessibilityLabel="Next word"
+              accessibilityLabel="Practice this item aloud"
             >
-              <Text style={[styles.listenNextButtonText, buttonA11y]}>Susunod na Salita</Text>
+              <Text style={[styles.listenNextButtonText, buttonA11y]}>Subukan Bigkasin</Text>
               <Ionicons name="arrow-forward" size={16} color={HOME_SAGE} />
             </TouchableOpacity>
           </ScrollView>
@@ -1976,12 +2005,14 @@ export default function StudentDashboard({ navigation }: any) {
       setPracticeStatus('Kaya mo yan. Subukan ulit!');
     };
     const handleNextWord = () => {
-      if (!selectedWord) return;
-      const list = cycleList();
-      const currentIndex = list.indexOf(selectedWord);
-      const next = list[(currentIndex + 1) % list.length];
-      const item = visibleItems.find((candidate) => candidate.content_text === next);
-      startWord(next, 'say', item?.id);
+      if (!practiceResult?.correct) return;
+      if (!recommendedItem) {
+        setSelectedWord(null);
+        setSelectedContentId(null);
+        setPracticeResult(null);
+        return;
+      }
+      startWord(recommendedItem.content_text, 'say', recommendedItem.id);
     };
 
     const renderSessionProgressCard = () => (
@@ -2286,11 +2317,47 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         </View>
 
-        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Piliin ang Iyong Pagsasanay</Text>
+        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>🤖 Recommended Reading Practice</Text>
+
+        {recommendedItem && (
+          <View style={styles.aiRecommendationCard}>
+            <View style={styles.aiRecommendationTopRow}>
+              <View style={styles.aiRecommendationIcon}>
+                <Ionicons name="sparkles" size={18} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.aiRecommendationWord, cardTitleA11y]}>{recommendedItem.content_text}</Text>
+                <Text style={[styles.aiRecommendationReason, bodyA11y]}>
+                  {recommendationReasons[recommendedItem.id] || 'Current unlocked curriculum frontier.'}
+                </Text>
+              </View>
+              {readingProfile && (
+                <View style={styles.aiConfidencePill}>
+                  <Text style={styles.aiConfidenceValue}>{readingProfile.confidenceScore}%</Text>
+                  <Text style={styles.aiConfidenceLabel}>Confidence</Text>
+                </View>
+              )}
+            </View>
+            {!!readingProfile?.recommendedFocus && (
+              <Text style={[styles.aiRecommendationFocus, bodyA11y]}>Focus: {readingProfile.recommendedFocus}</Text>
+            )}
+          </View>
+        )}
+
+        {!recommendedItem && !curriculumLoading && (
+          <View style={styles.completedTrackBanner}>
+            <Ionicons name="checkmark-circle" size={24} color={SUCCESS} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.completedTrackTitle, cardTitleA11y]}>Tapos na ang kasalukuyang curriculum set!</Text>
+              <Text style={[styles.completedTrackText, bodyA11y]}>Wala nang naka-lock na practice item sa antas na ito.</Text>
+            </View>
+          </View>
+        )}
 
         <TouchableOpacity
-          style={styles.practiceModeCard}
-          onPress={() => nextWord && startWord(nextWord, 'say', nextItem?.id)}
+          style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
+          disabled={!recommendedItem}
+          onPress={() => recommendedItem && startWord(recommendedItem.content_text, 'say', recommendedItem.id)}
           accessibilityRole="button"
           accessibilityLabel="Start Say the Word practice mode"
         >
@@ -2310,8 +2377,9 @@ export default function StudentDashboard({ navigation }: any) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.practiceModeCard}
-          onPress={() => nextWord && startWord(nextWord, 'listen', nextItem?.id)}
+          style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
+          disabled={!recommendedItem}
+          onPress={() => recommendedItem && startWord(recommendedItem.content_text, 'listen', recommendedItem.id)}
           accessibilityRole="button"
           accessibilityLabel="Start Listen and Read practice mode"
         >
@@ -2359,17 +2427,17 @@ export default function StudentDashboard({ navigation }: any) {
         )}
 
         <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>
-          {practiceCategoryFilter ? practiceTypeLabels[practiceCategoryFilter] : 'O Pumili ng Partikular na Salita'}
+          {practiceCategoryFilter ? practiceTypeLabels[practiceCategoryFilter] : 'Curriculum Progress'}
         </Text>
 
-        {(curriculumLoading || (wordBankLoading && !practiceCategoryFilter)) && !visibleItems.length ? (
+        {(curriculumLoading || (wordBankLoading && !readingContent.length)) && !visibleItems.length ? (
           <View style={styles.centerBlock}>
             <ActivityIndicator size="small" color={HOME_LAVENDER} />
             <Text style={styles.empty}>Loading official curriculum...</Text>
           </View>
-        ) : (curriculumError || (!practiceCategoryFilter && wordBankError)) && !visibleItems.length ? (
+        ) : curriculumError && !visibleItems.length ? (
           <View style={styles.errorBlock}>
-            <Text style={[styles.error, bodyA11y]}>{curriculumError || wordBankError}</Text>
+            <Text style={[styles.error, bodyA11y]}>{curriculumError}</Text>
             <TouchableOpacity
               style={styles.retryButton}
               onPress={() => child?.id && void loadOfficialCurriculum(child.id)}
@@ -2382,21 +2450,41 @@ export default function StudentDashboard({ navigation }: any) {
         ) : (
           <View style={styles.wordGrid}>
             {visibleItems.map((item, index) => {
-              const done = Boolean(item.id && completedContentIds.has(item.id));
+              const itemState = practiceItemState(item, completedContentIds, currentContentId);
+              const done = itemState === 'completed';
+              const current = itemState === 'current';
               return (
                 <TouchableOpacity
                   key={item.id || `${item.content_text}-${index}`}
-                  style={[styles.wordCard, done && styles.wordCardDone]}
-                  onPress={() => startWord(item.content_text, 'say', item.id)}
+                  style={[
+                    styles.wordCard,
+                    done && styles.wordCardDone,
+                    current && styles.wordCardCurrent,
+                    itemState === 'locked' && styles.wordCardLocked,
+                  ]}
+                  disabled={!current}
+                  onPress={() => current && startWord(item.content_text, 'say', item.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Practice ${item.content_text}${done ? ', completed' : ''}`}
+                  accessibilityState={{ disabled: !current }}
+                  accessibilityLabel={`${item.content_text}, ${itemState}`}
                 >
                   {done && (
                     <View style={styles.wordCardCheckBadge}>
                       <Ionicons name="checkmark" size={14} color="#fff" />
                     </View>
                   )}
-                  <Text style={[styles.wordText, done && { color: SUCCESS }, a11yText(15, 'bold')]}>{item.content_text}</Text>
+                  {itemState === 'locked' && (
+                    <View style={styles.wordCardLockBadge}>
+                      <Ionicons name="lock-closed" size={12} color="#fff" />
+                    </View>
+                  )}
+                  <Text style={[
+                    styles.wordText,
+                    done && { color: SUCCESS },
+                    current && styles.wordTextCurrent,
+                    itemState === 'locked' && styles.wordTextLocked,
+                    a11yText(15, 'bold'),
+                  ]}>{item.content_text}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -4695,6 +4783,22 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10,
     backgroundColor: SUCCESS, alignItems: 'center', justifyContent: 'center',
   },
+  wordCardLockBadge: {
+    position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center',
+  },
+  wordCardCurrent: {
+    backgroundColor: '#EFECFB', borderColor: HOME_LAVENDER_DARK, borderWidth: 2.5,
+  },
+  wordCardLocked: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB', opacity: 0.62 },
+  wordTextCurrent: { color: HOME_LAVENDER_DARK },
+  wordTextLocked: { color: '#6B7280' },
+  completedTrackBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, marginBottom: 14,
+    borderRadius: 16, backgroundColor: '#F0FDF4', borderWidth: 1.5, borderColor: '#86EFAC',
+  },
+  completedTrackTitle: { color: '#166534', fontWeight: '900', fontSize: 15 },
+  completedTrackText: { color: '#166534', fontWeight: '600', fontSize: 12, marginTop: 2 },
   wordText: { color: PRIMARY, fontWeight: '900', fontSize: 16 },
   empty: { color: '#6B7280', marginBottom: 8 },
   errorBlock: { backgroundColor: '#fff1f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
@@ -5030,6 +5134,15 @@ const styles = StyleSheet.create({
   goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: HOME_LAVENDER },
   goalEmptyNote: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10 },
   practiceSectionTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16, marginBottom: 12, marginTop: 4 },
+  aiRecommendationCard: { backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', borderRadius: 18, padding: 14, marginBottom: 14 },
+  aiRecommendationTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  aiRecommendationIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: HOME_LAVENDER, alignItems: 'center', justifyContent: 'center' },
+  aiRecommendationWord: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 19 },
+  aiRecommendationReason: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 17, marginTop: 2 },
+  aiRecommendationFocus: { color: HOME_INK, fontWeight: '700', fontSize: 12, marginTop: 10 },
+  aiConfidencePill: { minWidth: 66, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 7, alignItems: 'center' },
+  aiConfidenceValue: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 15 },
+  aiConfidenceLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 9 },
   categoryFilterBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#EFECFB', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14,

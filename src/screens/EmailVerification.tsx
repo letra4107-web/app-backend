@@ -326,7 +326,6 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
               studentName: userName || 'Mag-aaral',
             });
           } else if (userRole === 'teacher') {
-            // Teacher dashboard not implemented yet, go to Login
             navigation.replace('Login', { verifiedEmail: email });
           } else {
             // Default to parent dashboard

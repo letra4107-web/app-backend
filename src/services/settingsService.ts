@@ -239,8 +239,8 @@ const normalizeSettingsRow = (row: any, authUid: string, role: SettingsRole): Da
   };
 };
 
-export async function fetchDashboardSettings(authUid: string, role: SettingsRole) {
-  await requireAuthenticatedUser(authUid);
+export async function fetchDashboardSettings(authUid: string, role: SettingsRole, verifiedAuthUid?: string) {
+  if (verifiedAuthUid !== authUid) await requireAuthenticatedUser(authUid);
   const table = tableForRole(role);
   const { data, error } = await supabase.from(table).select('*').eq('auth_uid', authUid).maybeSingle();
   if (error) throw normalizeSettingsError(error, table);

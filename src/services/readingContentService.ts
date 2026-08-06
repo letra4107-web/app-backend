@@ -10,7 +10,8 @@ export type ReadingContentItem = {
   content_text: string;
   content_type: ReadingContentType;
   level: ReadingLevel;
-  sequence_no: number;
+  sequence_no: number | null;
+  source_row: number | null;
   pattern_note: string | null;
   backend_category: string | null;
   is_assessment: boolean;
@@ -45,7 +46,7 @@ export const fetchReadingContent = async (): Promise<ReadingContentItem[]> => {
   for (let start = 0; ; start += PAGE_SIZE) {
     const { data, error } = await supabase
       .from('reading_content')
-      .select('id,word_id,content_text,content_type,level,sequence_no,pattern_note,backend_category,is_assessment')
+      .select('id,word_id,content_text,content_type,level,sequence_no,source_row,pattern_note,backend_category,is_assessment')
       .eq('is_active', true)
       .order('level')
       .order('content_type')

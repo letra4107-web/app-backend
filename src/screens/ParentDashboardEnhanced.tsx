@@ -27,6 +27,7 @@ import {
 } from '../services/settingsService';
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
+import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
 
 // Same palette as the Student Dashboard redesign, duplicated locally since
 // this file doesn't share module scope - keeps the Parent Dashboard visually
@@ -227,8 +228,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [childPickerOpen, setChildPickerOpen] = useState(false);
   const [childSessions, setChildSessions] = useState<
-    { word: string; accuracy_percentage: number; is_correct: boolean | null; duration_seconds: number | null; created_at: string }[]
+    { word: string; accuracy_percentage: number; is_correct: boolean | null; duration_seconds: number | null; attempts: number | null; created_at: string }[]
   >([]);
+  const [childReadingProfile, setChildReadingProfile] = useState<ReadingProfile | null>(null);
   const [progressPeriod, setProgressPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [childLessonsTotal, setChildLessonsTotal] = useState<number | null>(null);
@@ -440,10 +442,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     // an equal-length "previous period" for the improvement delta).
     // Row-count capped instead, which is generous for a single child's
     // practice history.
-    const [sessionsResult, lessonsResult, currentLessonResult, lessonProgressResult] = await Promise.allSettled([
+    const [sessionsResult, lessonsResult, currentLessonResult, lessonProgressResult, readingProfileResult] = await Promise.allSettled([
       supabase
         .from('pronunciation_practice_sessions')
-        .select('word, accuracy_percentage, is_correct, duration_seconds, created_at')
+        .select('word, accuracy_percentage, is_correct, duration_seconds, attempts, created_at')
         .eq('student_id', child.id)
         .order('created_at', { ascending: false })
         .limit(2000),
@@ -456,6 +458,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         .limit(1)
         .maybeSingle(),
       fetchLessonProgress(child.id),
+      fetchReadingProfile(child.id),
     ]);
 
     setChildSessions(
@@ -476,6 +479,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         : null,
     );
     setChildLessonProgressRows(lessonProgressResult.status === 'fulfilled' ? lessonProgressResult.value : []);
+    setChildReadingProfile(readingProfileResult.status === 'fulfilled' ? readingProfileResult.value : null);
 
     if (
       currentLessonResult.status === 'fulfilled' &&
@@ -505,6 +509,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const child = children.find((c) => c.id === selectedChildId);
     if (!child) {
       setChildSessions([]);
+      setChildReadingProfile(null);
       setChildLessonsTotal(null);
       setChildLessonsList([]);
       setChildCompletedLessons(null);
@@ -830,6 +835,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const isActivelyLearning = !!progress?.last_practice_date && progress.last_practice_date.slice(0, 10) === new Date().toISOString().slice(0, 10);
     const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
     const lessonsCompleted = childCompletedLessons ?? 0;
+    const latestReading = childSessions[0] || null;
 
     const tierMessage = (name: string, pct: number | null) =>
       pct === null
@@ -1013,6 +1019,28 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             ))}
           </View>
         )}
+
+        <View style={styles.latestReadingCard}>
+          <View style={styles.latestReadingHeader}>
+            <View>
+              <Text style={styles.latestReadingEyebrow}>LATEST READING RESULT</Text>
+              <Text style={styles.latestReadingWord}>{latestReading?.word || 'No reading yet'}</Text>
+            </View>
+            <Ionicons name={latestReading?.is_correct ? 'checkmark-circle' : 'book-outline'} size={26} color={latestReading?.is_correct ? SUCCESS : HOME_LAVENDER_DARK} />
+          </View>
+          <View style={styles.latestReadingStats}>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading ? `${Math.round(latestReading.accuracy_percentage || 0)}%` : '--'}</Text><Text style={styles.latestReadingLabel}>Accuracy</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.attempts ?? '--'}</Text><Text style={styles.latestReadingLabel}>Attempts</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.duration_seconds != null ? `${latestReading.duration_seconds}s` : '--'}</Text><Text style={styles.latestReadingLabel}>Duration</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{progress?.streak || 0}</Text><Text style={styles.latestReadingLabel}>Day Streak</Text></View>
+          </View>
+          <Text style={styles.latestReadingObservation}>
+            {childReadingProfile?.insights[0] || 'Complete more reading practice to generate an observation.'}
+          </Text>
+          <Text style={styles.latestReadingPractice}>
+            Home practice: {childReadingProfile?.recommendedHomePractice || 'Magbasa nang malakas sa loob ng 5 minuto.'}
+          </Text>
+        </View>
 
         <LinearGradient
           colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
@@ -1460,6 +1488,44 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
           </View>
         </View>
+
+        {childReadingProfile && (
+          <View style={styles.readingProgressCard}>
+            <View style={styles.readingProgressHeader}>
+              <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>AI Reading Summary</Text>
+              <Ionicons name="sparkles" size={22} color={HOME_LAVENDER_DARK} />
+            </View>
+            <View style={styles.overallStatsRow}>
+              <View style={styles.overallStatCell}>
+                <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.confidenceScore}%</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Confidence</Text>
+              </View>
+              <View style={styles.overallStatCell}>
+                <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.averageAccuracy ?? '--'}{childReadingProfile.averageAccuracy !== null ? '%' : ''}</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Accuracy</Text>
+              </View>
+              <View style={styles.overallStatCell}>
+                <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.weeklyPracticeDays}</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Days This Week</Text>
+              </View>
+            </View>
+            <Text style={styles.readingProgressMessage}>
+              {childReadingProfile.insights[0] || childReadingProfile.confidenceLabel}
+            </Text>
+            <View style={styles.recommendCard}>
+              <View style={styles.recommendIconWrap}>
+                <Ionicons name="home" size={18} color={HOME_SUN} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recommendTitle}>Recommended Home Practice</Text>
+                <Text style={styles.recommendText}>{childReadingProfile.recommendedHomePractice}</Text>
+                {!!childReadingProfile.weakSounds.length && (
+                  <Text style={styles.recommendText}>Needs more practice: {childReadingProfile.weakSounds.map((sound) => sound.unit.toUpperCase()).join(', ')}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
 
         <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Progress Overview</Text>
         <Text style={styles.periodFilterLabel}>TIME PERIOD FILTER</Text>
@@ -2662,6 +2728,16 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE, borderRadius: 20, padding: 18, marginBottom: 16,
     borderWidth: 1, borderColor: BORDER,
   },
+  latestReadingCard: { backgroundColor: '#F8F7FF', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#D9D4F4' },
+  latestReadingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  latestReadingEyebrow: { color: HOME_LAVENDER_DARK, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  latestReadingWord: { color: HOME_INK, fontSize: 20, fontWeight: '900', marginTop: 3 },
+  latestReadingStats: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 14, paddingVertical: 10, marginBottom: 12 },
+  latestReadingStat: { flex: 1, alignItems: 'center', paddingHorizontal: 3 },
+  latestReadingValue: { color: HOME_LAVENDER_DARK, fontSize: 16, fontWeight: '900' },
+  latestReadingLabel: { color: HOME_INK_SOFT, fontSize: 9, fontWeight: '700', marginTop: 2, textAlign: 'center' },
+  latestReadingObservation: { color: HOME_INK, fontSize: 12, fontWeight: '700', lineHeight: 18 },
+  latestReadingPractice: { color: HOME_SAGE, fontSize: 12, fontWeight: '800', lineHeight: 18, marginTop: 6 },
   childAvatarLg: {
     width: 56, height: 56, borderRadius: 28, backgroundColor: '#EFECFB',
     alignItems: 'center', justifyContent: 'center',

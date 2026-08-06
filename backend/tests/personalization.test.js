@@ -9,7 +9,9 @@ process.env.EMAIL_PASS = 'testpass';
 process.env.NODE_ENV = 'test';
 
 const { createPersonalizationRouter } = require('../routes/personalization');
-const { RANKING_WEIGHTS, STRATEGY_VERSION, rankCurriculum } = require('../services/coldStartRanker');
+const {
+  RANKING_WEIGHTS, STRATEGY_VERSION, buildTrackFrontier, rankCurriculum,
+} = require('../services/coldStartRanker');
 
 const studentId = '00000000-0000-4000-8000-000000000001';
 const now = new Date();
@@ -31,11 +33,13 @@ const confusions = [
 ];
 const contentAttempts = [];
 const curriculum = [
-  { id: 'content-beginner-da', word_id: null, content_text: 'da', content_type: 'phonetic', level: 'Beginner', is_assessment: false },
-  { id: 'content-beginner-bata', word_id: 'word-bata', content_text: 'bata', content_type: 'word', level: 'Beginner', is_assessment: false },
-  { id: 'content-intermediate-radyo', word_id: 'word-radyo', content_text: 'radyo', content_type: 'word', level: 'Intermediate', is_assessment: false },
-  { id: 'content-intermediate-phrase', word_id: null, content_text: 'malinaw na radyo', content_type: 'phrase', level: 'Intermediate', is_assessment: false },
-  { id: 'content-advanced-paragraph', word_id: null, content_text: 'Tatlong pangungusap.', content_type: 'paragraph', level: 'Advanced', is_assessment: true },
+  { id: 'content-beginner-da', word_id: null, content_text: 'da', content_type: 'phonetic', level: 'Beginner', sequence_no: 1, source_row: 2, is_assessment: false },
+  { id: 'content-beginner-dra', word_id: null, content_text: 'dra', content_type: 'phonetic', level: 'Beginner', sequence_no: 2, source_row: 3, is_assessment: false },
+  { id: 'content-beginner-bata', word_id: 'word-bata', content_text: 'bata', content_type: 'word', level: 'Beginner', sequence_no: 1, source_row: 2, is_assessment: false },
+  { id: 'content-beginner-dahon', word_id: 'word-dahon', content_text: 'dahon', content_type: 'word', level: 'Beginner', sequence_no: 2, source_row: 3, is_assessment: false },
+  { id: 'content-intermediate-radyo', word_id: 'word-radyo', content_text: 'radyo', content_type: 'word', level: 'Intermediate', sequence_no: 1, source_row: 2, is_assessment: false },
+  { id: 'content-intermediate-phrase', word_id: null, content_text: 'malinaw na radyo', content_type: 'phrase', level: 'Intermediate', sequence_no: 1, source_row: 2, is_assessment: false },
+  { id: 'content-advanced-paragraph', word_id: null, content_text: 'Tatlong pangungusap.', content_type: 'paragraph', level: 'Advanced', sequence_no: 1, source_row: 2, is_assessment: true },
 ];
 const officialProgression = (eligible = false) => ({
   effective_level: 'Beginner',
@@ -55,6 +59,7 @@ const testPureRanking = () => {
   // Perfect recent accuracy cannot bypass incomplete official requirements.
   const staying = rankCurriculum({
     sessions, confusions, contentAttempts, curriculum,
+    completedContentIds: [],
     officialProgression: officialProgression(false), now, limit: 4,
   });
   assert.strictEqual(staying.strategy, STRATEGY_VERSION);
@@ -65,10 +70,25 @@ const testPureRanking = () => {
   assert(!Object.prototype.hasOwnProperty.call(staying.readiness, 'bootstrap_readiness'));
   assert(staying.items.some((item) => item.contentType === 'phonetic'));
   assert(staying.items.every((item) => ['word', 'phonetic'].includes(item.contentType)));
-  assert(staying.items[0].reasonCodes.includes('targets_confusion_pair'));
+  assert.strictEqual(staying.items.length, 2);
+  assert(staying.items.some((item) => item.contentId === 'content-beginner-da'));
+  assert(staying.items.some((item) => item.contentId === 'content-beginner-bata'));
+  assert(!staying.items.some((item) => item.contentId === 'content-beginner-dra'));
+  assert(!staying.items.some((item) => item.contentId === 'content-beginner-dahon'));
+  assert.strictEqual(staying.items[0].contentId, 'content-beginner-da');
+
+  const resumedFrontier = buildTrackFrontier(
+    curriculum.filter((item) => item.level === 'Beginner'),
+    ['content-beginner-da', 'content-beginner-bata'],
+    ['word', 'phonetic'],
+  );
+  assert.deepStrictEqual(resumedFrontier.map((item) => item.id), [
+    'content-beginner-dahon', 'content-beginner-dra',
+  ]);
 
   const advancing = rankCurriculum({
     sessions, confusions, contentAttempts, curriculum,
+    completedContentIds: [],
     officialProgression: officialProgression(true), now, limit: 4,
   });
   assert.strictEqual(advancing.shouldAdvance, true);
@@ -90,6 +110,7 @@ class FakeQuery {
   eq(column, value) { this.filters.push([column, value]); return this; }
   neq(column, value) { this.filters.push([`${column}:neq`, value]); return this; }
   order() { return this; }
+  range() { return this.execute(); }
   limit() { return this.execute(); }
   insert(value) { this.inserted = value; this.state.inserts[this.table] = value; return this; }
   maybeSingle() { return this.execute(true); }
@@ -109,6 +130,10 @@ class FakeQuery {
       this.state.attemptFilter = this.filters.find(([column]) => column === 'student_id')?.[1];
       return { data: contentAttempts, error: null };
     }
+    if (this.table === 'student_content_completions') {
+      this.state.completionFilter = this.filters.find(([column]) => column === 'student_id')?.[1];
+      return { data: [], error: null };
+    }
     if (this.table === 'reading_content') {
       const level = this.filters.find(([column]) => column === 'level')?.[1];
       return { data: curriculum.filter((item) => item.level === level && item.content_type !== 'paragraph'), error: null };
@@ -122,7 +147,7 @@ class FakeQuery {
 }
 
 const createFakeSupabase = () => {
-  const state = { inserts: {}, sessionFilter: null, confusionFilter: null, attemptFilter: null };
+  const state = { inserts: {}, sessionFilter: null, confusionFilter: null, attemptFilter: null, completionFilter: null };
   return {
     state,
     auth: {
@@ -174,6 +199,7 @@ const testEndpoint = async () => {
     assert.strictEqual(supabase.state.sessionFilter, studentId);
     assert.strictEqual(supabase.state.confusionFilter, studentId);
     assert.strictEqual(supabase.state.attemptFilter, studentId);
+    assert.strictEqual(supabase.state.completionFilter, studentId);
     assert.strictEqual(supabase.state.inserts.personalization_recommendations.student_id, studentId);
     assert.strictEqual(response.body.recommendation.shouldAdvance, false);
     assert.strictEqual(response.body.recommendation.readiness.official_progression_eligible, false);

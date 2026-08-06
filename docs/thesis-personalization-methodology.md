@@ -17,9 +17,18 @@ The official requirements are:
 
 | Current level | Required completion | Result |
 | --- | --- | --- |
-| Beginner | 200 words and 200 phonetics | Intermediate |
+| Beginner | **Temporarily 199 words** and 200 phonetics | Intermediate |
 | Intermediate | 200 words and 200 phrases | Advanced |
 | Advanced | 200 words, 200 sentences, and all 20 paragraph assessments | Program complete |
+
+The authoritative plan remains 200 Beginner words. During content audit, the
+English entry `shorts` was confirmed as a client-data error and removed from
+active curriculum, leaving 199 approved Beginner words. The deployed
+Beginner-word threshold is therefore **temporarily 199** so progression is not
+mathematically impossible. This is not a permanent revision of the official
+rule: once the client supplies an approved replacement, that item must be
+seeded and only the `Beginner/word` threshold restored to 200. Intermediate and
+Advanced word thresholds remain 200 throughout this temporary adjustment.
 
 Words, phonetics, phrases, and sentences complete at an accuracy of at least
 75%. A paragraph assessment completes after a full scored submission regardless
@@ -33,10 +42,11 @@ student at a higher level.
 
 ## Curriculum and data pipeline
 
-The unchanged 600-row `words` bank remains the pronunciation-word source.
+The legacy 600-row `words` bank remains available for historical stable-ID
+references, but its rejected `shorts` row is excluded from API fallback output.
 `reading_content` is the canonical curriculum layer:
 
-- each of the 600 word entries links to its stable `words.id`;
+- each of the 599 currently approved word entries links to its stable `words.id`;
 - 200 Beginner phonetics;
 - 200 Intermediate phrases;
 - 200 Advanced sentences; and
@@ -71,7 +81,7 @@ trend remain descriptive ranking features only.
 
 ## Transparent curriculum ranker
 
-The current strategy is `cold-start-ranker-v2-official-progression`:
+The current strategy is `cold-start-ranker-v3-sequential-frontier`:
 
 ```text
 ranking_score =
@@ -81,7 +91,7 @@ ranking_score =
   + 0.10 * structural_fit
 ```
 
-The candidate pool is determined by official progression:
+The eligible tracks are determined by official progression:
 
 - Beginner: words and phonetics;
 - Intermediate: words and phrases;
@@ -90,6 +100,14 @@ The candidate pool is determined by official progression:
 Paragraph assessments are surfaced separately and are never rankable practice
 items. When the current requirements are complete, candidates come from the
 next official level. Otherwise, they remain at the current level.
+
+Within each eligible track, workbook order is authoritative. Content is sorted
+by `sequence_no`, then `source_row`, then stable `reading_content.id`. Only the
+first incomplete item in each track enters the candidate pool. The ranker can
+therefore choose between the current Word and Phonetic frontiers at Beginner,
+for example, but it cannot recommend Word 12 while Word 11 is incomplete. This
+constrained-frontier design preserves personalization without allowing the
+weakness score to reorder or bypass the client curriculum.
 
 The normalized components are:
 
@@ -156,9 +174,11 @@ training and test sets.
 Supabase Bearer token. It loads official progression, selects eligible canonical
 curriculum, ranks it, and writes the rationale audit record.
 
-The app requests ranked curriculum when loading practice. If personalization
-is unavailable or empty, it falls back to the ordinary level word bank.
-Personalization therefore cannot block practice.
+The app requests ranked frontier candidates when loading practice. If
+personalization is unavailable or empty, it selects the first valid local
+frontier in deterministic workbook order. It never falls back to a legacy or
+freely selectable bank, so personalization cannot block practice or weaken the
+sequential constraint.
 
 ## Current limitations
 
@@ -167,5 +187,7 @@ Personalization therefore cannot block practice.
 - Confusion signals are spelling/STT-inferred rather than acoustic.
 - Manual weights have not been outcome-tuned.
 - Placement overrides depend on a human-supplied reason and should be audited.
+- The Beginner word requirement is temporarily 199 pending a client-approved
+  replacement for the rejected `shorts` row; it must then return to 200.
 - The future classifier remains deferred until real outcome labels and both
   readiness classes exist.
