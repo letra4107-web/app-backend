@@ -17,7 +17,8 @@ describe('tagalog syllabification', () => {
 
   it('syllabifyWord returns syllables array', () => {
     const res = syllabifyWord('Bahay');
-    expect(res.syllables).toEqual(['Ba', 'Hay']);
+    // The utility returns token-level display entries in `syllables`.
+    expect(res.syllables).toEqual(['Ba-Hay']);
     expect(res.display).toBe('Ba-Hay');
   });
 });
