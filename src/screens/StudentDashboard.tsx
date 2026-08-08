@@ -32,7 +32,7 @@ import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } fr
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { PRACTICE_PASSING_SCORE, scorePronunciation, scoreMessage } from '../utils/scorePronunciation';
-import { fetchPersonalizedContent } from '../services/wordsService';
+import { fetchPersonalizedContent, RankedContentEntry } from '../services/wordsService';
 import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem, subscribeToStudentNotifications } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
@@ -49,12 +49,6 @@ import {
   ReadingContentType,
   recordReadingContentAttempt,
 } from '../services/readingContentService';
-import {
-  buildTrackFrontier,
-  chooseRankedFrontier,
-  practiceItemState,
-  sortCurriculumItems,
-} from '../utils/sequentialPractice';
 
 type ChildProfile = {
   id: string;
@@ -193,8 +187,12 @@ export default function StudentDashboard({ navigation }: any) {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [lessonProgress, setLessonProgress] = useState<LessonProgressRow[]>([]);
-  const [rankedContentIds, setRankedContentIds] = useState<string[]>([]);
-  const [recommendationReasons, setRecommendationReasons] = useState<Record<string, string>>({});
+  // The single current curriculum item to practice next, per the sequential
+  // frontier the backend already computes (rankCurriculum's
+  // first-incomplete-item-per-track policy) - the client never downloads or
+  // ranks the full curriculum bank itself.
+  const [currentPracticeItem, setCurrentPracticeItem] = useState<RankedContentEntry | null>(null);
+  const [currentPracticeReason, setCurrentPracticeReason] = useState<string>('');
   const [readingProfile, setReadingProfile] = useState<ReadingProfile | null>(null);
   const [wordBankLoading, setWordBankLoading] = useState(false);
   const [lessonFilter, setLessonFilter] = useState<string>('Lahat');
@@ -216,8 +214,6 @@ export default function StudentDashboard({ navigation }: any) {
   const [readingContent, setReadingContent] = useState<ReadingContentItem[]>([]);
   const [completedContentIds, setCompletedContentIds] = useState<Set<string>>(new Set());
   const [officialProgression, setOfficialProgression] = useState<OfficialReadingProgress | null>(null);
-  const [curriculumLoading, setCurriculumLoading] = useState(false);
-  const [curriculumError, setCurriculumError] = useState('');
   type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
@@ -538,35 +534,27 @@ export default function StudentDashboard({ navigation }: any) {
     if (child) void loadPublishedLessons(child.grade_level);
   };
 
-  const loadWordBank = async (level: string) => {
+  const loadCurrentPracticeItem = async (contentType?: CurriculumPracticeType) => {
     setWordBankLoading(true);
     try {
-      const ranked = await fetchPersonalizedContent(24);
-      const contentIds = ranked
-        .map((item) => item.contentId)
-        .filter((id): id is string => Boolean(id));
-      setRankedContentIds(contentIds);
-      setRecommendationReasons(Object.fromEntries(ranked.map((item) => [
-        item.contentId,
-        item.recommendationReason || 'Current unlocked curriculum frontier.',
-      ])));
+      const [ranked] = await fetchPersonalizedContent(1, contentType);
+      setCurrentPracticeItem(ranked || null);
+      setCurrentPracticeReason(ranked?.recommendationReason || 'Current unlocked curriculum frontier.');
       void fetchReadingProfile().then(setReadingProfile).catch((profileError) => {
         console.warn('[StudentDashboard] reading profile unavailable:', profileError?.message || profileError);
       });
     } catch (error: any) {
-      // Personalization chooses only between valid local track frontiers. If
-      // it is unavailable, deterministic workbook order remains fully usable.
-      console.warn('[StudentDashboard] frontier ranking unavailable; using curriculum order:', error?.message || error);
-      setRankedContentIds([]);
-      setRecommendationReasons({});
+      // The whole level's frontier is complete, or personalization is
+      // temporarily unavailable - either way, no current item to show.
+      console.warn('[StudentDashboard] current practice item unavailable:', error?.message || error);
+      setCurrentPracticeItem(null);
+      setCurrentPracticeReason('');
     } finally {
       setWordBankLoading(false);
     }
   };
 
   const loadOfficialCurriculum = async (studentId: string) => {
-    setCurriculumLoading(true);
-    setCurriculumError('');
     try {
       const [content, completionIds, progressionSnapshot] = await Promise.all([
         fetchReadingContent(),
@@ -581,11 +569,12 @@ export default function StudentDashboard({ navigation }: any) {
       setProgress((current) => current ? { ...current, level: progressionSnapshot.effective_level } : current);
       return { content, completionIds, progressionSnapshot };
     } catch (error: any) {
+      // Progress tab's requirement breakdown and this attempt's difficulty
+      // lookup degrade gracefully to empty/default values without this data;
+      // nothing in the UI blocks on it, so there's no loading/error state to
+      // surface here.
       console.warn('[StudentDashboard] official curriculum load failed:', error?.message || error);
-      setCurriculumError(error?.message || 'Hindi ma-load ang official reading curriculum.');
       return null;
-    } finally {
-      setCurriculumLoading(false);
     }
   };
 
@@ -811,8 +800,8 @@ export default function StudentDashboard({ navigation }: any) {
 
   useEffect(() => {
     if (!child?.id || !progress?.level) return;
-    void loadWordBank(progress.level);
-  }, [child?.id, progress?.level]);
+    void loadCurrentPracticeItem(practiceCategoryFilter || undefined);
+  }, [child?.id, progress?.level, practiceCategoryFilter]);
 
   useEffect(() => {
     if (practiceListening) {
@@ -1155,7 +1144,7 @@ export default function StudentDashboard({ navigation }: any) {
         + ((durationSeconds == null ? 70 : durationSeconds <= 15 ? 100 : Math.max(0, 100 - ((durationSeconds - 15) * 3))) * 0.1)
         + (Math.max(0, 100 - (practiceAttempts * 20)) * 0.2),
       ),
-      recommendation_reason: selectedContentId ? recommendationReasons[selectedContentId] || null : null,
+      recommendation_reason: selectedContentId && selectedContentId === currentPracticeItem?.id ? currentPracticeReason || null : null,
       created_at: new Date().toISOString(),
     };
 
@@ -1353,7 +1342,7 @@ export default function StudentDashboard({ navigation }: any) {
             setCompletedContentIds((current) => new Set([...current, selectedContentId]));
             // Refresh only after the server-owned completion transaction so
             // the ranker receives the newly advanced per-track frontiers.
-            void loadWordBank(recorded.result.progression.effective_level);
+            void loadCurrentPracticeItem(practiceCategoryFilter || undefined);
           }
         } catch (contentError: any) {
           console.warn('[Practice] official curriculum attempt recording failed:', contentError?.message || contentError);
@@ -1879,49 +1868,29 @@ export default function StudentDashboard({ navigation }: any) {
     const practiceTypeLabels: Record<CurriculumPracticeType, string> = {
       word: 'Words', phonetic: 'Phonetics', phrase: 'Phrases', sentence: 'Sentences',
     };
-    const levelCurriculum = readingContent.filter((item) => item.level === currentLevel && !item.is_assessment);
-    const categoryFilteredCurriculum = practiceCategoryFilter
-      ? levelCurriculum.filter((item) => item.content_type === practiceCategoryFilter)
-      : [];
-    const trackOrder: ReadingContentType[] = currentLevel === 'Beginner'
-      ? ['word', 'phonetic']
-      : currentLevel === 'Intermediate'
-      ? ['word', 'phrase']
-      : ['word', 'sentence'];
-    const frontier = buildTrackFrontier(levelCurriculum, completedContentIds, trackOrder);
-    const effectiveFrontier = practiceCategoryFilter
-      ? buildTrackFrontier(categoryFilteredCurriculum, completedContentIds, [practiceCategoryFilter])
-      : frontier;
-    const validRankedContentIds = rankedContentIds.filter((id) => effectiveFrontier.some((item) => item.id === id));
-    const recommendedItem = chooseRankedFrontier(
-      effectiveFrontier,
-      validRankedContentIds.length ? validRankedContentIds : rankedContentIds,
+    const companionType: CurriculumPracticeType = currentLevel === 'Beginner'
+      ? 'phonetic'
+      : currentLevel === 'Intermediate' ? 'phrase' : 'sentence';
+    // Only the current word/companion item is ever fetched or shown - no
+    // full curriculum bank is downloaded or rendered as a tappable list.
+    // Counts come from the server's own requirement tally, not a client-side
+    // filter over the full bank.
+    const activeTypes: CurriculumPracticeType[] = practiceCategoryFilter ? [practiceCategoryFilter] : ['word', companionType];
+    const levelRequirements = (officialProgression?.requirements || []).filter(
+      (row) => row.level === currentLevel && activeTypes.includes(row.content_type as CurriculumPracticeType),
     );
-    const currentContentId = recommendedItem?.id || null;
-    // The progress map follows workbook order inside each track. The ranker
-    // only chooses between the first incomplete item from each track and can
-    // no longer reorder the full bank.
-    const orderedCurriculum = trackOrder.flatMap((type) => sortCurriculumItems(
-      levelCurriculum.filter((item) => item.content_type === type),
-    ));
-    const visibleItems = practiceCategoryFilter
-      ? sortCurriculumItems(categoryFilteredCurriculum)
-      : orderedCurriculum;
+    const wordTotal = levelRequirements.reduce((sum, row) => sum + row.required_count, 0);
+    const wordsDoneCount = levelRequirements.reduce((sum, row) => sum + Math.min(row.completed_count, row.required_count), 0);
+    const wordPosition = Math.min(wordsDoneCount + 1, Math.max(wordTotal, 1));
+    const remainingWords = Math.max(0, wordTotal - wordsDoneCount);
 
-    // Real position of the selected word within today's active word bank -
-    // not a fabricated lesson number.
-    const wordPosition = selectedContentId ? visibleItems.findIndex((item) => item.id === selectedContentId) + 1 : 0;
-    const wordTotal = visibleItems.length;
+    const recommendedItem = currentPracticeItem;
 
     const wordsPracticedToday = todaySessions.length;
     const correctToday = todaySessions.filter((s) => s.is_correct).length;
     const accuracyToday = todaySessions.length
       ? Math.round(todaySessions.reduce((sum, s) => sum + (s.accuracy_percentage || 0), 0) / todaySessions.length)
       : 0;
-    const remainingWords = Math.max(
-      0,
-      wordTotal - visibleItems.filter((item) => item.id && completedContentIds.has(item.id)).length
-    );
 
     const startWord = (word: string, mode: 'say' | 'listen', contentId?: string | null) => {
       setPracticeMode(mode);
@@ -2012,7 +1981,7 @@ export default function StudentDashboard({ navigation }: any) {
         setPracticeResult(null);
         return;
       }
-      startWord(recommendedItem.content_text, 'say', recommendedItem.id);
+      startWord(recommendedItem.contentText, 'say', recommendedItem.id);
     };
 
     const renderSessionProgressCard = () => (
@@ -2326,9 +2295,9 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name="sparkles" size={18} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.aiRecommendationWord, cardTitleA11y]}>{recommendedItem.content_text}</Text>
+                <Text style={[styles.aiRecommendationWord, cardTitleA11y]}>{recommendedItem.contentText}</Text>
                 <Text style={[styles.aiRecommendationReason, bodyA11y]}>
-                  {recommendationReasons[recommendedItem.id] || 'Current unlocked curriculum frontier.'}
+                  {currentPracticeReason || 'Current unlocked curriculum frontier.'}
                 </Text>
               </View>
               {readingProfile && (
@@ -2344,7 +2313,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         )}
 
-        {!recommendedItem && !curriculumLoading && (
+        {!recommendedItem && !wordBankLoading && (
           <View style={styles.completedTrackBanner}>
             <Ionicons name="checkmark-circle" size={24} color={SUCCESS} />
             <View style={{ flex: 1 }}>
@@ -2357,7 +2326,7 @@ export default function StudentDashboard({ navigation }: any) {
         <TouchableOpacity
           style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
           disabled={!recommendedItem}
-          onPress={() => recommendedItem && startWord(recommendedItem.content_text, 'say', recommendedItem.id)}
+          onPress={() => recommendedItem && startWord(recommendedItem.contentText, 'say', recommendedItem.id)}
           accessibilityRole="button"
           accessibilityLabel="Start Say the Word practice mode"
         >
@@ -2379,7 +2348,7 @@ export default function StudentDashboard({ navigation }: any) {
         <TouchableOpacity
           style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
           disabled={!recommendedItem}
-          onPress={() => recommendedItem && startWord(recommendedItem.content_text, 'listen', recommendedItem.id)}
+          onPress={() => recommendedItem && startWord(recommendedItem.contentText, 'listen', recommendedItem.id)}
           accessibilityRole="button"
           accessibilityLabel="Start Listen and Read practice mode"
         >
@@ -2426,70 +2395,45 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         )}
 
-        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>
-          {practiceCategoryFilter ? practiceTypeLabels[practiceCategoryFilter] : 'Curriculum Progress'}
-        </Text>
-
-        {(curriculumLoading || (wordBankLoading && !readingContent.length)) && !visibleItems.length ? (
-          <View style={styles.centerBlock}>
-            <ActivityIndicator size="small" color={HOME_LAVENDER} />
-            <Text style={styles.empty}>Loading official curriculum...</Text>
+        {/* Compact, read-only progress summary - replaces the old full word
+            grid. reading_content stays the source of truth server-side; the
+            client only ever fetches/shows the current item plus a count,
+            never the whole sequence rendered as tappable cards. */}
+        <View style={styles.learnProgressCard}>
+          <View style={styles.learnProgressTopRow}>
+            <View style={styles.practiceProgressTitleRow}>
+              <Ionicons name="albums-outline" size={16} color={HOME_LAVENDER_DARK} />
+              <Text style={[styles.learnProgressTitle, cardTitleA11y]}>
+                {practiceCategoryFilter ? practiceTypeLabels[practiceCategoryFilter] : 'Curriculum Progress'}
+              </Text>
+            </View>
+            {wordTotal > 0 && (
+              <View style={styles.practiceWordPill}>
+                <Text style={[styles.practiceWordPillText, smallLabelA11y]}>Salita {wordPosition} sa {wordTotal}</Text>
+              </View>
+            )}
           </View>
-        ) : curriculumError && !visibleItems.length ? (
-          <View style={styles.errorBlock}>
-            <Text style={[styles.error, bodyA11y]}>{curriculumError}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => child?.id && void loadOfficialCurriculum(child.id)}
-              accessibilityRole="button"
-              accessibilityLabel="Retry loading official curriculum"
-            >
-              <Text style={[styles.retryButtonText, buttonA11y]}>Subukan muli</Text>
-            </TouchableOpacity>
+          <View style={styles.learnProgressTrack}>
+            <View style={{ width: `${wordTotal ? Math.max(4, Math.round((wordsDoneCount / wordTotal) * 100)) : 4}%`, height: '100%' }}>
+              <LinearGradient
+                colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ flex: 1, borderRadius: 5 }}
+              />
+            </View>
           </View>
-        ) : (
-          <View style={styles.wordGrid}>
-            {visibleItems.map((item, index) => {
-              const itemState = practiceItemState(item, completedContentIds, currentContentId);
-              const done = itemState === 'completed';
-              const current = itemState === 'current';
-              return (
-                <TouchableOpacity
-                  key={item.id || `${item.content_text}-${index}`}
-                  style={[
-                    styles.wordCard,
-                    done && styles.wordCardDone,
-                    current && styles.wordCardCurrent,
-                    itemState === 'locked' && styles.wordCardLocked,
-                  ]}
-                  disabled={!current}
-                  onPress={() => current && startWord(item.content_text, 'say', item.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: !current }}
-                  accessibilityLabel={`${item.content_text}, ${itemState}`}
-                >
-                  {done && (
-                    <View style={styles.wordCardCheckBadge}>
-                      <Ionicons name="checkmark" size={14} color="#fff" />
-                    </View>
-                  )}
-                  {itemState === 'locked' && (
-                    <View style={styles.wordCardLockBadge}>
-                      <Ionicons name="lock-closed" size={12} color="#fff" />
-                    </View>
-                  )}
-                  <Text style={[
-                    styles.wordText,
-                    done && { color: SUCCESS },
-                    current && styles.wordTextCurrent,
-                    itemState === 'locked' && styles.wordTextLocked,
-                    a11yText(15, 'bold'),
-                  ]}>{item.content_text}</Text>
-                </TouchableOpacity>
-              );
-            })}
+          <View style={styles.practiceTipRow}>
+            <Ionicons name="bulb" size={14} color={HOME_SUN} />
+            <Text style={[styles.practiceTipText, bodyA11y]}>
+              {wordTotal === 0
+                ? 'Wala pang item sa antas na ito.'
+                : remainingWords > 0
+                ? `${remainingWords} pang item para matapos ang set na ito!`
+                : 'Tapos na ang buong set!'}
+            </Text>
           </View>
-        )}
+        </View>
 
         {renderSessionProgressCard()}
         {renderReadingTipCard()}
@@ -4774,32 +4718,12 @@ const styles = StyleSheet.create({
   learnGoalTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', marginBottom: 10 },
   learnGoalTrackFill: { height: '100%', borderRadius: 5, backgroundColor: '#7DD3FC' },
   learnGoalMsg: { color: 'rgba(255,255,255,0.9)', fontWeight: '700', fontSize: 12 },
-  wordGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  wordCard: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 14, minWidth: '30%', minHeight: 64,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#EEE9F9',
-  },
-  wordCardCheckBadge: {
-    position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10,
-    backgroundColor: SUCCESS, alignItems: 'center', justifyContent: 'center',
-  },
-  wordCardLockBadge: {
-    position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10,
-    backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center',
-  },
-  wordCardCurrent: {
-    backgroundColor: '#EFECFB', borderColor: HOME_LAVENDER_DARK, borderWidth: 2.5,
-  },
-  wordCardLocked: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB', opacity: 0.62 },
-  wordTextCurrent: { color: HOME_LAVENDER_DARK },
-  wordTextLocked: { color: '#6B7280' },
   completedTrackBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, marginBottom: 14,
     borderRadius: 16, backgroundColor: '#F0FDF4', borderWidth: 1.5, borderColor: '#86EFAC',
   },
   completedTrackTitle: { color: '#166534', fontWeight: '900', fontSize: 15 },
   completedTrackText: { color: '#166534', fontWeight: '600', fontSize: 12, marginTop: 2 },
-  wordText: { color: PRIMARY, fontWeight: '900', fontSize: 16 },
   empty: { color: '#6B7280', marginBottom: 8 },
   errorBlock: { backgroundColor: '#fff1f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
   error: { color: '#b91c1c', marginBottom: 10, fontWeight: '700' },
@@ -5389,8 +5313,6 @@ const styles = StyleSheet.create({
   },
   retryMicText: { color: '#fff', fontWeight: '700' },
 
-  // Word grid updates
-  wordCardDone: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
   sectionSubtitle: { color: TEXT_SECONDARY, fontSize: 13, marginBottom: 16 },
   emptyState: { alignItems: 'center', paddingTop: 40 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },

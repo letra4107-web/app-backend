@@ -54,12 +54,12 @@ export const fetchPersonalizedWords = async (limit = 24): Promise<string[]> => {
   return ranked.map((entry) => entry.contentText || entry.word);
 };
 
-export const fetchPersonalizedContent = async (limit = 24): Promise<RankedContentEntry[]> => {
+export const fetchPersonalizedContent = async (limit = 24, contentType?: string): Promise<RankedContentEntry[]> => {
   const response = await postJson<{
     success: boolean;
     recommendation?: { items?: RankedContentEntry[]; words?: RankedContentEntry[] };
     message?: string;
-  }>(buildApiUrl('/personalization/recommend'), { limit }, 15000);
+  }>(buildApiUrl('/personalization/recommend'), { limit, ...(contentType ? { contentType } : {}) }, 15000);
   const ranked = response.recommendation?.items || response.recommendation?.words || [];
   if (!response?.success || !ranked.length) {
     throw new Error(response?.message || 'No personalized words are available.');

@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { fetchPersonalizedWordOfDay } from './wordsService';
+import { fetchOfficialReadingProgress } from './readingContentService';
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const warnedMissingGrades = new Set<number>();
@@ -44,36 +45,43 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
     recommendationId = recommended.recommendationId || null;
     recommendationReason = recommended.recommendationReason || 'Current unlocked curriculum frontier.';
   } catch (personalizationError: any) {
-    // Keep Word of the Day usable during a backend rollout, but use a stable
-    // curriculum-configured fallback rather than a random selection.
-    console.warn('[WordOfDay] personalization unavailable; using configured grade fallback:', personalizationError?.message || personalizationError);
-    const activities = await supabase
-      .from('reading_activities')
-      .select('words')
-      .eq('grade', gradeLevel)
-      .maybeSingle();
-    if (activities.error) throw activities.error;
-    const words = Array.isArray(activities.data?.words) ? activities.data.words : [];
+    // Keep Word of the Day usable during a backend rollout, but the fallback
+    // must stay inside the student's own official level - it must never show
+    // words outside where they're officially placed just because the
+    // personalization call happened to fail. Queries the same canonical
+    // reading_content curriculum as the primary path, filtered by the
+    // server-owned effective_level (not the raw client-supplied gradeLevel
+    // the old reading_activities fallback used).
+    console.warn('[WordOfDay] personalization unavailable; using level-filtered curriculum fallback:', personalizationError?.message || personalizationError);
+    let fallbackLevel = 'Beginner';
+    try {
+      const officialProgression = await fetchOfficialReadingProgress();
+      fallbackLevel = officialProgression.effective_level;
+    } catch (progressionError: any) {
+      console.warn('[WordOfDay] official level lookup failed during fallback; defaulting to Beginner:', progressionError?.message || progressionError);
+    }
+
+    const candidates = await supabase
+      .from('reading_content')
+      .select('id,content_text')
+      .eq('level', fallbackLevel)
+      .eq('content_type', 'word')
+      .eq('is_active', true)
+      .order('sequence_no', { ascending: true })
+      .limit(500);
+    if (candidates.error) throw candidates.error;
+    const words = candidates.data || [];
     if (!words.length) {
       if (!warnedMissingGrades.has(gradeLevel)) {
-        console.warn(`[WordOfDay] No words configured for grade ${gradeLevel}; showing the empty state.`);
+        console.warn(`[WordOfDay] No canonical words configured for level ${fallbackLevel}; showing the empty state.`);
         warnedMissingGrades.add(gradeLevel);
       }
       return null;
     }
     const index = Math.abs(`${childId}-${date}`.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % words.length;
-    word = words[index];
-    recommendationReason = 'Grade-appropriate fallback while personalized recommendations are unavailable.';
-
-    const fallbackContentResult = await supabase
-      .from('reading_content')
-      .select('id')
-      .eq('content_text', word)
-      .limit(1)
-      .maybeSingle();
-    if (!fallbackContentResult.error && fallbackContentResult.data) {
-      contentId = fallbackContentResult.data.id;
-    }
+    word = words[index].content_text;
+    contentId = words[index].id;
+    recommendationReason = 'Level-appropriate fallback while personalized recommendations are unavailable.';
   }
 
   // Upsert with ignoreDuplicates instead of a plain insert: if a concurrent

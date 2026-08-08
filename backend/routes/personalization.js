@@ -60,6 +60,11 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
       const studentId = req.authenticatedStudentId;
       const requestedLimit = Number(req.body?.limit);
       const purpose = req.body?.purpose === 'word_of_day' ? 'word_of_day' : 'practice';
+      // Lets the Practice tab ask for just one track (e.g. after a Learn tab
+      // category card) without exposing the rest of the level's curriculum.
+      // Still safely intersected against PRACTICE_TYPES_BY_LEVEL[level] inside
+      // rankCurriculum, so an invalid/unauthorized type can't slip through.
+      const requestedContentType = typeof req.body?.contentType === 'string' ? req.body.contentType.trim() : '';
       const limit = Number.isFinite(requestedLimit)
         ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 24)
         : 10;
@@ -122,7 +127,11 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
         curriculum: curriculumResult.data || [],
         officialProgression,
         limit,
-        allowedContentTypes: purpose === 'word_of_day' ? ['word'] : null,
+        allowedContentTypes: purpose === 'word_of_day'
+          ? ['word']
+          : requestedContentType
+            ? [requestedContentType]
+            : null,
       });
       if (!result.items.length) {
         return res.status(503).json({ success: false, message: 'No personalized curriculum practice is available yet.' });
