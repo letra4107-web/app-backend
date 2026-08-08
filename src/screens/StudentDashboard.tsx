@@ -195,6 +195,11 @@ export default function StudentDashboard({ navigation }: any) {
   const [currentPracticeReason, setCurrentPracticeReason] = useState<string>('');
   const [readingProfile, setReadingProfile] = useState<ReadingProfile | null>(null);
   const [wordBankLoading, setWordBankLoading] = useState(false);
+  // Distinguishes "the backend confirmed this track's frontier is fully
+  // completed" from every other failure (network blip, timeout, backend
+  // temporarily unavailable) - without this, a transient recommend failure
+  // and a genuinely finished curriculum looked identical to the student.
+  const [wordBankError, setWordBankError] = useState<string>('');
   const [lessonFilter, setLessonFilter] = useState<string>('Lahat');
   const [activities, setActivities] = useState<StudentActivity[]>([]);
   const [uploadsError, setUploadsError] = useState<string>('');
@@ -540,15 +545,21 @@ export default function StudentDashboard({ navigation }: any) {
       const [ranked] = await fetchPersonalizedContent(1, contentType);
       setCurrentPracticeItem(ranked || null);
       setCurrentPracticeReason(ranked?.recommendationReason || 'Current unlocked curriculum frontier.');
+      setWordBankError('');
       void fetchReadingProfile().then(setReadingProfile).catch((profileError) => {
         console.warn('[StudentDashboard] reading profile unavailable:', profileError?.message || profileError);
       });
     } catch (error: any) {
-      // The whole level's frontier is complete, or personalization is
-      // temporarily unavailable - either way, no current item to show.
       console.warn('[StudentDashboard] current practice item unavailable:', error?.message || error);
       setCurrentPracticeItem(null);
       setCurrentPracticeReason('');
+      // Only the backend's specific empty-frontier message means the track
+      // is genuinely finished - every other failure (network error, timeout,
+      // 503 "temporarily unavailable") is transient and should offer a retry
+      // instead of falsely telling the student they've completed the set.
+      setWordBankError(
+        error?.message === 'No personalized curriculum practice is available yet.' ? '' : (error?.message || 'Hindi ma-load ang susunod na practice item.'),
+      );
     } finally {
       setWordBankLoading(false);
     }
@@ -2313,7 +2324,21 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         )}
 
-        {!recommendedItem && !wordBankLoading && (
+        {!recommendedItem && !wordBankLoading && !!wordBankError && (
+          <View style={styles.errorBlock}>
+            <Text style={[styles.error, bodyA11y]}>{wordBankError}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => void loadCurrentPracticeItem(practiceCategoryFilter || undefined)}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading practice item"
+            >
+              <Text style={[styles.retryButtonText, buttonA11y]}>Subukan muli</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!recommendedItem && !wordBankLoading && !wordBankError && (
           <View style={styles.completedTrackBanner}>
             <Ionicons name="checkmark-circle" size={24} color={SUCCESS} />
             <View style={{ flex: 1 }}>

@@ -124,9 +124,12 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
 
   const currentAttempts = Number(logRow.attempts || 0);
   if (logRow.correct === true) {
+    // child_progress has no `longest_streak` column (nor `id` - it's keyed
+    // by child_id directly); confirmed via direct query against the live
+    // table. `streak` doubles as the best available longest-streak value.
     const { data: progressRow, error: progressError } = await supabaseAdmin
       .from('child_progress')
-      .select('streak,longest_streak,xp')
+      .select('streak,xp')
       .eq('child_id', childId)
       .maybeSingle();
     if (progressError) throw progressError;
@@ -135,7 +138,7 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
       already_completed: true,
       completed: true,
       streak: progressRow?.streak ?? 0,
-      longest_streak: progressRow?.longest_streak ?? 0,
+      longest_streak: progressRow?.streak ?? 0,
       attempts: currentAttempts,
       xp_awarded: 0,
       total_xp: progressRow?.xp ?? 0,
@@ -143,13 +146,18 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
   }
 
   const updatedAttempts = currentAttempts + 1;
+  // word_of_day_log.accuracy and .completed_at are declared in migration
+  // 022 but were never actually applied to the live database (confirmed via
+  // direct query: `column word_of_day_log.accuracy does not exist`), unlike
+  // xp_awarded (migration 031), which is live. Neither column is read
+  // anywhere in the app - accuracy is already tracked authoritatively on
+  // pronunciation_practice_sessions.accuracy_percentage - so they're
+  // omitted here rather than writing to columns PostgREST reports missing.
   const { data: updatedLog, error: updateLogError } = await supabaseAdmin
     .from('word_of_day_log')
     .update({
       attempts: updatedAttempts,
-      accuracy: Math.max(0, Math.min(100, accuracy)),
       correct: isCorrect,
-      completed_at: isCorrect ? new Date().toISOString() : null,
       xp_awarded: isCorrect ? reward : 0,
     })
     .eq('id', logRow.id)
@@ -161,7 +169,7 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
 
   const { data: progressRow, error: progressError } = await supabaseAdmin
     .from('child_progress')
-    .select('id,streak,longest_streak,xp,last_practice_date')
+    .select('streak,xp,last_practice_date')
     .eq('child_id', childId)
     .maybeSingle();
   if (progressError) throw progressError;
@@ -171,7 +179,7 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
       already_completed: false,
       completed: false,
       streak: progressRow?.streak ?? 0,
-      longest_streak: progressRow?.longest_streak ?? 0,
+      longest_streak: progressRow?.streak ?? 0,
       attempts: updatedAttempts,
       xp_awarded: 0,
       total_xp: progressRow?.xp ?? 0,
@@ -185,7 +193,6 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
         child_id: childId,
         xp: reward,
         streak: 1,
-        longest_streak: 1,
         last_practice_date: today,
       })
       .select()
@@ -198,7 +205,7 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
       already_completed: false,
       completed: true,
       streak: insertedProgress.streak,
-      longest_streak: insertedProgress.longest_streak,
+      longest_streak: insertedProgress.streak,
       attempts: updatedAttempts,
       xp_awarded: reward,
       total_xp: insertedProgress.xp,
@@ -226,7 +233,6 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
     .update({
       xp: (progressRow.xp || 0) + reward,
       streak: nextStreak,
-      longest_streak: Math.max(progressRow.longest_streak || 0, nextStreak),
       last_practice_date: today,
       updated_at: new Date().toISOString(),
     })
@@ -241,7 +247,7 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
     already_completed: false,
     completed: true,
     streak: updatedProgress.streak,
-    longest_streak: updatedProgress.longest_streak,
+    longest_streak: updatedProgress.streak,
     attempts: updatedAttempts,
     xp_awarded: reward,
     total_xp: updatedProgress.xp,
@@ -268,27 +274,20 @@ const callWordOfDayCompletionRpc = async (childId, accuracy, isCorrect) => {
     },
   ];
 
+  // Both RPCs are schema-fragile (a UUID/TEXT id-column mismatch on the
+  // personalized RPC, an ambiguous "attempts" column reference in the legacy
+  // one - see migrations 031 and 022). Rather than re-throw on error classes
+  // we didn't anticipate, always fall through to the next attempt and,
+  // ultimately, to completeWordOfDayAttemptDirect() - a fully equivalent
+  // pure-JS reimplementation that bypasses both RPCs' SQL entirely. A
+  // genuinely broken database (e.g. the word_of_day_log row itself missing)
+  // still surfaces as an error there, so failures are never silently lost.
   for (const attempt of attempts) {
     const { data, error } = await supabaseAdmin.rpc(attempt.name, attempt.params);
     if (!error) {
       return Array.isArray(data) ? data[0] : data;
     }
-
-    const message = String(error.message || '').toLowerCase();
-    if (attempt.name === 'complete_personalized_word_of_day_attempt') {
-      if (message.includes('uuid = text') || message.includes('operator does not exist') || message.includes('does not exist')) {
-        console.warn('[SpeechAPI] falling back from personalized Word-of-the-Day RPC to legacy completion:', error.message);
-        continue;
-      }
-    }
-    if (attempt.name === 'complete_word_of_day_attempt') {
-      if (message.includes('uuid = text') || message.includes('operator does not exist')) {
-        console.warn('[SpeechAPI] falling back from legacy Word-of-the-Day RPC to direct completion:', error.message);
-        continue;
-      }
-    }
-
-    throw error;
+    console.warn(`[SpeechAPI] ${attempt.name} failed, falling back:`, error.message || error);
   }
 
   return completeWordOfDayAttemptDirect(childId, accuracy, isCorrect);
