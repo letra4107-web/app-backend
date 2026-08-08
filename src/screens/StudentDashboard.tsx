@@ -29,6 +29,7 @@ import { fetchStudentActivities, StudentActivity } from '../services/activitySer
 import { speakPhrase, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { speakWordCloud, speakSyllablesCloud, stopCloudSpeaking } from '../services/cloudTtsService';
 import SyllableKaraokeText from '../components/SyllableKaraokeText';
+import WordMeaningReveal from '../components/WordMeaningReveal';
 import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } from '../services/settingsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
@@ -1984,12 +1985,15 @@ export default function StudentDashboard({ navigation }: any) {
                 activeIndex={karaokeSyllableIndex}
               />
               {!!getWordDefinition(selectedWord) && (
-                <View style={styles.wordMeaningBox}>
-                  {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
-                    <Text style={[styles.wordMeaningAccented, bodyA11y]}>{getWordDefinition(selectedWord)!.display_word}</Text>
-                  )}
-                  <Text style={[styles.wordMeaningText, bodyA11y]}>{getWordDefinition(selectedWord)!.meaning_fil}</Text>
-                </View>
+                <WordMeaningReveal
+                  key={selectedWord}
+                  definition={{
+                    displayWord: getWordDefinition(selectedWord)!.display_word,
+                    meaningFil: getWordDefinition(selectedWord)!.meaning_fil,
+                    isAmbiguous: getWordDefinition(selectedWord)!.is_ambiguous,
+                  }}
+                  bodyA11yStyle={bodyA11y}
+                />
               )}
 
               <View style={styles.listenButtonRow}>
@@ -2185,12 +2189,15 @@ export default function StudentDashboard({ navigation }: any) {
                 activeIndex={null}
               />
               {!!getWordDefinition(selectedWord) && (
-                <View style={styles.wordMeaningBox}>
-                  {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
-                    <Text style={[styles.wordMeaningAccented, bodyA11y]}>{getWordDefinition(selectedWord)!.display_word}</Text>
-                  )}
-                  <Text style={[styles.wordMeaningText, bodyA11y]}>{getWordDefinition(selectedWord)!.meaning_fil}</Text>
-                </View>
+                <WordMeaningReveal
+                  key={selectedWord}
+                  definition={{
+                    displayWord: getWordDefinition(selectedWord)!.display_word,
+                    meaningFil: getWordDefinition(selectedWord)!.meaning_fil,
+                    isAmbiguous: getWordDefinition(selectedWord)!.is_ambiguous,
+                  }}
+                  bodyA11yStyle={bodyA11y}
+                />
               )}
 
               <View style={styles.practiceDivider} />
@@ -5225,9 +5232,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_DISPLAY,
   },
   practiceSyllables: { color: HOME_LAVENDER_DARK, fontSize: 16, fontWeight: '900', marginBottom: 14 },
-  wordMeaningBox: { alignItems: 'center', marginBottom: 14, paddingHorizontal: 12 },
-  wordMeaningAccented: { color: HOME_CORAL, fontSize: 14, fontWeight: '800', marginBottom: 2, textAlign: 'center' },
-  wordMeaningText: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 18 },
   practiceWordLevel: {
     textAlign: 'center', color: HOME_INK_SOFT, fontSize: 13,
     marginBottom: 20,
