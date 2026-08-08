@@ -206,14 +206,19 @@ ON public.notifications FOR UPDATE TO authenticated
 USING (parent_id = auth.uid()::text)
 WITH CHECK (parent_id = auth.uid()::text);
 
+-- children.id/.auth_uid/.parent_id are UUID live; notifications.student_id
+-- and .parent_id are TEXT (same drift class as the rest of this audit).
+-- Confirmed live: the naive version of this policy fails with "operator
+-- does not exist: uuid = text". Cast the children-side UUID columns to
+-- text to match; auth_uid needs no cast since auth.uid() is already UUID.
 CREATE POLICY "Students can insert parent notifications"
 ON public.notifications FOR INSERT TO authenticated
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.children c
-    WHERE c.id = public.notifications.student_id
-      AND c.auth_uid = auth.uid()::text
-      AND c.parent_id = public.notifications.parent_id
+    WHERE c.id::text = public.notifications.student_id
+      AND c.auth_uid = auth.uid()
+      AND c.parent_id::text = public.notifications.parent_id
   )
 );
 
