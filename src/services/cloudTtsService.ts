@@ -18,6 +18,27 @@ type CloudSpeakOptions = {
   onError?: (message: string) => void;
 };
 
+export type SyllableTimepoint = { markName: string; timeSeconds: number };
+
+type SpeakSyllablesResponse = {
+  success: boolean;
+  url?: string;
+  audioContent?: string;
+  timepoints?: SyllableTimepoint[];
+  cached?: boolean;
+  message?: string;
+};
+
+type KaraokeSpeakOptions = {
+  voice?: CloudVoice;
+  /** SSML speakingRate, clamped server-side to [0.25, 1.0]; defaults to 0.5. */
+  rate?: number;
+  /** Fires once per syllable boundary as playback crosses it, in order from 0. */
+  onSyllableIndex?: (index: number) => void;
+  onDone?: () => void;
+  onError?: (message: string) => void;
+};
+
 let activePlayer: AudioPlayer | null = null;
 let audioModeReady = false;
 
@@ -89,6 +110,77 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
   } catch (error: any) {
     console.warn('[CloudTTS] speakWordCloud failed, falling back to on-device TTS:', error?.message || error);
     onDeviceSpeakWord(text, { onDone, onError });
+  }
+}
+
+/**
+ * Plays a word as slow, syllable-marked speech and drives onSyllableIndex in
+ * sync with real Google TTS timepoints (SSML <mark> + enableTimePointing,
+ * v1beta1 - confirmed live to work with fil-PH-Wavenet-A/C). Unlike
+ * speakWordCloud, this has NO on-device fallback: expo-speech has no timing
+ * API, so there is no way to keep the highlight in sync if cloud synthesis
+ * fails. Callers should treat onError as "fall back to plain speakWordCloud
+ * for audio, but don't attempt to highlight" rather than going silent.
+ */
+export async function speakSyllablesCloud(syllables: string[], options: KaraokeSpeakOptions = {}) {
+  const { voice, rate, onSyllableIndex, onDone, onError } = options;
+  const clean = (syllables || []).map((s) => s?.trim()).filter(Boolean);
+  if (!clean.length) return;
+
+  releaseActivePlayer();
+
+  try {
+    await ensurePlaybackMode();
+
+    const response = await postJson<SpeakSyllablesResponse>(
+      buildApiUrl('/tts/speak-syllables'),
+      { syllables: clean, voice, rate },
+      20000,
+    );
+
+    const source = response.url
+      ? { uri: response.url }
+      : response.audioContent
+      ? { uri: `data:audio/mpeg;base64,${response.audioContent}` }
+      : null;
+
+    if (!response.success || !source || !Array.isArray(response.timepoints) || response.timepoints.length !== clean.length) {
+      throw new Error(response.message || 'Cloud TTS returned no usable syllable timing');
+    }
+
+    const timepoints = response.timepoints;
+    const player = createAudioPlayer(source);
+    activePlayer = player;
+
+    let lastIndex = -1;
+    const subscription = player.addListener('playbackStatusUpdate', (status) => {
+      if (typeof status.currentTime === 'number') {
+        // Last timepoint at or before the current position - timepoints are
+        // already restored to syllable order server-side.
+        let index = 0;
+        for (let i = 0; i < timepoints.length; i += 1) {
+          if (status.currentTime >= timepoints[i].timeSeconds) index = i;
+          else break;
+        }
+        if (index !== lastIndex) {
+          lastIndex = index;
+          onSyllableIndex?.(index);
+        }
+      }
+      if (status.didJustFinish) {
+        subscription.remove();
+        if (activePlayer === player) {
+          releaseActivePlayer();
+        }
+        onDone?.();
+      }
+    });
+
+    onSyllableIndex?.(0);
+    player.play();
+  } catch (error: any) {
+    console.warn('[CloudTTS] speakSyllablesCloud failed:', error?.message || error);
+    onError?.(error?.message || 'Could not play syllable read-along.');
   }
 }
 

@@ -27,7 +27,8 @@ import {
 } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
-import { speakWordCloud, stopCloudSpeaking } from '../services/cloudTtsService';
+import { speakWordCloud, speakSyllablesCloud, stopCloudSpeaking } from '../services/cloudTtsService';
+import SyllableKaraokeText from '../components/SyllableKaraokeText';
 import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } from '../services/settingsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
@@ -209,6 +210,10 @@ export default function StudentDashboard({ navigation }: any) {
   const [activitiesError, setActivitiesError] = useState<string>('');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
+  // Index of the syllable currently being spoken during slow karaoke
+  // read-along, driven by real Google TTS timepoints; null when idle.
+  const [karaokeSyllableIndex, setKaraokeSyllableIndex] = useState<number | null>(null);
+  const [karaokeLoading, setKaraokeLoading] = useState(false);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
   // Set when a Learn tab category card (Letters/Syllables/Words) is tapped,
   // so the Practice tab actually narrows to that category instead of always
@@ -1116,6 +1121,40 @@ export default function StudentDashboard({ navigation }: any) {
     speakWordCloud(word.replace(/-/g, ' '), { onError: (message) => setPracticeStatus(message) });
   };
 
+  // Slow, syllable-by-syllable karaoke read-along, driven by real Google TTS
+  // timepoints (see cloudTtsService.speakSyllablesCloud). No on-device
+  // fallback exists for the *highlighting* (expo-speech has no timing API),
+  // so on failure this still plays the word normally via speakPracticeWord -
+  // the student always hears something, they just don't get the highlight.
+  const playSyllableKaraoke = (word = selectedWord || '') => {
+    if (!word) return;
+    const parts = syllabifyText(word).split('-').filter(Boolean);
+    stopSpeaking();
+    stopCloudSpeaking();
+
+    if (parts.length < 2) {
+      // Nothing meaningful to highlight for a single-syllable word.
+      speakPracticeWord(word);
+      return;
+    }
+
+    setKaraokeLoading(true);
+    setKaraokeSyllableIndex(0);
+    speakSyllablesCloud(parts, {
+      onSyllableIndex: (index) => setKaraokeSyllableIndex(index),
+      onDone: () => {
+        setKaraokeSyllableIndex(null);
+        setKaraokeLoading(false);
+      },
+      onError: (message) => {
+        setKaraokeSyllableIndex(null);
+        setKaraokeLoading(false);
+        setPracticeStatus(message);
+        speakPracticeWord(word);
+      },
+    });
+  };
+
   const savePronunciationSession = async (result: PracticeResult, word: string, durationSeconds: number | null) => {
     if (!child?.id) return false;
     const curriculumItem = selectedContentId
@@ -1940,7 +1979,10 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={styles.practiceHero}>
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Pakinggan at Basahin</Text>
               <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
-              <Text style={[styles.practiceSyllables, bodyA11y]}>{syllabifyText(selectedWord).split('-').join('  •  ')}</Text>
+              <SyllableKaraokeText
+                syllables={syllabifyText(selectedWord).split('-').filter(Boolean)}
+                activeIndex={karaokeSyllableIndex}
+              />
               {!!getWordDefinition(selectedWord) && (
                 <View style={styles.wordMeaningBox}>
                   {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
@@ -1950,15 +1992,32 @@ export default function StudentDashboard({ navigation }: any) {
                 </View>
               )}
 
-              <TouchableOpacity
-                style={[styles.sayWordButton, { backgroundColor: HOME_SAGE, shadowColor: HOME_SAGE }]}
-                onPress={() => speakPracticeWord(selectedWord)}
-                accessibilityRole="button"
-                accessibilityLabel={`Play pronunciation for ${selectedWord}`}
-              >
-                <Ionicons name="volume-high" size={26} color="#fff" />
-                <Text style={[styles.sayWordButtonText, buttonA11y]}>Pakinggan</Text>
-              </TouchableOpacity>
+              <View style={styles.listenButtonRow}>
+                <TouchableOpacity
+                  style={[styles.sayWordButton, { flex: 1, width: undefined, backgroundColor: HOME_SAGE, shadowColor: HOME_SAGE }]}
+                  onPress={() => speakPracticeWord(selectedWord)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Play pronunciation for ${selectedWord}`}
+                >
+                  <Ionicons name="volume-high" size={26} color="#fff" />
+                  <Text style={[styles.sayWordButtonText, buttonA11y]}>Pakinggan</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.sayWordButton, { flex: 1, width: undefined, backgroundColor: HOME_LAVENDER_DARK, shadowColor: HOME_LAVENDER_DARK }]}
+                  onPress={() => playSyllableKaraoke(selectedWord)}
+                  disabled={karaokeLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Play slow syllable-by-syllable pronunciation for ${selectedWord}`}
+                >
+                  {karaokeLoading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Ionicons name="albums-outline" size={26} color="#fff" />
+                  )}
+                  <Text style={[styles.sayWordButtonText, buttonA11y]}>Pantig-pantig</Text>
+                </TouchableOpacity>
+              </View>
 
               <Text style={[styles.practiceStatus, bodyA11y]}>Pakinggan ang salita habang sinusundan mo ito sa mata.</Text>
             </View>
@@ -2121,7 +2180,10 @@ export default function StudentDashboard({ navigation }: any) {
               </Animated.View>
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Sabihin ang Salita</Text>
               <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
-              <Text style={[styles.practiceSyllables, bodyA11y]}>{syllabifyText(selectedWord).split('-').join('  •  ')}</Text>
+              <SyllableKaraokeText
+                syllables={syllabifyText(selectedWord).split('-').filter(Boolean)}
+                activeIndex={null}
+              />
               {!!getWordDefinition(selectedWord) && (
                 <View style={styles.wordMeaningBox}>
                   {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
@@ -5127,6 +5189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 12, marginTop: 16,
   },
   listenNextButtonText: { color: HOME_SAGE, fontWeight: '900', fontSize: 14 },
+  listenButtonRow: { flexDirection: 'row', gap: 10, width: '100%' },
   practiceStatsCard: { backgroundColor: '#F5F3FC', borderRadius: 24, padding: 18, marginTop: 8, marginBottom: 8 },
   practiceStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   practiceStatsCol: { alignItems: 'center', flex: 1, gap: 4 },

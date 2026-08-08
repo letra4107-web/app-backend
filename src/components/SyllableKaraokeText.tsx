@@ -1,0 +1,54 @@
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+
+const HOME_LAVENDER_DARK = '#5F52B0';
+const HOME_INK_SOFT = '#5F5044';
+
+type SyllableKaraokeTextProps = {
+  /** Syllables in display order, e.g. ['Ka', 'li', 'ka', 'san']. */
+  syllables: string[];
+  /** Index of the syllable currently being spoken, or -1/null for none active. */
+  activeIndex: number | null;
+  fontSize?: number;
+};
+
+/**
+ * Renders a word as individually styled syllable spans, highlighting
+ * whichever one speakSyllablesCloud reports as currently playing. Plain
+ * static rendering when activeIndex is null (e.g. before playback starts) -
+ * same visual weight as the old .split('-') syllable line it replaces in
+ * karaoke mode.
+ */
+export default function SyllableKaraokeText({ syllables, activeIndex, fontSize = 32 }: SyllableKaraokeTextProps) {
+  return (
+    <View style={styles.row} accessibilityRole="text">
+      {syllables.map((syllable, index) => {
+        const isActive = activeIndex !== null && index === activeIndex;
+        return (
+          <Text
+            key={`${syllable}-${index}`}
+            style={[
+              styles.syllable,
+              { fontSize },
+              isActive ? styles.syllableActive : styles.syllableIdle,
+            ]}
+          >
+            {syllable}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-end' },
+  syllable: {
+    fontWeight: '900',
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  syllableIdle: { color: HOME_INK_SOFT },
+  syllableActive: { color: '#fff', backgroundColor: HOME_LAVENDER_DARK },
+});
