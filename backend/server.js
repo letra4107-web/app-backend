@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { exitIfInvalid } = require('./config/env');
+const { supabaseAdmin } = require('./config/supabase');
+const { runSchemaHealthCheck } = require('./services/schemaHealthCheck');
 
 exitIfInvalid();
 
@@ -301,6 +303,13 @@ const startServer = (port = PORT, host = HOST) => {
     console.log(`API root: /api`);
     console.log(`Health checks: /, /health, /api/health`);
     console.log(`Allowed CORS origins (${allowedOrigins.length}): ${allowedOrigins.join(', ')}`);
+  });
+
+  // Runs after the server is already accepting requests, so a slow or
+  // briefly-unreachable Supabase never delays startup or the /health
+  // endpoint - it only ever adds warnings to the deploy log.
+  runSchemaHealthCheck(supabaseAdmin).catch((error) => {
+    console.warn('[SchemaHealthCheck] probe itself failed to run:', error?.message || error);
   });
 
   server.on('error', (error) => {

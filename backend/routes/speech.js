@@ -5,6 +5,7 @@ const speech = require('@google-cloud/speech');
 const { scorePracticeWord } = require('./practiceWordScoring');
 const { supabaseAdmin } = require('../config/supabase');
 const { buildAttemptFeedback } = require('../services/readingInsights');
+const { writeWithColumnRetry } = require('../services/schemaRetry');
 
 const router = express.Router();
 let speechClient = null;
@@ -146,25 +147,21 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
   }
 
   const updatedAttempts = currentAttempts + 1;
-  // word_of_day_log.accuracy and .completed_at are declared in migration
-  // 022 but were never actually applied to the live database (confirmed via
-  // direct query: `column word_of_day_log.accuracy does not exist`), unlike
-  // xp_awarded (migration 031), which is live. Neither column is read
-  // anywhere in the app - accuracy is already tracked authoritatively on
-  // pronunciation_practice_sessions.accuracy_percentage - so they're
-  // omitted here rather than writing to columns PostgREST reports missing.
-  const { data: updatedLog, error: updateLogError } = await supabaseAdmin
-    .from('word_of_day_log')
-    .update({
-      attempts: updatedAttempts,
-      correct: isCorrect,
-      xp_awarded: isCorrect ? reward : 0,
-    })
-    .eq('id', logRow.id)
-    .select()
-    .maybeSingle();
-  if (updateLogError || !updatedLog) {
-    throw updateLogError || new Error('Unable to save Word of the Day attempt.');
+  // word_of_day_log.accuracy and .completed_at are declared in migration 022
+  // but, as of this writing, are still not applied to the live database
+  // (confirmed via direct query). Neither is read anywhere in the app -
+  // accuracy is already tracked authoritatively on
+  // pronunciation_practice_sessions.accuracy_percentage - so they're not in
+  // this payload; writeWithColumnRetry is a second layer of defense for any
+  // *other* column this route doesn't yet know is missing (e.g. a future
+  // migration that lands here before it's applied in Supabase).
+  const { data: updatedLog } = await writeWithColumnRetry(
+    (payload) => supabaseAdmin.from('word_of_day_log').update(payload).eq('id', logRow.id).select().maybeSingle(),
+    { attempts: updatedAttempts, correct: isCorrect, xp_awarded: isCorrect ? reward : 0 },
+    ['attempts', 'correct'],
+  );
+  if (!updatedLog) {
+    throw new Error('Unable to save Word of the Day attempt.');
   }
 
   const { data: progressRow, error: progressError } = await supabaseAdmin
@@ -187,18 +184,13 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
   }
 
   if (!progressRow) {
-    const { data: insertedProgress, error: insertError } = await supabaseAdmin
-      .from('child_progress')
-      .insert({
-        child_id: childId,
-        xp: reward,
-        streak: 1,
-        last_practice_date: today,
-      })
-      .select()
-      .maybeSingle();
-    if (insertError || !insertedProgress) {
-      throw insertError || new Error('Unable to create child progress for Word of the Day.');
+    const { data: insertedProgress } = await writeWithColumnRetry(
+      (payload) => supabaseAdmin.from('child_progress').insert(payload).select().maybeSingle(),
+      { child_id: childId, xp: reward, streak: 1, last_practice_date: today },
+      ['child_id', 'xp', 'streak'],
+    );
+    if (!insertedProgress) {
+      throw new Error('Unable to create child progress for Word of the Day.');
     }
 
     return {
@@ -228,19 +220,13 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
       ? (progressRow.streak || 0) + 1
       : 1;
 
-  const { data: updatedProgress, error: updateProgressError } = await supabaseAdmin
-    .from('child_progress')
-    .update({
-      xp: (progressRow.xp || 0) + reward,
-      streak: nextStreak,
-      last_practice_date: today,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('child_id', childId)
-    .select()
-    .maybeSingle();
-  if (updateProgressError || !updatedProgress) {
-    throw updateProgressError || new Error('Unable to update child progress for Word of the Day.');
+  const { data: updatedProgress } = await writeWithColumnRetry(
+    (payload) => supabaseAdmin.from('child_progress').update(payload).eq('child_id', childId).select().maybeSingle(),
+    { xp: (progressRow.xp || 0) + reward, streak: nextStreak, last_practice_date: today, updated_at: new Date().toISOString() },
+    ['xp', 'streak'],
+  );
+  if (!updatedProgress) {
+    throw new Error('Unable to update child progress for Word of the Day.');
   }
 
   return {
