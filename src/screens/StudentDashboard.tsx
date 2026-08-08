@@ -1122,6 +1122,22 @@ export default function StudentDashboard({ navigation }: any) {
     speakWordCloud(word.replace(/-/g, ' '), { onError: (message) => setPracticeStatus(message) });
   };
 
+  // Prefers the client workbook's syllable_hyphenation column (linguistically
+  // accurate - respects Tagalog onset-cluster rules) for curriculum words,
+  // falling back to the syllabifyText() heuristic for anything outside the
+  // curriculum (legacy hardcoded word lists). Confirmed the two sources
+  // disagree on ~52% of the 600-word curriculum, so this preference matters,
+  // not just a stylistic choice.
+  const getSyllableParts = (word: string, contentId?: string | null): string[] => {
+    if (contentId) {
+      const match = readingContent.find((item) => item.id === contentId);
+      if (match?.syllable_hyphenation) {
+        return match.syllable_hyphenation.split('-').filter(Boolean);
+      }
+    }
+    return syllabifyText(word).split('-').filter(Boolean);
+  };
+
   // Slow, syllable-by-syllable karaoke read-along, driven by real Google TTS
   // timepoints (see cloudTtsService.speakSyllablesCloud). No on-device
   // fallback exists for the *highlighting* (expo-speech has no timing API),
@@ -1129,7 +1145,7 @@ export default function StudentDashboard({ navigation }: any) {
   // the student always hears something, they just don't get the highlight.
   const playSyllableKaraoke = (word = selectedWord || '') => {
     if (!word) return;
-    const parts = syllabifyText(word).split('-').filter(Boolean);
+    const parts = getSyllableParts(word, selectedContentId);
     stopSpeaking();
     stopCloudSpeaking();
 
@@ -1329,7 +1345,7 @@ export default function StudentDashboard({ navigation }: any) {
             ? `Subukan nating linawin ang tunog na '${weakSound}'.`
             : score >= 75
               ? 'Malapit na! Basahin muna ang bawat pantig bago buuin ang salita.'
-              : `Mas mabagal na pagbasa ay makakatulong. Simulan sa '${syllabifyText(selectedWord).split('-')[0]}'.`;
+              : `Mas mabagal na pagbasa ay makakatulong. Simulan sa '${getSyllableParts(selectedWord, selectedContentId)[0] || selectedWord}'.`;
       const xpAward = correct ? XP_CORRECT : XP_WRONG;
       const result = { correct, score, transcript, feedback, xpAward };
       const newAttempts = (practiceAttempts || 0) + 1;
@@ -1981,7 +1997,7 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Pakinggan at Basahin</Text>
               <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
               <SyllableKaraokeText
-                syllables={syllabifyText(selectedWord).split('-').filter(Boolean)}
+                syllables={getSyllableParts(selectedWord, selectedContentId)}
                 activeIndex={karaokeSyllableIndex}
               />
               {!!getWordDefinition(selectedWord) && (
@@ -2185,7 +2201,7 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Sabihin ang Salita</Text>
               <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
               <SyllableKaraokeText
-                syllables={syllabifyText(selectedWord).split('-').filter(Boolean)}
+                syllables={getSyllableParts(selectedWord, selectedContentId)}
                 activeIndex={null}
               />
               {!!getWordDefinition(selectedWord) && (

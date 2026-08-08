@@ -242,6 +242,7 @@ if (require.main === module) {
 
 module.exports = {
   EXPECTED_COUNTS,
+  CLIENT_DATA_EXCLUSIONS,
   attachStableWordIds,
   normalizeText,
   readWorkbookRows,

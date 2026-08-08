@@ -15,6 +15,13 @@ export type ReadingContentItem = {
   pattern_note: string | null;
   backend_category: string | null;
   is_assessment: boolean;
+  // Authoritative, client-workbook-sourced syllable hyphenation
+  // ("ka-li-ka-san") - more linguistically accurate than the on-the-fly
+  // syllabifyText() heuristic (confirmed: they disagree on ~52% of the
+  // 600-word curriculum, mostly around consonant-cluster onsets
+  // syllabifyText doesn't model). Prefer this column when present; null
+  // for words outside the curriculum's syllable/definition batch.
+  syllable_hyphenation: string | null;
 };
 
 export type ReadingRequirementProgress = {
@@ -46,7 +53,7 @@ export const fetchReadingContent = async (): Promise<ReadingContentItem[]> => {
   for (let start = 0; ; start += PAGE_SIZE) {
     const { data, error } = await supabase
       .from('reading_content')
-      .select('id,word_id,content_text,content_type,level,sequence_no,source_row,pattern_note,backend_category,is_assessment')
+      .select('id,word_id,content_text,content_type,level,sequence_no,source_row,pattern_note,backend_category,is_assessment,syllable_hyphenation')
       .eq('is_active', true)
       .order('level')
       .order('content_type')
