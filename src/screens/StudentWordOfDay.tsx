@@ -283,7 +283,7 @@ export default function StudentWordOfDay({
         ) : (
           <>
             <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.listenButton} onPress={() => speakWordCloud(display.replace(/-/g, ' '), { onError: setMessage })}>
+              <TouchableOpacity style={styles.listenButton} onPress={() => speakWordCloud(log.word.replace(/-/g, ' '), { onError: setMessage })}>
                 <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
                 <Text style={styles.listenText}>Pakinggan</Text>
               </TouchableOpacity>
