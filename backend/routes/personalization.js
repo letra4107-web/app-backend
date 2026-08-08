@@ -141,7 +141,12 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
         .from('personalization_recommendations')
         .insert({
           student_id: studentId,
-          recommendation_strategy: 'weakness_based_cold_start',
+          // Sequence order is the binding constraint (see coldStartRanker.js's
+          // buildTrackFrontier); weakness/mastery/recency/structural_fit only
+          // tie-break between simultaneously-requested tracks, they never
+          // reorder within a track. 'weakness_based_cold_start' overstated
+          // the ranker's actual effect - renamed for accuracy.
+          recommendation_strategy: 'sequence_frontier_with_weakness_tiebreak',
           model_version: STRATEGY_VERSION,
           feature_schema_version: result.featureSchemaVersion,
           current_difficulty: result.currentDifficulty,

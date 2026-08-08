@@ -2306,7 +2306,14 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name="sparkles" size={18} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.aiRecommendationWord, cardTitleA11y]}>{recommendedItem.contentText}</Text>
+                <View style={styles.aiRecommendationWordRow}>
+                  <Text style={[styles.aiRecommendationWord, cardTitleA11y]}>{recommendedItem.contentText}</Text>
+                  <View style={styles.trackPill}>
+                    <Text style={[styles.trackPillText, smallLabelA11y]}>
+                      {practiceTypeLabels[recommendedItem.contentType]}
+                    </Text>
+                  </View>
+                </View>
                 <Text style={[styles.aiRecommendationReason, bodyA11y]}>
                   {currentPracticeReason || 'Current unlocked curriculum frontier.'}
                 </Text>
@@ -5087,6 +5094,9 @@ const styles = StyleSheet.create({
   aiRecommendationTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   aiRecommendationIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: HOME_LAVENDER, alignItems: 'center', justifyContent: 'center' },
   aiRecommendationWord: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 19 },
+  aiRecommendationWordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  trackPill: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#D9D4F4' },
+  trackPillText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 10 },
   aiRecommendationReason: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 17, marginTop: 2 },
   aiRecommendationFocus: { color: HOME_INK, fontWeight: '700', fontSize: 12, marginTop: 10 },
   aiConfidencePill: { minWidth: 66, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 7, alignItems: 'center' },
