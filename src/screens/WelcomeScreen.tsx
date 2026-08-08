@@ -3,7 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { colors } from '../config/theme';
-import { getWordOfTheDay, WordOfTheDay } from '../services/streakService';
+import { getWordOfTheDay, WordOfTheDay } from '../services/wordOfDayService';
 import { getCurrentUser, getUserProfileById } from '../services/supabaseService';
 import { speakPhrase } from '../services/ttsService';
 

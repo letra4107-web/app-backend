@@ -44,7 +44,12 @@ export const MIN_ATTEMPTS_FOR_AVERAGE_BADGE = 10;
 export const MIN_ATTEMPTS_FOR_IMPROVEMENT_BADGE = 5;
 export const IMPROVEMENT_POINTS_REQUIRED = 20;
 
-export const averageAccuracy = (progress: ChildProgress) =>
+export type AverageAccuracyInput = {
+  total_attempts?: number;
+  accuracy_sum?: number;
+};
+
+export const averageAccuracy = (progress: AverageAccuracyInput) =>
   (progress.total_attempts || 0) > 0 ? (progress.accuracy_sum || 0) / (progress.total_attempts || 1) : 0;
 
 export async function getPronunciationStats(childId?: string): Promise<PronunciationStats> {

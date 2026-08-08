@@ -10,6 +10,7 @@ import { fetchParentProfile } from '../services/profileService';
 import { fetchNotifications, subscribeToParentNotifications } from '../services/notificationService';
 import { fetchPublishedLessons, Lesson } from '../services/lessonService';
 import { fetchLessonProgress, LessonProgressRow } from '../services/lessonProgressService';
+import { fetchPronunciationSessions } from '../services/pronunciationSessionService';
 import { NotificationsView } from './ParentNotifications';
 import EnrollChildModal from './EnrollChildModal';
 import AddScheduledActivityModal from './AddScheduledActivityModal';
@@ -28,6 +29,7 @@ import {
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
+import { averageAccuracy } from '../services/achievementService';
 
 // Same palette as the Student Dashboard redesign, duplicated locally since
 // this file doesn't share module scope - keeps the Parent Dashboard visually
@@ -228,7 +230,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [childPickerOpen, setChildPickerOpen] = useState(false);
   const [childSessions, setChildSessions] = useState<
-    { word: string; accuracy_percentage: number; is_correct: boolean | null; duration_seconds: number | null; attempts: number | null; created_at: string }[]
+    { word: string; accuracy_percentage: number; is_correct?: boolean | null; duration_seconds?: number | null; attempts?: number | null; created_at: string }[]
   >([]);
   const [childReadingProfile, setChildReadingProfile] = useState<ReadingProfile | null>(null);
   const [progressPeriod, setProgressPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
@@ -443,12 +445,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     // Row-count capped instead, which is generous for a single child's
     // practice history.
     const [sessionsResult, lessonsResult, currentLessonResult, lessonProgressResult, readingProfileResult] = await Promise.allSettled([
-      supabase
-        .from('pronunciation_practice_sessions')
-        .select('word, accuracy_percentage, is_correct, duration_seconds, attempts, created_at')
-        .eq('student_id', child.id)
-        .order('created_at', { ascending: false })
-        .limit(2000),
+      fetchPronunciationSessions(child.id),
       fetchPublishedLessons(child.grade_level),
       supabase
         .from('lesson_progress')
@@ -462,8 +459,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     ]);
 
     setChildSessions(
-      sessionsResult.status === 'fulfilled' && !sessionsResult.value.error
-        ? (sessionsResult.value.data as any[]) || []
+      sessionsResult.status === 'fulfilled'
+        ? sessionsResult.value
         : [],
     );
     setChildLessonsTotal(lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : null);
@@ -829,9 +826,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     const progress = selectedChild.child_progress?.[0];
     const level = (progress?.level || 'Beginner') as Level;
-    const avgAccuracy = progress && (progress.total_attempts || 0) > 0
-      ? Math.round((progress.accuracy_sum || 0) / (progress.total_attempts || 1))
-      : null;
+    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
     const isActivelyLearning = !!progress?.last_practice_date && progress.last_practice_date.slice(0, 10) === new Date().toISOString().slice(0, 10);
     const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
     const lessonsCompleted = childCompletedLessons ?? 0;
@@ -1502,7 +1497,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </View>
               <View style={styles.overallStatCell}>
                 <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.averageAccuracy ?? '--'}{childReadingProfile.averageAccuracy !== null ? '%' : ''}</Text>
-                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Accuracy</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Last 20 Sessions</Text>
               </View>
               <View style={styles.overallStatCell}>
                 <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.weeklyPracticeDays}</Text>
@@ -1729,9 +1724,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     const progress = selectedChild.child_progress?.[0];
     const level = (progress?.level || 'Beginner') as Level;
-    const avgAccuracy = progress && (progress.total_attempts || 0) > 0
-      ? Math.round((progress.accuracy_sum || 0) / (progress.total_attempts || 1))
-      : null;
+    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
     const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
 
     // Scoped to the selected child only - the calendar previously showed

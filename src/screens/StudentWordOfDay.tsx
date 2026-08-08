@@ -246,137 +246,140 @@ export default function StudentWordOfDay({
 
   const isDone = disabled || log.correct === true || (log.attempts || 0) >= 3;
 
+  const display = definition?.display_word || syllabifyText(log.word || '');
+  const attemptCount = log.attempts || 0;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.wordLabel}>Bigkasin ang salitang ito:</Text>
-          {
-            (() => {
-              const display = definition?.display_word || syllabifyText(log.word || '');
-              return <Text style={styles.word}>{display}</Text>;
-            })()
-          }
-      {!!log.recommendation_reason && (
-        <View style={styles.recommendationBox}>
-          <Ionicons name="sparkles" size={15} color={HOME_LAVENDER_DARK} />
-          <Text style={styles.recommendationText}>AI recommendation: {log.recommendation_reason}</Text>
-        </View>
-      )}
-      {!!definition && (
-        <View style={styles.meaningBox}>
-          {definition.is_ambiguous && !!definition.display_word && <Text style={styles.meaningAccented}>{definition.display_word}</Text>}
-          <Text style={styles.meaningText}>{definition.meaning_fil}</Text>
-        </View>
-      )}
-
-      {log.correct ? (
-        <View style={styles.completedTodayBanner}>
-          <Text style={styles.completedTodayText}>✅ Already completed today.</Text>
-          <Text style={styles.completedTodaySubtext}>Come back tomorrow for a new word!</Text>
-        </View>
-      ) : (
-        <>
-          <TouchableOpacity style={styles.listenButton} onPress={() => speakWordCloud((definition?.display_word || syllabifyText(log.word || '')).replace(/-/g, ' '), { onError: setMessage })}>
-            <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
-            <Text style={styles.listenText}>Pakinggan</Text>
-          </TouchableOpacity>
-
-          <View style={styles.dotsRow}>
-            {[0, 1, 2].map((i) => <View key={i} style={[styles.dot, i < (log.attempts || 0) && styles.dotFilled]} />)}
+      <View style={styles.card}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>Pakinggan at Basahin</Text>
+            <Text style={styles.subtitle}>Salitang Ngayon</Text>
           </View>
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>{attemptCount}/3 Subok</Text>
+          </View>
+        </View>
 
-          <Animated.View style={animatedStyle}>
-            <View style={[styles.micGlowOuter, isRecording && styles.micGlowOuterRecording]}>
-              <View style={[styles.micGlowInner, isRecording && styles.micGlowInnerRecording]}>
-                <TouchableOpacity
-                  style={[styles.mic, isRecording && styles.micRecording, isDone && styles.disabled]}
-                  disabled={starting || processing || isDone}
-                  onPress={isRecording ? stopRecording : startRecording}
-                >
-                  {(starting || processing) ? <ActivityIndicator color="#fff" /> : <Ionicons name={isRecording ? 'stop' : 'mic'} size={36} color="#fff" />}
-                </TouchableOpacity>
+        <View style={styles.wordCard}>
+          <Text style={styles.wordLabel}>Basahin nang malinaw</Text>
+          <Text style={styles.word}>{display}</Text>
+          {!!definition && <Text style={styles.wordMeaning}>{definition.meaning_fil}</Text>}
+        </View>
+
+        {!!log.recommendation_reason && (
+          <View style={styles.recommendationBox}>
+            <Ionicons name="sparkles" size={15} color={HOME_LAVENDER_DARK} />
+            <Text style={styles.recommendationText}>{log.recommendation_reason}</Text>
+          </View>
+        )}
+
+        {log.correct ? (
+          <View style={styles.completedTodayBanner}>
+            <Text style={styles.completedTodayText}>✅ Natapos na ngayon</Text>
+            <Text style={styles.completedTodaySubtext}>Babalik bukas para sa bagong salita.</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.listenButton} onPress={() => speakWordCloud(display.replace(/-/g, ' '), { onError: setMessage })}>
+                <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
+                <Text style={styles.listenText}>Pakinggan</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.recordButton, (starting || processing || isDone) && styles.disabledButton]}
+                disabled={starting || processing || isDone}
+                onPress={isRecording ? stopRecording : startRecording}
+              >
+                {starting || processing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Ionicons name={isRecording ? 'stop' : 'mic'} size={24} color="#fff" />
+                )}
+                <Text style={styles.recordText}>{isRecording ? 'Itigil' : 'Basahin'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.micHint}>
+              {starting
+                ? 'Naghahanda sila...'
+                : isRecording
+                ? 'Nakikinig... Basahin ang salita nang malinaw.'
+                : 'Pindutin ang mikropono at basahin ang salita nang malakas.'}
+            </Text>
+
+            <View style={styles.progressRow}>
+              {[0, 1, 2].map((i) => (
+                <View key={i} style={[styles.progressDot, i < attemptCount && styles.progressDotFilled]} />
+              ))}
+            </View>
+
+            {!!message && !isDone && (
+              <View style={[styles.resultBubble, (message.startsWith('Tama') || message.includes('Napakagaling')) ? styles.correctBubble : styles.wrongBubble]}>
+                <Text style={styles.resultText}>{message}</Text>
               </View>
-            </View>
-          </Animated.View>
+            )}
 
-          <Text style={styles.micHint}>
-            {starting
-              ? 'Naghahanda...'
-              : isRecording
-              ? 'Nakikinig... Magsalita nang malinaw. Awtomatikong hihinto kapag tapos ka na.'
-              : 'Pindutin ang mikropono at bigkasin. Awtomatikong hihinto kapag tapos ka na.'}
-          </Text>
+            {!!analysis && (
+              <View style={styles.analysisCard}>
+                <Text style={styles.analysisTitle}>Pronunciation Analysis</Text>
+                <Text style={styles.analysisScore}>{analysis.accuracy}% Tama</Text>
+                <Text style={styles.analysisFeedback}>{analysis.feedback}</Text>
+                <Text style={styles.analysisReward}>{analysis.accuracy >= 80 ? '+50 XP' : 'Practice recorded • Walang XP'}</Text>
+              </View>
+            )}
 
-          {!!message && !isDone && (
-            <View style={[styles.resultBubble, (message.startsWith('Tama') || message.includes('Napakagaling')) ? styles.correctBubble : styles.wrongBubble]}>
-              <Text style={styles.resultText}>{message}</Text>
-            </View>
-          )}
-
-          {!!analysis && (
-            <View style={styles.analysisCard}>
-              <Text style={styles.analysisTitle}>Pronunciation Analysis</Text>
-              <Text style={styles.analysisScore}>{analysis.accuracy}% Accuracy</Text>
-              <Text style={styles.analysisFeedback}>{analysis.feedback}</Text>
-              <Text style={styles.analysisReward}>{analysis.accuracy >= 80 ? '+50 XP' : 'Practice recorded • No XP yet'}</Text>
-            </View>
-          )}
-
-          {isDone && !log.correct && (
-            <View style={styles.doneBanner}>
-              <Text style={styles.doneText}>Tapos na ang mga pagkakataon ngayon. 💪</Text>
-              <Text style={styles.doneSubtext}>Bumalik bukas para subukan muli!</Text>
-            </View>
-          )}
-        </>
-      )}
+            {isDone && !log.correct && (
+              <View style={styles.doneBanner}>
+                <Text style={styles.doneText}>Tapos na ang pagkakataon ngayon. 💪</Text>
+                <Text style={styles.doneSubtext}>Bumalik bukas at subukan muli!</Text>
+              </View>
+            )}
+          </>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', paddingVertical: 8 },
-  wordLabel: { color: HOME_INK_SOFT, fontSize: 14, marginBottom: 8, fontWeight: '600' },
-  word: { fontFamily: FONT_DISPLAY, fontSize: 46, color: HOME_LAVENDER_DARK, letterSpacing: 2, marginBottom: 16 },
-  meaningBox: { alignItems: 'center', marginTop: -8, marginBottom: 16, paddingHorizontal: 12 },
-  meaningAccented: { color: HOME_LAVENDER_DARK, fontSize: 13, fontWeight: '800', marginBottom: 2, textAlign: 'center' },
-  meaningText: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600', textAlign: 'center', lineHeight: 16 },
-  recommendationBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EFECFB', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginTop: -8, marginBottom: 14, maxWidth: '100%' },
-  recommendationText: { flex: 1, color: HOME_LAVENDER_DARK, fontSize: 12, fontWeight: '700', lineHeight: 16 },
-  listenButton: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 20, backgroundColor: '#fff' },
-  listenText: { color: HOME_LAVENDER_DARK, fontWeight: '700', marginLeft: 8 },
-  dotsRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
-  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: BORDER },
-  dotFilled: { backgroundColor: HOME_LAVENDER },
-  micGlowOuter: { width: 118, height: 118, borderRadius: 59, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(124,111,207,0.12)' },
-  micGlowOuterRecording: { backgroundColor: 'rgba(239,68,68,0.12)' },
-  micGlowInner: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(124,111,207,0.22)' },
-  micGlowInnerRecording: { backgroundColor: 'rgba(239,68,68,0.22)' },
-  mic: {
-    width: 84, height: 84, borderRadius: 42, backgroundColor: HOME_LAVENDER, alignItems: 'center', justifyContent: 'center', elevation: 8,
-    ...Platform.select({
-      web: { boxShadow: '0px 0px 14px rgba(95,82,176,0.35)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.35, shadowRadius: 14 },
-    }),
-  },
-  micRecording: {
-    backgroundColor: DANGER,
-    ...Platform.select({ web: { boxShadow: '0px 0px 14px rgba(239,68,68,0.35)' }, default: { shadowColor: DANGER } }),
-  },
-  disabled: { backgroundColor: '#D1D5DB' },
-  micHint: { color: HOME_INK_SOFT, fontSize: 12, marginTop: 12, marginBottom: 8, fontWeight: '600' },
-  resultBubble: { marginTop: 16, borderRadius: 14, padding: 14, width: '100%' },
+  container: { alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
+  card: { width: '100%', backgroundColor: '#fff', borderRadius: 28, padding: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+  title: { color: HOME_LAVENDER_DARK, fontSize: 20, fontWeight: '900' },
+  subtitle: { color: HOME_INK_SOFT, fontSize: 13, marginTop: 4 },
+  chip: { backgroundColor: '#F4EDFF', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
+  chipText: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 12 },
+  wordCard: { backgroundColor: '#F7F6FF', borderRadius: 24, padding: 18, alignItems: 'center', marginBottom: 20 },
+  wordLabel: { color: HOME_LAVENDER, fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 },
+  word: { fontFamily: FONT_DISPLAY, fontSize: 46, color: HOME_LAVENDER_DARK, letterSpacing: 1.6, textAlign: 'center', lineHeight: 52 },
+  wordMeaning: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', marginTop: 10, textAlign: 'center', lineHeight: 18, maxWidth: '85%' },
+  recommendationBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFECFB', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 },
+  recommendationText: { flex: 1, color: HOME_LAVENDER_DARK, fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  buttonRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginBottom: 14 },
+  listenButton: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: HOME_LAVENDER, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', minWidth: 140, justifyContent: 'center' },
+  listenText: { color: HOME_LAVENDER_DARK, fontWeight: '800', marginLeft: 6, fontSize: 14 },
+  recordButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingHorizontal: 18, paddingVertical: 12, backgroundColor: HOME_LAVENDER, minWidth: 140 },
+  recordText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  disabledButton: { backgroundColor: '#D1D5DB' },
+  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 14 },
+  progressDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: BORDER, opacity: 0.35 },
+  progressDotFilled: { backgroundColor: HOME_LAVENDER, opacity: 1 },
+  micHint: { color: HOME_INK_SOFT, fontSize: 13, marginBottom: 8, textAlign: 'center', lineHeight: 18, fontWeight: '600' },
+  resultBubble: { marginTop: 8, borderRadius: 16, padding: 16, width: '100%' },
   correctBubble: { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: SUCCESS },
   wrongBubble: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: WARNING },
   resultText: { textAlign: 'center', fontWeight: '700', fontSize: 15 },
-  analysisCard: { marginTop: 16, width: '100%', borderRadius: 14, padding: 14, backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', alignItems: 'center' },
+  analysisCard: { marginTop: 14, width: '100%', borderRadius: 20, padding: 18, backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', alignItems: 'center' },
   analysisTitle: { color: TEXT_PRIMARY, fontWeight: '800', fontSize: 14 },
-  analysisScore: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 22, marginTop: 4 },
-  analysisFeedback: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 5, lineHeight: 18 },
+  analysisScore: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 24, marginTop: 6 },
+  analysisFeedback: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 },
   analysisReward: { color: SUCCESS, fontWeight: '800', fontSize: 12, marginTop: 8 },
-  doneBanner: { marginTop: 20, alignItems: 'center' },
+  doneBanner: { marginTop: 18, alignItems: 'center' },
   doneText: { fontWeight: '800', color: TEXT_PRIMARY, fontSize: 15 },
-  doneSubtext: { color: TEXT_SECONDARY, marginTop: 4 },
-  completedTodayBanner: { marginTop: 12, padding: 14, width: '100%', borderRadius: 14, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: SUCCESS, alignItems: 'center' },
+  doneSubtext: { color: TEXT_SECONDARY, marginTop: 4, fontSize: 13, textAlign: 'center' },
+  completedTodayBanner: { marginTop: 12, padding: 16, width: '100%', borderRadius: 18, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: SUCCESS, alignItems: 'center' },
   completedTodayText: { color: SUCCESS, fontWeight: '800', fontSize: 15 },
-  completedTodaySubtext: { color: TEXT_SECONDARY, fontWeight: '600', marginTop: 4, textAlign: 'center' },
+  completedTodaySubtext: { color: TEXT_SECONDARY, fontWeight: '600', marginTop: 4, textAlign: 'center', fontSize: 13 },
 });

@@ -2,7 +2,16 @@ import { supabase } from '../config/supabase';
 import { fetchPersonalizedWordOfDay } from './wordsService';
 import { fetchOfficialReadingProgress } from './readingContentService';
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
+export const getAsiaManilaDate = (date = new Date()) => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+};
+
+const todayKey = () => getAsiaManilaDate();
 const warnedMissingGrades = new Set<number>();
 
 export type WordOfDayLog = {
@@ -15,6 +24,33 @@ export type WordOfDayLog = {
   content_id?: string | null;
   recommendation_id?: string | null;
   recommendation_reason?: string | null;
+};
+
+export interface WordOfTheDay {
+  word: string;
+  tagalog: string;
+  pronunciation: string;
+  bonusXP: number;
+  date: string;
+}
+
+const WORD_POOL: WordOfTheDay[] = [
+  { word: 'Aso', tagalog: 'Dog', pronunciation: 'ah-so', bonusXP: 25, date: '2026-05-07' },
+  { word: 'Pusa', tagalog: 'Cat', pronunciation: 'poo-sah', bonusXP: 25, date: '2026-05-08' },
+  { word: 'Bahay', tagalog: 'House', pronunciation: 'bah-high', bonusXP: 25, date: '2026-05-09' },
+  { word: 'Araw', tagalog: 'Day', pronunciation: 'ah-rah', bonusXP: 25, date: '2026-05-10' },
+  { word: 'Tubig', tagalog: 'Water', pronunciation: 'too-big', bonusXP: 25, date: '2026-05-11' },
+  { word: 'Pagkain', tagalog: 'Food', pronunciation: 'pahg-kah-in', bonusXP: 25, date: '2026-05-12' },
+  { word: 'Mahal', tagalog: 'Love', pronunciation: 'mah-hahl', bonusXP: 25, date: '2026-05-13' },
+];
+
+export const getWordOfTheDay = (dateStr?: string): WordOfTheDay => {
+  const date = dateStr || getAsiaManilaDate();
+  const [year, month, day] = date.split('-').map(Number);
+  const dateObj = new Date(Date.UTC(year, month - 1, day));
+  const dayOfYear = Math.floor((dateObj.getTime() - new Date(Date.UTC(dateObj.getFullYear(), 0, 0)).getTime()) / 86400000);
+  const index = dayOfYear % WORD_POOL.length;
+  return WORD_POOL[index];
 };
 
 const fetchWordOfDayRow = async (childId: string, date: string) => {

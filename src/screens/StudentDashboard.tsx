@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Image, Linking, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, Animated, AppState, AppStateStatus, Image, Linking, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +19,7 @@ import StudentWordOfDay from './StudentWordOfDay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ConfettiOverlay from '../components/ConfettiOverlay';
 import AchievementModal from './AchievementModal';
-import { getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
+import { getAsiaManilaDate, getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
 import { buildNextProgress, ChildProgress, saveProgress } from '../services/progressService';
 import {
   ACHIEVEMENTS, unlockAchievements, getPronunciationStats, PronunciationStats, AchievementCategory, AchievementDefinition,
@@ -35,6 +35,7 @@ import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../s
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { PRACTICE_PASSING_SCORE, scorePronunciation, scoreMessage } from '../utils/scorePronunciation';
 import { fetchPersonalizedContent, RankedContentEntry } from '../services/wordsService';
+import { fetchPronunciationSessions } from '../services/pronunciationSessionService';
 import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem, subscribeToStudentNotifications } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
@@ -182,6 +183,8 @@ export default function StudentDashboard({ navigation }: any) {
   const [child, setChild] = useState<ChildProfile | null>(null);
   const [progress, setProgress] = useState<ChildProgress | null>(null);
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
+  const [manilaDateKey, setManilaDateKey] = useState(getAsiaManilaDate());
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const [wordDefinitions, setWordDefinitions] = useState<Map<string, WordDefinition>>(new Map());
   const getWordDefinition = (word: string) => wordDefinitions.get(normalizeWordKey(word));
   const [recentSessions, setRecentSessions] = useState<{ word: string; accuracy_percentage: number; created_at: string }[]>([]);
@@ -416,14 +419,7 @@ export default function StudentDashboard({ navigation }: any) {
   const loadRecentSessions = async (childId?: string) => {
     if (!childId) return [];
     try {
-      const { data, error } = await supabase
-        .from('pronunciation_practice_sessions')
-        .select('word, accuracy_percentage, created_at')
-        .eq('student_id', childId)
-        .order('created_at', { ascending: false })
-        .limit(300);
-      if (error) throw error;
-      const rows = data || [];
+      const rows = await fetchPronunciationSessions(childId);
       setRecentSessions(rows);
       return rows;
     } catch (error: any) {
@@ -821,6 +817,38 @@ export default function StudentDashboard({ navigation }: any) {
   }, [child?.id, progress?.level, practiceCategoryFilter]);
 
   useEffect(() => {
+    const checkManilaDate = async () => {
+      const currentDate = getAsiaManilaDate();  
+      if (currentDate !== manilaDateKey) {
+        setManilaDateKey(currentDate);
+        if (child?.id) {
+          try {
+            const wordLog = await getOrCreateWordOfDay(child.id, Number(child.grade_level || 1));
+            if (wordLog?.date !== wordOfDay?.date) {
+              setWordOfDay(wordLog);
+            }
+          } catch (err: any) {
+            console.warn('[StudentDashboard] failed to refresh Word of the Day at Manila midnight:', err?.message || err);
+          }
+        }
+      }
+    };
+
+    const interval = setInterval(checkManilaDate, 30_000);
+    const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (appState.match(/inactive|background/) && nextState === 'active') {
+        await checkManilaDate();
+      }
+      setAppState(nextState);
+    });
+
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [appState, child?.grade_level, child?.id, manilaDateKey, wordOfDay?.date]);
+
+  useEffect(() => {
     if (practiceListening) {
       micPulse.value = withRepeat(withSequence(withTiming(1.08, { duration: 450 }), withTiming(1, { duration: 450 })), -1);
     } else {
@@ -1093,6 +1121,13 @@ export default function StudentDashboard({ navigation }: any) {
         `${child?.name || 'Student'} ${correct ? 'completed' : 'tried'} the word "${wordOfDay?.word || ''}" and earned ${addXp} XP.`,
         'word',
       );
+      if (correct && completion?.streak != null) {
+        await notifyStudent(
+          'Streak Continued!',
+          `Great job! Your reading streak is now ${completion.streak} day${completion.streak === 1 ? '' : 's'}. Keep it going!`,
+          'streak',
+        );
+      }
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
       if (newlyUnlocked?.length) {
         const saved = await saveProgress(updatedProgress);
@@ -1530,7 +1565,7 @@ export default function StudentDashboard({ navigation }: any) {
   const stopPracticeListening = () => {
     try {
       recognitionSessionRef.current?.manualStop?.();
-    } catch (err) {
+    } catch {
       ExpoSpeechRecognitionModule.stop();
     }
     setPracticeProcessing(true);
@@ -1558,9 +1593,7 @@ export default function StudentDashboard({ navigation }: any) {
     const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
 
     // Same all-time-average formula the Progress tab's accuracy ring uses.
-    const avgAccuracy = (progress?.total_attempts || 0) > 0
-      ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
-      : null;
+    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
 
     // Continue Learning: the same real in-progress-lesson lookup the Learn
     // tab uses - most-recently-opened lesson still marked in_progress.
@@ -3046,9 +3079,7 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const renderProgress = () => {
-    const avgAccuracy = (progress?.total_attempts || 0) > 0
-      ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
-      : null;
+    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
     const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
     // Text-safe variant for the same tiers - used wherever the color paints
     // Text rather than a background/icon/border.
@@ -3578,9 +3609,7 @@ export default function StudentDashboard({ navigation }: any) {
     // Learning Milestones — the exact same real fields/formula already
     // established on the Progress tab, not recomputed differently.
     const lessonsCompletedCount = lessonProgress.filter((p) => p.status === 'completed').length;
-    const overallAccuracyPct = (progress?.total_attempts || 0) > 0
-      ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
-      : null;
+    const overallAccuracyPct = progress ? Math.round(averageAccuracy(progress)) : null;
 
     const filterTabs: { key: 'all' | AchievementCategory; label: string }[] = [
       { key: 'all', label: 'All' },
@@ -4117,9 +4146,7 @@ export default function StudentDashboard({ navigation }: any) {
   const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
   // Same accuracy_sum/total_attempts formula as the Progress tab's "Overall
   // Reading Progress" ring - not a separately-computed version.
-  const sidebarOverallPct = (progress?.total_attempts || 0) > 0
-    ? Math.round((progress?.accuracy_sum || 0) / (progress!.total_attempts || 1))
-    : 0;
+  const sidebarOverallPct = progress ? Math.round(averageAccuracy(progress)) : 0;
 
   const topHeaderNode = (
     <View style={styles.topHeader}>

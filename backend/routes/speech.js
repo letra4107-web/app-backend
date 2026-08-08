@@ -88,6 +88,8 @@ const wordAccuracy = (spoken, expected) => {
   return Math.max(0, Math.round((1 - previous[b.length] / Math.max(a.length, b.length)) * 100));
 };
 
+const { todayKey, yesterdayKey } = require('../services/dateUtils');
+
 const authenticateWordOfDay = async (req) => {
   const childId = String(req.body?.childId || '').trim();
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -102,13 +104,13 @@ const authenticateWordOfDay = async (req) => {
     .from('word_of_day_log')
     .select('word,correct,content_id,recommendation_reason')
     .eq('child_id', childId)
-    .eq('date', new Date().toISOString().slice(0, 10))
+    .eq('date', todayKey())
     .maybeSingle();
   if (logError || !log) return { errorStatus: 409, errorMessage: "Today's word is not ready yet. Please reload and try again." };
   return { childId, log };
 };
 
-const getTodayKey = () => new Date().toISOString().slice(0, 10);
+const getTodayKey = todayKey;
 
 const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
   const today = getTodayKey();
@@ -206,14 +208,12 @@ const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
 
   const parseDate = (value) => {
     if (!value) return null;
-    try {
-      return new Date(value).toISOString().slice(0, 10);
-    } catch {
-      return null;
-    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return todayKey(parsed);
   };
   const lastPracticeDate = parseDate(progressRow.last_practice_date);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const yesterday = yesterdayKey();
   const nextStreak = lastPracticeDate === today
     ? Math.max(progressRow.streak || 0, 1)
     : lastPracticeDate === yesterday
