@@ -151,7 +151,26 @@ ALTER TABLE public.student_settings DROP CONSTRAINT IF EXISTS student_settings_r
 ALTER TABLE public.student_settings ADD CONSTRAINT student_settings_reading_theme_check CHECK (reading_theme IN ('light', 'dark', 'sepia', 'system'));
 
 -- ============================================================================
--- 6. notifications RLS policy rewrite (009_parent_monitoring_notifications.sql
+-- 6a. notifications.parent_id backfill (009_parent_monitoring_notifications.sql).
+--    Confirmed via direct query: every existing row has parent_id = NULL.
+--    The original migration's `COALESCE(parent_id, user_id)` fails live
+--    with "COALESCE types text and uuid cannot be matched" - notifications.user_id
+--    is UUID on the live table even though the historical 001/002 migrations
+--    declared it TEXT (an undocumented type change, same class of drift as
+--    everything else in this audit). Not currently breaking anything -
+--    backend/routes/notifications.js already reads with
+--    `.or('parent_id.eq.X,user_id.eq.X')`, which works with parent_id NULL -
+--    but the data itself is worth reconciling.
+-- ============================================================================
+UPDATE public.notifications
+SET
+  parent_id = COALESCE(parent_id, user_id::text),
+  message = COALESCE(message, body),
+  is_read = COALESCE(is_read, read, false)
+WHERE parent_id IS NULL OR message IS NULL;
+
+-- ============================================================================
+-- 6b. notifications RLS policy rewrite (009_parent_monitoring_notifications.sql
 --    tail section - unverified either way; included for completeness).
 --    Low risk either way: every current notifications read/write goes
 --    through backend/routes/notifications.js using the service-role key,
