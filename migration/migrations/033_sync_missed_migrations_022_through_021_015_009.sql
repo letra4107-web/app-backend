@@ -56,7 +56,16 @@ ALTER TABLE public.word_of_day_log
 --    correctly; migration 032, already in this repo, fixes it. Included here
 --    again so this single file is a complete catch-up in one run - safe to
 --    run twice, CREATE OR REPLACE is idempotent.)
+--
+--    SUPERSEDED by 034_fix_word_of_day_uuid_child_id.sql: child_id is UUID
+--    on the live table, not TEXT, so this TEXT-typed version fails outright
+--    with "operator does not exist: uuid = text" (confirmed live). Do NOT
+--    run this section - skip straight to 034, which drops any stale
+--    TEXT-typed overload and recreates both Word of Day RPCs with the
+--    correct UUID parameter type. Left commented out here so re-running
+--    this file top-to-bottom can never reintroduce the broken overload.
 -- ============================================================================
+/*
 CREATE OR REPLACE FUNCTION public.complete_word_of_day_attempt(
   p_child_id TEXT,
   p_accuracy INTEGER,
@@ -117,6 +126,7 @@ BEGIN
   RETURN QUERY SELECT FALSE, TRUE, v_progress.streak, COALESCE(v_progress.longest_streak, v_progress.streak), v_log.attempts;
 END;
 $$;
+*/
 
 -- ============================================================================
 -- 5. parents_settings / student_settings: speech_rate, show_accuracy_score,
