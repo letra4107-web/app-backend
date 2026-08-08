@@ -1289,7 +1289,7 @@ export default function StudentDashboard({ navigation }: any) {
             ? `Subukan nating linawin ang tunog na '${weakSound}'.`
             : score >= 75
               ? 'Malapit na! Basahin muna ang bawat pantig bago buuin ang salita.'
-              : `Mas mabagal na pagbasa ay makakatulong. Simulan sa '${selectedWord.split('-')[0]}'.`;
+              : `Mas mabagal na pagbasa ay makakatulong. Simulan sa '${syllabifyText(selectedWord).split('-')[0]}'.`;
       const xpAward = correct ? XP_CORRECT : XP_WRONG;
       const result = { correct, score, transcript, feedback, xpAward };
       const newAttempts = (practiceAttempts || 0) + 1;
@@ -1940,7 +1940,7 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={styles.practiceHero}>
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Pakinggan at Basahin</Text>
               <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
-              <Text style={[styles.practiceSyllables, bodyA11y]}>{selectedWord.split('-').join('  •  ')}</Text>
+              <Text style={[styles.practiceSyllables, bodyA11y]}>{syllabifyText(selectedWord).split('-').join('  •  ')}</Text>
               {!!getWordDefinition(selectedWord) && (
                 <View style={styles.wordMeaningBox}>
                   {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
@@ -2121,7 +2121,7 @@ export default function StudentDashboard({ navigation }: any) {
               </Animated.View>
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Sabihin ang Salita</Text>
               <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
-              <Text style={[styles.practiceSyllables, bodyA11y]}>{selectedWord.split('-').join('  •  ')}</Text>
+              <Text style={[styles.practiceSyllables, bodyA11y]}>{syllabifyText(selectedWord).split('-').join('  •  ')}</Text>
               {!!getWordDefinition(selectedWord) && (
                 <View style={styles.wordMeaningBox}>
                   {getWordDefinition(selectedWord)!.is_ambiguous && !!getWordDefinition(selectedWord)!.display_word && (
