@@ -25,16 +25,20 @@ export default function SyllableKaraokeText({ syllables, activeIndex, fontSize =
       {syllables.map((syllable, index) => {
         const isActive = activeIndex !== null && index === activeIndex;
         return (
-          <Text
-            key={`${syllable}-${index}`}
-            style={[
-              styles.syllable,
-              { fontSize },
-              isActive ? styles.syllableActive : styles.syllableIdle,
-            ]}
-          >
-            {syllable}
-          </Text>
+          <React.Fragment key={`${syllable}-${index}`}>
+            {index > 0 && (
+              <Text style={[styles.separator, { fontSize: fontSize * 0.6 }]}>·</Text>
+            )}
+            <Text
+              style={[
+                styles.syllable,
+                { fontSize },
+                isActive ? styles.syllableActive : styles.syllableIdle,
+              ]}
+            >
+              {syllable}
+            </Text>
+          </React.Fragment>
         );
       })}
     </View>
@@ -51,4 +55,5 @@ const styles = StyleSheet.create({
   },
   syllableIdle: { color: HOME_INK_SOFT },
   syllableActive: { color: '#fff', backgroundColor: HOME_LAVENDER_DARK },
+  separator: { color: HOME_INK_SOFT, fontWeight: '700', marginHorizontal: 2, opacity: 0.6 },
 });
