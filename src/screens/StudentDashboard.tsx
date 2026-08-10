@@ -1696,7 +1696,10 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Open navigation menu"
             >
-              <Ionicons name="menu-outline" size={20} color="#fff" />
+              <View style={styles.heroMenuIconWrap}>
+                <Ionicons name="menu-outline" size={20} color="#fff" />
+                {unreadNotifCount > 0 && <View style={styles.heroMenuDot} />}
+              </View>
               <Ionicons name="book" size={16} color="#fff" />
               <Text style={styles.heroLogoText}>LinawLetra</Text>
             </TouchableOpacity>
@@ -4094,7 +4097,7 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Open navigation menu"
             >
-              <View>
+              <View style={styles.heroMenuIconWrap}>
                 <Ionicons name="menu-outline" size={20} color="#fff" />
                 {unreadNotifCount > 0 && <View style={styles.heroMenuDot} />}
               </View>
@@ -5245,9 +5248,18 @@ const styles = StyleSheet.create({
   homeDeadlinesEmptyEmoji: { fontSize: 28, marginBottom: 6 },
   homeDeadlinesEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600', fontSize: 13 },
   // --- Notifications tab ---
+  // Padding gives the negative-offset dot room inside this wrapper's own
+  // bounding box instead of poking outside it - on Android, a
+  // position:'absolute' sibling offset outside its parent's own measured
+  // bounds was silently not rendering (parent had no explicit size beyond
+  // the bare icon glyph), which is why the sidebar's unread badge showed
+  // the correct count while this dot never appeared despite reading the
+  // exact same unreadNotifCount value.
+  heroMenuIconWrap: { padding: 4, position: 'relative' },
   heroMenuDot: {
-    position: 'absolute', top: -2, right: -2, width: 9, height: 9, borderRadius: 4.5,
+    position: 'absolute', top: 0, right: 0, width: 9, height: 9, borderRadius: 4.5,
     backgroundColor: DANGER, borderWidth: 1.5, borderColor: HERO_GRADIENT_START,
+    zIndex: 10, elevation: 10,
   },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png).
   notifHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
