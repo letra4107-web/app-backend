@@ -30,7 +30,7 @@ import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
 import { averageAccuracy } from '../services/achievementService';
-import { colors, typography } from '../theme';
+import { colors, typography, radius, shadows } from '../theme';
 
 // Same daily-goal formula as the Student Dashboard (total_attempts mod
 // DAILY_GOAL) - kept identical so a child's "goal" means the same thing
@@ -2698,10 +2698,10 @@ const styles = StyleSheet.create({
   childPickerRowText: { fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
   childSummaryCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: SURFACE, borderRadius: 20, padding: 18, marginBottom: 16,
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: SURFACE, borderRadius: radius.lg, padding: 18, marginBottom: 16,
+    ...shadows.card,
   },
-  latestReadingCard: { backgroundColor: '#F8F7FF', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#D9D4F4' },
+  latestReadingCard: { backgroundColor: '#F8F7FF', borderRadius: radius.lg, padding: 16, marginBottom: 16, ...shadows.card },
   latestReadingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   latestReadingEyebrow: { color: colors.lavenderDark, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   latestReadingWord: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 3 },
@@ -2740,12 +2740,12 @@ const styles = StyleSheet.create({
   readingProgressMessage: { fontSize: 13, color: colors.inkSoft, textAlign: 'center' },
   homeSectionTitle: { fontSize: 16, fontWeight: '900', color: colors.ink, marginBottom: 10 },
   overviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  overviewCard: { width: '47%', borderRadius: 16, padding: 14 },
+  overviewCard: { width: '47%', borderRadius: 16, padding: 14, ...shadows.card },
   overviewValue: { fontSize: 20, fontWeight: '900', marginTop: 8 },
   overviewLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2, fontWeight: '700' },
   trendCard: {
-    backgroundColor: SURFACE, borderRadius: 18, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: SURFACE, borderRadius: radius.md, padding: 16, marginBottom: 16,
+    ...shadows.card,
   },
   trendMsgRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   trendMsgText: { fontSize: 12, color: colors.inkSoft, flex: 1 },
@@ -2755,7 +2755,7 @@ const styles = StyleSheet.create({
   skillCardFill: { height: '100%', borderRadius: 999 },
   currentLessonCard: {
     backgroundColor: SURFACE, borderRadius: 16, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: colors.border, gap: 6,
+    ...shadows.card, gap: 6,
   },
   currentLessonTitle: { fontSize: 14, fontWeight: '800', color: colors.ink, flex: 1 },
 
@@ -2770,8 +2770,7 @@ const styles = StyleSheet.create({
   switchChildButtonText: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
   heroProgressCard: {
     borderRadius: 26, padding: 20, marginBottom: 16, overflow: 'hidden',
-    shadowColor: colors.heroGradient[0], shadowOpacity: 0.3, shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 }, elevation: 6,
+    ...shadows.hero,
   },
   // Soft translucent circles for depth - purely decorative, sit behind
   // everything, clipped by the card's own overflow:hidden.
@@ -2826,8 +2825,8 @@ const styles = StyleSheet.create({
   skillOverviewEmpty: { fontSize: 13, color: colors.inkSoft, fontWeight: '600' },
   homeSectionSub: { fontSize: 12, color: colors.inkSoft, fontWeight: '600', marginTop: -6, marginBottom: 10 },
   weeklyInsightCard: {
-    backgroundColor: SURFACE, borderRadius: 18, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: colors.border, gap: 10,
+    backgroundColor: SURFACE, borderRadius: radius.md, padding: 16, marginBottom: 16,
+    ...shadows.card, gap: 10,
   },
   weeklyInsightRow: { gap: 4 },
   insightRowLabel: { fontSize: 13, fontWeight: '800', color: colors.ink },
@@ -2836,7 +2835,8 @@ const styles = StyleSheet.create({
   insightRowStatus: { fontSize: 11, fontWeight: '700' },
   insightSeeMore: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark, marginTop: 4 },
   goalCard: {
-    backgroundColor: '#FFF3DC', borderRadius: 18, padding: 16, marginBottom: 16, gap: 8,
+    backgroundColor: '#FFF3DC', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8,
+    ...shadows.card,
   },
   goalCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   homeSectionTitleInline: { fontSize: 15, fontWeight: '900', color: colors.ink },
@@ -2848,13 +2848,14 @@ const styles = StyleSheet.create({
   viewAllLink: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
   recentActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: SURFACE, borderRadius: 16,
-    padding: 12, marginBottom: 10, borderWidth: 1, borderColor: colors.border,
+    padding: 12, marginBottom: 10, ...shadows.card,
   },
   recentActivityIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   recentActivityDetail: { fontSize: 12, color: colors.inkSoft, fontWeight: '600', marginTop: 2 },
   recentActivityTime: { fontSize: 11, color: colors.inkSoft, fontWeight: '600' },
   supportBanner: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 20, padding: 18, marginBottom: 16, overflow: 'hidden',
+    ...shadows.hero,
   },
   supportBannerTitle: { fontSize: 15, fontWeight: '900', color: '#fff', marginBottom: 4 },
   supportBannerText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '600', marginBottom: 10 },
