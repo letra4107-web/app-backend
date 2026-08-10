@@ -3,6 +3,7 @@ const cors = require('cors');
 const { exitIfInvalid } = require('./config/env');
 const { supabaseAdmin } = require('./config/supabase');
 const { runSchemaHealthCheck } = require('./services/schemaHealthCheck');
+const { startStreakReminderJob } = require('./jobs/streakReminderJob');
 
 exitIfInvalid();
 
@@ -311,6 +312,8 @@ const startServer = (port = PORT, host = HOST) => {
   runSchemaHealthCheck(supabaseAdmin).catch((error) => {
     console.warn('[SchemaHealthCheck] probe itself failed to run:', error?.message || error);
   });
+
+  startStreakReminderJob(supabaseAdmin);
 
   server.on('error', (error) => {
     console.error('Server failed to start:', error);
