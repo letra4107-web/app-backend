@@ -4817,7 +4817,10 @@ const styles = StyleSheet.create({
   learnStatusBadge: { fontWeight: '900', fontSize: 12 },
   learnActionButton: { backgroundColor: colors.lavender, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
   learnActionButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  learnEmptyCard: { alignItems: 'center', borderRadius: 24, paddingVertical: 32, paddingHorizontal: 20, marginBottom: 8 },
+  learnEmptyCard: {
+    alignItems: 'center', borderRadius: radius.xl, paddingVertical: 32, paddingHorizontal: 20, marginBottom: 8,
+    ...shadows.card,
+  },
   learnEmptyIconWrap: {
     width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
@@ -4825,8 +4828,8 @@ const styles = StyleSheet.create({
   learnEmptySubtext: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', lineHeight: 19 },
   learnMarkDoneText: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, textDecorationLine: 'underline' },
   learnContinueCard: {
-    backgroundColor: colors.sage, borderRadius: 24, padding: 18, marginBottom: 20,
-    shadowColor: colors.sage, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    backgroundColor: colors.sage, borderRadius: radius.xl, padding: 18, marginBottom: 20,
+    ...shadows.raised, shadowColor: colors.sage,
     position: 'relative', overflow: 'hidden',
   },
   learnContinuePill: {
@@ -4848,7 +4851,8 @@ const styles = StyleSheet.create({
   learnFilterChipText: { color: colors.inkSoft, fontWeight: '800', fontSize: 13 },
   learnFilterChipTextActive: { color: '#fff' },
   learnJourneyCard: {
-    backgroundColor: '#F5F3FC', borderRadius: 24, padding: 18, marginTop: 8, marginBottom: 8,
+    backgroundColor: '#F5F3FC', borderRadius: radius.xl, padding: 18, marginTop: 8, marginBottom: 8,
+    ...shadows.card,
   },
   learnJourneyTitle: { color: colors.ink, fontWeight: '900', fontSize: 15, marginBottom: 6 },
   learnJourneyLevel: { fontFamily: typography.family.display, color: colors.lavenderDark, fontSize: 20, marginBottom: 10 },
@@ -4860,8 +4864,8 @@ const styles = StyleSheet.create({
   // sized to that real aspect ratio, not the 1120x2240 group's heroImage box.
   progressHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
   learnProgressCard: {
-    backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 20,
-    shadowColor: colors.lavenderDark, shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2,
+    backgroundColor: '#fff', borderRadius: radius.xl, padding: 18, marginBottom: 20,
+    ...shadows.raised,
   },
   learnProgressTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   learnProgressTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16 },
@@ -4899,11 +4903,17 @@ const styles = StyleSheet.create({
   lessonStepMarkDoneLight: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 11, textDecorationLine: 'underline' },
 
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
+  // overflow:'hidden' deliberately lives on categoryTipCard, not here - iOS
+  // clips a view's own shadow when overflow:hidden sits on the same style
+  // object, and only the Reading Tip variant actually needs the clip (for
+  // its bleeding categoryTipImage). Keeping it off the shared base lets the
+  // other 3 grid cards render shadows.card correctly on iOS too.
   categoryCard: {
-    width: '47%', borderRadius: 20, padding: 16, minHeight: 118,
-    overflow: 'hidden', position: 'relative',
+    width: '47%', borderRadius: radius.lg, padding: 16, minHeight: 118,
+    position: 'relative',
+    ...shadows.card,
   },
-  categoryTipCard: { justifyContent: 'flex-start' },
+  categoryTipCard: { justifyContent: 'flex-start', overflow: 'hidden' },
   categoryIconWrap: {
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
