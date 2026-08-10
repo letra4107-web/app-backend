@@ -5278,9 +5278,10 @@ const styles = StyleSheet.create({
   // Practice feedback styles
   goalCard: {
     backgroundColor: colors.cream,
-    borderRadius: 20,
+    borderRadius: radius.lg,
     padding: 16,
     marginBottom: 20,
+    ...shadows.card,
   },
   goalTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   goalTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 17 },
@@ -5290,7 +5291,7 @@ const styles = StyleSheet.create({
   goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: colors.lavender },
   goalEmptyNote: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 10 },
   practiceSectionTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16, marginBottom: 12, marginTop: 4 },
-  aiRecommendationCard: { backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', borderRadius: 18, padding: 14, marginBottom: 14 },
+  aiRecommendationCard: { backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', borderRadius: radius.md, padding: 14, marginBottom: 14, ...shadows.card },
   aiRecommendationTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   aiRecommendationIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
   aiRecommendationWord: { color: colors.lavenderDark, fontWeight: '900', fontSize: 19 },
@@ -5310,8 +5311,8 @@ const styles = StyleSheet.create({
   categoryFilterBarReset: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13, textDecorationLine: 'underline' },
   practiceModeCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
-    borderRadius: 20, padding: 14, marginBottom: 12,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    borderRadius: radius.lg, padding: 14, marginBottom: 12,
+    ...shadows.card,
   },
   practiceModeCardDisabled: { opacity: 0.6 },
   practiceModeIconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
@@ -5328,7 +5329,7 @@ const styles = StyleSheet.create({
   },
   listenNextButtonText: { color: colors.sage, fontWeight: '900', fontSize: 14 },
   listenButtonRow: { flexDirection: 'row', gap: 10, width: '100%' },
-  practiceStatsCard: { backgroundColor: '#F5F3FC', borderRadius: 24, padding: 18, marginTop: 8, marginBottom: 8 },
+  practiceStatsCard: { backgroundColor: '#F5F3FC', borderRadius: radius.xl, padding: 18, marginTop: 8, marginBottom: 8, ...shadows.card },
   practiceStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   practiceStatsCol: { alignItems: 'center', flex: 1, gap: 4 },
   practiceStatsValue: { color: colors.ink, fontWeight: '900', fontSize: 16 },
@@ -5339,15 +5340,11 @@ const styles = StyleSheet.create({
   rewardText: { fontWeight: '900', fontSize: 12 },
   practiceHero: {
     backgroundColor: '#fff',
-    borderRadius: 24,
+    borderRadius: radius.xl,
     padding: 22,
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: colors.ink,
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    ...shadows.raised,
   },
   practiceMoodBadge: {
     width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
@@ -5447,7 +5444,8 @@ const styles = StyleSheet.create({
 
   encourageCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#F5F3FC', borderRadius: 24, padding: 16, marginTop: 8, marginBottom: 20,
+    backgroundColor: '#F5F3FC', borderRadius: radius.xl, padding: 16, marginTop: 8, marginBottom: 20,
+    ...shadows.card,
   },
   encourageImage: { width: 64, height: 113 },
   encourageTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 15, marginBottom: 4 },
@@ -5466,7 +5464,8 @@ const styles = StyleSheet.create({
 
   practiceTipCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FEF3D6', borderRadius: 20, padding: 16, marginBottom: 8,
+    backgroundColor: '#FEF3D6', borderRadius: radius.lg, padding: 16, marginBottom: 8,
+    ...shadows.card,
   },
   practiceTipCardTitle: { color: colors.ink, fontWeight: '900', fontSize: 14, marginBottom: 2 },
   practiceTipCardText: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, lineHeight: 17 },
