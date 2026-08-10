@@ -4612,7 +4612,8 @@ const styles = StyleSheet.create({
   // --- Progress tab (accent: colors.success green — "growth over time") ---
   progressStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   progressStatCard: {
-    width: '48%', borderRadius: 20, padding: 14, alignItems: 'flex-start', minHeight: 84, justifyContent: 'center',
+    width: '48%', borderRadius: radius.lg, padding: 14, alignItems: 'flex-start', minHeight: 84, justifyContent: 'center',
+    ...shadows.card,
   },
   progressStatIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   progressStatValue: { fontFamily: typography.family.displaySemi, fontSize: 20, marginTop: 2 },
@@ -4624,7 +4625,7 @@ const styles = StyleSheet.create({
   progressStreakBestText: { color: colors.ink, fontWeight: '800', fontSize: 10 },
   progressHeroCard: {
     backgroundColor: '#fff', borderRadius: 28, padding: 20, alignItems: 'center', marginBottom: 20,
-    shadowColor: colors.lavenderDark, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
+    ...shadows.raised,
   },
   progressHeroTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 18, textAlign: 'center', marginBottom: 4 },
   progressOverallRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginVertical: 14, width: '100%' },
@@ -4646,8 +4647,8 @@ const styles = StyleSheet.create({
   progressSectionIconWrap: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   progressSectionTitleText: { marginTop: 0, marginBottom: 0 },
   progressChartCard: {
-    backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 20,
-    shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+    backgroundColor: '#fff', borderRadius: radius.xl, padding: 16, marginBottom: 20,
+    ...shadows.card,
   },
   progressChartHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   progressChartTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16 },
@@ -4669,8 +4670,8 @@ const styles = StyleSheet.create({
   progressChartEmpty: { alignItems: 'center', paddingVertical: 24 },
   progressChartEmptyText: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 18 },
   skillsCard: {
-    backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 20,
-    shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+    backgroundColor: '#fff', borderRadius: radius.xl, padding: 16, marginBottom: 20,
+    ...shadows.card,
   },
   skillRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   skillIconWrap: {
@@ -4692,8 +4693,8 @@ const styles = StyleSheet.create({
   },
   progressPbBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9 },
   progressWordsCard: {
-    backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: 24, padding: 16,
-    shadowColor: colors.lavenderDark, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: radius.xl, padding: 16,
+    ...shadows.card, shadowColor: colors.lavenderDark,
   },
   progressWordsTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 15, marginBottom: 10 },
   progressWordsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
