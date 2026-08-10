@@ -4710,7 +4710,7 @@ const styles = StyleSheet.create({
   badgesHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 140, height: 210 },
   achievementSummaryCard: {
     backgroundColor: '#fff', borderRadius: 28, padding: 20, marginBottom: 20,
-    shadowColor: colors.lavenderDark, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
+    ...shadows.raised,
   },
   achievementSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 14 },
   achievementSummaryLeftCol: { flex: 1 },
@@ -4720,7 +4720,8 @@ const styles = StyleSheet.create({
   achievementSummaryHint: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 4, maxWidth: '90%' },
   achievementFeaturedCallout: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF3DC',
-    borderRadius: 18, padding: 14, width: '100%',
+    borderRadius: radius.md, padding: 14, width: '100%',
+    ...shadows.card,
   },
   achievementFeaturedImage: { width: 44, height: 44 },
   achievementFeaturedTitle: { color: colors.ink, fontWeight: '900', fontSize: 14, marginBottom: 2 },
@@ -4729,13 +4730,13 @@ const styles = StyleSheet.create({
   spotlightHint: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, marginTop: 10, marginBottom: 4 },
   badgesCelebrateBanner: {
     borderRadius: 28, padding: 20, marginBottom: 20, overflow: 'hidden',
-    shadowColor: colors.heroGradient[0], shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+    ...shadows.hero,
   },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png).
   badgesCelebrateImage: { position: 'absolute', right: 14, top: 10, width: 76, height: 134 },
   badgesCelebrateTitle: { fontFamily: typography.family.display, color: '#fff', fontSize: 20, marginBottom: 4 },
   badgesCelebrateSub: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 13, marginBottom: 16, lineHeight: 18 },
-  badgesNextCard: { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 18, padding: 14, marginBottom: 14 },
+  badgesNextCard: { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: radius.md, padding: 14, marginBottom: 14 },
   badgesNextLabel: { color: 'rgba(255,255,255,0.85)', fontWeight: '800', fontSize: 11, marginBottom: 3 },
   badgesNextTitle: { color: '#fff', fontWeight: '900', fontSize: 15, marginBottom: 2 },
   badgesNextDetail: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 12 },
@@ -4751,8 +4752,9 @@ const styles = StyleSheet.create({
   badgesFilterChipTextActive: { color: '#fff' },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   badgeCard: {
-    width: '48%', backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14,
+    width: '48%', backgroundColor: '#F5F3FC', borderRadius: radius.lg, padding: 14,
     alignItems: 'center', marginBottom: 14,
+    ...shadows.card,
   },
   badgeCardLocked: { backgroundColor: '#F3F4F6' },
   badgeLockIcon: {
@@ -4779,7 +4781,7 @@ const styles = StyleSheet.create({
   },
   badgeProgressFill: { height: '100%', borderRadius: 3, backgroundColor: colors.sage },
   badgeProgressText: { color: colors.inkSoft, fontWeight: '800', fontSize: 11 },
-  spotlightCard: { backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 20 },
+  spotlightCard: { backgroundColor: '#fff', borderRadius: radius.xl, padding: 18, marginBottom: 20, ...shadows.card },
   spotlightTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16, marginBottom: 12 },
   spotlightRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
   spotlightImage: { width: 56, height: 56 },
