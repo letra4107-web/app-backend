@@ -18,6 +18,7 @@ import {
 } from '../services/supabaseService';
 import { ensureParentProfile } from '../services/profileService';
 import { sendEmailOTP } from '../services/otpService';
+import { colors, typography } from '../theme';
 
 interface SignUpScreenProps {
   navigation: any;
@@ -43,18 +44,6 @@ interface FormValid {
   confirmPassword: boolean;
   terms: boolean;
 }
-
-// Same warm "reading journey" identity tokens used on the Login screen and
-// across the redesigned dashboard — this screen should read as a
-// continuation of the same flow, not a separate style.
-const HOME_CREAM = '#FBF3E2';
-const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_CORAL = '#E06B4C';
-const HOME_LAVENDER_DARK = '#5F52B0';
-const SUCCESS = '#10b981';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
-const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 
 const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   // Form fields
@@ -465,7 +454,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         <View style={styles.card}>
           {errors.general ? (
             <View style={styles.messageBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
-              <Ionicons name="alert-circle" size={20} color={HOME_CORAL} style={styles.messageIcon} />
+              <Ionicons name="alert-circle" size={20} color={colors.coral} style={styles.messageIcon} />
               <Text style={styles.errorBannerText}>{errors.general}</Text>
             </View>
           ) : null}
@@ -476,7 +465,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               accessibilityRole="alert"
               accessibilityLiveRegion="polite"
             >
-              <Ionicons name="checkmark-circle" size={20} color={SUCCESS} style={styles.messageIcon} />
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} style={styles.messageIcon} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.successBannerText}>{successMessage}</Text>
                 {successInfo ? <Text style={styles.successInfoText}>{successInfo}</Text> : null}
@@ -494,7 +483,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 <TextInput
                   style={styles.input}
                   placeholder="First Name"
-                  placeholderTextColor={HOME_INK_SOFT}
+                  placeholderTextColor={colors.inkSoft}
                   value={firstName}
                   onChangeText={(text) => setFirstName(sanitizeName(text))}
                   onBlur={() => setTouchedFirstName(true)}
@@ -503,12 +492,12 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   accessibilityLabel="First name input"
                 />
                 {valid.firstName && !errors.firstName && (
-                  <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
+                  <Ionicons name="checkmark-circle" size={18} color={colors.success} />
                 )}
               </View>
               {(touchedFirstName || submitAttempted) && errors.firstName ? (
                 <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                  <Ionicons name="alert-circle" size={14} color={colors.coral} />
                   <Text style={styles.errorFieldText}>{errors.firstName}</Text>
                 </View>
               ) : null}
@@ -523,7 +512,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 <TextInput
                   style={styles.input}
                   placeholder="Last Name"
-                  placeholderTextColor={HOME_INK_SOFT}
+                  placeholderTextColor={colors.inkSoft}
                   value={lastName}
                   onChangeText={(text) => setLastName(sanitizeName(text))}
                   onBlur={() => setTouchedLastName(true)}
@@ -532,12 +521,12 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   accessibilityLabel="Last name input"
                 />
                 {valid.lastName && !errors.lastName && (
-                  <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
+                  <Ionicons name="checkmark-circle" size={18} color={colors.success} />
                 )}
               </View>
               {(touchedLastName || submitAttempted) && errors.lastName ? (
                 <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                  <Ionicons name="alert-circle" size={14} color={colors.coral} />
                   <Text style={styles.errorFieldText}>{errors.lastName}</Text>
                 </View>
               ) : null}
@@ -556,7 +545,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="M.I. - Optional"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={middleInitial}
                 onChangeText={(text) => setMiddleInitial(text.toUpperCase().slice(0, 1))}
                 onBlur={() => setTouchedMiddleInitial(true)}
@@ -565,12 +554,12 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 accessibilityLabel="Middle initial input, optional"
               />
               {middleInitial.length > 0 && valid.middleInitial && !errors.middleInitial && (
-                <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
               )}
             </View>
             {(touchedMiddleInitial || submitAttempted) && errors.middleInitial ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                <Ionicons name="alert-circle" size={14} color={colors.coral} />
                 <Text style={styles.errorFieldText}>{errors.middleInitial}</Text>
               </View>
             ) : null}
@@ -582,11 +571,11 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               styles.inputWrapper,
               (touchedEmail || submitAttempted) && errors.email ? styles.inputWrapperError : null,
             ]}>
-              <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your email address"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={email}
                 onChangeText={(text) => setEmail(sanitizeEmail(text))}
                 onBlur={() => setTouchedEmail(true)}
@@ -596,12 +585,12 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 accessibilityLabel="Email input"
               />
               {valid.email && !errors.email && (
-                <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
               )}
             </View>
             {(touchedEmail || submitAttempted) && errors.email ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                <Ionicons name="alert-circle" size={14} color={colors.coral} />
                 <Text style={styles.errorFieldText}>{errors.email}</Text>
               </View>
             ) : null}
@@ -613,11 +602,11 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               styles.inputWrapper,
               (touchedPassword || submitAttempted) && errors.password ? styles.inputWrapperError : null,
             ]}>
-              <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Create a password"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={password}
                 onChangeText={setPassword}
                 onBlur={() => setTouchedPassword(true)}
@@ -633,7 +622,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 accessibilityRole="button"
                 accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               >
-                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
               </TouchableOpacity>
             </View>
 
@@ -663,7 +652,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   <Ionicons
                     name={password.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
                     size={14}
-                    color={password.length >= 8 ? SUCCESS : HOME_INK_SOFT}
+                    color={password.length >= 8 ? colors.success : colors.inkSoft}
                   />
                   <Text style={[styles.requirementText, password.length >= 8 && styles.requirementMet]}>
                     At least 8 characters
@@ -673,7 +662,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   <Ionicons
                     name={/[A-Z]/.test(password) ? 'checkmark-circle' : 'ellipse-outline'}
                     size={14}
-                    color={/[A-Z]/.test(password) ? SUCCESS : HOME_INK_SOFT}
+                    color={/[A-Z]/.test(password) ? colors.success : colors.inkSoft}
                   />
                   <Text style={[styles.requirementText, /[A-Z]/.test(password) && styles.requirementMet]}>
                     One uppercase letter (A-Z)
@@ -683,7 +672,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   <Ionicons
                     name={/\d/.test(password) ? 'checkmark-circle' : 'ellipse-outline'}
                     size={14}
-                    color={/\d/.test(password) ? SUCCESS : HOME_INK_SOFT}
+                    color={/\d/.test(password) ? colors.success : colors.inkSoft}
                   />
                   <Text style={[styles.requirementText, /\d/.test(password) && styles.requirementMet]}>
                     One number (0-9)
@@ -694,7 +683,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
             {(touchedPassword || submitAttempted) && errors.password ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                <Ionicons name="alert-circle" size={14} color={colors.coral} />
                 <Text style={styles.errorFieldText}>{errors.password}</Text>
               </View>
             ) : null}
@@ -706,11 +695,11 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               styles.inputWrapper,
               (touchedConfirmPassword || submitAttempted) && errors.confirmPassword ? styles.inputWrapperError : null,
             ]}>
-              <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Re-enter your password"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 onBlur={() => setTouchedConfirmPassword(true)}
@@ -726,12 +715,12 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 accessibilityRole="button"
                 accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
               >
-                <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
+                <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
               </TouchableOpacity>
             </View>
             {(touchedConfirmPassword || submitAttempted) && errors.confirmPassword ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+                <Ionicons name="alert-circle" size={14} color={colors.coral} />
                 <Text style={styles.errorFieldText}>{errors.confirmPassword}</Text>
               </View>
             ) : null}
@@ -748,7 +737,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <Ionicons
                 name={termsAccepted ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={termsAccepted ? HOME_LAVENDER_DARK : HOME_INK_SOFT}
+                color={termsAccepted ? colors.lavenderDark : colors.inkSoft}
               />
             </TouchableOpacity>
             <Text style={styles.termsText}>
@@ -760,7 +749,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           </View>
           {(submitAttempted && errors.terms) ? (
             <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={14} color={HOME_CORAL} />
+              <Ionicons name="alert-circle" size={14} color={colors.coral} />
               <Text style={styles.errorFieldText}>{errors.terms}</Text>
             </View>
           ) : null}
@@ -811,7 +800,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.trustNote}>
-          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
           <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
         </View>
       </ScrollView>
@@ -822,7 +811,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HOME_CREAM,
+    backgroundColor: colors.cream,
   },
   scroll: {
     flex: 1,
@@ -878,15 +867,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     textAlign: 'center',
     marginBottom: 4,
-    fontFamily: FONT_DISPLAY,
-    color: HOME_INK,
+    fontFamily: typography.family.display,
+    color: colors.ink,
     letterSpacing: 0.2,
   },
   subtitle: {
     fontSize: 15,
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     lineHeight: 22,
   },
   supportingText: {
@@ -896,7 +885,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     fontStyle: 'italic',
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     lineHeight: 18,
     paddingHorizontal: 12,
   },
@@ -912,7 +901,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     ...Platform.select({
       web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
-      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+      default: { shadowColor: colors.ink, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
     }),
   },
   messageBanner: {
@@ -923,11 +912,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     backgroundColor: 'rgba(224,107,76,0.12)',
     borderLeftWidth: 4,
-    borderLeftColor: HOME_CORAL,
+    borderLeftColor: colors.coral,
   },
   successBanner: {
     backgroundColor: 'rgba(16,185,129,0.1)',
-    borderLeftColor: SUCCESS,
+    borderLeftColor: colors.success,
   },
   messageIcon: {
     marginRight: 10,
@@ -971,7 +960,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: HOME_INK,
+    color: colors.ink,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
@@ -986,7 +975,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   inputWrapperError: {
-    borderColor: HOME_CORAL,
+    borderColor: colors.coral,
     backgroundColor: '#FDF3EF',
   },
   input: {
@@ -994,7 +983,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: HOME_INK,
+    color: colors.ink,
   },
   inputLeadingIcon: {
     marginRight: 10,
@@ -1052,11 +1041,11 @@ const styles = StyleSheet.create({
   requirementText: {
     fontSize: 12,
     marginLeft: 8,
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   requirementMet: {
-    color: SUCCESS,
+    color: colors.success,
     fontWeight: '700',
   },
   termsContainer: {
@@ -1073,16 +1062,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   link: {
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
   signUpButton: {
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 24,
@@ -1093,14 +1082,14 @@ const styles = StyleSheet.create({
     elevation: 3,
     ...Platform.select({
       web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
     }),
   },
   signUpButtonText: {
     color: '#fff',
     fontSize: 17,
     fontWeight: '800',
-    fontFamily: FONT_DISPLAY_SEMI,
+    fontFamily: typography.family.displaySemi,
   },
   buttonDisabled: {
     backgroundColor: '#C7C2D6',
@@ -1124,7 +1113,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59,50,44,0.14)',
   },
   oauthDividerText: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -1148,7 +1137,7 @@ const styles = StyleSheet.create({
   oauthButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: HOME_INK,
+    color: colors.ink,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   signInRow: {
@@ -1159,11 +1148,11 @@ const styles = StyleSheet.create({
   },
   signInText: {
     fontSize: 14,
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   signInLinkBold: {
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
     fontWeight: '800',
   },
   trustNote: {
@@ -1175,7 +1164,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   trustNoteText: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },

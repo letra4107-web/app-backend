@@ -9,10 +9,11 @@ import {
   ScheduledActivityType,
   ScheduledActivityStatus,
 } from '../services/scheduledActivityService';
+import { colors } from '../theme';
 
-const LAVENDER_DARK = '#5F52B0';
-const INK = '#3B322C';
-const INK_SOFT = '#5F5044';
+// BORDER/DANGER are intentionally NOT theme.colors.border/danger - both are
+// slightly different one-off hex values, kept local rather than silently
+// coerced onto a nearby-but-different color.
 const BORDER = '#E7DFD0';
 const DANGER = '#E0574C';
 
@@ -169,7 +170,7 @@ export default function AddScheduledActivityModal({
           <View style={styles.header}>
             <Text style={styles.title}>{editing ? 'I-edit ang Activity' : 'Magdagdag ng Activity'}</Text>
             <TouchableOpacity onPress={onClose} disabled={busy}>
-              <Ionicons name="close" size={24} color={INK} />
+              <Ionicons name="close" size={24} color={colors.ink} />
             </TouchableOpacity>
           </View>
 
@@ -207,7 +208,7 @@ export default function AddScheduledActivityModal({
                   <Ionicons
                     name={option.icon}
                     size={16}
-                    color={activityType === option.key ? '#fff' : LAVENDER_DARK}
+                    color={activityType === option.key ? '#fff' : colors.lavenderDark}
                   />
                   <Text style={[styles.chipText, activityType === option.key && styles.chipTextActive]}>
                     {option.label}
@@ -222,7 +223,7 @@ export default function AddScheduledActivityModal({
               value={title}
               onChangeText={setTitle}
               placeholder="Hal. Magbasa ng 10 minuto"
-              placeholderTextColor={INK_SOFT}
+              placeholderTextColor={colors.inkSoft}
             />
 
             <Text style={styles.label}>Tala (opsyonal)</Text>
@@ -231,7 +232,7 @@ export default function AddScheduledActivityModal({
               value={description}
               onChangeText={setDescription}
               placeholder="Karagdagang detalye..."
-              placeholderTextColor={INK_SOFT}
+              placeholderTextColor={colors.inkSoft}
               multiline
             />
 
@@ -302,11 +303,11 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#fff', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '88%' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { fontSize: 20, fontWeight: '800', color: INK },
+  title: { fontSize: 20, fontWeight: '800', color: colors.ink },
   scrollArea: { maxHeight: 440 },
-  dateLabel: { color: INK_SOFT, fontWeight: '700', marginBottom: 10 },
-  label: { marginTop: 14, marginBottom: 6, fontWeight: '700', color: INK },
-  input: { borderWidth: 1, borderColor: BORDER, borderRadius: 10, padding: 12, fontSize: 15, color: INK },
+  dateLabel: { color: colors.inkSoft, fontWeight: '700', marginBottom: 10 },
+  label: { marginTop: 14, marginBottom: 6, fontWeight: '700', color: colors.ink },
+  input: { borderWidth: 1, borderColor: BORDER, borderRadius: 10, padding: 12, fontSize: 15, color: colors.ink },
   textArea: { minHeight: 70, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
@@ -320,11 +321,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
-  chipActive: { backgroundColor: LAVENDER_DARK, borderColor: LAVENDER_DARK },
-  chipText: { color: INK, fontWeight: '700', fontSize: 13 },
+  chipActive: { backgroundColor: colors.lavenderDark, borderColor: colors.lavenderDark },
+  chipText: { color: colors.ink, fontWeight: '700', fontSize: 13 },
   chipTextActive: { color: '#fff' },
   error: { color: DANGER, marginTop: 10, fontWeight: '600' },
-  submit: { backgroundColor: LAVENDER_DARK, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  submit: { backgroundColor: colors.lavenderDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   submitText: { color: '#fff', fontWeight: '800' },
   deleteButton: {
     flexDirection: 'row',

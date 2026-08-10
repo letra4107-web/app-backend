@@ -7,22 +7,11 @@ import {
   signInUser, getChildByUsername, mapSupabaseAuthErrorCode,
   signInWithOAuthProvider, ensureUserProfileForOAuthUser, completeAuthSession, OAuthProvider,
 } from '../services/supabaseService';
+import { colors, typography } from '../theme';
 
 interface LoginScreenProps {
   navigation: any;
 }
-
-// Same warm "reading journey" identity tokens used across the redesigned
-// dashboard (Home/Practice/Badges/Settings) — extended here so the auth flow
-// feels like the same app instead of its own separate green theme.
-const HOME_CREAM = '#FBF3E2';
-const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_CORAL = '#E06B4C';
-const HOME_LAVENDER_DARK = '#5F52B0';
-const SUCCESS = '#10b981';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
-const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [identifier, setIdentifier] = useState('');
@@ -306,11 +295,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               (touchedIdentifier || submitAttempted) && identifierError && styles.inputError,
               (touchedIdentifier || submitAttempted) && !identifierError && identifier && styles.inputValid,
             ]}>
-              <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your email"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={identifier}
                 onChangeText={(text) => {
                   setIdentifier(text);
@@ -325,7 +314,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 accessibilityHint="Enter your email address to log in"
               />
               {(touchedIdentifier || submitAttempted) && identifier && !identifierError && (
-                <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
+                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
               )}
             </View>
             {(touchedIdentifier || submitAttempted) && identifierError ? <Text style={styles.errorText}>{identifierError}</Text> : null}
@@ -338,11 +327,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               (touchedPassword || submitAttempted) && passwordError && styles.inputError,
               (touchedPassword || submitAttempted) && !passwordError && password && styles.inputValid,
             ]}>
-              <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your password"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -361,7 +350,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 style={styles.passwordToggle}
                 accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               >
-                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={HOME_LAVENDER_DARK} />
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.lavenderDark} />
               </TouchableOpacity>
             </View>
             {(touchedPassword || submitAttempted) && passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
@@ -427,7 +416,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.trustNote}>
-          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
           <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
         </View>
       </ScrollView>
@@ -438,7 +427,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HOME_CREAM,
+    backgroundColor: colors.cream,
   },
   scroll: {
     flex: 1,
@@ -494,8 +483,8 @@ const styles = StyleSheet.create({
     fontSize: 26,
     textAlign: 'center',
     marginBottom: 4,
-    fontFamily: FONT_DISPLAY,
-    color: HOME_INK,
+    fontFamily: typography.family.display,
+    color: colors.ink,
     letterSpacing: 0.2,
   },
   subtitle: {
@@ -503,7 +492,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 18,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     lineHeight: 22,
     letterSpacing: 0.2,
   },
@@ -522,7 +511,7 @@ const styles = StyleSheet.create({
     // shadow on native iOS/Android, so the two are split per-platform here.
     ...Platform.select({
       web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
-      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+      default: { shadowColor: colors.ink, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
     }),
   },
   globalError: {
@@ -535,7 +524,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 18,
     borderLeftWidth: 4,
-    borderLeftColor: HOME_CORAL,
+    borderLeftColor: colors.coral,
   },
   inputGroup: {
     marginBottom: 18,
@@ -545,7 +534,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: HOME_INK,
+    color: colors.ink,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
@@ -568,16 +557,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: HOME_INK,
+    color: colors.ink,
     padding: 0,
     minHeight: 44,
   },
   inputValid: {
-    borderColor: SUCCESS,
+    borderColor: colors.success,
     backgroundColor: '#F2FBF4',
   },
   inputError: {
-    borderColor: HOME_CORAL,
+    borderColor: colors.coral,
     backgroundColor: '#FDF3EF',
   },
   passwordToggle: {
@@ -601,7 +590,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   button: {
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 24,
@@ -609,7 +598,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     ...Platform.select({
       web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
     }),
   },
   buttonDisabled: {
@@ -625,7 +614,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '800',
-    fontFamily: FONT_DISPLAY_SEMI,
+    fontFamily: typography.family.displaySemi,
   },
   resendRow: {
     alignSelf: 'center',
@@ -634,14 +623,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   resendLink: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 13,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
   link: {
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
     fontWeight: '700',
@@ -659,7 +648,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59,50,44,0.14)',
   },
   oauthDividerText: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -683,7 +672,7 @@ const styles = StyleSheet.create({
   oauthButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: HOME_INK,
+    color: colors.ink,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },
   signUpRow: {
@@ -694,13 +683,13 @@ const styles = StyleSheet.create({
   },
   signUpLink: {
     textAlign: 'center',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
     fontWeight: '500',
   },
   signUpLinkBold: {
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
     fontWeight: '800',
   },
   trustNote: {
@@ -712,7 +701,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   trustNoteText: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
   },

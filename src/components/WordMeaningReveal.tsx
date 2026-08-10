@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const HOME_CORAL = '#E06B4C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_LAVENDER_DARK = '#5F52B0';
+import { colors } from '../theme';
 
 export type WordMeaningRevealData = {
   displayWord: string | null;
@@ -52,8 +49,8 @@ export default function WordMeaningReveal({ definition, bodyA11yStyle }: WordMea
 
 const styles = StyleSheet.create({
   box: { alignItems: 'center', marginBottom: 14, paddingHorizontal: 12 },
-  accented: { color: HOME_CORAL, fontSize: 14, fontWeight: '800', marginBottom: 2, textAlign: 'center' },
-  meaning: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 18 },
+  accented: { color: colors.coral, fontSize: 14, fontWeight: '800', marginBottom: 2, textAlign: 'center' },
+  meaning: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 18 },
   revealButton: { marginBottom: 14, paddingVertical: 6, paddingHorizontal: 14 },
-  revealButtonText: { color: HOME_LAVENDER_DARK, fontSize: 13, fontWeight: '800', textDecorationLine: 'underline' },
+  revealButtonText: { color: colors.lavenderDark, fontSize: 13, fontWeight: '800', textDecorationLine: 'underline' },
 });

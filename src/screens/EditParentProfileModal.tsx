@@ -3,11 +3,11 @@ import { ActivityIndicator, Image, Modal, StyleSheet, Text, TextInput, Touchable
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { updateProfile, uploadAvatar } from '../services/profileService';
+import { colors } from '../theme';
 
-const LAVENDER = '#7C6FCF';
-const LAVENDER_DARK = '#5F52B0';
-const INK = '#3B322C';
-const INK_SOFT = '#5F5044';
+// BORDER/DANGER here are intentionally NOT theme.colors.border/danger - both
+// are slightly different one-off hex values from the shared token set, kept
+// local rather than silently coerced onto a nearby-but-different color.
 const BORDER = '#E7DFD0';
 const DANGER = '#E0574C';
 
@@ -108,7 +108,7 @@ export default function EditParentProfileModal({
           <View style={styles.header}>
             <Text style={styles.title}>I-edit ang Profile</Text>
             <TouchableOpacity onPress={onClose} disabled={saving}>
-              <Ionicons name="close" size={24} color={INK} />
+              <Ionicons name="close" size={24} color={colors.ink} />
             </TouchableOpacity>
           </View>
 
@@ -130,7 +130,7 @@ export default function EditParentProfileModal({
           </TouchableOpacity>
 
           <Text style={styles.label}>Buong Pangalan</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Hal. Maria Dela Cruz" placeholderTextColor={INK_SOFT} />
+          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Hal. Maria Dela Cruz" placeholderTextColor={colors.inkSoft} />
 
           <Text style={styles.label}>Numero ng Telepono</Text>
           <TextInput
@@ -139,7 +139,7 @@ export default function EditParentProfileModal({
             onChangeText={setPhone}
             keyboardType="phone-pad"
             placeholder="Opsyonal"
-            placeholderTextColor={INK_SOFT}
+            placeholderTextColor={colors.inkSoft}
           />
 
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -157,19 +157,19 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#fff', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 20, fontWeight: '800', color: INK },
+  title: { fontSize: 20, fontWeight: '800', color: colors.ink },
   avatarWrap: { alignSelf: 'center', marginBottom: 16 },
   avatar: { width: 84, height: 84, borderRadius: 42 },
   avatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { color: LAVENDER, fontSize: 30, fontWeight: '900' },
+  avatarInitial: { color: colors.lavender, fontSize: 30, fontWeight: '900' },
   avatarEdit: {
     position: 'absolute', right: -2, bottom: -2, width: 30, height: 30, borderRadius: 15,
-    backgroundColor: LAVENDER_DARK, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
+    backgroundColor: colors.lavenderDark, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
   },
-  label: { marginTop: 12, marginBottom: 6, fontWeight: '700', color: INK },
-  input: { borderWidth: 1, borderColor: BORDER, borderRadius: 10, padding: 12, fontSize: 15, color: INK },
+  label: { marginTop: 12, marginBottom: 6, fontWeight: '700', color: colors.ink },
+  input: { borderWidth: 1, borderColor: BORDER, borderRadius: 10, padding: 12, fontSize: 15, color: colors.ink },
   error: { color: DANGER, marginTop: 10, fontWeight: '600' },
-  submit: { backgroundColor: LAVENDER_DARK, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 18 },
+  submit: { backgroundColor: colors.lavenderDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 18 },
   submitText: { color: '#fff', fontWeight: '800' },
   disabled: { opacity: 0.6 },
 });

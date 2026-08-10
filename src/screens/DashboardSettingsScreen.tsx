@@ -37,35 +37,14 @@ import {
 } from '../services/settingsService';
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { useAccessibility } from '../contexts/AccessibilityContext';
+import { colors, typography } from '../theme';
 
 const BG = '#F4F1FB';
 const SURFACE = '#ffffff';
 const MUTED = '#6b7280';
-// Shared token set — matches the palette established across the Home/Learn/
-// Practice/Progress/Badges tabs, so Settings doesn't feel like a different app.
-const INK = '#3B322C';
-const INK_SOFT = '#5F5044';
-const LAVENDER = '#7C6FCF';
-const LAVENDER_DARK = '#5F52B0';
-const CORAL = '#E06B4C';
-const SUN = '#E3971A';
-const SAGE = '#5C8047';
-const DANGER = '#ef4444';
-const SUCCESS = '#10b981';
-const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
-// Same 3 stops used for every hero banner across Home/Learn/Practice/
-// Progress/Badges - duplicated locally like the rest of this file's token set.
-const HERO_GRADIENT_START = '#6D28D9';
-// Darkened ~10% from the original #A855F7 - that shade only gave white hero
-// text ~3.96:1 contrast at this gradient stop, below WCAG AA's 4.5:1 minimum
-// for normal-size text (the smaller heroSubtitle line specifically failed).
-// This keeps the same hue while clearing ~4.77:1.
-const HERO_GRADIENT_MID = '#974CDE';
-const HERO_GRADIENT_END = '#9D174D';
 // Cycled per-section (never per-row) so adjacent sections read as visually
 // distinct while staying inside the same 4-color family used elsewhere.
-const SECTION_ACCENTS = [LAVENDER, CORAL, SUN, SAGE];
+const SECTION_ACCENTS = [colors.lavender, colors.coral, colors.sun, colors.sage];
 
 type Props = {
   role: SettingsRole;
@@ -417,7 +396,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       value={!!value}
       onValueChange={(next) => updateSetting(key, next as any)}
       trackColor={{ false: '#cbd5e1', true: 'rgba(124,111,207,0.4)' }}
-      thumbColor={value ? LAVENDER : '#f8fafc'}
+      thumbColor={value ? colors.lavender : '#f8fafc'}
     />
   );
 
@@ -480,9 +459,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     subtitleA11yStyle?: object;
   }) => (
     <TouchableOpacity style={styles.row} activeOpacity={onPress ? 0.72 : 1} onPress={onPress}>
-      <MaterialIcons name={icon as any} size={22} color={danger ? DANGER : LAVENDER_DARK} />
+      <MaterialIcons name={icon as any} size={22} color={danger ? colors.danger : colors.lavenderDark} />
       <View style={styles.rowText}>
-        <Text style={[styles.rowTitle, dark && styles.textDark, danger && { color: DANGER }, titleA11yStyle]}>{title}</Text>
+        <Text style={[styles.rowTitle, dark && styles.textDark, danger && { color: colors.danger }, titleA11yStyle]}>{title}</Text>
         {!!subtitle && <Text style={[styles.rowSubtitle, dark && styles.mutedDark, subtitleA11yStyle]}>{subtitle}</Text>}
       </View>
       {right}
@@ -492,7 +471,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   if (loading || !settings) {
     return (
       <View style={[styles.center, dark && styles.containerDark]}>
-        <ActivityIndicator size="large" color={LAVENDER} />
+        <ActivityIndicator size="large" color={colors.lavender} />
         <Text style={styles.loadingText}>Loading settings...</Text>
       </View>
     );
@@ -505,7 +484,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           (heroMode omitted) keeps its header inside the ScrollView, unchanged. */}
       {heroMode && (
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -527,7 +506,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           <View style={styles.header}>
             {!embedded && (
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <MaterialIcons name="arrow-back" size={22} color={LAVENDER} />
+                <MaterialIcons name="arrow-back" size={22} color={colors.lavender} />
               </TouchableOpacity>
             )}
             <View style={{ flex: 1 }}>
@@ -620,8 +599,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                           <MaterialIcons name="check" size={11} color="#fff" />
                         </View>
                       )}
-                      <MaterialIcons name={iconName as any} size={22} color={active ? LAVENDER_DARK : INK_SOFT} />
-                      <Text style={[styles.themeCardText, active && { color: LAVENDER_DARK }]}>{label}</Text>
+                      <MaterialIcons name={iconName as any} size={22} color={active ? colors.lavenderDark : colors.inkSoft} />
+                      <Text style={[styles.themeCardText, active && { color: colors.lavenderDark }]}>{label}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -701,8 +680,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                           <MaterialIcons name="check" size={11} color="#fff" />
                         </View>
                       )}
-                      <MaterialIcons name={iconName as any} size={22} color={active ? LAVENDER_DARK : INK_SOFT} />
-                      <Text style={[styles.themeCardText, active && { color: LAVENDER_DARK }]}>{label}</Text>
+                      <MaterialIcons name={iconName as any} size={22} color={active ? colors.lavenderDark : colors.inkSoft} />
+                      <Text style={[styles.themeCardText, active && { color: colors.lavenderDark }]}>{label}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -724,11 +703,11 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                 right={
                   micPermission === 'granted' ? (
                     <View style={styles.grantedPill}>
-                      <MaterialIcons name="check-circle" size={13} color={SUCCESS} />
+                      <MaterialIcons name="check-circle" size={13} color={colors.success} />
                       <Text style={styles.grantedPillText}>Enabled</Text>
                     </View>
                   ) : micPermission === 'checking' ? (
-                    <ActivityIndicator size="small" color={LAVENDER} />
+                    <ActivityIndicator size="small" color={colors.lavender} />
                   ) : (
                     <TouchableOpacity style={styles.permissionButton} onPress={requestMicPermission}>
                       <Text style={styles.permissionButtonText}>Allow</Text>
@@ -898,14 +877,14 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 18, paddingBottom: 10 },
   backButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
-  title: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 24, color: INK },
-  subtitle: { fontSize: 13, color: INK_SOFT, fontWeight: '600', marginTop: 2 },
+  title: { fontFamily: typography.family.displaySemi, fontSize: 24, color: colors.ink },
+  subtitle: { fontSize: 13, color: colors.inkSoft, fontWeight: '600', marginTop: 2 },
   // Same hero-banner shape used on Home/Learn/Practice/Progress/Badges.
   heroBanner: { borderRadius: 28, padding: 22, marginBottom: 20, overflow: 'hidden', position: 'relative', minHeight: 180 },
   heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: FONT_DISPLAY, lineHeight: 32, maxWidth: '68%' },
+  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: typography.family.display, lineHeight: 32, maxWidth: '68%' },
   heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png/clipboard.png).
   heroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
@@ -913,28 +892,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF3DC',
     borderRadius: 20, padding: 16, marginTop: 14,
   },
-  tipIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: SUN, alignItems: 'center', justifyContent: 'center' },
-  tipCardTitle: { fontFamily: FONT_DISPLAY_SEMI, color: INK, fontSize: 15, marginBottom: 4 },
-  tipCardText: { color: INK_SOFT, fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  tipIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.sun, alignItems: 'center', justifyContent: 'center' },
+  tipCardTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 15, marginBottom: 4 },
+  tipCardText: { color: colors.inkSoft, fontSize: 12, fontWeight: '600', lineHeight: 17 },
   headerAvatar: { width: 44, height: 44, borderRadius: 22 },
-  headerAvatarInitial: { color: LAVENDER, fontSize: 16, fontWeight: '900' },
+  headerAvatarInitial: { color: colors.lavender, fontSize: 16, fontWeight: '900' },
   summaryCard: { flexDirection: 'column' },
   summaryBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   gradeBadge: { backgroundColor: '#F1F0F4', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
-  gradeBadgeText: { color: INK_SOFT, fontWeight: '800', fontSize: 12 },
-  levelBadge: { backgroundColor: LAVENDER, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+  gradeBadgeText: { color: colors.inkSoft, fontWeight: '800', fontSize: 12 },
+  levelBadge: { backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
   levelBadgeText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   viewProfileButton: {
-    minHeight: 44, borderRadius: 999, borderWidth: 1.5, borderColor: LAVENDER,
+    minHeight: 44, borderRadius: 999, borderWidth: 1.5, borderColor: colors.lavender,
     alignItems: 'center', justifyContent: 'center', marginTop: 14,
   },
-  viewProfileButtonText: { color: LAVENDER_DARK, fontWeight: '900', fontSize: 14 },
+  viewProfileButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 14 },
   unsavedBar: {
-    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: SUN, borderRadius: 16,
+    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: colors.sun, borderRadius: 16,
     padding: 14, marginTop: 16, gap: 10,
   },
   unsavedBarDark: { backgroundColor: 'rgba(227,151,26,0.12)' },
-  unsavedBarText: { color: INK, fontWeight: '700', fontSize: 13 },
+  unsavedBarText: { color: colors.ink, fontWeight: '700', fontSize: 13 },
   unsavedBarButtons: { flexDirection: 'row', gap: 10 },
   discardButton: {
     flex: 1, minHeight: 44, borderRadius: 999, borderWidth: 1.5, borderColor: '#D1D5DB',
@@ -942,7 +921,7 @@ const styles = StyleSheet.create({
   },
   discardButtonText: { color: MUTED, fontWeight: '800', fontSize: 14 },
   saveChangesButton: {
-    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: LAVENDER_DARK,
+    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: colors.lavenderDark,
     alignItems: 'center', justifyContent: 'center',
   },
   saveChangesButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
@@ -950,28 +929,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E9F7F1',
     borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
   },
-  grantedPillText: { color: SUCCESS, fontWeight: '800', fontSize: 11 },
-  permissionButton: { backgroundColor: LAVENDER, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, minHeight: 32 },
+  grantedPillText: { color: colors.success, fontWeight: '800', fontSize: 11 },
+  permissionButton: { backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, minHeight: 32 },
   permissionButtonText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   themeRow: { flexDirection: 'row', gap: 10 },
   themeCard: {
     flex: 1, borderRadius: 16, borderWidth: 1.5, borderColor: '#EEE9F9', backgroundColor: '#fff',
     alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 6, minHeight: 76,
   },
-  themeCardActive: { borderColor: LAVENDER, backgroundColor: '#F5F3FC' },
+  themeCardActive: { borderColor: colors.lavender, backgroundColor: '#F5F3FC' },
   themeCheck: {
     position: 'absolute', top: 8, right: 8, width: 16, height: 16, borderRadius: 8,
-    backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center',
   },
-  themeCardText: { color: INK_SOFT, fontWeight: '800', fontSize: 13 },
-  themeNote: { color: INK_SOFT, fontSize: 11, fontWeight: '600', marginTop: 10, textAlign: 'center' },
-  versionFooter: { textAlign: 'center', color: INK_SOFT, fontSize: 12, fontWeight: '600', marginTop: 18, marginBottom: 8 },
+  themeCardText: { color: colors.inkSoft, fontWeight: '800', fontSize: 13 },
+  themeNote: { color: colors.inkSoft, fontSize: 11, fontWeight: '600', marginTop: 10, textAlign: 'center' },
+  versionFooter: { textAlign: 'center', color: colors.inkSoft, fontSize: 12, fontWeight: '600', marginTop: 18, marginBottom: 8 },
   card: {
     backgroundColor: SURFACE,
     borderRadius: 20,
     padding: 16,
     marginTop: 14,
-    shadowColor: LAVENDER_DARK,
+    shadowColor: colors.lavenderDark,
     shadowOpacity: 0.1,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
@@ -980,20 +959,20 @@ const styles = StyleSheet.create({
   cardDark: { backgroundColor: '#0b1220', borderColor: '#1f2937' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   sectionIcon: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 16, color: INK },
+  sectionTitle: { fontFamily: typography.family.displaySemi, fontSize: 16, color: colors.ink },
   row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   rowText: { flex: 1 },
-  rowTitle: { color: INK, fontSize: 15, fontWeight: '800' },
-  rowSubtitle: { color: INK_SOFT, fontSize: 12, marginTop: 3 },
+  rowTitle: { color: colors.ink, fontSize: 15, fontWeight: '800' },
+  rowSubtitle: { color: colors.inkSoft, fontSize: 12, marginTop: 3 },
   textDark: { color: '#f8fafc' },
   mutedDark: { color: '#94a3b8' },
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
   avatarWrap: { position: 'relative' },
   avatar: { width: 72, height: 72, borderRadius: 36 },
   avatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { color: LAVENDER, fontSize: 28, fontWeight: '900' },
-  avatarEdit: { position: 'absolute', right: -4, bottom: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center' },
-  profileName: { fontSize: 18, fontWeight: '900', color: INK },
+  avatarInitial: { color: colors.lavender, fontSize: 28, fontWeight: '900' },
+  avatarEdit: { position: 'absolute', right: -4, bottom: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
+  profileName: { fontSize: 18, fontWeight: '900', color: colors.ink },
   input: {
     minHeight: 48,
     borderWidth: 1.5,
@@ -1002,24 +981,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginTop: 10,
     backgroundColor: '#fff',
-    color: INK,
+    color: colors.ink,
   },
   inputDark: { backgroundColor: '#111827', borderColor: '#334155', color: '#f8fafc' },
   readOnlyInput: { backgroundColor: '#F8F7FC' },
-  primaryButton: { minHeight: 48, borderRadius: 999, marginTop: 12, backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center' },
-  primaryButtonSmall: { minHeight: 44, borderRadius: 999, paddingHorizontal: 18, backgroundColor: LAVENDER, alignItems: 'center', justifyContent: 'center', flex: 1 },
+  primaryButton: { minHeight: 48, borderRadius: 999, marginTop: 12, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonSmall: { minHeight: 44, borderRadius: 999, paddingHorizontal: 18, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center', flex: 1 },
   primaryButtonText: { color: '#fff', fontWeight: '900' },
   secondaryButton: { minHeight: 44, borderRadius: 999, paddingHorizontal: 18, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center', flex: 1 },
-  secondaryButtonText: { color: LAVENDER_DARK, fontWeight: '900' },
-  successBanner: { color: SUCCESS, backgroundColor: '#E9F7F1', borderRadius: 999, padding: 12, marginTop: 8, fontWeight: '800', textAlign: 'center' },
-  errorBanner: { color: DANGER, backgroundColor: 'rgba(224,107,76,0.12)', borderRadius: 999, padding: 12, marginTop: 8, fontWeight: '800', textAlign: 'center' },
+  secondaryButtonText: { color: colors.lavenderDark, fontWeight: '900' },
+  successBanner: { color: colors.success, backgroundColor: '#E9F7F1', borderRadius: 999, padding: 12, marginTop: 8, fontWeight: '800', textAlign: 'center' },
+  errorBanner: { color: colors.danger, backgroundColor: 'rgba(224,107,76,0.12)', borderRadius: 999, padding: 12, marginTop: 8, fontWeight: '800', textAlign: 'center' },
   segment: { flexDirection: 'row', backgroundColor: '#EFECFB', borderRadius: 999, padding: 3, maxWidth: 210 },
   segmentButton: { minHeight: 34, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  segmentButtonActive: { backgroundColor: LAVENDER },
-  segmentText: { color: LAVENDER_DARK, fontWeight: '800', fontSize: 12, textTransform: 'capitalize' },
+  segmentButtonActive: { backgroundColor: colors.lavender },
+  segmentText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12, textTransform: 'capitalize' },
   segmentTextActive: { color: '#fff' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(30,23,66,0.55)', justifyContent: 'center', padding: 20 },
   modalCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20 },
-  modalTitle: { fontFamily: FONT_DISPLAY_SEMI, color: INK, fontSize: 18, marginBottom: 4 },
+  modalTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 18, marginBottom: 4 },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
 });

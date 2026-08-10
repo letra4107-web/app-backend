@@ -14,22 +14,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
 import { completeAuthSession } from '../services/supabaseService';
+import { colors, typography } from '../theme';
 
 interface ResetPasswordProps {
   navigation: any;
   route: any;
 }
-
-// Same warm "reading journey" identity tokens used across every other auth
-// screen (Login/Sign Up/Forgot Password) — continuation of the same flow.
-const HOME_CREAM = '#FBF3E2';
-const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_CORAL = '#E06B4C';
-const HOME_LAVENDER_DARK = '#5F52B0';
-const SUCCESS = '#10b981';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
-const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 
 type Stage = 'exchanging' | 'invalid' | 'form' | 'success';
 
@@ -118,7 +108,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
 
         {stage === 'exchanging' && (
           <View style={styles.card}>
-            <ActivityIndicator size="large" color={HOME_LAVENDER_DARK} />
+            <ActivityIndicator size="large" color={colors.lavenderDark} />
             <Text style={[styles.subtitle, { marginTop: 16 }]}>Sinusuri ang iyong reset link...</Text>
           </View>
         )}
@@ -149,11 +139,11 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>New Password</Text>
               <View style={[styles.inputWrapper, passwordError && styles.inputWrapperError]}>
-                <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+                <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="At least 8 characters"
-                  placeholderTextColor={HOME_INK_SOFT}
+                  placeholderTextColor={colors.inkSoft}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -168,7 +158,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
                   accessibilityRole="button"
                   accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
+                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
                 </TouchableOpacity>
               </View>
               {passwordError ? <Text style={styles.errorFieldText}>{passwordError}</Text> : null}
@@ -177,11 +167,11 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Confirm New Password</Text>
               <View style={[styles.inputWrapper, confirmError && styles.inputWrapperError]}>
-                <Ionicons name="lock-closed-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+                <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Re-enter your new password"
-                  placeholderTextColor={HOME_INK_SOFT}
+                  placeholderTextColor={colors.inkSoft}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}
@@ -196,7 +186,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
                   accessibilityRole="button"
                   accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
-                  <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={HOME_LAVENDER_DARK} />
+                  <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
                 </TouchableOpacity>
               </View>
               {confirmError ? <Text style={styles.errorFieldText}>{confirmError}</Text> : null}
@@ -214,15 +204,15 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
 
         {stage === 'success' && (
           <View style={styles.card}>
-            <Ionicons name="checkmark-circle" size={40} color={SUCCESS} style={{ alignSelf: 'center', marginBottom: 12 }} />
+            <Ionicons name="checkmark-circle" size={40} color={colors.success} style={{ alignSelf: 'center', marginBottom: 12 }} />
             <Text style={styles.title}>Password Updated!</Text>
             <Text style={styles.subtitle}>Redirecting you to your dashboard...</Text>
-            <ActivityIndicator size="small" color={HOME_LAVENDER_DARK} style={{ marginTop: 12 }} />
+            <ActivityIndicator size="small" color={colors.lavenderDark} style={{ marginTop: 12 }} />
           </View>
         )}
 
         <View style={styles.trustNote}>
-          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
           <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
         </View>
       </ScrollView>
@@ -233,7 +223,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HOME_CREAM,
+    backgroundColor: colors.cream,
   },
   scroll: {
     flex: 1,
@@ -278,13 +268,13 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     ...Platform.select({
       web: { boxShadow: '0px 10px 24px rgba(95,82,176,0.35)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
     }),
   },
   card: {
@@ -300,21 +290,21 @@ const styles = StyleSheet.create({
     elevation: 10,
     ...Platform.select({
       web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
-      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+      default: { shadowColor: colors.ink, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
     }),
   },
   title: {
     fontSize: 22,
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: FONT_DISPLAY,
-    color: HOME_INK,
+    fontFamily: typography.family.display,
+    color: colors.ink,
   },
   subtitle: {
     fontSize: 14,
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     lineHeight: 20,
     marginBottom: 20,
   },
@@ -327,7 +317,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderLeftWidth: 4,
-    borderLeftColor: HOME_CORAL,
+    borderLeftColor: colors.coral,
   },
   inputGroup: {
     marginBottom: 16,
@@ -336,7 +326,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 8,
     fontWeight: '800',
-    color: HOME_INK,
+    color: colors.ink,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
@@ -351,7 +341,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   inputWrapperError: {
-    borderColor: HOME_CORAL,
+    borderColor: colors.coral,
     backgroundColor: '#FDF3EF',
   },
   inputLeadingIcon: {
@@ -360,7 +350,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: HOME_INK,
+    color: colors.ink,
     padding: 0,
   },
   eyeButton: {
@@ -376,14 +366,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   button: {
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     paddingVertical: 16,
     borderRadius: 24,
     alignItems: 'center',
     marginTop: 8,
     ...Platform.select({
       web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
     }),
   },
   buttonDisabled: {
@@ -398,7 +388,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '800',
-    fontFamily: FONT_DISPLAY_SEMI,
+    fontFamily: typography.family.displaySemi,
   },
   trustNote: {
     flexDirection: 'row',
@@ -409,7 +399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   trustNoteText: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
   },
 });

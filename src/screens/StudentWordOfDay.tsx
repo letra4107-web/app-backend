@@ -11,18 +11,7 @@ import { speakPhrase } from '../services/ttsService';
 import { speakWordCloud } from '../services/cloudTtsService';
 import { logPhonemeConfusion } from '../services/phonemeService';
 import { createSpeechRecognitionSession, SpeechRecognitionSession } from '../utils/speechRecognitionSession';
-
-const PRIMARY = '#4f46e5';
-const BORDER = '#e5e7eb';
-const TEXT_SECONDARY = '#6b7280';
-const TEXT_PRIMARY = '#111827';
-const DANGER = '#ef4444';
-const SUCCESS = '#10b981';
-const WARNING = '#f59e0b';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_LAVENDER = '#7C6FCF';
-const HOME_LAVENDER_DARK = '#5F52B0';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
+import { colors, typography } from '../theme';
 
 const SUCCESS_PHRASES = [
   'Napakagaling! Tama ang bigkas mo!',
@@ -270,7 +259,7 @@ export default function StudentWordOfDay({
 
         {!!log.recommendation_reason && (
           <View style={styles.recommendationBox}>
-            <Ionicons name="sparkles" size={15} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="sparkles" size={15} color={colors.lavenderDark} />
             <Text style={styles.recommendationText}>{log.recommendation_reason}</Text>
           </View>
         )}
@@ -284,7 +273,7 @@ export default function StudentWordOfDay({
           <>
             <View style={styles.buttonRow}>
               <TouchableOpacity style={styles.listenButton} onPress={() => speakWordCloud(log.word.replace(/-/g, ' '), { onError: setMessage })}>
-                <Ionicons name="volume-high-outline" size={18} color={PRIMARY} />
+                <Ionicons name="volume-high-outline" size={18} color={colors.primary} />
                 <Text style={styles.listenText}>Pakinggan</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -347,39 +336,39 @@ const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
   card: { width: '100%', backgroundColor: '#fff', borderRadius: 28, padding: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
-  title: { color: HOME_LAVENDER_DARK, fontSize: 20, fontWeight: '900' },
-  subtitle: { color: HOME_INK_SOFT, fontSize: 13, marginTop: 4 },
+  title: { color: colors.lavenderDark, fontSize: 20, fontWeight: '900' },
+  subtitle: { color: colors.inkSoft, fontSize: 13, marginTop: 4 },
   chip: { backgroundColor: '#F4EDFF', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
-  chipText: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 12 },
+  chipText: { color: colors.lavenderDark, fontWeight: '700', fontSize: 12 },
   wordCard: { backgroundColor: '#F7F6FF', borderRadius: 24, padding: 18, alignItems: 'center', marginBottom: 20 },
-  wordLabel: { color: HOME_LAVENDER, fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 },
-  word: { fontFamily: FONT_DISPLAY, fontSize: 46, color: HOME_LAVENDER_DARK, letterSpacing: 1.6, textAlign: 'center', lineHeight: 52 },
-  wordMeaning: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', marginTop: 10, textAlign: 'center', lineHeight: 18, maxWidth: '85%' },
+  wordLabel: { color: colors.lavender, fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 },
+  word: { fontFamily: typography.family.display, fontSize: 46, color: colors.lavenderDark, letterSpacing: 1.6, textAlign: 'center', lineHeight: 52 },
+  wordMeaning: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', marginTop: 10, textAlign: 'center', lineHeight: 18, maxWidth: '85%' },
   recommendationBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFECFB', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 },
-  recommendationText: { flex: 1, color: HOME_LAVENDER_DARK, fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  recommendationText: { flex: 1, color: colors.lavenderDark, fontSize: 13, fontWeight: '700', lineHeight: 18 },
   buttonRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginBottom: 14 },
-  listenButton: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: HOME_LAVENDER, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', minWidth: 140, justifyContent: 'center' },
-  listenText: { color: HOME_LAVENDER_DARK, fontWeight: '800', marginLeft: 6, fontSize: 14 },
-  recordButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingHorizontal: 18, paddingVertical: 12, backgroundColor: HOME_LAVENDER, minWidth: 140 },
+  listenButton: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: colors.lavender, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', minWidth: 140, justifyContent: 'center' },
+  listenText: { color: colors.lavenderDark, fontWeight: '800', marginLeft: 6, fontSize: 14 },
+  recordButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingHorizontal: 18, paddingVertical: 12, backgroundColor: colors.lavender, minWidth: 140 },
   recordText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   disabledButton: { backgroundColor: '#D1D5DB' },
   progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 14 },
-  progressDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: BORDER, opacity: 0.35 },
-  progressDotFilled: { backgroundColor: HOME_LAVENDER, opacity: 1 },
-  micHint: { color: HOME_INK_SOFT, fontSize: 13, marginBottom: 8, textAlign: 'center', lineHeight: 18, fontWeight: '600' },
+  progressDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.border, opacity: 0.35 },
+  progressDotFilled: { backgroundColor: colors.lavender, opacity: 1 },
+  micHint: { color: colors.inkSoft, fontSize: 13, marginBottom: 8, textAlign: 'center', lineHeight: 18, fontWeight: '600' },
   resultBubble: { marginTop: 8, borderRadius: 16, padding: 16, width: '100%' },
-  correctBubble: { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: SUCCESS },
-  wrongBubble: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: WARNING },
+  correctBubble: { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: colors.success },
+  wrongBubble: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: colors.warning },
   resultText: { textAlign: 'center', fontWeight: '700', fontSize: 15 },
   analysisCard: { marginTop: 14, width: '100%', borderRadius: 20, padding: 18, backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', alignItems: 'center' },
-  analysisTitle: { color: TEXT_PRIMARY, fontWeight: '800', fontSize: 14 },
-  analysisScore: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 24, marginTop: 6 },
-  analysisFeedback: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 },
-  analysisReward: { color: SUCCESS, fontWeight: '800', fontSize: 12, marginTop: 8 },
+  analysisTitle: { color: colors.textPrimary, fontWeight: '800', fontSize: 14 },
+  analysisScore: { color: colors.lavenderDark, fontWeight: '900', fontSize: 24, marginTop: 6 },
+  analysisFeedback: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 },
+  analysisReward: { color: colors.success, fontWeight: '800', fontSize: 12, marginTop: 8 },
   doneBanner: { marginTop: 18, alignItems: 'center' },
-  doneText: { fontWeight: '800', color: TEXT_PRIMARY, fontSize: 15 },
-  doneSubtext: { color: TEXT_SECONDARY, marginTop: 4, fontSize: 13, textAlign: 'center' },
-  completedTodayBanner: { marginTop: 12, padding: 16, width: '100%', borderRadius: 18, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: SUCCESS, alignItems: 'center' },
-  completedTodayText: { color: SUCCESS, fontWeight: '800', fontSize: 15 },
-  completedTodaySubtext: { color: TEXT_SECONDARY, fontWeight: '600', marginTop: 4, textAlign: 'center', fontSize: 13 },
+  doneText: { fontWeight: '800', color: colors.textPrimary, fontSize: 15 },
+  doneSubtext: { color: colors.textSecondary, marginTop: 4, fontSize: 13, textAlign: 'center' },
+  completedTodayBanner: { marginTop: 12, padding: 16, width: '100%', borderRadius: 18, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: colors.success, alignItems: 'center' },
+  completedTodayText: { color: colors.success, fontWeight: '800', fontSize: 15 },
+  completedTodaySubtext: { color: colors.textSecondary, fontWeight: '600', marginTop: 4, textAlign: 'center', fontSize: 13 },
 });

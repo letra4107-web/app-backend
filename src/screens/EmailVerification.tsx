@@ -15,23 +15,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { validateEmail, validateOTP } from '../utils/validation';
 import { sendEmailOTP, resendOTP, verifyOTP } from '../services/otpService';
 import { onAuthStateChanged, getCurrentUser, getUserProfileByEmail, getUserProfileById, upsertUserProfile } from '../services/supabaseService';
+import { colors, typography } from '../theme';
 
 interface EmailVerificationProps {
   navigation: any;
   route: any;
 }
-
-// Same warm "reading journey" identity tokens used on Login/Sign Up/Forgot
-// Password/Reset Password — continuation of the same flow.
-const HOME_CREAM = '#FBF3E2';
-const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_CORAL = '#E06B4C';
-const HOME_LAVENDER_DARK = '#5F52B0';
-const HOME_SAGE = '#5C8047';
-const SUCCESS = '#10b981';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
-const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 
 const MAX_RESEND_ATTEMPTS = 3;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -396,11 +385,11 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         ) : (
           <View style={[styles.inputGroup, { width: '100%', maxWidth: 380, paddingHorizontal: 20 }]}>
             <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={18} color={HOME_LAVENDER_DARK} style={{ marginRight: 8 }} />
+              <Ionicons name="mail-outline" size={18} color={colors.lavenderDark} style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.emailInput}
                 placeholder="Enter your email"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={email}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -416,21 +405,21 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
 
         {errorMessage ? (
           <View style={[styles.banner, styles.errorBanner]} accessibilityRole="alert" accessibilityLiveRegion="polite">
-            <Ionicons name="alert-circle" size={18} color={HOME_CORAL} />
+            <Ionicons name="alert-circle" size={18} color={colors.coral} />
             <Text style={styles.bannerText}>{errorMessage}</Text>
           </View>
         ) : null}
 
         {successMessage ? (
           <View style={[styles.banner, styles.successBanner]} accessibilityRole="alert" accessibilityLiveRegion="polite">
-            <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
+            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
             <Text style={styles.bannerText}>{successMessage}</Text>
           </View>
         ) : null}
 
         {infoMessage ? (
           <View style={[styles.banner, styles.infoBanner]} accessibilityRole="alert" accessibilityLiveRegion="polite">
-            <Ionicons name="information-circle" size={18} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="information-circle" size={18} color={colors.lavenderDark} />
             <Text style={styles.bannerText}>{infoMessage}</Text>
           </View>
         ) : null}
@@ -447,7 +436,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
                 onChangeText={(value) => handleOtpChange(value, index)}
                 onKeyPress={(event) => handleOtpKeyPress(event, index)}
                 editable={!verifying && !isCodeExpired}
-                selectionColor={HOME_LAVENDER_DARK}
+                selectionColor={colors.lavenderDark}
                 accessibilityLabel={`Verification code digit ${index + 1} of 6`}
                 ref={(ref) => {
                   otpRefs.current[index] = ref;
@@ -458,11 +447,11 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
 
           {secondsRemaining !== null && !isCodeExpired && (
             <Text style={styles.countdownText} accessibilityLiveRegion="polite">
-              Code expires in <Text style={[styles.countdownValue, secondsRemaining <= 30 && { color: HOME_CORAL }]}>{formatCountdown(secondsRemaining)}</Text>
+              Code expires in <Text style={[styles.countdownValue, secondsRemaining <= 30 && { color: colors.coral }]}>{formatCountdown(secondsRemaining)}</Text>
             </Text>
           )}
           {isCodeExpired && (
-            <Text style={[styles.countdownText, { color: HOME_CORAL, fontWeight: '700' }]} accessibilityLiveRegion="polite">
+            <Text style={[styles.countdownText, { color: colors.coral, fontWeight: '700' }]} accessibilityLiveRegion="polite">
               This code has expired. Please resend to get a new one.
             </Text>
           )}
@@ -496,12 +485,12 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         </View>
 
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.replace('Login')}>
-          <Ionicons name="arrow-back" size={16} color={HOME_LAVENDER_DARK} />
+          <Ionicons name="arrow-back" size={16} color={colors.lavenderDark} />
           <Text style={styles.backLinkText}>Back to Login</Text>
         </TouchableOpacity>
 
         <View style={styles.trustNote}>
-          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
           <Text style={styles.trustNoteText}>Your information is protected and securely handled.</Text>
         </View>
       </ScrollView>
@@ -512,7 +501,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HOME_CREAM,
+    backgroundColor: colors.cream,
   },
   scroll: {
     flex: 1,
@@ -560,12 +549,12 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 10px 24px rgba(95,82,176,0.35)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
     }),
   },
   iconBadgeSmall: {
@@ -575,37 +564,37 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: HOME_SAGE,
+    backgroundColor: colors.sage,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: HOME_CREAM,
+    borderColor: colors.cream,
   },
   title: {
     fontSize: 22,
     textAlign: 'center',
     marginBottom: 6,
-    fontFamily: FONT_DISPLAY,
-    color: HOME_INK,
+    fontFamily: typography.family.display,
+    color: colors.ink,
     paddingHorizontal: 20,
   },
   subtitle: {
     fontSize: 14,
     textAlign: 'center',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     marginBottom: 4,
   },
   emailHighlight: {
     fontSize: 16,
     fontWeight: '800',
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
     textAlign: 'center',
     marginBottom: 8,
   },
   supportingText: {
     fontSize: 13,
     textAlign: 'center',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     marginBottom: 16,
     paddingHorizontal: 28,
   },
@@ -625,7 +614,7 @@ const styles = StyleSheet.create({
   emailInput: {
     flex: 1,
     fontSize: 15,
-    color: HOME_INK,
+    color: colors.ink,
     padding: 0,
   },
   banner: {
@@ -643,21 +632,21 @@ const styles = StyleSheet.create({
   errorBanner: {
     backgroundColor: 'rgba(224,107,76,0.12)',
     borderLeftWidth: 4,
-    borderLeftColor: HOME_CORAL,
+    borderLeftColor: colors.coral,
   },
   successBanner: {
     backgroundColor: 'rgba(16,185,129,0.1)',
     borderLeftWidth: 4,
-    borderLeftColor: SUCCESS,
+    borderLeftColor: colors.success,
   },
   infoBanner: {
     backgroundColor: 'rgba(124,111,207,0.1)',
     borderLeftWidth: 4,
-    borderLeftColor: HOME_LAVENDER_DARK,
+    borderLeftColor: colors.lavenderDark,
   },
   bannerText: {
     flex: 1,
-    color: HOME_INK,
+    color: colors.ink,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -675,7 +664,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     ...Platform.select({
       web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
-      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+      default: { shadowColor: colors.ink, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
     }),
   },
   otpRow: {
@@ -693,30 +682,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '800',
-    color: HOME_INK,
+    color: colors.ink,
   },
   otpInputFilled: {
-    borderColor: HOME_LAVENDER_DARK,
+    borderColor: colors.lavenderDark,
     backgroundColor: '#F5F3FC',
   },
   countdownText: {
     textAlign: 'center',
     fontSize: 13,
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     marginBottom: 18,
   },
   countdownValue: {
     fontWeight: '800',
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
   },
   button: {
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     paddingVertical: 16,
     borderRadius: 24,
     alignItems: 'center',
     ...Platform.select({
       web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
     }),
   },
   buttonDisabled: {
@@ -731,7 +720,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '800',
-    fontFamily: FONT_DISPLAY_SEMI,
+    fontFamily: typography.family.displaySemi,
   },
   resendRow: {
     flexDirection: 'row',
@@ -742,20 +731,20 @@ const styles = StyleSheet.create({
   },
   resendPrompt: {
     fontSize: 13,
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
   },
   resendLink: {
     fontSize: 13,
     fontWeight: '800',
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
   },
   resendLinkDisabled: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
   },
   resendCooldownText: {
     textAlign: 'center',
     fontSize: 12,
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     marginTop: 4,
   },
   backLink: {
@@ -767,7 +756,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   backLinkText: {
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
     fontWeight: '700',
     fontSize: 15,
   },
@@ -780,7 +769,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   trustNoteText: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
     textAlign: 'center',
   },

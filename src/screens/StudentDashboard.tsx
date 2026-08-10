@@ -52,6 +52,7 @@ import {
   ReadingContentType,
   recordReadingContentAttempt,
 } from '../services/readingContentService';
+import { colors, typography } from '../theme';
 
 type ChildProfile = {
   id: string;
@@ -71,54 +72,15 @@ type Upload = {
   metadata?: { title?: string; subject?: string; completed?: boolean } | null;
 };
 
-const PRIMARY = '#4f46e5';
-const PRIMARY_LIGHT = '#eef2ff';
-const BORDER = '#e5e7eb';
-const TEXT_PRIMARY = '#111827';
-const TEXT_SECONDARY = '#6b7280';
-const SUCCESS = '#10b981';
-const WARNING = '#f59e0b';
-const DANGER = '#ef4444';
-// Text-only variants of WARNING/DANGER: the base hex values are tuned for
+// Text-only variants of colors.warning/colors.danger: the base hex values are tuned for
 // backgrounds/icons/borders and fail WCAG AA (~2.15:1 / ~3.78:1) when used as
 // text color on white. These darker shades stay in the same amber/red family
 // but clear AA for normal-size text. Use ONLY for Text color - leave
-// WARNING/DANGER as-is everywhere else.
-const WARNING_TEXT = '#B45309';
-const DANGER_TEXT = '#DC2626';
+// colors.warning/colors.danger as-is everywhere else.
+// XP_GOLD is intentionally not a theme token - it carries an "XP gold"
+// semantic distinct from theme.colors.warning, even though the hex is
+// numerically identical.
 const XP_GOLD = '#f59e0b';
-
-// Home tab tokens — a warm, "reading journey" pastel palette
-// (cream/lavender/coral/sage/sun). Scoped to Home; other tabs keep PRIMARY etc.
-const HOME_CREAM = '#FBF3E2';
-const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_SUN = '#E3971A';
-const HOME_CORAL = '#E06B4C';
-const HOME_SAGE = '#5C8047';
-const HOME_LAVENDER = '#7C6FCF';
-const HOME_LAVENDER_DARK = '#5F52B0';
-// Hero banner brand gradient only - not part of the general HOME_* palette
-// used elsewhere on the page.
-const HERO_GRADIENT_START = '#6D28D9';
-// Darkened ~10% from the original #A855F7 - that shade only gave white hero
-// text ~3.96:1 contrast at this gradient stop, below WCAG AA's 4.5:1 minimum
-// for normal-size text (the smaller heroSubtitle line specifically failed).
-// This keeps the same hue while clearing ~4.77:1.
-const HERO_GRADIENT_MID = '#974CDE';
-const HERO_GRADIENT_END = '#9D174D';
-// Quick Stats icon-circle fills only - deliberately more saturated than the
-// shared HOME_SAGE/HOME_CORAL/HOME_LAVENDER_DARK/HOME_SUN tokens (which stay
-// unchanged everywhere else, e.g. Progress/Achievements), since those were
-// reported as reading like faded tints rather than bold solid colors here.
-const VIVID_GREEN = '#16A34A';
-const VIVID_ORANGE = '#EA580C';
-const VIVID_VIOLET = '#7C3AED';
-const VIVID_AMBER = '#F59E0B';
-const VIVID_TEAL = '#0D9488';
-const VIVID_NAVY = '#1E3A8A';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
-const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 // Single source of truth for the drawer's width - the closed-position
 // translateX must always equal -SIDEBAR_WIDTH so the drawer fully clears the
 // screen edge. A stale hardcoded offset here (from before the drawer was
@@ -938,19 +900,19 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'completed') return SUCCESS;
-    if (status === 'completed_late') return WARNING;
-    if (status === 'overdue') return DANGER;
-    return WARNING;
+    if (status === 'completed') return colors.success;
+    if (status === 'completed_late') return colors.warning;
+    if (status === 'overdue') return colors.danger;
+    return colors.warning;
   };
 
-  // Text-safe variant of getStatusColor - getStatusColor's WARNING/DANGER
+  // Text-safe variant of getStatusColor - getStatusColor's colors.warning/colors.danger
   // values are tuned for the status dot (background), not for text.
   const getStatusTextColor = (status: string) => {
-    if (status === 'completed') return SUCCESS;
-    if (status === 'completed_late') return WARNING_TEXT;
-    if (status === 'overdue') return DANGER_TEXT;
-    return WARNING_TEXT;
+    if (status === 'completed') return colors.success;
+    if (status === 'completed_late') return colors.warningText;
+    if (status === 'overdue') return colors.dangerText;
+    return colors.warningText;
   };
 
   const getStatusLabel = (status: string) => {
@@ -1684,7 +1646,7 @@ export default function StudentDashboard({ navigation }: any) {
             Rendered outside the ScrollView below so it stays pinned while
             content scrolls underneath it. */}
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -1743,7 +1705,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={[styles.homeTodayButtonText, buttonA11y]}>Continue Practice</Text>
               </TouchableOpacity>
             </View>
-            <ProgressRing percent={goalPct} color={HOME_LAVENDER} trackColor="rgba(124,111,207,0.15)">
+            <ProgressRing percent={goalPct} color={colors.lavender} trackColor="rgba(124,111,207,0.15)">
               <Text style={[styles.homeTodayRingPct, statValueA11y]}>{goalPct}%</Text>
               <Text style={[styles.homeTodayRingLabel, smallLabelA11y]}>Complete</Text>
             </ProgressRing>
@@ -1754,31 +1716,31 @@ export default function StudentDashboard({ navigation }: any) {
           <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Quick Stats</Text>
           <View style={styles.homeStatGrid}>
             <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_GREEN }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
                 <Ionicons name="book" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: VIVID_GREEN }, statValueA11y]}>{stats.completed}</Text>
+              <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{stats.completed}</Text>
               <Text style={[styles.homeGridLabel, statLabelA11y]}>Words Practiced</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
                 <Ionicons name="locate" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: VIVID_ORANGE }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+              <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
               <Text style={[styles.homeGridLabel, statLabelA11y]}>Reading Accuracy</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.violet }]}>
                 <Ionicons name="bar-chart" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: VIVID_VIOLET }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
+              <Text style={[styles.homeGridValue, { color: colors.vivid.violet }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
               <Text style={[styles.homeGridLabel, statLabelA11y]}>Practice Sessions</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_AMBER }]}>
+              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
                 <Ionicons name="flame" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: VIVID_AMBER }, statValueA11y]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
+              <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
               <Text style={[styles.homeGridLabel, statLabelA11y]}>Current Streak</Text>
             </View>
           </View>
@@ -1862,7 +1824,7 @@ export default function StudentDashboard({ navigation }: any) {
               layout, replacing the old two-row Say/Listen mode list */}
           <View style={styles.readyPracticeCard}>
             <View style={styles.readyPracticeIconWrap}>
-              <Ionicons name="mic" size={24} color={HOME_LAVENDER_DARK} />
+              <Ionicons name="mic" size={24} color={colors.lavenderDark} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.readyPracticeTitle, cardTitleA11y]}>Ready to Practice?</Text>
@@ -1889,7 +1851,7 @@ export default function StudentDashboard({ navigation }: any) {
                   <Ionicons
                     name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
                     size={20}
-                    color={item.kind === 'lesson' ? HOME_SAGE : HOME_LAVENDER_DARK}
+                    color={item.kind === 'lesson' ? colors.sage : colors.lavenderDark}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -1919,7 +1881,7 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Go to Learn"
             >
-              <View style={[styles.homeQuickIconWrap, { backgroundColor: HOME_LAVENDER }]}>
+              <View style={[styles.homeQuickIconWrap, { backgroundColor: colors.lavender }]}>
                 <Ionicons name="library-outline" size={20} color="#fff" />
               </View>
               <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Learn</Text>
@@ -1930,7 +1892,7 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Go to Practice"
             >
-              <View style={[styles.homeQuickIconWrap, { backgroundColor: HOME_CORAL }]}>
+              <View style={[styles.homeQuickIconWrap, { backgroundColor: colors.coral }]}>
                 <Ionicons name="mic-outline" size={20} color="#fff" />
               </View>
               <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Practice</Text>
@@ -1941,7 +1903,7 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Go to Progress"
             >
-              <View style={[styles.homeQuickIconWrap, { backgroundColor: HOME_SAGE }]}>
+              <View style={[styles.homeQuickIconWrap, { backgroundColor: colors.sage }]}>
                 <Ionicons name="analytics-outline" size={20} color="#fff" />
               </View>
               <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Progress</Text>
@@ -1976,7 +1938,7 @@ export default function StudentDashboard({ navigation }: any) {
                       {activity.subject || 'Activity'} • {new Date(activity.deadline).toLocaleDateString()}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+                  <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
                 </TouchableOpacity>
               ))
             ) : (
@@ -2047,7 +2009,7 @@ export default function StudentDashboard({ navigation }: any) {
     if (selectedWord && child && practiceMode === 'listen') {
       const isKaraokeActive = karaokeLoading || karaokeSyllableIndex !== null;
       const isAnyPlaying = listenPlaying || isKaraokeActive;
-      const listenBadgeColor = isAnyPlaying ? VIVID_TEAL : listenJustFinished ? SUCCESS : HOME_LAVENDER;
+      const listenBadgeColor = isAnyPlaying ? colors.vivid.teal : listenJustFinished ? colors.success : colors.lavender;
       const listenBadgeIcon = isAnyPlaying ? 'volume-high' : listenJustFinished ? 'checkmark' : 'book-outline';
       const listenStatusText = isAnyPlaying
         ? 'Pinapatugtog... sundan ng mata ang bawat pantig.'
@@ -2059,7 +2021,7 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={{ flex: 1 }}>
           {/* Rendered outside the ScrollView so it stays pinned while content scrolls underneath it - same pattern as the Say the Word hero. */}
           <LinearGradient
-            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+            colors={colors.heroGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroBanner}
@@ -2087,7 +2049,7 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={styles.learnProgressCard}>
               <View style={styles.learnProgressTopRow}>
                 <View style={styles.practiceProgressTitleRow}>
-                  <Ionicons name="albums-outline" size={16} color={HOME_LAVENDER_DARK} />
+                  <Ionicons name="albums-outline" size={16} color={colors.lavenderDark} />
                   <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Today&apos;s Practice</Text>
                 </View>
                 {wordTotal > 0 && (
@@ -2099,7 +2061,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={styles.learnProgressTrack}>
                 <View style={{ width: `${wordTotal ? Math.max(4, Math.round((wordPosition / wordTotal) * 100)) : 4}%`, height: '100%' }}>
                   <LinearGradient
-                    colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                    colors={[colors.heroGradient[0], colors.heroGradient[1]]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={{ flex: 1, borderRadius: 5 }}
@@ -2140,7 +2102,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <TouchableOpacity
                   style={[
                     styles.sayWordButton,
-                    { flex: 1, width: undefined, backgroundColor: HOME_SAGE, shadowColor: HOME_SAGE },
+                    { flex: 1, width: undefined, backgroundColor: colors.sage, shadowColor: colors.sage },
                     listenPlaying && styles.listenButtonActive,
                   ]}
                   onPress={() => playListenWord(selectedWord)}
@@ -2155,7 +2117,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <TouchableOpacity
                   style={[
                     styles.sayWordButton,
-                    { flex: 1, width: undefined, backgroundColor: HOME_LAVENDER_DARK, shadowColor: HOME_LAVENDER_DARK },
+                    { flex: 1, width: undefined, backgroundColor: colors.lavenderDark, shadowColor: colors.lavenderDark },
                     isKaraokeActive && styles.listenButtonActive,
                   ]}
                   onPress={() => playSyllableKaraoke(selectedWord)}
@@ -2184,7 +2146,7 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityLabel="Practice this item aloud"
             >
               <Text style={[styles.listenNextButtonText, buttonA11y]}>Subukan Bigkasin</Text>
-              <Ionicons name="arrow-forward" size={16} color={HOME_SAGE} />
+              <Ionicons name="arrow-forward" size={16} color={colors.sage} />
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -2212,28 +2174,28 @@ export default function StudentDashboard({ navigation }: any) {
         <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Session Progress</Text>
         <View style={styles.practiceStatsRow}>
           <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: VIVID_NAVY }]}>
+            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.navy }]}>
               <Ionicons name="bar-chart" size={18} color="#fff" />
             </View>
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{wordsPracticedToday}</Text>
             <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Words Practiced</Text>
           </View>
           <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: VIVID_GREEN }]}>
+            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.green }]}>
               <Ionicons name="checkmark-circle" size={18} color="#fff" />
             </View>
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{correctToday}</Text>
             <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Correct Pronunciation</Text>
           </View>
           <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.orange }]}>
               <Ionicons name="locate" size={18} color="#fff" />
             </View>
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{accuracyToday}%</Text>
             <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Average Accuracy</Text>
           </View>
           <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: VIVID_AMBER }]}>
+            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.amber }]}>
               <Ionicons name="albums" size={18} color="#fff" />
             </View>
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{remainingWords}</Text>
@@ -2245,7 +2207,7 @@ export default function StudentDashboard({ navigation }: any) {
 
     const renderReadingTipCard = () => (
       <View style={styles.practiceTipCard}>
-        <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_AMBER, marginBottom: 0 }]}>
+        <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.amber, marginBottom: 0 }]}>
           <Ionicons name="bulb" size={20} color="#fff" />
         </View>
         <View style={{ flex: 1 }}>
@@ -2261,7 +2223,7 @@ export default function StudentDashboard({ navigation }: any) {
           <ConfettiOverlay visible={confettiVisible} />
           {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
           <LinearGradient
-            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+            colors={colors.heroGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroBanner}
@@ -2292,7 +2254,7 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={styles.learnProgressCard}>
               <View style={styles.learnProgressTopRow}>
                 <View style={styles.practiceProgressTitleRow}>
-                  <Ionicons name="albums-outline" size={16} color={HOME_LAVENDER_DARK} />
+                  <Ionicons name="albums-outline" size={16} color={colors.lavenderDark} />
                   <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Today&apos;s Practice</Text>
                 </View>
                 {wordTotal > 0 && (
@@ -2304,7 +2266,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={styles.learnProgressTrack}>
                 <View style={{ width: `${wordTotal ? Math.max(4, Math.round((wordPosition / wordTotal) * 100)) : 4}%`, height: '100%' }}>
                   <LinearGradient
-                    colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                    colors={[colors.heroGradient[0], colors.heroGradient[1]]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={{ flex: 1, borderRadius: 5 }}
@@ -2312,7 +2274,7 @@ export default function StudentDashboard({ navigation }: any) {
                 </View>
               </View>
               <View style={styles.practiceTipRow}>
-                <Ionicons name="bulb" size={14} color={HOME_SUN} />
+                <Ionicons name="bulb" size={14} color={colors.sun} />
                 <Text style={[styles.practiceTipText, bodyA11y]}>Ipagpatuloy ang pagsasanay para umangat ang bigkas mo!</Text>
               </View>
             </View>
@@ -2321,7 +2283,7 @@ export default function StudentDashboard({ navigation }: any) {
               <Animated.View
                 style={[
                   styles.practiceMoodBadge,
-                  { backgroundColor: practiceResult?.correct ? SUCCESS : practiceProcessing ? VIVID_ORANGE : practiceListening ? VIVID_TEAL : HOME_LAVENDER },
+                  { backgroundColor: practiceResult?.correct ? colors.success : practiceProcessing ? colors.vivid.orange : practiceListening ? colors.vivid.teal : colors.lavender },
                   { transform: [{ scale: mascotPulse }] },
                 ]}
               >
@@ -2359,7 +2321,7 @@ export default function StudentDashboard({ navigation }: any) {
                   accessibilityRole="button"
                   accessibilityLabel={`Listen to pronunciation of ${selectedWord}`}
                 >
-                  <Ionicons name="volume-high-outline" size={18} color={HOME_LAVENDER_DARK} />
+                  <Ionicons name="volume-high-outline" size={18} color={colors.lavenderDark} />
                   <Text style={[styles.listenCoachText, bodyA11y]}>Pakinggan muna</Text>
                 </TouchableOpacity>
 
@@ -2426,7 +2388,7 @@ export default function StudentDashboard({ navigation }: any) {
                         accessibilityRole="button"
                         accessibilityLabel="Practice this word again"
                       >
-                        <Ionicons name="refresh" size={16} color={HOME_LAVENDER_DARK} />
+                        <Ionicons name="refresh" size={16} color={colors.lavenderDark} />
                         <Text style={[styles.encourageButtonGhostText, buttonA11y]}>Practice Again</Text>
                       </TouchableOpacity>
                       {/* Next Word only appears once the attempt actually passed -
@@ -2490,25 +2452,25 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={styles.rewardRow}>
             <View style={[styles.rewardPill, { backgroundColor: '#FBE7DF' }]}>
               <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
-                <Ionicons name="star" size={13} color={HOME_CORAL} />
+                <Ionicons name="star" size={13} color={colors.coral} />
               </View>
-              <Text style={[styles.rewardText, { color: HOME_CORAL }, smallLabelA11y]}>
+              <Text style={[styles.rewardText, { color: colors.coral }, smallLabelA11y]}>
                 {stats.xp > 0 ? `${stats.xp} XP` : 'Simulan ang XP mo!'}
               </Text>
             </View>
             <View style={[styles.rewardPill, { backgroundColor: '#FFF3DC' }]}>
               <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
-                <Ionicons name="flame" size={13} color={HOME_SUN} />
+                <Ionicons name="flame" size={13} color={colors.sun} />
               </View>
-              <Text style={[styles.rewardText, { color: HOME_SUN }, smallLabelA11y]}>
+              <Text style={[styles.rewardText, { color: colors.sun }, smallLabelA11y]}>
                 {stats.streak > 0 ? `${stats.streak} streak` : 'Simulan ang streak!'}
               </Text>
             </View>
             <View style={[styles.rewardPill, { backgroundColor: '#EFECFB' }]}>
               <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
-                <Ionicons name="ribbon" size={13} color={HOME_LAVENDER_DARK} />
+                <Ionicons name="ribbon" size={13} color={colors.lavenderDark} />
               </View>
-              <Text style={[styles.rewardText, { color: HOME_LAVENDER_DARK }, smallLabelA11y]}>
+              <Text style={[styles.rewardText, { color: colors.lavenderDark }, smallLabelA11y]}>
                 {(progress?.achievements?.length || 0) > 0 ? `${progress?.achievements?.length} badges` : 'Kumuha ng unang badge!'}
               </Text>
             </View>
@@ -2565,7 +2527,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         {!recommendedItem && !wordBankLoading && !wordBankError && (
           <View style={styles.completedTrackBanner}>
-            <Ionicons name="checkmark-circle" size={24} color={SUCCESS} />
+            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.completedTrackTitle, cardTitleA11y]}>Tapos na ang kasalukuyang curriculum set!</Text>
               <Text style={[styles.completedTrackText, bodyA11y]}>Wala nang naka-lock na practice item sa antas na ito.</Text>
@@ -2581,13 +2543,13 @@ export default function StudentDashboard({ navigation }: any) {
           accessibilityLabel="Start Say the Word practice mode"
         >
           <View style={[styles.practiceModeIconWrap, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="mic" size={24} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="mic" size={24} color={colors.lavenderDark} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Sabihin ang Salita</Text>
             <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita, pagkatapos sabihin ito nang malakas.</Text>
             <View style={[styles.practiceModeTag, { backgroundColor: '#EFECFB' }]}>
-              <Text style={[styles.practiceModeTagText, { color: HOME_LAVENDER_DARK }, smallLabelA11y]}>AI Pronunciation Practice</Text>
+              <Text style={[styles.practiceModeTagText, { color: colors.lavenderDark }, smallLabelA11y]}>AI Pronunciation Practice</Text>
             </View>
           </View>
           <View style={styles.practiceModeStartPill}>
@@ -2603,29 +2565,29 @@ export default function StudentDashboard({ navigation }: any) {
           accessibilityLabel="Start Listen and Read practice mode"
         >
           <View style={[styles.practiceModeIconWrap, { backgroundColor: '#E9F1E2' }]}>
-            <Ionicons name="volume-high" size={24} color={HOME_SAGE} />
+            <Ionicons name="volume-high" size={24} color={colors.sage} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Pakinggan at Basahin</Text>
             <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita at sundan ito habang binabasa.</Text>
             <View style={[styles.practiceModeTag, { backgroundColor: '#E9F1E2' }]}>
-              <Text style={[styles.practiceModeTagText, { color: HOME_SAGE }, smallLabelA11y]}>Text-to-Speech Support</Text>
+              <Text style={[styles.practiceModeTagText, { color: colors.sage }, smallLabelA11y]}>Text-to-Speech Support</Text>
             </View>
           </View>
-          <View style={[styles.practiceModeStartPill, { backgroundColor: HOME_SAGE }]}>
+          <View style={[styles.practiceModeStartPill, { backgroundColor: colors.sage }]}>
             <Text style={[styles.practiceModeStartText, buttonA11y]}>Simulan</Text>
           </View>
         </TouchableOpacity>
 
         <View style={[styles.practiceModeCard, styles.practiceModeCardDisabled]}>
           <View style={[styles.practiceModeIconWrap, { backgroundColor: '#FFF3DC' }]}>
-            <Ionicons name="book" size={24} color={HOME_SUN} />
+            <Ionicons name="book" size={24} color={colors.sun} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Basahin nang Malakas</Text>
             <Text style={[styles.practiceModeSub, bodyA11y]}>Magsanay bumasa ng mga pangungusap nang malakas.</Text>
             <View style={[styles.practiceModeTag, { backgroundColor: '#FFF3DC' }]}>
-              <Text style={[styles.practiceModeTagText, { color: HOME_SUN }, smallLabelA11y]}>Sa Madaling Panahon</Text>
+              <Text style={[styles.practiceModeTagText, { color: colors.sun }, smallLabelA11y]}>Sa Madaling Panahon</Text>
             </View>
           </View>
         </View>
@@ -2652,7 +2614,7 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.learnProgressCard}>
           <View style={styles.learnProgressTopRow}>
             <View style={styles.practiceProgressTitleRow}>
-              <Ionicons name="albums-outline" size={16} color={HOME_LAVENDER_DARK} />
+              <Ionicons name="albums-outline" size={16} color={colors.lavenderDark} />
               <Text style={[styles.learnProgressTitle, cardTitleA11y]}>
                 {practiceCategoryFilter ? practiceTypeLabels[practiceCategoryFilter] : 'Curriculum Progress'}
               </Text>
@@ -2666,7 +2628,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={styles.learnProgressTrack}>
             <View style={{ width: `${wordTotal ? Math.max(4, Math.round((wordsDoneCount / wordTotal) * 100)) : 4}%`, height: '100%' }}>
               <LinearGradient
-                colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                colors={[colors.heroGradient[0], colors.heroGradient[1]]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{ flex: 1, borderRadius: 5 }}
@@ -2674,7 +2636,7 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           </View>
           <View style={styles.practiceTipRow}>
-            <Ionicons name="bulb" size={14} color={HOME_SUN} />
+            <Ionicons name="bulb" size={14} color={colors.sun} />
             <Text style={[styles.practiceTipText, bodyA11y]}>
               {wordTotal === 0
                 ? 'Wala pang item sa antas na ito.'
@@ -2759,7 +2721,7 @@ export default function StudentDashboard({ navigation }: any) {
     <>
       {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
       <LinearGradient
-        colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+        colors={colors.heroGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroBanner}
@@ -2784,15 +2746,15 @@ export default function StudentDashboard({ navigation }: any) {
       <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
-          <Ionicons name="library" size={16} color={HOME_LAVENDER_DARK} />
-          <Text style={[styles.learnBadgeText, { color: HOME_LAVENDER_DARK }, smallLabelA11y]}>LEARN</Text>
+          <Ionicons name="library" size={16} color={colors.lavenderDark} />
+          <Text style={[styles.learnBadgeText, { color: colors.lavenderDark }, smallLabelA11y]}>LEARN</Text>
         </View>
         <Text style={[styles.learnSectionSubtitle, bodyA11y]}>Mga takdang-aralin mula sa iyong guro</Text>
       </View>
 
       {activitiesLoading ? (
         <View style={styles.centerBlock}>
-          <ActivityIndicator size="small" color={HOME_LAVENDER} />
+          <ActivityIndicator size="small" color={colors.lavender} />
           <Text style={[styles.empty, bodyA11y]}>Loading activities...</Text>
         </View>
       ) : activitiesError ? (
@@ -2812,7 +2774,7 @@ export default function StudentDashboard({ navigation }: any) {
           {activities.map((activity) => (
             <View key={activity.id} style={styles.learnActivityCard}>
               <View style={[styles.learnIconWrap, { backgroundColor: '#EFECFB' }]}>
-                <Ionicons name="clipboard" size={22} color={HOME_LAVENDER_DARK} />
+                <Ionicons name="clipboard" size={22} color={colors.lavenderDark} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.learnItemTitle, cardTitleA11y]}>{activity.title}</Text>
@@ -2842,7 +2804,7 @@ export default function StudentDashboard({ navigation }: any) {
       ) : (
         <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
           <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="clipboard-outline" size={40} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="clipboard-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang assignment ngayon</Text>
           <Text style={[styles.learnEmptySubtext, bodyA11y]}>Hihintayin natin ang unang takdang-aralin mula sa guro mo! 📝</Text>
@@ -2851,8 +2813,8 @@ export default function StudentDashboard({ navigation }: any) {
 
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
-          <Ionicons name="flag" size={16} color={HOME_LAVENDER_DARK} />
-          <Text style={[styles.learnBadgeText, { color: HOME_LAVENDER_DARK }, smallLabelA11y]}>MY LEARNING PATH</Text>
+          <Ionicons name="flag" size={16} color={colors.lavenderDark} />
+          <Text style={[styles.learnBadgeText, { color: colors.lavenderDark }, smallLabelA11y]}>MY LEARNING PATH</Text>
         </View>
         <Text style={[styles.learnSectionSubtitle, bodyA11y]}>Sundan ang mga aralin at buuin ang iyong reading skills</Text>
       </View>
@@ -2867,7 +2829,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={styles.learnProgressTrack}>
             <View style={{ width: `${Math.max(4, learningProgressPct)}%`, height: '100%' }}>
               <LinearGradient
-                colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                colors={[colors.heroGradient[0], colors.heroGradient[1]]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{ flex: 1, borderRadius: 5 }}
@@ -2881,7 +2843,7 @@ export default function StudentDashboard({ navigation }: any) {
       ) : (
         <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
           <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="book-outline" size={40} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="book-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang aralin</Text>
           <Text style={[styles.learnEmptySubtext, bodyA11y]}>Kapag nag-upload na ang guro mo ng aralin, makikita mo agad dito ang iyong progress! 📚</Text>
@@ -2919,7 +2881,7 @@ export default function StudentDashboard({ navigation }: any) {
 
           {lessonsLoading && (
             <View style={styles.centerBlock}>
-              <ActivityIndicator size="small" color={HOME_LAVENDER} />
+              <ActivityIndicator size="small" color={colors.lavender} />
               <Text style={[styles.empty, bodyA11y]}>Loading lessons...</Text>
             </View>
           )}
@@ -2964,7 +2926,7 @@ export default function StudentDashboard({ navigation }: any) {
                         accessibilityRole="button"
                         accessibilityLabel={`Review lesson: ${lesson.title}`}
                       >
-                        <Text style={[styles.lessonStepButtonGhostText, { color: VIVID_GREEN }, buttonA11y]}>Review Lesson</Text>
+                        <Text style={[styles.lessonStepButtonGhostText, { color: colors.vivid.green }, buttonA11y]}>Review Lesson</Text>
                       </TouchableOpacity>
                     ) : state === 'in_progress' ? (
                       <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -3012,7 +2974,7 @@ export default function StudentDashboard({ navigation }: any) {
                     </View>
                     {state === 'in_progress' ? (
                       <LinearGradient
-                        colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                        colors={[colors.heroGradient[0], colors.heroGradient[1]]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={[styles.lessonStepCard, styles.lessonStepCardActive]}
@@ -3040,7 +3002,7 @@ export default function StudentDashboard({ navigation }: any) {
           accessibilityRole="button"
           accessibilityLabel={`Practice Words, ${wordsDone} of ${wordItems.length} completed`}
         >
-          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+          <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.violet }]}>
             <Ionicons name="book" size={20} color="#fff" />
           </View>
           <Text style={[styles.categoryTitle, cardTitleA11y]}>Words</Text>
@@ -3052,7 +3014,7 @@ export default function StudentDashboard({ navigation }: any) {
           accessibilityRole="button"
           accessibilityLabel={`Practice ${companionLabel}, ${companionDone} of ${companionItems.length} completed`}
         >
-          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_TEAL }]}>
+          <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.teal }]}>
             <Ionicons name="reader" size={20} color="#fff" />
           </View>
           <Text style={[styles.categoryTitle, cardTitleA11y]}>{companionLabel}</Text>
@@ -3060,7 +3022,7 @@ export default function StudentDashboard({ navigation }: any) {
         </TouchableOpacity>
         {currentReadingLevel === 'Advanced' && (
           <View style={[styles.categoryCard, { backgroundColor: '#E7ECF8' }]}>
-            <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_NAVY }]}>
+            <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.navy }]}>
               <Ionicons name="document-text" size={20} color="#fff" />
             </View>
             <Text style={[styles.categoryTitle, cardTitleA11y]}>Paragraph Assessments</Text>
@@ -3069,7 +3031,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         )}
         <View style={[styles.categoryCard, styles.categoryTipCard, { backgroundColor: '#FEF3D6' }]}>
-          <View style={[styles.categoryIconWrap, { backgroundColor: VIVID_AMBER }]}>
+          <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.amber }]}>
             <Ionicons name="bulb" size={20} color="#fff" />
           </View>
           <Text style={[styles.categoryTitle, cardTitleA11y]}>Reading Tip</Text>
@@ -3141,14 +3103,14 @@ export default function StudentDashboard({ navigation }: any) {
             return (
               <View key={upload.id} style={styles.learnLessonCard}>
                 <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
-                  <Ionicons name={iconForUpload(upload.content_type)} size={22} color={HOME_SAGE} />
+                  <Ionicons name={iconForUpload(upload.content_type)} size={22} color={colors.sage} />
                 </View>
                 <View style={styles.uploadBody}>
                   <Text style={[styles.learnItemTitle, cardTitleA11y]}>{name}</Text>
                   <Text style={[styles.learnItemMeta, smallLabelA11y]}>{new Date(upload.created_at).toLocaleDateString()}</Text>
                 </View>
                 <TouchableOpacity
-                  style={[styles.learnActionButton, { backgroundColor: HOME_SAGE }]}
+                  style={[styles.learnActionButton, { backgroundColor: colors.sage }]}
                   onPress={() => openUpload(upload)}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${name}`}
@@ -3180,10 +3142,10 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderProgress = () => {
     const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
-    const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
+    const tierColor = (pct: number) => (pct >= 80 ? colors.success : pct >= 60 ? colors.warning : colors.danger);
     // Text-safe variant for the same tiers - used wherever the color paints
     // Text rather than a background/icon/border.
-    const tierTextColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING_TEXT : DANGER_TEXT);
+    const tierTextColor = (pct: number) => (pct >= 80 ? colors.success : pct >= 60 ? colors.warningText : colors.dangerText);
     const tierMessage = (pct: number) =>
       pct >= 80 ? "You're making great progress!" : pct >= 60 ? 'Sige lang, umaangat ka!' : 'Ipagpatuloy ang pagsasanay!';
     const maxBarHeight = 90;
@@ -3249,12 +3211,12 @@ export default function StudentDashboard({ navigation }: any) {
     ];
     const skillTag = (avg: number | null) =>
       avg === null
-        ? { label: 'Wala Pang Sinubukan', color: HOME_INK_SOFT, textColor: HOME_INK_SOFT }
+        ? { label: 'Wala Pang Sinubukan', color: colors.inkSoft, textColor: colors.inkSoft }
         : avg >= 80
-        ? { label: 'Strong', color: SUCCESS, textColor: SUCCESS }
+        ? { label: 'Strong', color: colors.success, textColor: colors.success }
         : avg >= 60
-        ? { label: 'Improving', color: WARNING, textColor: WARNING_TEXT }
-        : { label: 'Keep Practicing', color: DANGER, textColor: DANGER_TEXT };
+        ? { label: 'Improving', color: colors.warning, textColor: colors.warningText }
+        : { label: 'Keep Practicing', color: colors.danger, textColor: colors.dangerText };
 
     // This Month — real month-scoped aggregations, not lifetime totals.
     const lessonsCompletedThisMonth = lessonProgress.filter(
@@ -3301,7 +3263,7 @@ export default function StudentDashboard({ navigation }: any) {
       <>
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -3329,17 +3291,17 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={styles.progressOverallRow}>
             <View style={styles.progressOverallCol}>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#EFECFB' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.violet }]}>
                   <Ionicons name="school" size={16} color="#fff" />
                 </View>
-                <Text style={[styles.progressStatValue, { color: VIVID_VIOLET }, statValueA11y]}>{lessonsCompletedCount}</Text>
+                <Text style={[styles.progressStatValue, { color: colors.vivid.violet }, statValueA11y]}>{lessonsCompletedCount}</Text>
                 <Text style={[styles.progressStatLabel, statLabelA11y]}>Lessons Completed</Text>
               </View>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#E9F1E2' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_GREEN }]}>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.green }]}>
                   <Ionicons name="book" size={16} color="#fff" />
                 </View>
-                <Text style={[styles.progressStatValue, { color: VIVID_GREEN }, statValueA11y]}>{stats.completed}</Text>
+                <Text style={[styles.progressStatValue, { color: colors.vivid.green }, statValueA11y]}>{stats.completed}</Text>
                 <Text style={[styles.progressStatLabel, statLabelA11y]}>Words Practiced</Text>
               </View>
             </View>
@@ -3348,9 +3310,9 @@ export default function StudentDashboard({ navigation }: any) {
                 percent={avgAccuracy ?? 0}
                 size={112}
                 strokeWidth={12}
-                color={HOME_LAVENDER_DARK}
+                color={colors.lavenderDark}
                 trackColor="rgba(124,111,207,0.12)"
-                gradientColors={[HERO_GRADIENT_MID, HERO_GRADIENT_START]}
+                gradientColors={[colors.heroGradient[1], colors.heroGradient[0]]}
                 gradientId="progressOverallRing"
               >
                 <Text style={[styles.progressHeroRingPct, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
@@ -3359,17 +3321,17 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
             <View style={styles.progressOverallCol}>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FBE7DF' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.orange }]}>
                   <Ionicons name="mic" size={16} color="#fff" />
                 </View>
-                <Text style={[styles.progressStatValue, { color: VIVID_ORANGE }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+                <Text style={[styles.progressStatValue, { color: colors.vivid.orange }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
                 <Text style={[styles.progressStatLabel, statLabelA11y]}>Pronunciation Accuracy</Text>
               </View>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FFF3DC' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: VIVID_AMBER }]}>
+                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.amber }]}>
                   <Ionicons name="flame" size={16} color="#fff" />
                 </View>
-                <Text style={[styles.progressStatValue, { color: VIVID_AMBER }, statValueA11y]}>{progress?.streak || 0} Days</Text>
+                <Text style={[styles.progressStatValue, { color: colors.vivid.amber }, statValueA11y]}>{progress?.streak || 0} Days</Text>
                 <Text style={[styles.progressStatLabel, statLabelA11y]}>Current Streak</Text>
                 {longestStreak > 0 && (
                   <View style={styles.progressStreakBestPill}>
@@ -3391,7 +3353,7 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
 
         <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_TEAL }]}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.teal }]}>
             <Ionicons name="ribbon" size={14} color="#fff" />
           </View>
           <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Reading Skills</Text>
@@ -3428,7 +3390,7 @@ export default function StudentDashboard({ navigation }: any) {
         {/* Weekly Reading Activity — real session COUNT per day (separate
             metric from the "Reading Accuracy" trend chart above) */}
         <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.violet }]}>
             <Ionicons name="bar-chart" size={14} color="#fff" />
           </View>
           <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Weekly Reading Activity</Text>
@@ -3438,9 +3400,9 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={styles.progressChartBars}>
               {weeklyActivity.map((day, i) => (
                 <View key={i} style={styles.progressChartBarCol}>
-                  {day.count > 0 && <Text style={[styles.progressChartBarValue, { color: HOME_LAVENDER_DARK }, smallLabelA11y]}>{day.count}</Text>}
+                  {day.count > 0 && <Text style={[styles.progressChartBarValue, { color: colors.lavenderDark }, smallLabelA11y]}>{day.count}</Text>}
                   <LinearGradient
-                    colors={[HOME_LAVENDER, HOME_LAVENDER_DARK]}
+                    colors={[colors.lavender, colors.lavenderDark]}
                     style={[
                       styles.progressChartBar,
                       { height: Math.max(6, Math.round((day.count / maxWeeklyCount) * maxBarHeight)) },
@@ -3453,7 +3415,7 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           ) : (
             <View style={styles.progressChartEmpty}>
-              <Ionicons name="bar-chart-outline" size={32} color={HOME_LAVENDER} />
+              <Ionicons name="bar-chart-outline" size={32} color={colors.lavender} />
               <Text style={[styles.progressChartEmptyText, bodyA11y]}>Wala ka pang practice session ngayong linggo.</Text>
             </View>
           )}
@@ -3463,7 +3425,7 @@ export default function StudentDashboard({ navigation }: any) {
             ))}
           </View>
           <View style={styles.progressTrendMsgRow}>
-            <Ionicons name="calendar" size={14} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="calendar" size={14} color={colors.lavenderDark} />
             <Text style={styles.progressTrendMsgText}>{sessionsThisWeek} Practice Session{sessionsThisWeek === 1 ? '' : 's'} This Week</Text>
           </View>
         </View>
@@ -3471,7 +3433,7 @@ export default function StudentDashboard({ navigation }: any) {
         {/* Weekly accuracy trend — real sessions grouped by day */}
         <View style={styles.progressChartCard}>
           <View style={styles.progressChartHeader}>
-            <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_CORAL }]}>
+            <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.coral }]}>
               <Ionicons name="analytics" size={14} color="#fff" />
             </View>
             <Text style={[styles.progressChartTitle, cardTitleA11y]}>Reading Accuracy</Text>
@@ -3505,20 +3467,20 @@ export default function StudentDashboard({ navigation }: any) {
               </View>
               <View style={styles.progressChartLegend}>
                 <View style={styles.progressLegendItem}>
-                  <View style={[styles.progressLegendDot, { backgroundColor: SUCCESS }]} />
+                  <View style={[styles.progressLegendDot, { backgroundColor: colors.success }]} />
                   <Text style={[styles.progressLegendText, smallLabelA11y]}>Magaling (80%+)</Text>
                 </View>
                 <View style={styles.progressLegendItem}>
-                  <View style={[styles.progressLegendDot, { backgroundColor: WARNING }]} />
+                  <View style={[styles.progressLegendDot, { backgroundColor: colors.warning }]} />
                   <Text style={[styles.progressLegendText, smallLabelA11y]}>Sige lang (60-79%)</Text>
                 </View>
                 <View style={styles.progressLegendItem}>
-                  <View style={[styles.progressLegendDot, { backgroundColor: DANGER }]} />
+                  <View style={[styles.progressLegendDot, { backgroundColor: colors.danger }]} />
                   <Text style={[styles.progressLegendText, smallLabelA11y]}>Mas mababa sa 60%</Text>
                 </View>
               </View>
               <View style={styles.progressTrendMsgRow}>
-                <Ionicons name="checkmark-circle" size={14} color={SUCCESS} />
+                <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                 <Text style={[styles.progressTrendMsgText, bodyA11y]}>
                   {trendImproving ? 'Your accuracy is improving!' : 'Magpatuloy sa pagsasanay!'}
                 </Text>
@@ -3526,7 +3488,7 @@ export default function StudentDashboard({ navigation }: any) {
             </>
           ) : (
             <View style={styles.progressChartEmpty}>
-              <Ionicons name="analytics-outline" size={32} color={HOME_LAVENDER} />
+              <Ionicons name="analytics-outline" size={32} color={colors.lavender} />
               <Text style={[styles.progressChartEmptyText, bodyA11y]}>
                 Magsanay pa ng ilang beses para makita ang iyong progress chart dito!
               </Text>
@@ -3538,31 +3500,31 @@ export default function StudentDashboard({ navigation }: any) {
             wordsReadThisMonth, monthAvgAccuracy) plus the real longestStreak
             personal-best, not lifetime totals repeated */}
         <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_NAVY }]}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.navy }]}>
             <Ionicons name="calendar" size={14} color="#fff" />
           </View>
           <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>This Month</Text>
         </View>
         <View style={styles.progressMonthGrid}>
           <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#EFECFB' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_VIOLET }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.violet }]}>
               <Ionicons name="trophy" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_VIOLET }, statValueA11y]}>{lessonsCompletedThisMonth}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.violet }, statValueA11y]}>{lessonsCompletedThisMonth}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Lessons Finished</Text>
           </View>
           <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#E9F1E2' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_GREEN }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
               <Ionicons name="book" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_GREEN }, statValueA11y]}>{wordsReadThisMonth}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{wordsReadThisMonth}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Words Read</Text>
           </View>
           <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#FBE7DF' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
               <Ionicons name="locate" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_ORANGE }, statValueA11y]}>{monthAvgAccuracy !== null ? `${monthAvgAccuracy}%` : '--'}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{monthAvgAccuracy !== null ? `${monthAvgAccuracy}%` : '--'}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Average Accuracy</Text>
           </View>
           <View style={[styles.homeGridCard, styles.progressMonthTile, { backgroundColor: '#FFF3DC' }]}>
@@ -3572,16 +3534,16 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={[styles.progressPbBadgeText, smallLabelA11y]}>PB</Text>
               </View>
             )}
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_AMBER }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
               <Ionicons name="flame" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_AMBER }, statValueA11y]}>{longestStreak} Day{longestStreak === 1 ? '' : 's'}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{longestStreak} Day{longestStreak === 1 ? '' : 's'}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Longest Streak</Text>
           </View>
         </View>
 
         <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_SAGE }]}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.sage }]}>
             <Ionicons name="time" size={14} color="#fff" />
           </View>
           <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Recent Activity</Text>
@@ -3594,7 +3556,7 @@ export default function StudentDashboard({ navigation }: any) {
                   <Ionicons
                     name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
                     size={20}
-                    color={item.kind === 'lesson' ? HOME_SAGE : HOME_LAVENDER_DARK}
+                    color={item.kind === 'lesson' ? colors.sage : colors.lavenderDark}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -3617,7 +3579,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         <View style={styles.progressWordsCard}>
           <View style={styles.progressSectionHeader}>
-            <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_LAVENDER_DARK }]}>
+            <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.lavenderDark }]}>
               <Ionicons name="checkmark-done" size={14} color="#fff" />
             </View>
             <Text style={[styles.progressWordsTitle, styles.progressSectionTitleText, cardTitleA11y]}>Mga Salitang Natapos</Text>
@@ -3783,7 +3745,7 @@ export default function StudentDashboard({ navigation }: any) {
       <>
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -3823,9 +3785,9 @@ export default function StudentDashboard({ navigation }: any) {
                 percent={unlockPct}
                 size={92}
                 strokeWidth={10}
-                color={HOME_LAVENDER_DARK}
+                color={colors.lavenderDark}
                 trackColor="rgba(124,111,207,0.12)"
-                gradientColors={[HERO_GRADIENT_MID, HERO_GRADIENT_START]}
+                gradientColors={[colors.heroGradient[1], colors.heroGradient[0]]}
                 gradientId="badgesSummaryRing"
               >
                 <Text style={[styles.progressHeroRingPct, statValueA11y]}>{unlockPct}%</Text>
@@ -3909,7 +3871,7 @@ export default function StudentDashboard({ navigation }: any) {
         )}
 
         <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: HOME_SAGE }]}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.sage }]}>
             <Ionicons name="time" size={14} color="#fff" />
           </View>
           <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Recently Earned</Text>
@@ -3936,44 +3898,44 @@ export default function StudentDashboard({ navigation }: any) {
         )}
 
         <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: VIVID_NAVY }]}>
+          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.navy }]}>
             <Ionicons name="school" size={14} color="#fff" />
           </View>
           <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Learning Milestones</Text>
         </View>
         <View style={styles.homeStatGrid}>
           <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_NAVY }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.navy }]}>
               <Ionicons name="school" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_NAVY }, statValueA11y]}>{lessonsCompletedCount}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.navy }, statValueA11y]}>{lessonsCompletedCount}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Lessons Completed</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_ORANGE }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
               <Ionicons name="mic" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_ORANGE }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Voice Practices</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_AMBER }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
               <Ionicons name="book" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_AMBER }, statValueA11y]}>{stats.completed}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.completed}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Words Practiced</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: VIVID_GREEN }]}>
+            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
               <Ionicons name="bar-chart" size={18} color="#fff" />
             </View>
-            <Text style={[styles.homeGridValue, { color: VIVID_GREEN }, statValueA11y]}>{overallAccuracyPct !== null ? `${overallAccuracyPct}%` : '--'}</Text>
+            <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{overallAccuracyPct !== null ? `${overallAccuracyPct}%` : '--'}</Text>
             <Text style={[styles.homeGridLabel, statLabelA11y]}>Overall Progress</Text>
           </View>
         </View>
 
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.badgesCelebrateBanner}
@@ -4056,13 +4018,13 @@ export default function StudentDashboard({ navigation }: any) {
     const typeMeta = (type?: string | null) => {
       switch (type) {
         case 'lesson':
-          return { icon: 'book', color: HOME_SAGE, actionLabel: 'View Lesson', actionSection: 'learn' };
+          return { icon: 'book', color: colors.sage, actionLabel: 'View Lesson', actionSection: 'learn' };
         case 'achievement':
           return { icon: 'trophy', color: XP_GOLD, actionLabel: 'View Badge', actionSection: 'achievements' };
         case 'streak':
-          return { icon: 'flame', color: HOME_SUN, actionLabel: 'Practice Now', actionSection: 'practice' };
+          return { icon: 'flame', color: colors.sun, actionLabel: 'Practice Now', actionSection: 'practice' };
         default:
-          return { icon: 'notifications', color: HOME_LAVENDER_DARK, actionLabel: null as string | null, actionSection: null as string | null };
+          return { icon: 'notifications', color: colors.lavenderDark, actionLabel: null as string | null, actionSection: null as string | null };
       }
     };
 
@@ -4085,7 +4047,7 @@ export default function StudentDashboard({ navigation }: any) {
       <>
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -4112,7 +4074,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.notifSummaryCard}>
-          <View style={[styles.notifSummaryIconWrap, { backgroundColor: unreadNotifCount > 0 ? VIVID_AMBER : SUCCESS }]}>
+          <View style={[styles.notifSummaryIconWrap, { backgroundColor: unreadNotifCount > 0 ? colors.vivid.amber : colors.success }]}>
             <Ionicons name={unreadNotifCount > 0 ? 'notifications' : 'checkmark-circle'} size={22} color="#fff" />
           </View>
           <View style={{ flex: 1 }}>
@@ -4202,7 +4164,7 @@ export default function StudentDashboard({ navigation }: any) {
                             }}
                           >
                             <Text style={[styles.notifActionButtonText, buttonA11y]}>{meta.actionLabel}</Text>
-                            <Ionicons name="chevron-forward" size={14} color={HOME_LAVENDER_DARK} />
+                            <Ionicons name="chevron-forward" size={14} color={colors.lavenderDark} />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -4214,7 +4176,7 @@ export default function StudentDashboard({ navigation }: any) {
           ))
         ) : (
           <View style={styles.notifEmptyCard}>
-            <Ionicons name="notifications-outline" size={40} color={HOME_LAVENDER} />
+            <Ionicons name="notifications-outline" size={40} color={colors.lavender} />
             <Text style={[styles.notifEmptyText, bodyA11y]}>Wala ka pang mensahe. Dito lalabas ang mga update at paalala.</Text>
           </View>
         )}
@@ -4250,7 +4212,7 @@ export default function StudentDashboard({ navigation }: any) {
 
   const topHeaderNode = (
     <View style={styles.topHeader}>
-      <TouchableOpacity onPress={openSidebar} style={{ padding: 8 }}><Ionicons name="menu-outline" size={28} color={PRIMARY} /></TouchableOpacity>
+      <TouchableOpacity onPress={openSidebar} style={{ padding: 8 }}><Ionicons name="menu-outline" size={28} color={colors.primary} /></TouchableOpacity>
       <Text style={styles.appTitle}>LinawLetra</Text>
       <View style={styles.streakPill}>
         <Ionicons name="flame" size={14} color="#fff" />
@@ -4330,7 +4292,7 @@ export default function StudentDashboard({ navigation }: any) {
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: sidebarAnim }] }]}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.sidebarScrollContent} showsVerticalScrollIndicator={false}>
           <LinearGradient
-            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+            colors={colors.heroGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.sidebarProfileCard}
@@ -4379,7 +4341,7 @@ export default function StudentDashboard({ navigation }: any) {
                 onPress={() => navigateTo(it.k)}
               >
                 <View style={[styles.navIconWrap, active && styles.navIconWrapActive]}>
-                  <Ionicons name={it.i as any} size={17} color={active ? HOME_LAVENDER_DARK : HOME_INK_SOFT} />
+                  <Ionicons name={it.i as any} size={17} color={active ? colors.lavenderDark : colors.inkSoft} />
                 </View>
                 <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.l}</Text>
                 {!!it.count && (
@@ -4409,7 +4371,7 @@ export default function StudentDashboard({ navigation }: any) {
 
           <Text style={styles.sidebarSectionLabel}>QUICK ACCESS</Text>
           <TouchableOpacity style={styles.sidebarQuickRow} onPress={() => navigateTo('notifications')}>
-            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: VIVID_TEAL }]}>
+            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: colors.vivid.teal }]}>
               <Ionicons name="notifications" size={16} color="#fff" />
             </View>
             <Text style={styles.sidebarQuickLabel}>Notifications</Text>
@@ -4418,18 +4380,18 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={styles.navCountBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
               </View>
             )}
-            <Ionicons name="chevron-forward" size={16} color={HOME_INK_SOFT} />
+            <Ionicons name="chevron-forward" size={16} color={colors.inkSoft} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.sidebarQuickRow} onPress={contactSupportFromSidebar}>
-            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: VIVID_TEAL }]}>
+            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: colors.vivid.teal }]}>
               <Ionicons name="help-circle" size={16} color="#fff" />
             </View>
             <Text style={styles.sidebarQuickLabel}>Help & Support</Text>
-            <Ionicons name="chevron-forward" size={16} color={HOME_INK_SOFT} />
+            <Ionicons name="chevron-forward" size={16} color={colors.inkSoft} />
           </TouchableOpacity>
 
           <View style={styles.sidebarAccessibilityCard}>
-            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: HOME_SAGE }]}>
+            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: colors.sage }]}>
               <Ionicons name="accessibility" size={16} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
@@ -4440,7 +4402,7 @@ export default function StudentDashboard({ navigation }: any) {
               value={!!dashboardSettings?.dyslexia_font}
               onValueChange={toggleDyslexiaFont}
               trackColor={{ false: '#cbd5e1', true: 'rgba(124,111,207,0.4)' }}
-              thumbColor={dashboardSettings?.dyslexia_font ? HOME_LAVENDER_DARK : '#f8fafc'}
+              thumbColor={dashboardSettings?.dyslexia_font ? colors.lavenderDark : '#f8fafc'}
             />
           </View>
 
@@ -4548,10 +4510,10 @@ function PracticeResultCard({
   }, [scaleAnim]);
 
   const { correct, score, transcript, feedback, xpAward } = result;
-  const ringColor = score >= 85 ? SUCCESS : score >= 60 ? WARNING : DANGER;
+  const ringColor = score >= 85 ? colors.success : score >= 60 ? colors.warning : colors.danger;
   // Text-safe variant of ringColor - ringColor itself stays for the ring's
   // borderColor (non-text), this is for the score percentage Text below.
-  const ringTextColor = score >= 85 ? SUCCESS : score >= 60 ? WARNING_TEXT : DANGER_TEXT;
+  const ringTextColor = score >= 85 ? colors.success : score >= 60 ? colors.warningText : colors.dangerText;
   const stars = score >= 95 ? 3 : score >= 80 ? 2 : 1;
 
   if (correct) {
@@ -4605,23 +4567,23 @@ function PracticeResultCard({
         <View style={styles.comparisonRow}>
           <Text style={styles.comparisonIcon}>🎤</Text>
           <Text style={styles.comparisonLabel}>Sinabi mo:</Text>
-          <Text style={[styles.comparisonWord, { color: DANGER_TEXT }]}>&quot;{transcript || '—'}&quot;</Text>
+          <Text style={[styles.comparisonWord, { color: colors.dangerText }]}>&quot;{transcript || '—'}&quot;</Text>
         </View>
         <View style={styles.comparisonDivider} />
         <View style={styles.comparisonRow}>
           <Text style={styles.comparisonIcon}>✅</Text>
           <Text style={styles.comparisonLabel}>Tamang bigkas:</Text>
-          <Text style={[styles.comparisonWord, { color: SUCCESS, fontWeight: '900' }]}>{word.toUpperCase()}</Text>
+          <Text style={[styles.comparisonWord, { color: colors.success, fontWeight: '900' }]}>{word.toUpperCase()}</Text>
         </View>
       </View>
 
-      <View style={[styles.xpPill, { backgroundColor: WARNING }]}>
+      <View style={[styles.xpPill, { backgroundColor: colors.warning }]}>
         <Text style={styles.xpPillText}>+{xpAward} XP 💛 (para sa pagsisikap!)</Text>
       </View>
 
       <View style={styles.resultButtons}>
         <TouchableOpacity style={styles.listenAgainButton} onPress={onReplay}>
-          <Ionicons name="volume-high-outline" size={18} color={HOME_LAVENDER_DARK} />
+          <Ionicons name="volume-high-outline" size={18} color={colors.lavenderDark} />
           <Text style={styles.listenAgainText}>Pakinggan muli</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.retryMicButton} onPress={onRetry}>
@@ -4642,48 +4604,48 @@ const styles = StyleSheet.create({
   subtitle: { color: '#6B7280', marginTop: 4 },
   logout: { backgroundColor: '#E74C3C', width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 18, paddingBottom: 48 },
-  // --- Progress tab (accent: SUCCESS green — "growth over time") ---
+  // --- Progress tab (accent: colors.success green — "growth over time") ---
   progressStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   progressStatCard: {
     width: '48%', borderRadius: 20, padding: 14, alignItems: 'flex-start', minHeight: 84, justifyContent: 'center',
   },
   progressStatIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  progressStatValue: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 20, marginTop: 2 },
-  progressStatLabel: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  progressStatValue: { fontFamily: typography.family.displaySemi, fontSize: 20, marginTop: 2 },
+  progressStatLabel: { color: colors.inkSoft, fontSize: 12, fontWeight: '700', marginTop: 2 },
   progressStreakBestPill: {
     flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, marginTop: 6,
   },
-  progressStreakBestText: { color: HOME_INK, fontWeight: '800', fontSize: 10 },
+  progressStreakBestText: { color: colors.ink, fontWeight: '800', fontSize: 10 },
   progressHeroCard: {
     backgroundColor: '#fff', borderRadius: 28, padding: 20, alignItems: 'center', marginBottom: 20,
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
   },
-  progressHeroTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 18, textAlign: 'center', marginBottom: 4 },
+  progressHeroTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 18, textAlign: 'center', marginBottom: 4 },
   progressOverallRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginVertical: 14, width: '100%' },
   progressOverallCol: { flex: 1, gap: 8 },
   progressOverallStatCard: { width: '100%', minHeight: 76, padding: 10 },
   progressRingShadowWrap: {
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
   },
-  progressHeroRingPct: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 28 },
-  progressHeroRingLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 11, marginTop: 2 },
-  progressHeroLabel: { color: HOME_INK, fontWeight: '800', fontSize: 14, marginBottom: 8 },
+  progressHeroRingPct: { fontFamily: typography.family.display, color: colors.lavenderDark, fontSize: 28 },
+  progressHeroRingLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 11, marginTop: 2 },
+  progressHeroLabel: { color: colors.ink, fontWeight: '800', fontSize: 14, marginBottom: 8 },
   progressHeroStatusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F5F3FC',
     borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7,
   },
   progressHeroStatusText: { fontWeight: '800', fontSize: 13 },
-  progressHeroEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center' },
+  progressHeroEmptyText: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center' },
   progressSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 12 },
   progressSectionIconWrap: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   progressSectionTitleText: { marginTop: 0, marginBottom: 0 },
   progressChartCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 20,
-    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+    shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
   },
   progressChartHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  progressChartTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
+  progressChartTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16 },
   progressChartBars: {
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
     height: 150, gap: 6, paddingHorizontal: 4,
@@ -4692,35 +4654,35 @@ const styles = StyleSheet.create({
   progressChartBarValue: { fontSize: 10, fontWeight: '900', marginBottom: 4 },
   progressChartBar: { width: '100%', borderTopLeftRadius: 8, borderTopRightRadius: 8, minWidth: 10 },
   progressChartDayRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginTop: 6 },
-  progressChartDayLabel: { flex: 1, textAlign: 'center', color: HOME_INK_SOFT, fontSize: 10, fontWeight: '700' },
+  progressChartDayLabel: { flex: 1, textAlign: 'center', color: colors.inkSoft, fontSize: 10, fontWeight: '700' },
   progressChartLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16 },
   progressLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   progressLegendDot: { width: 8, height: 8, borderRadius: 4 },
-  progressLegendText: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '700' },
+  progressLegendText: { color: colors.inkSoft, fontSize: 11, fontWeight: '700' },
   progressTrendMsgRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
-  progressTrendMsgText: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12 },
+  progressTrendMsgText: { color: colors.inkSoft, fontWeight: '700', fontSize: 12 },
   progressChartEmpty: { alignItems: 'center', paddingVertical: 24 },
-  progressChartEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 18 },
+  progressChartEmptyText: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 18 },
   skillsCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 20,
-    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+    shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
   },
   skillRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   skillIconWrap: {
     width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    shadowColor: HOME_INK, shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+    shadowColor: colors.ink, shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
   skillTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  skillLabel: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
+  skillLabel: { color: colors.ink, fontWeight: '800', fontSize: 14 },
   skillTagPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   skillTagText: { fontWeight: '800', fontSize: 11 },
   skillTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   skillTrack: { flex: 1, height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
   skillTrackFill: { height: '100%', borderRadius: 5 },
-  skillPct: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 12, minWidth: 34, textAlign: 'right' },
+  skillPct: { color: colors.inkSoft, fontWeight: '800', fontSize: 12, minWidth: 34, textAlign: 'right' },
   progressMonthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   progressMonthTile: {
-    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   progressPbBadge: {
     position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 2,
@@ -4728,18 +4690,18 @@ const styles = StyleSheet.create({
   },
   progressPbBadgeText: { color: '#fff', fontWeight: '900', fontSize: 9 },
   progressActivityCardShadow: {
-    shadowColor: HOME_INK, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+    shadowColor: colors.ink, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
   progressWordsCard: {
     backgroundColor: 'rgba(124,111,207,0.08)', borderRadius: 24, padding: 16,
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
-  progressWordsTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15, marginBottom: 10 },
+  progressWordsTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 15, marginBottom: 10 },
   progressWordsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   progressWordChip: { backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
-  progressWordChipText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
-  progressWordsMore: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginLeft: 2 },
-  progressWordsEmpty: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  progressWordChipText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 13 },
+  progressWordsMore: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, marginLeft: 2 },
+  progressWordsEmpty: { color: colors.inkSoft, fontWeight: '600', fontSize: 13 },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
   // --- Badges tab (accent: lavender, ties into Home's achievement showcase) ---
@@ -4748,44 +4710,44 @@ const styles = StyleSheet.create({
   badgesHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 140, height: 210 },
   achievementSummaryCard: {
     backgroundColor: '#fff', borderRadius: 28, padding: 20, marginBottom: 20,
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 5,
   },
   achievementSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 14 },
   achievementSummaryLeftCol: { flex: 1 },
-  achievementSummaryLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 13, marginBottom: 4 },
-  achievementSummaryCount: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 32 },
-  achievementSummaryCountTotal: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK_SOFT, fontSize: 18 },
-  achievementSummaryHint: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 4, maxWidth: '90%' },
+  achievementSummaryLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 13, marginBottom: 4 },
+  achievementSummaryCount: { fontFamily: typography.family.display, color: colors.lavenderDark, fontSize: 32 },
+  achievementSummaryCountTotal: { fontFamily: typography.family.displaySemi, color: colors.inkSoft, fontSize: 18 },
+  achievementSummaryHint: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 4, maxWidth: '90%' },
   achievementFeaturedCallout: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF3DC',
     borderRadius: 18, padding: 14, width: '100%',
   },
   achievementFeaturedImage: { width: 44, height: 44 },
-  achievementFeaturedTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14, marginBottom: 2 },
-  achievementFeaturedDesc: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12 },
-  spotlightEyebrow: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  spotlightHint: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginTop: 10, marginBottom: 4 },
+  achievementFeaturedTitle: { color: colors.ink, fontWeight: '900', fontSize: 14, marginBottom: 2 },
+  achievementFeaturedDesc: { color: colors.inkSoft, fontWeight: '600', fontSize: 12 },
+  spotlightEyebrow: { color: colors.lavenderDark, fontWeight: '900', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  spotlightHint: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, marginTop: 10, marginBottom: 4 },
   badgesCelebrateBanner: {
     borderRadius: 28, padding: 20, marginBottom: 20, overflow: 'hidden',
-    shadowColor: HERO_GRADIENT_START, shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+    shadowColor: colors.heroGradient[0], shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
   },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png).
   badgesCelebrateImage: { position: 'absolute', right: 14, top: 10, width: 76, height: 134 },
-  badgesCelebrateTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 20, marginBottom: 4 },
+  badgesCelebrateTitle: { fontFamily: typography.family.display, color: '#fff', fontSize: 20, marginBottom: 4 },
   badgesCelebrateSub: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 13, marginBottom: 16, lineHeight: 18 },
   badgesNextCard: { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 18, padding: 14, marginBottom: 14 },
   badgesNextLabel: { color: 'rgba(255,255,255,0.85)', fontWeight: '800', fontSize: 11, marginBottom: 3 },
   badgesNextTitle: { color: '#fff', fontWeight: '900', fontSize: 15, marginBottom: 2 },
   badgesNextDetail: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 12 },
   badgesCelebrateButton: { backgroundColor: '#fff', borderRadius: 999, paddingVertical: 13, alignItems: 'center' },
-  badgesCelebrateButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 14 },
+  badgesCelebrateButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 14 },
   badgesFilterRow: { marginBottom: 16 },
   badgesFilterChip: {
     backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 13, marginRight: 8,
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
-  badgesFilterChipActive: { backgroundColor: HOME_LAVENDER },
-  badgesFilterChipText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 13 },
+  badgesFilterChipActive: { backgroundColor: colors.lavender },
+  badgesFilterChipText: { color: colors.inkSoft, fontWeight: '800', fontSize: 13 },
   badgesFilterChipTextActive: { color: '#fff' },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   badgeCard: {
@@ -4799,33 +4761,33 @@ const styles = StyleSheet.create({
   },
   badgeImage: { width: 72, height: 72 },
   badgeImageLocked: { opacity: 0.45 },
-  badgeTitle: { textAlign: 'center', fontWeight: '800', color: HOME_INK, marginTop: 8, fontSize: 13 },
-  badgeCondition: { textAlign: 'center', color: HOME_INK_SOFT, fontSize: 12, marginTop: 8, lineHeight: 16 },
+  badgeTitle: { textAlign: 'center', fontWeight: '800', color: colors.ink, marginTop: 8, fontSize: 13 },
+  badgeCondition: { textAlign: 'center', color: colors.inkSoft, fontSize: 12, marginTop: 8, lineHeight: 16 },
   badgeUnlockedPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: SUCCESS,
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.success,
     borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8,
   },
   badgeUnlockedPillText: { color: '#fff', fontWeight: '800', fontSize: 11 },
-  badgeEarnedDate: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 11, marginTop: 5 },
+  badgeEarnedDate: { color: colors.inkSoft, fontWeight: '600', fontSize: 11, marginTop: 5 },
   badgeLockedPill: {
     backgroundColor: 'rgba(59,50,44,0.08)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8,
   },
-  badgeLockedPillText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 11 },
+  badgeLockedPillText: { color: colors.inkSoft, fontWeight: '800', fontSize: 11 },
   badgeProgressWrap: { width: '100%', marginTop: 8, alignItems: 'center' },
   badgeProgressTrack: {
     width: '100%', height: 6, borderRadius: 3, backgroundColor: 'rgba(59,50,44,0.12)', overflow: 'hidden', marginBottom: 4,
   },
-  badgeProgressFill: { height: '100%', borderRadius: 3, backgroundColor: HOME_SAGE },
-  badgeProgressText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 11 },
+  badgeProgressFill: { height: '100%', borderRadius: 3, backgroundColor: colors.sage },
+  badgeProgressText: { color: colors.inkSoft, fontWeight: '800', fontSize: 11 },
   spotlightCard: { backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 20 },
-  spotlightTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 12 },
+  spotlightTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16, marginBottom: 12 },
   spotlightRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
   spotlightImage: { width: 56, height: 56 },
-  spotlightBadgeTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15, marginBottom: 4 },
-  spotlightProgressText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12, marginBottom: 6 },
+  spotlightBadgeTitle: { color: colors.ink, fontWeight: '900', fontSize: 15, marginBottom: 4 },
+  spotlightProgressText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12, marginBottom: 6 },
   spotlightTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
-  spotlightFill: { height: '100%', borderRadius: 4, backgroundColor: HOME_LAVENDER },
-  spotlightButton: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 13, alignItems: 'center' },
+  spotlightFill: { height: '100%', borderRadius: 4, backgroundColor: colors.lavender },
+  spotlightButton: { backgroundColor: colors.lavender, borderRadius: 999, paddingVertical: 13, alignItems: 'center' },
   spotlightButtonText: { color: '#fff', fontWeight: '900', fontSize: 14 },
   uploadBody: { flex: 1 },
   // --- Learn tab (assignments = lavender family, PDF lessons = sage family) ---
@@ -4835,7 +4797,7 @@ const styles = StyleSheet.create({
     borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 8,
   },
   learnBadgeText: { fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-  learnSectionSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  learnSectionSubtitle: { color: colors.inkSoft, fontWeight: '600', fontSize: 13 },
   learnCardList: { gap: 12, marginBottom: 8 },
   learnActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -4848,24 +4810,24 @@ const styles = StyleSheet.create({
   learnIconWrap: {
     width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
   },
-  learnItemTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15 },
+  learnItemTitle: { color: colors.ink, fontWeight: '900', fontSize: 15 },
   learnItemMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
   learnStatusDot: { width: 8, height: 8, borderRadius: 4 },
-  learnItemMeta: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600' },
-  learnItemDescription: { color: HOME_INK_SOFT, fontSize: 13, marginTop: 6 },
+  learnItemMeta: { color: colors.inkSoft, fontSize: 12, fontWeight: '600' },
+  learnItemDescription: { color: colors.inkSoft, fontSize: 13, marginTop: 6 },
   learnStatusBadge: { fontWeight: '900', fontSize: 12 },
-  learnActionButton: { backgroundColor: HOME_LAVENDER, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
+  learnActionButton: { backgroundColor: colors.lavender, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
   learnActionButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   learnEmptyCard: { alignItems: 'center', borderRadius: 24, paddingVertical: 32, paddingHorizontal: 20, marginBottom: 8 },
   learnEmptyIconWrap: {
     width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
-  learnEmptyTitle: { color: HOME_INK, fontWeight: '900', fontSize: 16, marginBottom: 6, textAlign: 'center' },
-  learnEmptySubtext: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', lineHeight: 19 },
-  learnMarkDoneText: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, textDecorationLine: 'underline' },
+  learnEmptyTitle: { color: colors.ink, fontWeight: '900', fontSize: 16, marginBottom: 6, textAlign: 'center' },
+  learnEmptySubtext: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  learnMarkDoneText: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, textDecorationLine: 'underline' },
   learnContinueCard: {
-    backgroundColor: HOME_SAGE, borderRadius: 24, padding: 18, marginBottom: 20,
-    shadowColor: HOME_SAGE, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    backgroundColor: colors.sage, borderRadius: 24, padding: 18, marginBottom: 20,
+    shadowColor: colors.sage, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
     position: 'relative', overflow: 'hidden',
   },
   learnContinuePill: {
@@ -4873,41 +4835,41 @@ const styles = StyleSheet.create({
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10,
   },
   learnContinuePillText: { color: '#fff', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
-  learnContinueTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 19, marginBottom: 4 },
+  learnContinueTitle: { fontFamily: typography.family.display, color: '#fff', fontSize: 19, marginBottom: 4 },
   learnContinueSub: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 13, marginBottom: 14, lineHeight: 18 },
   learnContinueButton: {
     alignSelf: 'flex-start', backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 11,
   },
-  learnContinueButtonText: { color: HOME_SAGE, fontWeight: '900', fontSize: 14 },
+  learnContinueButtonText: { color: colors.sage, fontWeight: '900', fontSize: 14 },
   learnFilterRow: { marginBottom: 14 },
   learnFilterChip: {
     backgroundColor: '#F1F6ED', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginRight: 8,
   },
-  learnFilterChipActive: { backgroundColor: HOME_SAGE },
-  learnFilterChipText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 13 },
+  learnFilterChipActive: { backgroundColor: colors.sage },
+  learnFilterChipText: { color: colors.inkSoft, fontWeight: '800', fontSize: 13 },
   learnFilterChipTextActive: { color: '#fff' },
   learnJourneyCard: {
     backgroundColor: '#F5F3FC', borderRadius: 24, padding: 18, marginTop: 8, marginBottom: 8,
   },
-  learnJourneyTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15, marginBottom: 6 },
-  learnJourneyLevel: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 20, marginBottom: 10 },
+  learnJourneyTitle: { color: colors.ink, fontWeight: '900', fontSize: 15, marginBottom: 6 },
+  learnJourneyLevel: { fontFamily: typography.family.display, color: colors.lavenderDark, fontSize: 20, marginBottom: 10 },
   learnJourneyTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginBottom: 8 },
-  learnJourneyFill: { height: '100%', borderRadius: 5, backgroundColor: HOME_LAVENDER },
-  learnJourneyMsg: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13 },
+  learnJourneyFill: { height: '100%', borderRadius: 5, backgroundColor: colors.lavender },
+  learnJourneyMsg: { color: colors.inkSoft, fontWeight: '600', fontSize: 13 },
   learnHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png) -
   // sized to that real aspect ratio, not the 1120x2240 group's heroImage box.
   progressHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
   learnProgressCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 18, marginBottom: 20,
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2,
   },
   learnProgressTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  learnProgressTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16 },
-  learnProgressPct: { fontFamily: FONT_DISPLAY, color: HOME_LAVENDER_DARK, fontSize: 18 },
-  learnProgressCount: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 13, marginBottom: 12 },
+  learnProgressTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16 },
+  learnProgressPct: { fontFamily: typography.family.display, color: colors.lavenderDark, fontSize: 18 },
+  learnProgressCount: { color: colors.inkSoft, fontWeight: '700', fontSize: 13, marginBottom: 12 },
   learnProgressTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginBottom: 10 },
-  learnProgressMsg: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 13 },
+  learnProgressMsg: { color: colors.lavenderDark, fontWeight: '700', fontSize: 13 },
 
   lessonStepList: { marginBottom: 8 },
   lessonStepRow: { flexDirection: 'row', gap: 12 },
@@ -4916,8 +4878,8 @@ const styles = StyleSheet.create({
     width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff',
     borderWidth: 2, borderColor: 'rgba(124,111,207,0.35)', alignItems: 'center', justifyContent: 'center',
   },
-  lessonStepDotDone: { backgroundColor: VIVID_GREEN, borderColor: VIVID_GREEN },
-  lessonStepDotActive: { backgroundColor: HERO_GRADIENT_MID, borderColor: HERO_GRADIENT_MID },
+  lessonStepDotDone: { backgroundColor: colors.vivid.green, borderColor: colors.vivid.green },
+  lessonStepDotActive: { backgroundColor: colors.heroGradient[1], borderColor: colors.heroGradient[1] },
   lessonStepLine: { flex: 1, width: 2, backgroundColor: 'rgba(124,111,207,0.25)', marginVertical: 2, minHeight: 24 },
   lessonStepCard: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -4927,14 +4889,14 @@ const styles = StyleSheet.create({
   lessonStepCardMuted: { backgroundColor: '#F1EFF9' },
   lessonStepCardActive: {},
   lessonStepBody: { flex: 1 },
-  lessonStepTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14 },
+  lessonStepTitle: { color: colors.ink, fontWeight: '900', fontSize: 14 },
   lessonStepTitleLight: { color: '#fff' },
-  lessonStepMeta: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2 },
+  lessonStepMeta: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 2 },
   lessonStepMetaLight: { color: 'rgba(255,255,255,0.85)' },
   lessonStepButtonGhost: { backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-  lessonStepButtonGhostText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 12 },
+  lessonStepButtonGhostText: { color: colors.inkSoft, fontWeight: '800', fontSize: 12 },
   lessonStepButtonLight: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-  lessonStepButtonLightText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12 },
+  lessonStepButtonLightText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 12 },
   lessonStepMarkDoneLight: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 11, textDecorationLine: 'underline' },
 
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
@@ -4946,18 +4908,18 @@ const styles = StyleSheet.create({
   categoryIconWrap: {
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  categoryTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15, marginBottom: 4 },
-  categorySub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 16 },
+  categoryTitle: { color: colors.ink, fontWeight: '900', fontSize: 15, marginBottom: 4 },
+  categorySub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, lineHeight: 16 },
   categoryTipImage: { position: 'absolute', right: 2, bottom: -6, width: 52, height: 92 },
 
   learnBottomRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
   learnBottomCard: { flex: 1, marginBottom: 0 },
   learnContinueImage: { position: 'absolute', right: 4, bottom: -8, width: 52, height: 104 },
   learnGoalCard: {
-    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 24, padding: 18,
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    backgroundColor: colors.lavenderDark, borderRadius: 24, padding: 18,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
   },
-  learnGoalTitle: { fontFamily: FONT_DISPLAY, color: '#fff', fontSize: 15, marginBottom: 4 },
+  learnGoalTitle: { fontFamily: typography.family.display, color: '#fff', fontSize: 15, marginBottom: 4 },
   learnGoalSub: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 12, marginBottom: 12 },
   learnGoalTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', marginBottom: 10 },
   learnGoalTrackFill: { height: '100%', borderRadius: 5, backgroundColor: '#7DD3FC' },
@@ -4978,7 +4940,7 @@ const styles = StyleSheet.create({
   skeletonLineShort: { width: '45%', height: 16, borderRadius: 8, backgroundColor: '#E5E7EB', marginBottom: 22 },
   skeletonGrid: { width: '92%', flexDirection: 'row', justifyContent: 'space-between' },
   skeletonBlock: { width: '48%', height: 100, borderRadius: 14, backgroundColor: '#E5E7EB' },
-  practicePanel: { marginTop: 18, padding: 16, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: BORDER },
+  practicePanel: { marginTop: 18, padding: 16, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: colors.border },
   practiceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   practiceTitle: { fontSize: 18, fontWeight: '900', color: '#111827' },
   practiceClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
@@ -4986,32 +4948,32 @@ const styles = StyleSheet.create({
   practiceSubtitle: { color: '#6B7280', marginBottom: 12 },
   resultCard: {
     marginTop: 20, borderRadius: 24, padding: 20, alignItems: 'center',
-    shadowColor: HOME_INK, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
+    shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
   correctCard: { backgroundColor: '#EAF7EE' },
   wrongCard: { backgroundColor: '#FFF3DC' },
   resultEmoji: { fontSize: 28, textAlign: 'center', marginBottom: 8 },
-  resultTitle: { fontFamily: FONT_DISPLAY, fontSize: 19, textAlign: 'center', color: HOME_INK },
+  resultTitle: { fontFamily: typography.family.display, fontSize: 19, textAlign: 'center', color: colors.ink },
   resultTranscript: { color: '#6B7280', fontSize: 13, marginTop: 10, textAlign: 'center' },
-  resultScore: { marginTop: 8, color: PRIMARY, fontWeight: '700', textAlign: 'center' },
+  resultScore: { marginTop: 8, color: colors.primary, fontWeight: '700', textAlign: 'center' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 18 },
   modalCard: { backgroundColor: '#fff', borderRadius: 8, padding: 14 },
   close: { alignSelf: 'flex-end', padding: 8 },
   topHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 48, paddingBottom: 12 },
-  appTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY },
-  streakPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: PRIMARY, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  appTitle: { fontSize: 20, fontWeight: '900', color: colors.primary },
+  streakPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   // Tinted indigo scrim (matches the drawer's own palette) instead of flat black
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(30,23,66,0.6)' },
   sidebar: {
     position: 'absolute', top: 0, bottom: 0, left: 0, width: SIDEBAR_WIDTH,
-    backgroundColor: HOME_CREAM, paddingTop: 48, zIndex: 100,
+    backgroundColor: colors.cream, paddingTop: 48, zIndex: 100,
     shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.25, shadowRadius: 24, elevation: 20,
   },
   sidebarScrollContent: { paddingHorizontal: 16, paddingBottom: 32 },
   sidebarProfileCard: {
     borderRadius: 24, padding: 18, marginBottom: 16, position: 'relative',
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
   },
   sidebarCloseButton: {
     position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 14,
@@ -5023,25 +4985,25 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   sidebarAvatarText: { fontSize: 22, fontWeight: '900', color: '#fff' },
-  sidebarProfileName: { fontFamily: FONT_DISPLAY_SEMI, fontSize: 16, color: '#fff' },
+  sidebarProfileName: { fontFamily: typography.family.displaySemi, fontSize: 16, color: '#fff' },
   sidebarProfileGrade: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 12, marginTop: 2 },
   sidebarProfileLink: { color: '#fff', fontWeight: '900', fontSize: 12, marginTop: 6, textDecorationLine: 'underline' },
   sidebarLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18, paddingHorizontal: 2 },
   sidebarLogoIconWrap: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: HOME_LAVENDER_DARK,
+    width: 34, height: 34, borderRadius: 17, backgroundColor: colors.lavenderDark,
     alignItems: 'center', justifyContent: 'center',
   },
-  sidebarLogoText: { fontFamily: FONT_DISPLAY, fontSize: 16, color: HOME_INK },
-  sidebarLogoTagline: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 10.5, marginTop: 1 },
+  sidebarLogoText: { fontFamily: typography.family.display, fontSize: 16, color: colors.ink },
+  sidebarLogoTagline: { color: colors.inkSoft, fontWeight: '700', fontSize: 10.5, marginTop: 1 },
   sidebarSectionLabel: {
-    color: HOME_INK_SOFT, fontWeight: '900', fontSize: 11, letterSpacing: 0.8,
+    color: colors.inkSoft, fontWeight: '900', fontSize: 11, letterSpacing: 0.8,
     marginBottom: 8, marginTop: 4, paddingHorizontal: 2,
   },
   navItem: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14,
     marginBottom: 6, backgroundColor: '#fff',
-    shadowColor: HOME_INK, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+    shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
   navItemActive: { backgroundColor: '#EFECFB' },
   navIconWrap: {
@@ -5049,46 +5011,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F3FC',
   },
   navIconWrapActive: { backgroundColor: '#fff' },
-  navLabel: { fontSize: 14, fontWeight: '700', color: HOME_INK, flex: 1 },
-  navLabelActive: { color: HOME_LAVENDER_DARK, fontWeight: '900' },
+  navLabel: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
+  navLabelActive: { color: colors.lavenderDark, fontWeight: '900' },
   navCountBadge: {
-    backgroundColor: DANGER, borderRadius: 999, minWidth: 20, height: 20, paddingHorizontal: 5,
+    backgroundColor: colors.danger, borderRadius: 999, minWidth: 20, height: 20, paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
   navCountBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
   navFractionPill: { backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  navFractionPillText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 10.5 },
+  navFractionPillText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 10.5 },
   sidebarProgressCard: {
     backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16, overflow: 'hidden',
-    shadowColor: HOME_INK, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    shadowColor: colors.ink, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
-  sidebarProgressTitle: { color: HOME_INK, fontWeight: '800', fontSize: 13, maxWidth: '72%' },
-  sidebarProgressPct: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_LAVENDER_DARK, fontSize: 20, marginTop: 4, maxWidth: '72%' },
+  sidebarProgressTitle: { color: colors.ink, fontWeight: '800', fontSize: 13, maxWidth: '72%' },
+  sidebarProgressPct: { fontFamily: typography.family.displaySemi, color: colors.lavenderDark, fontSize: 20, marginTop: 4, maxWidth: '72%' },
   sidebarProgressTrack: {
     height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden',
     marginTop: 10, maxWidth: '72%',
   },
-  sidebarProgressFill: { height: '100%', borderRadius: 4, backgroundColor: HOME_LAVENDER_DARK },
-  sidebarProgressMsg: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 11, marginTop: 8, maxWidth: '72%' },
+  sidebarProgressFill: { height: '100%', borderRadius: 4, backgroundColor: colors.lavenderDark },
+  sidebarProgressMsg: { color: colors.inkSoft, fontWeight: '700', fontSize: 11, marginTop: 8, maxWidth: '72%' },
   // 1120x2240 in the source art (same ratio group as singing.png/learn2.png) -
   // "peeking" from the bottom-right corner of the mini progress card.
   sidebarProgressImage: { position: 'absolute', right: -6, bottom: -10, width: 70, height: 140 },
   sidebarQuickRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 14, padding: 12, marginBottom: 8,
-    shadowColor: HOME_INK, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+    shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
   sidebarQuickIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  sidebarQuickLabel: { color: HOME_INK, fontWeight: '700', fontSize: 14, flex: 1 },
+  sidebarQuickLabel: { color: colors.ink, fontWeight: '700', fontSize: 14, flex: 1 },
   sidebarAccessibilityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#E9F1E2',
     borderRadius: 16, padding: 14, marginTop: 4, marginBottom: 16,
   },
-  sidebarAccessibilityTitle: { color: HOME_INK, fontWeight: '800', fontSize: 13 },
-  sidebarAccessibilitySub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 11, marginTop: 2 },
+  sidebarAccessibilityTitle: { color: colors.ink, fontWeight: '800', fontSize: 13 },
+  sidebarAccessibilitySub: { color: colors.inkSoft, fontWeight: '600', fontSize: 11, marginTop: 2 },
   sidebarLogout: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 15, borderRadius: 14, backgroundColor: DANGER,
+    padding: 15, borderRadius: 14, backgroundColor: colors.danger,
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   // --- Home tab ---
@@ -5096,23 +5058,23 @@ const styles = StyleSheet.create({
   homeContent: { padding: 18, paddingBottom: 48 },
   homeErrorBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: 'rgba(240,150,125,0.16)', borderWidth: 1.5, borderColor: HOME_CORAL,
+    backgroundColor: 'rgba(240,150,125,0.16)', borderWidth: 1.5, borderColor: colors.coral,
     borderRadius: 20, padding: 14, marginBottom: 16,
   },
   homeBannerEmoji: { fontSize: 20 },
-  homeErrorText: { color: HOME_INK, fontWeight: '700', marginBottom: 8 },
+  homeErrorText: { color: colors.ink, fontWeight: '700', marginBottom: 8 },
   homeBannerButton: {
-    alignSelf: 'flex-start', backgroundColor: HOME_CORAL,
+    alignSelf: 'flex-start', backgroundColor: colors.coral,
     paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
   },
   homeBannerButtonText: { color: '#fff', fontWeight: '800' },
   homeGreetingHello: {
-    fontFamily: FONT_DISPLAY, fontSize: 20, color: HOME_INK,
+    fontFamily: typography.family.display, fontSize: 20, color: colors.ink,
   },
-  homeGreetingSub: { color: HOME_INK_SOFT, fontWeight: '600', marginTop: 2, fontSize: 13 },
+  homeGreetingSub: { color: colors.inkSoft, fontWeight: '600', marginTop: 2, fontSize: 13 },
   homeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   homeHeaderAvatar: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: HOME_LAVENDER,
+    width: 52, height: 52, borderRadius: 26, backgroundColor: colors.lavender,
     alignItems: 'center', justifyContent: 'center',
   },
   homeHeaderAvatarText: { color: '#fff', fontWeight: '900', fontSize: 18 },
@@ -5120,7 +5082,7 @@ const styles = StyleSheet.create({
   heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: FONT_DISPLAY, lineHeight: 32, maxWidth: '68%' },
+  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: typography.family.display, lineHeight: 32, maxWidth: '68%' },
   heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
   // 1:2 aspect ratio in the source art (1120x2240) - sized as a tall
   // rectangle so the full character shows with no cropping, anchored to
@@ -5136,10 +5098,10 @@ const styles = StyleSheet.create({
     width: 52, height: 52, borderRadius: 26, backgroundColor: '#EFECFB',
     alignItems: 'center', justifyContent: 'center',
   },
-  readyPracticeTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16, marginBottom: 4 },
-  readyPracticeSub: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  readyPracticeTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16, marginBottom: 4 },
+  readyPracticeSub: { color: colors.inkSoft, fontSize: 12, fontWeight: '600', lineHeight: 17 },
   readyPracticeButton: {
-    backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 16,
+    backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 16,
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   readyPracticeButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
@@ -5149,40 +5111,40 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#EEE9F9',
   },
   homeRecentActivityIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  homeRecentActivityTitle: { fontWeight: '800', color: HOME_INK, fontSize: 14 },
-  homeRecentActivityDetail: { color: HOME_INK_SOFT, fontSize: 12, fontWeight: '600', marginTop: 2 },
-  homeRecentActivityTime: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '600' },
+  homeRecentActivityTitle: { fontWeight: '800', color: colors.ink, fontSize: 14 },
+  homeRecentActivityDetail: { color: colors.inkSoft, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  homeRecentActivityTime: { color: colors.inkSoft, fontSize: 11, fontWeight: '600' },
   homeRecentActivityEmpty: { alignItems: 'center', paddingVertical: 20, marginBottom: 8 },
-  homeRecentActivityEmptyText: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  homeRecentActivityEmptyText: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   homeTodayCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3DC', borderRadius: 24, padding: 18, marginBottom: 16,
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
-  homeTodayTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 19, lineHeight: 24 },
-  homeTodayStatLine: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, marginTop: 8, marginBottom: 14 },
+  homeTodayTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 19, lineHeight: 24 },
+  homeTodayStatLine: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, marginTop: 8, marginBottom: 14 },
   homeTodayButton: {
-    backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 18, alignSelf: 'flex-start',
+    backgroundColor: colors.lavender, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 18, alignSelf: 'flex-start',
   },
   homeTodayButtonText: { color: '#fff', fontWeight: '900', fontSize: 13 },
-  homeTodayRingPct: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_LAVENDER_DARK, fontSize: 18 },
-  homeTodayRingLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 10 },
+  homeTodayRingPct: { fontFamily: typography.family.displaySemi, color: colors.lavenderDark, fontSize: 18 },
+  homeTodayRingLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 10 },
   homeStatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   homeGridCard: {
     width: '48%', borderRadius: 20, padding: 14, minHeight: 92, justifyContent: 'center',
   },
   homeGridIconWrap: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  homeGridValue: { fontFamily: FONT_DISPLAY, fontSize: 20, marginTop: 8 },
-  homeGridLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 12, marginTop: 2 },
+  homeGridValue: { fontFamily: typography.family.display, fontSize: 20, marginTop: 8 },
+  homeGridLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, marginTop: 2 },
   homeContinueCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: 20, padding: 16, marginBottom: 16, gap: 12,
   },
-  homeContinueTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 15 },
-  homeContinueSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2, marginBottom: 10 },
+  homeContinueTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 15 },
+  homeContinueSubtitle: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 2, marginBottom: 10 },
   homeContinueTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   homeContinueTrack: { flex: 1, backgroundColor: 'rgba(124,111,207,0.2)', height: 8, borderRadius: 999, overflow: 'hidden' },
-  homeContinueFill: { backgroundColor: HOME_LAVENDER, height: 8, borderRadius: 999 },
-  homeContinuePct: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
-  homeContinueButton: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
+  homeContinueFill: { backgroundColor: colors.lavender, height: 8, borderRadius: 999 },
+  homeContinuePct: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
+  homeContinueButton: { backgroundColor: colors.lavender, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
   homeContinueButtonText: { color: '#fff', fontWeight: '900', fontSize: 13 },
   // Source art is a tall 1:2 character illustration (1120x2240), not a
   // square headshot - a plain "cover" crop centers vertically and risks
@@ -5192,34 +5154,34 @@ const styles = StyleSheet.create({
   // crops the bottom off instead of the middle and keeps the head visible.
   homeContinueImageWrap: { width: 52, height: 52, borderRadius: 14, overflow: 'hidden', backgroundColor: '#fff' },
   homeContinueImage: { width: 52, height: 104, position: 'absolute', top: 0, left: 0 },
-  homeContinueLessonCount: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 11, marginBottom: 8 },
+  homeContinueLessonCount: { color: colors.lavenderDark, fontWeight: '700', fontSize: 11, marginBottom: 8 },
   homeHeroCard: {
-    backgroundColor: HOME_CREAM, borderRadius: 24, padding: 18, marginBottom: 16,
+    backgroundColor: colors.cream, borderRadius: 24, padding: 18, marginBottom: 16,
     borderWidth: 1, borderColor: 'rgba(124,111,207,0.18)',
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6,
   },
   homeHeroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
   homeHeroBadge: {
-    backgroundColor: HOME_LAVENDER, borderRadius: 999,
+    backgroundColor: colors.lavender, borderRadius: 999,
     paddingHorizontal: 14, paddingVertical: 6,
   },
   homeHeroBadgeText: { color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
   homeHeroStreakPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: HOME_SUN,
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.sun,
     borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
   },
   homeHeroStreakText: { color: '#fff', fontWeight: '900', fontSize: 11, letterSpacing: 0.3 },
-  homeHeroSub: { color: HOME_INK_SOFT, fontWeight: '600', textAlign: 'center', marginBottom: 4, fontSize: 13 },
+  homeHeroSub: { color: colors.inkSoft, fontWeight: '600', textAlign: 'center', marginBottom: 4, fontSize: 13 },
   homeHeroEmptyEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
-  homeHeroEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600' },
-  homePracticeSectionTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16, marginBottom: 10 },
+  homeHeroEmptyText: { color: colors.inkSoft, textAlign: 'center', fontWeight: '600' },
+  homePracticeSectionTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16, marginBottom: 10 },
   homePracticeRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 18, padding: 14, marginBottom: 10, minHeight: 60,
   },
   homePracticeIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  homePracticeRowTitle: { fontWeight: '800', color: HOME_INK, fontSize: 14 },
-  homePracticeRowSubtitle: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 2 },
+  homePracticeRowTitle: { fontWeight: '800', color: colors.ink, fontSize: 14 },
+  homePracticeRowSubtitle: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 2 },
   homeQuoteBanner: {
     position: 'relative', overflow: 'hidden',
     backgroundColor: '#FFF3DC', borderRadius: 20, paddingVertical: 18, paddingLeft: 18, paddingRight: 84,
@@ -5237,16 +5199,16 @@ const styles = StyleSheet.create({
   homeQuickIconWrap: {
     width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 8,
   },
-  homeQuickLabel: { fontWeight: '800', color: HOME_INK, fontSize: 13 },
+  homeQuickLabel: { fontWeight: '800', color: colors.ink, fontSize: 13 },
   homeDeadlinesCard: {
     backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 20, padding: 16,
   },
   homeDeadlinesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  homeDeadlinesTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 16 },
-  homeDeadlinesLink: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
+  homeDeadlinesTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16 },
+  homeDeadlinesLink: { color: colors.lavenderDark, fontWeight: '800', fontSize: 13 },
   homeDeadlinesEmpty: { alignItems: 'center', paddingVertical: 14 },
   homeDeadlinesEmptyEmoji: { fontSize: 28, marginBottom: 6 },
-  homeDeadlinesEmptyText: { color: HOME_INK_SOFT, textAlign: 'center', fontWeight: '600', fontSize: 13 },
+  homeDeadlinesEmptyText: { color: colors.inkSoft, textAlign: 'center', fontWeight: '600', fontSize: 13 },
   // --- Notifications tab ---
   // Padding gives the negative-offset dot room inside this wrapper's own
   // bounding box instead of poking outside it - on Android, a
@@ -5258,7 +5220,7 @@ const styles = StyleSheet.create({
   heroMenuIconWrap: { padding: 4, position: 'relative' },
   heroMenuDot: {
     position: 'absolute', top: 0, right: 0, width: 9, height: 9, borderRadius: 4.5,
-    backgroundColor: DANGER, borderWidth: 1.5, borderColor: HERO_GRADIENT_START,
+    backgroundColor: colors.danger, borderWidth: 1.5, borderColor: colors.heroGradient[0],
     zIndex: 10, elevation: 10,
   },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png).
@@ -5266,69 +5228,69 @@ const styles = StyleSheet.create({
   notifSummaryCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 24, padding: 16, marginBottom: 16,
-    shadowColor: HOME_INK, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+    shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 3,
   },
   notifSummaryIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  notifSummaryTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 15 },
-  notifSummarySub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 3 },
+  notifSummaryTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 15 },
+  notifSummarySub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 3 },
   notifMarkAllButton: {
     backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 13,
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
-  notifMarkAllButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 11 },
+  notifMarkAllButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 11 },
   notifCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#fff', borderRadius: 18, padding: 14,
-    shadowColor: HOME_INK, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
+    shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
   },
   notifCardUnread: { backgroundColor: '#F5F3FC' },
   notifIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   notifTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: HOME_LAVENDER },
-  notifTitle: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
-  notifBody: { color: HOME_INK_SOFT, fontSize: 13, marginTop: 4, lineHeight: 18 },
-  notifDate: { color: HOME_INK_SOFT, fontSize: 11, fontWeight: '600', marginTop: 6 },
+  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lavender },
+  notifTitle: { color: colors.ink, fontWeight: '800', fontSize: 14 },
+  notifBody: { color: colors.inkSoft, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  notifDate: { color: colors.inkSoft, fontSize: 11, fontWeight: '600', marginTop: 6 },
   notifActionButton: {
     flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', marginTop: 8,
     paddingVertical: 10, paddingHorizontal: 2, minHeight: 44,
   },
-  notifActionButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12 },
+  notifActionButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 12 },
   notifEmptyCard: { alignItems: 'center', paddingVertical: 40 },
-  notifEmptyText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 12, lineHeight: 18 },
-  bigWord: { fontSize: 48, fontWeight: '900', color: PRIMARY, marginVertical: 10 },
-  listenButton: { marginTop: 8, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: PRIMARY },
+  notifEmptyText: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 12, lineHeight: 18 },
+  bigWord: { fontSize: 48, fontWeight: '900', color: colors.primary, marginVertical: 10 },
+  listenButton: { marginTop: 8, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.primary },
   // Practice feedback styles
   goalCard: {
-    backgroundColor: HOME_CREAM,
+    backgroundColor: colors.cream,
     borderRadius: 20,
     padding: 16,
     marginBottom: 20,
   },
   goalTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  goalTitle: { fontFamily: FONT_DISPLAY_SEMI, color: HOME_INK, fontSize: 17 },
-  goalCount: { color: HOME_LAVENDER_DARK, fontWeight: '900' },
-  goalCountEmpty: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  goalTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 17 },
+  goalCount: { color: colors.lavenderDark, fontWeight: '900' },
+  goalCountEmpty: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
   goalTrack: { height: 12, borderRadius: 6, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginTop: 14 },
-  goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: HOME_LAVENDER },
-  goalEmptyNote: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 10 },
-  practiceSectionTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 16, marginBottom: 12, marginTop: 4 },
+  goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: colors.lavender },
+  goalEmptyNote: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 10 },
+  practiceSectionTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16, marginBottom: 12, marginTop: 4 },
   aiRecommendationCard: { backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', borderRadius: 18, padding: 14, marginBottom: 14 },
   aiRecommendationTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  aiRecommendationIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: HOME_LAVENDER, alignItems: 'center', justifyContent: 'center' },
-  aiRecommendationWord: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 19 },
+  aiRecommendationIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
+  aiRecommendationWord: { color: colors.lavenderDark, fontWeight: '900', fontSize: 19 },
   aiRecommendationWordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   trackPill: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#D9D4F4' },
-  trackPillText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 10 },
-  aiRecommendationReason: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 17, marginTop: 2 },
-  aiRecommendationFocus: { color: HOME_INK, fontWeight: '700', fontSize: 12, marginTop: 10 },
+  trackPillText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 10 },
+  aiRecommendationReason: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, lineHeight: 17, marginTop: 2 },
+  aiRecommendationFocus: { color: colors.ink, fontWeight: '700', fontSize: 12, marginTop: 10 },
   aiConfidencePill: { minWidth: 66, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 7, alignItems: 'center' },
-  aiConfidenceValue: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 15 },
-  aiConfidenceLabel: { color: HOME_INK_SOFT, fontWeight: '700', fontSize: 9 },
+  aiConfidenceValue: { color: colors.lavenderDark, fontWeight: '900', fontSize: 15 },
+  aiConfidenceLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 9 },
   categoryFilterBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#EFECFB', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14,
   },
-  categoryFilterBarText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 13 },
-  categoryFilterBarReset: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 13, textDecorationLine: 'underline' },
+  categoryFilterBarText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 13 },
+  categoryFilterBarReset: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13, textDecorationLine: 'underline' },
   practiceModeCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 20, padding: 14, marginBottom: 12,
@@ -5336,24 +5298,24 @@ const styles = StyleSheet.create({
   },
   practiceModeCardDisabled: { opacity: 0.6 },
   practiceModeIconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  practiceModeTitle: { color: HOME_INK, fontWeight: '900', fontSize: 15 },
-  practiceModeSub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginTop: 3, lineHeight: 17 },
+  practiceModeTitle: { color: colors.ink, fontWeight: '900', fontSize: 15 },
+  practiceModeSub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 3, lineHeight: 17 },
   practiceModeTag: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: 8 },
   practiceModeTagText: { fontWeight: '800', fontSize: 11 },
-  practiceModeStartPill: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 11 },
+  practiceModeStartPill: { backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 11 },
   practiceModeStartText: { color: '#fff', fontWeight: '900', fontSize: 13 },
   listenNextButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     alignSelf: 'center', backgroundColor: '#E9F1E2', borderRadius: 999,
     paddingHorizontal: 20, paddingVertical: 12, marginTop: 16,
   },
-  listenNextButtonText: { color: HOME_SAGE, fontWeight: '900', fontSize: 14 },
+  listenNextButtonText: { color: colors.sage, fontWeight: '900', fontSize: 14 },
   listenButtonRow: { flexDirection: 'row', gap: 10, width: '100%' },
   practiceStatsCard: { backgroundColor: '#F5F3FC', borderRadius: 24, padding: 18, marginTop: 8, marginBottom: 8 },
   practiceStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   practiceStatsCol: { alignItems: 'center', flex: 1, gap: 4 },
-  practiceStatsValue: { color: HOME_INK, fontWeight: '900', fontSize: 16 },
-  practiceStatsLabel: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 11, textAlign: 'center' },
+  practiceStatsValue: { color: colors.ink, fontWeight: '900', fontSize: 16 },
+  practiceStatsLabel: { color: colors.inkSoft, fontWeight: '600', fontSize: 11, textAlign: 'center' },
   rewardRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   rewardPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 6, paddingRight: 12 },
   rewardIconWrap: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
@@ -5364,7 +5326,7 @@ const styles = StyleSheet.create({
     padding: 22,
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: HOME_INK,
+    shadowColor: colors.ink,
     shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 5 },
@@ -5373,19 +5335,19 @@ const styles = StyleSheet.create({
   practiceMoodBadge: {
     width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  practicePrompt: { color: HOME_INK_SOFT, fontWeight: '900', textTransform: 'uppercase', fontSize: 12, marginBottom: 4, letterSpacing: 0.5 },
+  practicePrompt: { color: colors.inkSoft, fontWeight: '900', textTransform: 'uppercase', fontSize: 12, marginBottom: 4, letterSpacing: 0.5 },
   practiceCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 24,
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
   practiceWordDisplay: {
-    fontSize: 52, color: HOME_LAVENDER_DARK,
+    fontSize: 52, color: colors.lavenderDark,
     letterSpacing: 0, textAlign: 'center', marginBottom: 6,
-    fontFamily: FONT_DISPLAY,
+    fontFamily: typography.family.display,
   },
-  practiceSyllables: { color: HOME_LAVENDER_DARK, fontSize: 16, fontWeight: '900', marginBottom: 14 },
+  practiceSyllables: { color: colors.lavenderDark, fontSize: 16, fontWeight: '900', marginBottom: 14 },
   practiceWordLevel: {
-    textAlign: 'center', color: HOME_INK_SOFT, fontSize: 13,
+    textAlign: 'center', color: colors.inkSoft, fontSize: 13,
     marginBottom: 20,
   },
   listenCoachButton: {
@@ -5398,26 +5360,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 14,
   },
-  listenCoachText: { color: HOME_LAVENDER_DARK, fontWeight: '900' },
+  listenCoachText: { color: colors.lavenderDark, fontWeight: '900' },
   sayWordButton: {
     width: '100%',
     minHeight: 68,
     borderRadius: 20,
-    backgroundColor: HOME_LAVENDER,
+    backgroundColor: colors.lavender,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: HOME_LAVENDER,
+    shadowColor: colors.lavender,
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 4,
   },
-  sayWordButtonListening: { backgroundColor: DANGER },
+  sayWordButtonListening: { backgroundColor: colors.danger },
   listenButtonActive: { borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)' },
   sayWordButtonText: { color: '#fff', fontWeight: '900', fontSize: 20 },
-  practiceStatus: { color: HOME_INK, textAlign: 'center', fontWeight: '800', marginTop: 14 },
-  practiceTranscript: { color: HOME_INK_SOFT, textAlign: 'center', marginTop: 8, fontWeight: '700' },
+  practiceStatus: { color: colors.ink, textAlign: 'center', fontWeight: '800', marginTop: 14 },
+  practiceTranscript: { color: colors.inkSoft, textAlign: 'center', marginTop: 8, fontWeight: '700' },
 
   practiceDivider: { height: 1, width: '100%', backgroundColor: 'rgba(124,111,207,0.15)', marginVertical: 18 },
   micSection: {
@@ -5436,27 +5398,27 @@ const styles = StyleSheet.create({
   micGlowInnerRecording: { backgroundColor: 'rgba(239,68,68,0.22)' },
   micButton: {
     width: 84, height: 84, borderRadius: 42,
-    backgroundColor: HOME_LAVENDER, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center',
     elevation: 8,
     ...Platform.select({
       web: { boxShadow: '0px 0px 14px rgba(95,82,176,0.35)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.35, shadowRadius: 14 },
+      default: { shadowColor: colors.lavenderDark, shadowOpacity: 0.35, shadowRadius: 14 },
     }),
   },
   micButtonRecording: {
-    backgroundColor: DANGER,
+    backgroundColor: colors.danger,
     ...Platform.select({
       web: { boxShadow: '0px 0px 14px rgba(239,68,68,0.35)' },
-      default: { shadowColor: DANGER },
+      default: { shadowColor: colors.danger },
     }),
   },
-  micTimerText: { color: DANGER_TEXT, fontWeight: '900', fontSize: 13, marginTop: 8 },
+  micTimerText: { color: colors.dangerText, fontWeight: '900', fontSize: 13, marginTop: 8 },
 
   heroBackRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 },
   heroBackText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
   practiceProgressTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  practiceWordPill: { backgroundColor: HOME_LAVENDER, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  practiceWordPill: { backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   practiceWordPillText: { color: '#fff', fontWeight: '900', fontSize: 12 },
 
   practiceStatsIconWrap: {
@@ -5464,23 +5426,23 @@ const styles = StyleSheet.create({
   },
 
   practiceTipRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  practiceTipText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, flex: 1 },
+  practiceTipText: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, flex: 1 },
 
   encourageCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#F5F3FC', borderRadius: 24, padding: 16, marginTop: 8, marginBottom: 20,
   },
   encourageImage: { width: 64, height: 113 },
-  encourageTitle: { fontFamily: FONT_DISPLAY, color: HOME_INK, fontSize: 15, marginBottom: 4 },
-  encourageSub: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, marginBottom: 12 },
+  encourageTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 15, marginBottom: 4 },
+  encourageSub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginBottom: 12 },
   encourageButtonRow: { flexDirection: 'row', gap: 10 },
   encourageButtonGhost: {
     flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
     borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10,
   },
-  encourageButtonGhostText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 12 },
+  encourageButtonGhostText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 12 },
   encourageButtonSolid: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: HOME_LAVENDER_DARK,
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.lavenderDark,
     borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10,
   },
   encourageButtonSolidText: { color: '#fff', fontWeight: '900', fontSize: 12 },
@@ -5489,18 +5451,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#FEF3D6', borderRadius: 20, padding: 16, marginBottom: 8,
   },
-  practiceTipCardTitle: { color: HOME_INK, fontWeight: '900', fontSize: 14, marginBottom: 2 },
-  practiceTipCardText: { color: HOME_INK_SOFT, fontWeight: '600', fontSize: 12, lineHeight: 17 },
+  practiceTipCardTitle: { color: colors.ink, fontWeight: '900', fontSize: 14, marginBottom: 2 },
+  practiceTipCardText: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, lineHeight: 17 },
 
   backButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingVertical: 8,
   },
-  backText: { color: HOME_LAVENDER_DARK, fontWeight: '700', fontSize: 15 },
+  backText: { color: colors.lavenderDark, fontWeight: '700', fontSize: 15 },
 
   resultBigEmoji: { fontSize: 72, marginBottom: 8 },
-  resultSubtitle: { fontSize: 14, color: HOME_INK_SOFT, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
-  scoreCoachText: { color: HOME_INK, fontWeight: '800', marginTop: -10, marginBottom: 12 },
+  resultSubtitle: { fontSize: 14, color: colors.inkSoft, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
+  scoreCoachText: { color: colors.ink, fontWeight: '800', marginTop: -10, marginBottom: 12 },
   starRow: { flexDirection: 'row', gap: 6, marginTop: -10, marginBottom: 14 },
   pronunciationStar: { color: XP_GOLD, fontSize: 28 },
   pronunciationStarDim: { color: '#d1d5db' },
@@ -5508,24 +5470,24 @@ const styles = StyleSheet.create({
   // Accuracy ring (simulated with a card)
   accuracyRing: {
     width: 110, height: 110, borderRadius: 55,
-    borderWidth: 8, borderColor: SUCCESS,
+    borderWidth: 8, borderColor: colors.success,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 20, backgroundColor: '#fff',
-    shadowColor: HOME_INK, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+    shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
-  accuracyRingWrong: { borderColor: WARNING },
+  accuracyRingWrong: { borderColor: colors.warning },
   accuracyPercent: {
-    fontFamily: FONT_DISPLAY, fontSize: 28, color: SUCCESS,
+    fontFamily: typography.family.display, fontSize: 28, color: colors.success,
   },
-  accuracyLabel: { fontSize: 11, color: HOME_INK_SOFT, fontWeight: '600' },
+  accuracyLabel: { fontSize: 11, color: colors.inkSoft, fontWeight: '600' },
 
   // Transcript row
   transcriptRow: {
     flexDirection: 'row', alignItems: 'center',
     marginBottom: 16,
   },
-  transcriptLabel: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600' },
-  transcriptValue: { color: HOME_INK, fontWeight: '800', fontSize: 13 },
+  transcriptLabel: { color: colors.inkSoft, fontSize: 13, fontWeight: '600' },
+  transcriptValue: { color: colors.ink, fontWeight: '800', fontSize: 13 },
 
   // Comparison box (wrong result)
   comparisonBox: {
@@ -5537,43 +5499,43 @@ const styles = StyleSheet.create({
   },
   comparisonDivider: { height: 1, backgroundColor: 'rgba(124,111,207,0.15)', marginVertical: 4 },
   comparisonIcon: { fontSize: 18, width: 28 },
-  comparisonLabel: { color: HOME_INK_SOFT, fontSize: 13, fontWeight: '600', flex: 1 },
+  comparisonLabel: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', flex: 1 },
   comparisonWord: { fontSize: 15, fontWeight: '800' },
 
   // XP pill
   xpPill: {
-    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999,
+    backgroundColor: colors.lavenderDark, borderRadius: 999,
     paddingHorizontal: 20, paddingVertical: 10, marginBottom: 20,
   },
   xpPillText: { color: '#fff', fontWeight: '900', fontSize: 15 },
 
   // Buttons in result card
   nextButton: {
-    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999,
+    backgroundColor: colors.lavenderDark, borderRadius: 999,
     paddingHorizontal: 28, paddingVertical: 14,
     width: '100%', alignItems: 'center',
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
   nextButtonText: { color: '#fff', fontWeight: '900', fontSize: 16 },
   resultButtons: { flexDirection: 'row', gap: 10, width: '100%' },
   listenAgainButton: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderRadius: 999,
+    gap: 6, borderWidth: 1.5, borderColor: colors.lavenderDark, borderRadius: 999,
     paddingVertical: 12,
   },
-  listenAgainText: { color: HOME_LAVENDER_DARK, fontWeight: '700' },
+  listenAgainText: { color: colors.lavenderDark, fontWeight: '700' },
   retryMicButton: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999, paddingVertical: 12,
+    gap: 6, backgroundColor: colors.lavenderDark, borderRadius: 999, paddingVertical: 12,
   },
   retryMicText: { color: '#fff', fontWeight: '700' },
 
-  sectionSubtitle: { color: TEXT_SECONDARY, fontSize: 13, marginBottom: 16 },
+  sectionSubtitle: { color: colors.textSecondary, fontSize: 13, marginBottom: 16 },
   emptyState: { alignItems: 'center', paddingTop: 40 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
   openSettingsButton: {
     marginTop: 16,
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -5592,35 +5554,35 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(59,50,44,0.08)',
   },
   homeStatusDot: { width: 10, height: 10, borderRadius: 5 },
-  homeActivityTitle: { color: HOME_INK, fontWeight: '900' },
-  homeActivityMeta: { color: HOME_INK_SOFT, fontSize: 12, marginTop: 2 },
+  homeActivityTitle: { color: colors.ink, fontWeight: '900' },
+  homeActivityMeta: { color: colors.inkSoft, fontSize: 12, marginTop: 2 },
   profileHero: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     marginBottom: 14,
   },
   profileAvatar: {
     width: 78,
     height: 78,
     borderRadius: 39,
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   profileAvatarText: { color: '#fff', fontSize: 28, fontWeight: '900' },
-  profileName: { color: TEXT_PRIMARY, fontSize: 20, fontWeight: '900' },
-  profileUsername: { color: TEXT_SECONDARY, marginTop: 4 },
+  profileName: { color: colors.textPrimary, fontSize: 20, fontWeight: '900' },
+  profileUsername: { color: colors.textSecondary, marginTop: 4 },
   profileCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
   },
   profileRow: {
     flexDirection: 'row',
@@ -5630,8 +5592,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  profileLabel: { color: TEXT_SECONDARY, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
-  profileValue: { color: TEXT_PRIMARY, fontWeight: '800', marginTop: 3 },
+  profileLabel: { color: colors.textSecondary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+  profileValue: { color: colors.textPrimary, fontWeight: '800', marginTop: 3 },
   calendarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -5643,7 +5605,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: PRIMARY_LIGHT,
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -5652,11 +5614,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
   },
-  calendarMonth: { fontSize: 16, fontWeight: '900', color: TEXT_PRIMARY, marginBottom: 12 },
+  calendarMonth: { fontSize: 16, fontWeight: '900', color: colors.textPrimary, marginBottom: 12 },
   weekHeader: { flexDirection: 'row', marginBottom: 8 },
-  weekHeaderText: { flex: 1, textAlign: 'center', color: TEXT_SECONDARY, fontSize: 11, fontWeight: '800' },
+  weekHeaderText: { flex: 1, textAlign: 'center', color: colors.textSecondary, fontSize: 11, fontWeight: '800' },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   dayCell: {
     width: `${100 / 7}%`,
@@ -5666,21 +5628,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 4,
   },
-  dayCellSelected: { backgroundColor: PRIMARY },
-  dayText: { color: TEXT_PRIMARY, fontWeight: '800' },
+  dayCellSelected: { backgroundColor: colors.primary },
+  dayText: { color: colors.textPrimary, fontWeight: '800' },
   dayTextSelected: { color: '#fff' },
   dayDots: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
   dayDot: { width: 6, height: 6, borderRadius: 3 },
-  dayCount: { fontSize: 9, color: TEXT_SECONDARY, fontWeight: '800' },
+  dayCount: { fontSize: 9, color: colors.textSecondary, fontWeight: '800' },
   selectedTasksCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     marginTop: 14,
   },
-  selectedTasksTitle: { color: TEXT_PRIMARY, fontWeight: '900', fontSize: 16, marginBottom: 10 },
+  selectedTasksTitle: { color: colors.textPrimary, fontWeight: '900', fontSize: 16, marginBottom: 10 },
   activityTaskRow: {
     flexDirection: 'row',
     gap: 10,
@@ -5689,8 +5651,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
   },
   statusStrip: { width: 4, borderRadius: 999 },
-  activityTaskTitle: { color: TEXT_PRIMARY, fontWeight: '900' },
-  activityTaskMeta: { color: TEXT_SECONDARY, fontSize: 12, marginTop: 3 },
+  activityTaskTitle: { color: colors.textPrimary, fontWeight: '900' },
+  activityTaskMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 3 },
   activityTaskDescription: { color: '#374151', fontSize: 12, marginTop: 6, lineHeight: 18 },
   statusBadge: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
 });

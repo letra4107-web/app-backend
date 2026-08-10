@@ -13,17 +13,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import BadgeConfettiBurst from '../components/BadgeConfettiBurst';
 import type { AchievementCategory } from '../services/achievementService';
+import { colors } from '../theme';
 
-// Duplicated locally since this file doesn't share module scope with
-// StudentDashboard.tsx - same HOME_* palette used everywhere else.
-const HOME_SUN = '#E3971A';
-const HOME_CORAL = '#E06B4C';
-const HOME_SAGE = '#5C8047';
-const HOME_LAVENDER = '#7C6FCF';
-const HOME_LAVENDER_DARK = '#5F52B0';
+// XP_GOLD is intentionally not a theme token - it carries an "XP gold"
+// semantic distinct from theme.colors.warning, even though the hex is
+// numerically identical.
 const XP_GOLD = '#f59e0b';
 
-const CONFETTI_COLORS = [HOME_SUN, HOME_CORAL, HOME_SAGE, HOME_LAVENDER, XP_GOLD];
+const CONFETTI_COLORS = [colors.sun, colors.coral, colors.sage, colors.lavender, XP_GOLD];
 
 export default function AchievementModal({
   visible,
@@ -122,7 +119,7 @@ export default function AchievementModal({
     transform: [{ translateY: xpTranslateY.value }],
   }));
 
-  const accentColor = isMeta ? HOME_LAVENDER_DARK : XP_GOLD;
+  const accentColor = isMeta ? colors.lavenderDark : XP_GOLD;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -167,13 +164,13 @@ const styles = StyleSheet.create({
     shadowColor: '#4f46e5', shadowOpacity: 0.2, shadowRadius: 30, elevation: 20,
   },
   cardMeta: {
-    shadowColor: HOME_LAVENDER_DARK, shadowOpacity: 0.35, shadowRadius: 40,
+    shadowColor: colors.lavenderDark, shadowOpacity: 0.35, shadowRadius: 40,
   },
   badgeAnchor: {
     width: 128, height: 128, alignItems: 'center', justifyContent: 'center', marginBottom: 8,
   },
   glow: {
-    position: 'absolute', width: 168, height: 168, borderRadius: 84, backgroundColor: HOME_LAVENDER,
+    position: 'absolute', width: 168, height: 168, borderRadius: 84, backgroundColor: colors.lavender,
   },
   badgeImage: { width: 128, height: 128 },
   title: { fontSize: 26, fontWeight: '900', color: '#111827', marginBottom: 4, textAlign: 'center' },

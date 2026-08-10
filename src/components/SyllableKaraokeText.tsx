@@ -1,8 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-
-const HOME_LAVENDER_DARK = '#5F52B0';
-const HOME_INK_SOFT = '#5F5044';
+import { colors } from '../theme';
 
 type SyllableKaraokeTextProps = {
   /** Syllables in display order, e.g. ['Ka', 'li', 'ka', 'san']. */
@@ -53,7 +51,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
-  syllableIdle: { color: HOME_INK_SOFT },
-  syllableActive: { color: '#fff', backgroundColor: HOME_LAVENDER_DARK },
-  separator: { color: HOME_INK_SOFT, fontWeight: '700', marginHorizontal: 2, opacity: 0.6 },
+  syllableIdle: { color: colors.inkSoft },
+  syllableActive: { color: '#fff', backgroundColor: colors.lavenderDark },
+  separator: { color: colors.inkSoft, fontWeight: '700', marginHorizontal: 2, opacity: 0.6 },
 });

@@ -9,19 +9,10 @@ import {
   subscribeToParentNotifications,
 } from '../services/notificationService';
 import { useAccessibility } from '../contexts/AccessibilityContext';
+import { colors } from '../theme';
 
-// Same palette as the rest of the Parent Dashboard redesign, duplicated
-// locally since this file doesn't share module scope with
-// ParentDashboardEnhanced.tsx.
-const HOME_INK = '#3B322C';
-// Darkened from the original #8A8078 (~3.86:1 on white, failed WCAG AA) to
-// the same warm brown-gray family at ~7.7:1, matching ParentDashboardEnhanced's
-// HOME_INK_SOFT fix.
-const HOME_INK_SOFT = '#5F5044';
-const HOME_SUN = '#E3971A';
-const HOME_CORAL = '#E06B4C';
-const HOME_SAGE = '#5C8047';
-const HOME_LAVENDER_DARK = '#5F52B0';
+// SURFACE/BORDER/DANGER are intentionally NOT theme.colors equivalents -
+// one-off hex values kept local rather than coerced onto a nearby color.
 const SURFACE = '#FFFFFF';
 const BORDER = '#E7DFD0';
 const DANGER = '#E0574C';
@@ -45,17 +36,17 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; actionLabel: string; section: Section }> = {
-  lesson: { icon: 'book-outline', color: HOME_LAVENDER_DARK, actionLabel: 'View Progress', section: 'progress' },
-  assignment: { icon: 'clipboard-outline', color: HOME_SUN, actionLabel: 'View Calendar', section: 'calendar' },
-  word: { icon: 'text-outline', color: HOME_CORAL, actionLabel: 'View Progress', section: 'progress' },
-  xp: { icon: 'flash-outline', color: HOME_SUN, actionLabel: 'View Progress', section: 'progress' },
-  streak: { icon: 'flame-outline', color: HOME_CORAL, actionLabel: 'View Progress', section: 'progress' },
-  achievement: { icon: 'ribbon-outline', color: HOME_SAGE, actionLabel: 'View Progress', section: 'progress' },
-  practice: { icon: 'mic-outline', color: HOME_LAVENDER_DARK, actionLabel: 'View Progress', section: 'progress' },
+  lesson: { icon: 'book-outline', color: colors.lavenderDark, actionLabel: 'View Progress', section: 'progress' },
+  assignment: { icon: 'clipboard-outline', color: colors.sun, actionLabel: 'View Calendar', section: 'calendar' },
+  word: { icon: 'text-outline', color: colors.coral, actionLabel: 'View Progress', section: 'progress' },
+  xp: { icon: 'flash-outline', color: colors.sun, actionLabel: 'View Progress', section: 'progress' },
+  streak: { icon: 'flame-outline', color: colors.coral, actionLabel: 'View Progress', section: 'progress' },
+  achievement: { icon: 'ribbon-outline', color: colors.sage, actionLabel: 'View Progress', section: 'progress' },
+  practice: { icon: 'mic-outline', color: colors.lavenderDark, actionLabel: 'View Progress', section: 'progress' },
 };
 const DEFAULT_META = {
   icon: 'notifications-outline' as keyof typeof Ionicons.glyphMap,
-  color: HOME_LAVENDER_DARK,
+  color: colors.lavenderDark,
   actionLabel: 'View Progress',
   section: 'progress' as Section,
 };
@@ -266,7 +257,7 @@ export function NotificationsView({
                 accessibilityLabel={`${meta.actionLabel} for ${item.title}`}
               >
                 <Text style={styles.actionButtonText}>{meta.actionLabel}</Text>
-                <Ionicons name="chevron-forward" size={13} color={HOME_LAVENDER_DARK} />
+                <Ionicons name="chevron-forward" size={13} color={colors.lavenderDark} />
               </TouchableOpacity>
             )}
           </View>
@@ -329,7 +320,7 @@ export function NotificationsView({
         ))}
       </View>
 
-      {loading && <ActivityIndicator color={HOME_LAVENDER_DARK} style={{ marginVertical: 12 }} />}
+      {loading && <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 12 }} />}
       {!!error && (
         <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
           {error}
@@ -351,7 +342,7 @@ export function NotificationsView({
         )}
         {!loading && !filteredItems.length && (
           <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={40} color={HOME_INK_SOFT} />
+            <Ionicons name="notifications-off-outline" size={40} color={colors.inkSoft} />
             <Text style={styles.emptyText}>
               {items.length === 0
                 ? childList.length === 1
@@ -384,7 +375,7 @@ export function NotificationsView({
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[styles.spotlightStatValue, spotlightStatValueA11yStyle]}>{Math.round(weeklyStats!.avgLast7!)}%</Text>
                   {delta !== null && (
-                    <Text style={[styles.spotlightDelta, { color: delta >= 0 ? HOME_SAGE : DANGER }]}>
+                    <Text style={[styles.spotlightDelta, { color: delta >= 0 ? colors.sage : DANGER }]}>
                       {delta >= 0 ? '+' : ''}
                       {Math.round(delta)}%
                     </Text>
@@ -416,7 +407,7 @@ export default function ParentNotifications({ visible, userId, onClose }: { visi
         <View style={styles.modalHeader}>
           <Text style={styles.title}>Notifications</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={HOME_INK} />
+            <Ionicons name="close" size={24} color={colors.ink} />
           </TouchableOpacity>
         </View>
         <NotificationsView userId={userId} />
@@ -430,12 +421,12 @@ const styles = StyleSheet.create({
   modalWrapper: { flex: 1, backgroundColor: '#F8FAFC', padding: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 16 },
-  title: { fontSize: 20, fontWeight: '900', color: HOME_INK },
-  subtitle: { fontSize: 13, color: HOME_INK_SOFT, marginTop: 4 },
+  title: { fontSize: 20, fontWeight: '900', color: colors.ink },
+  subtitle: { fontSize: 13, color: colors.inkSoft, marginTop: 4 },
   markAllButton: {
-    borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20,
+    borderWidth: 1.5, borderColor: colors.lavenderDark, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20,
   },
-  markAllText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  markAllText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
   error: { color: DANGER, marginBottom: 12 },
 
   summaryBanner: {
@@ -443,43 +434,43 @@ const styles = StyleSheet.create({
     marginBottom: 14, borderWidth: 1, borderColor: BORDER, alignItems: 'center',
   },
   summaryIconWrap: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: HOME_LAVENDER_DARK,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: colors.lavenderDark,
     alignItems: 'center', justifyContent: 'center',
   },
-  summaryTitle: { fontWeight: '900', color: HOME_INK, fontSize: 14 },
-  summarySub: { color: HOME_INK_SOFT, fontSize: 12, marginTop: 2 },
+  summaryTitle: { fontWeight: '900', color: colors.ink, fontSize: 14 },
+  summarySub: { color: colors.inkSoft, fontSize: 12, marginTop: 2 },
 
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   filterChip: {
     borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingVertical: 7, paddingHorizontal: 14,
     backgroundColor: SURFACE,
   },
-  filterChipActive: { backgroundColor: HOME_LAVENDER_DARK, borderColor: HOME_LAVENDER_DARK },
-  filterChipText: { color: HOME_INK, fontWeight: '700', fontSize: 12 },
+  filterChipActive: { backgroundColor: colors.lavenderDark, borderColor: colors.lavenderDark },
+  filterChipText: { color: colors.ink, fontWeight: '700', fontSize: 12 },
   filterChipTextActive: { color: '#fff' },
 
   list: { paddingBottom: 20 },
-  groupLabel: { fontWeight: '900', color: HOME_INK, fontSize: 13, marginBottom: 8, marginTop: 4 },
+  groupLabel: { fontWeight: '900', color: colors.ink, fontSize: 13, marginBottom: 8, marginTop: 4 },
   card: {
     flexDirection: 'row', gap: 12, backgroundColor: SURFACE, padding: 14, borderRadius: 16,
     borderWidth: 1, borderColor: BORDER, marginBottom: 10,
   },
   cardIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardTitle: { fontWeight: '800', color: HOME_INK, flexShrink: 1 },
-  unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: HOME_LAVENDER_DARK },
-  cardBody: { color: HOME_INK_SOFT, marginTop: 3, lineHeight: 19, fontSize: 13 },
+  cardTitle: { fontWeight: '800', color: colors.ink, flexShrink: 1 },
+  unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.lavenderDark },
+  cardBody: { color: colors.inkSoft, marginTop: 3, lineHeight: 19, fontSize: 13 },
   cardFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  cardDate: { color: HOME_INK_SOFT, fontSize: 11 },
+  cardDate: { color: colors.inkSoft, fontSize: 11 },
   actionButton: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  actionButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  actionButtonText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
 
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 40, gap: 10 },
-  emptyText: { color: HOME_INK_SOFT, fontSize: 14 },
+  emptyText: { color: colors.inkSoft, fontSize: 14 },
   closeButton: { padding: 6 },
 
   spotlightCard: {
-    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 20, padding: 18, marginTop: 8,
+    backgroundColor: colors.lavenderDark, borderRadius: 20, padding: 18, marginTop: 8,
   },
   spotlightBadge: {
     alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 12,
@@ -494,5 +485,5 @@ const styles = StyleSheet.create({
   spotlightStatValue: { color: '#fff', fontWeight: '900', fontSize: 22 },
   spotlightDelta: { fontWeight: '900', fontSize: 13 },
   spotlightButton: { backgroundColor: '#fff', borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
-  spotlightButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 14 },
+  spotlightButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 14 },
 });

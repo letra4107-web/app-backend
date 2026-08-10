@@ -30,30 +30,15 @@ import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
 import { averageAccuracy } from '../services/achievementService';
+import { colors, typography } from '../theme';
 
-// Same palette as the Student Dashboard redesign, duplicated locally since
-// this file doesn't share module scope - keeps the Parent Dashboard visually
-// part of the same app while its own copy (below) stays more measured/adult
-// in tone than the student-facing screens.
-const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_SUN = '#E3971A';
-const HOME_SAGE = '#5C8047';
-const HOME_LAVENDER = '#7C6FCF';
-const HOME_LAVENDER_DARK = '#5F52B0';
-const HERO_GRADIENT_START = '#6D28D9';
-// Darkened ~10% from the original #A855F7 - that shade only gave white hero
-// text ~3.96:1 contrast at this gradient stop, below WCAG AA's 4.5:1 minimum
-// for normal-size text (the smaller heroSubtitle line specifically failed).
-// This keeps the same hue while clearing ~4.77:1.
-const HERO_GRADIENT_MID = '#974CDE';
-const HERO_GRADIENT_END = '#9D174D';
 // Same daily-goal formula as the Student Dashboard (total_attempts mod
 // DAILY_GOAL) - kept identical so a child's "goal" means the same thing
 // whether they or their parent is looking at it.
 const DAILY_GOAL = 5;
-// Distinct from HOME_LAVENDER_DARK so the Calendar's Lesson vs Practice
-// day-dots read as genuinely different hues at 6px, not two shades of purple.
+// Distinct from theme.colors.lavenderDark so the Calendar's Lesson vs
+// Practice day-dots read as genuinely different hues at 6px, not two shades
+// of purple.
 const CALENDAR_PRACTICE_BLUE = '#2F80ED';
 
 type SkillCategory = 'letters' | 'syllables' | 'words';
@@ -180,17 +165,11 @@ type ChildRow = {
   child_progress?: ChildProgress[];
 };
 
-const PRIMARY = '#4f46e5';
-const PRIMARY_LIGHT = '#eef2ff';
+// PRIMARY_TEXT/SURFACE/BACKGROUND are intentionally NOT theme tokens - kept
+// local rather than coerced onto a nearby-but-different color.
 const PRIMARY_TEXT = '#3730a3';
 const SURFACE = '#ffffff';
 const BACKGROUND = '#f5f3ff';
-const BORDER = '#e5e7eb';
-const TEXT_PRIMARY = '#111827';
-const TEXT_SECONDARY = '#6b7280';
-const SUCCESS = '#10b981';
-const WARNING = '#f59e0b';
-const DANGER = '#ef4444';
 
 const NAV_ITEMS: { key: Section; label: string; icon: string }[] = [
   { key: 'welcome', label: 'Dashboard / Home', icon: 'home-outline' },
@@ -201,8 +180,8 @@ const NAV_ITEMS: { key: Section; label: string; icon: string }[] = [
 ];
 
 const LEVEL_COLORS: Record<Level, string> = {
-  Beginner: SUCCESS,
-  Intermediate: PRIMARY,
+  Beginner: colors.success,
+  Intermediate: colors.primary,
   Advanced: '#7c3aed',
 };
 
@@ -260,7 +239,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const heroSubtitleA11yStyle = {
     fontSize: a11ySize(13),
     ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
-    ...(highContrast ? { color: HOME_INK } : {}),
+    ...(highContrast ? { color: colors.ink } : {}),
   };
   const settingsHeaderTitleA11yStyle = {
     fontSize: a11ySize(18),
@@ -269,7 +248,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const settingsHeaderSubA11yStyle = {
     fontSize: a11ySize(12),
     ...(a11yFont('medium') ? { fontFamily: a11yFont('medium') } : {}),
-    ...(highContrast ? { color: HOME_INK } : {}),
+    ...(highContrast ? { color: colors.ink } : {}),
   };
   // Broadened a11y wiring (audit follow-up) - grouped by shared style
   // constant/visual level rather than one bespoke override per Text, each
@@ -758,7 +737,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (canOpen) await Linking.openURL(url);
   };
 
-  const getLevelColor = (level: Level) => LEVEL_COLORS[level] || PRIMARY;
+  const getLevelColor = (level: Level) => LEVEL_COLORS[level] || colors.primary;
 
   const getActivityDateKey = (activity: StudentActivity) => new Date(activity.deadline).toISOString().slice(0, 10);
   const SCHEDULED_TYPE_ICON: Record<ScheduledActivity['activity_type'], keyof typeof Ionicons.glyphMap> = {
@@ -768,10 +747,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     appointment: 'medical-outline',
   };
   const getScheduledStatusColor = (status: ScheduledActivity['status']) => {
-    if (status === 'completed') return SUCCESS;
-    if (status === 'missed') return DANGER;
-    if (status === 'in_progress') return WARNING;
-    return HOME_LAVENDER_DARK;
+    if (status === 'completed') return colors.success;
+    if (status === 'missed') return colors.danger;
+    if (status === 'in_progress') return colors.warning;
+    return colors.lavenderDark;
   };
   const toggleScheduledComplete = async (item: ScheduledActivity) => {
     try {
@@ -909,12 +888,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     ];
     const skillStatus = (avg: number | null) =>
       avg === null
-        ? { label: 'Not enough data', color: HOME_INK_SOFT }
+        ? { label: 'Not enough data', color: colors.inkSoft }
         : avg >= 80
-        ? { label: 'Excellent', color: SUCCESS }
+        ? { label: 'Excellent', color: colors.success }
         : avg >= 60
-        ? { label: 'Good Progress', color: WARNING }
-        : { label: 'Needs More Practice', color: DANGER };
+        ? { label: 'Good Progress', color: colors.warning }
+        : { label: 'Needs More Practice', color: colors.danger };
 
     // Recent activity - same merged real lesson+pronunciation feed pattern
     // as the Student Dashboard's Home/Progress tabs, scoped to this child.
@@ -975,7 +954,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </View>
             </View>
             <View style={styles.statusRow}>
-              <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? SUCCESS : HOME_INK_SOFT }]} />
+              <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? colors.success : colors.inkSoft }]} />
               <Text style={styles.statusRowText}>{isActivelyLearning ? 'Active Today' : 'No activity today'}</Text>
             </View>
           </View>
@@ -988,7 +967,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
             >
               <Text style={styles.switchChildButtonText}>Switch Child</Text>
-              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={HOME_LAVENDER_DARK} />
+              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.lavenderDark} />
             </TouchableOpacity>
           )}
         </View>
@@ -1006,10 +985,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   setChildPickerOpen(false);
                 }}
               >
-                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: HOME_LAVENDER_DARK, fontWeight: '800' }]}>
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: colors.lavenderDark, fontWeight: '800' }]}>
                   {child.name}
                 </Text>
-                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={HOME_LAVENDER_DARK} />}
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={colors.lavenderDark} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1021,7 +1000,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.latestReadingEyebrow}>LATEST READING RESULT</Text>
               <Text style={styles.latestReadingWord}>{latestReading?.word || 'No reading yet'}</Text>
             </View>
-            <Ionicons name={latestReading?.is_correct ? 'checkmark-circle' : 'book-outline'} size={26} color={latestReading?.is_correct ? SUCCESS : HOME_LAVENDER_DARK} />
+            <Ionicons name={latestReading?.is_correct ? 'checkmark-circle' : 'book-outline'} size={26} color={latestReading?.is_correct ? colors.success : colors.lavenderDark} />
           </View>
           <View style={styles.latestReadingStats}>
             <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading ? `${Math.round(latestReading.accuracy_percentage || 0)}%` : '--'}</Text><Text style={styles.latestReadingLabel}>Accuracy</Text></View>
@@ -1038,7 +1017,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
 
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroProgressCard}
@@ -1086,32 +1065,32 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </Text>
           <TouchableOpacity style={styles.heroProgressButton} onPress={() => setSection('progress')} activeOpacity={0.85}>
             <Text style={styles.heroProgressButtonText}>View Full Progress</Text>
-            <Ionicons name="arrow-forward" size={14} color={HERO_GRADIENT_START} />
+            <Ionicons name="arrow-forward" size={14} color={colors.heroGradient[0]} />
           </TouchableOpacity>
         </LinearGradient>
 
         <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Quick Overview</Text>
         <View style={styles.overviewGrid}>
           <View style={[styles.overviewCard, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="school" size={20} color={HOME_LAVENDER} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_LAVENDER }]}>
+            <Ionicons name="school" size={20} color={colors.lavender} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavender }]}>
               {lessonsCompleted}{childLessonsTotal !== null ? `/${childLessonsTotal}` : ''}
             </Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Lessons Completed</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#FFF3DC' }]}>
-            <Ionicons name="mic" size={20} color={HOME_SUN} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SUN }]}>{practiceSessionsThisWeek}</Text>
+            <Ionicons name="mic" size={20} color={colors.sun} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sun }]}>{practiceSessionsThisWeek}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Reading Practice (this week)</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
-            <Ionicons name="book" size={20} color={HOME_LAVENDER_DARK} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
+            <Ionicons name="book" size={20} color={colors.lavenderDark} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavenderDark }]}>{wordsPracticed}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Words Practiced</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
-            <Ionicons name="checkmark-circle" size={20} color={HOME_SAGE} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+            <Ionicons name="checkmark-circle" size={20} color={colors.sage} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sage }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>All-Time Average</Text>
           </View>
         </View>
@@ -1143,7 +1122,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           {childCurrentLesson ? (
             <>
               <View style={styles.skillOverviewRow}>
-                <Ionicons name="book" size={18} color={HOME_LAVENDER_DARK} />
+                <Ionicons name="book" size={18} color={colors.lavenderDark} />
                 <Text style={styles.currentLessonTitle}>
                   {childCurrentLesson.status === 'completed' ? 'Completed Lesson: ' : 'Currently on: '}
                   {childCurrentLesson.title}
@@ -1184,7 +1163,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.goalCard}>
           <View style={styles.goalCardHeader}>
-            <Ionicons name="flag" size={18} color={HOME_SUN} />
+            <Ionicons name="flag" size={18} color={colors.sun} />
             <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Today&apos;s Reading Goal</Text>
           </View>
           <Text style={[styles.goalCardValue, goalCardValueA11yStyle]}>{goalDone}/{DAILY_GOAL} Activities</Text>
@@ -1210,7 +1189,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           recentActivityItems.map((item) => (
             <View key={item.key} style={styles.recentActivityCard}>
               <View style={[styles.recentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
-                <Ionicons name={item.kind === 'lesson' ? 'book' : 'mic'} size={16} color={item.kind === 'lesson' ? HOME_SAGE : HOME_LAVENDER_DARK} />
+                <Ionicons name={item.kind === 'lesson' ? 'book' : 'mic'} size={16} color={item.kind === 'lesson' ? colors.sage : colors.lavenderDark} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.currentLessonTitle}>{item.kind === 'lesson' ? 'Lesson Completed' : 'Reading Practice'}</Text>
@@ -1226,7 +1205,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         )}
 
         <LinearGradient
-          colors={[HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={[colors.heroGradient[1], colors.heroGradient[2]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.supportBanner}
@@ -1243,15 +1222,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.quickActions}>
           <TouchableOpacity style={styles.quickAction} onPress={() => setShowEnroll(true)} accessibilityRole="button" accessibilityLabel="Enroll a child">
-            <Ionicons name="person-add" size={16} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="person-add" size={16} color={colors.lavenderDark} />
             <Text style={styles.quickActionText}>Enroll Child</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View reports">
-            <Ionicons name="bar-chart" size={16} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="bar-chart" size={16} color={colors.lavenderDark} />
             <Text style={styles.quickActionText}>View Reports</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Manage profile">
-            <Ionicons name="person-circle" size={16} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="person-circle" size={16} color={colors.lavenderDark} />
             <Text style={styles.quickActionText}>Manage Profile</Text>
           </TouchableOpacity>
         </View>
@@ -1317,7 +1296,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const totalWords = inPeriod.length;
     const correctCount = inPeriod.filter((s) => s.is_correct).length;
 
-    const tierColor = (pct: number) => (pct >= 80 ? SUCCESS : pct >= 60 ? WARNING : DANGER);
+    const tierColor = (pct: number) => (pct >= 80 ? colors.success : pct >= 60 ? colors.warning : colors.danger);
     const tierMessage = (pct: number | null) =>
       pct === null
         ? 'No practice recorded in this period yet.'
@@ -1396,12 +1375,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     ];
     const skillStatus = (avg: number | null) =>
       avg === null
-        ? { label: 'Not enough data', color: HOME_INK_SOFT }
+        ? { label: 'Not enough data', color: colors.inkSoft }
         : avg >= 80
-        ? { label: 'Strong', color: SUCCESS }
+        ? { label: 'Strong', color: colors.success }
         : avg >= 60
-        ? { label: 'Improving', color: WARNING }
-        : { label: 'Needs More Practice', color: DANGER };
+        ? { label: 'Improving', color: colors.warning }
+        : { label: 'Needs More Practice', color: colors.danger };
 
     const scoredSkills = skillMeta.filter((s) => s.avg !== null) as (typeof skillMeta[number] & { avg: number })[];
     const weakestSkill = scoredSkills.length ? scoredSkills.reduce((a, b) => (a.avg <= b.avg ? a : b)) : null;
@@ -1439,7 +1418,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           accessibilityLabel={`Viewing ${selectedChild.name}${children.length > 1 ? '. Tap to switch child' : ''}`}
         >
           <Text style={styles.viewingSelectorText}>Viewing: {selectedChild.name}</Text>
-          {children.length > 1 && <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={HOME_LAVENDER_DARK} />}
+          {children.length > 1 && <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.lavenderDark} />}
         </TouchableOpacity>
 
         {childPickerOpen && children.length > 1 && (
@@ -1455,10 +1434,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   setChildPickerOpen(false);
                 }}
               >
-                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: HOME_LAVENDER_DARK, fontWeight: '800' }]}>
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: colors.lavenderDark, fontWeight: '800' }]}>
                   {child.name}
                 </Text>
-                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={HOME_LAVENDER_DARK} />}
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={colors.lavenderDark} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1479,7 +1458,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </View>
             </View>
             <View style={styles.statusRow}>
-              <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? SUCCESS : HOME_INK_SOFT }]} />
+              <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? colors.success : colors.inkSoft }]} />
               <Text style={styles.statusRowText}>{isActivelyLearning ? 'Actively Learning' : 'No activity today'}</Text>
             </View>
           </View>
@@ -1489,7 +1468,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={styles.readingProgressCard}>
             <View style={styles.readingProgressHeader}>
               <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>AI Reading Summary</Text>
-              <Ionicons name="sparkles" size={22} color={HOME_LAVENDER_DARK} />
+              <Ionicons name="sparkles" size={22} color={colors.lavenderDark} />
             </View>
             <View style={styles.overallStatsRow}>
               <View style={styles.overallStatCell}>
@@ -1510,7 +1489,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </Text>
             <View style={styles.recommendCard}>
               <View style={styles.recommendIconWrap}>
-                <Ionicons name="home" size={18} color={HOME_SUN} />
+                <Ionicons name="home" size={18} color={colors.sun} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.recommendTitle}>Recommended Home Practice</Text>
@@ -1543,18 +1522,18 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.readingProgressCard}>
           <View style={styles.readingProgressHeader}>
             <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>Overall Reading Progress</Text>
-            <Ionicons name="book" size={24} color={HOME_LAVENDER} />
+            <Ionicons name="book" size={24} color={colors.lavender} />
           </View>
           <View style={{ alignItems: 'center', marginVertical: 12 }}>
-            <ProgressRing percent={periodAvg ?? 0} color={HOME_LAVENDER_DARK} trackColor="rgba(124,111,207,0.15)">
+            <ProgressRing percent={periodAvg ?? 0} color={colors.lavenderDark} trackColor="rgba(124,111,207,0.15)">
               <Text style={styles.readingProgressPct}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
               <Text style={styles.readingProgressPctSub}>{periodRingLabel}</Text>
             </ProgressRing>
           </View>
           {periodDelta !== null && (
             <View style={[styles.improvementBadge, { backgroundColor: periodDelta >= 0 ? '#E9F1E2' : '#FBE7DF' }]}>
-              <Ionicons name={periodDelta >= 0 ? 'trending-up' : 'trending-down'} size={13} color={periodDelta >= 0 ? SUCCESS : DANGER} />
-              <Text style={[styles.improvementBadgeText, { color: periodDelta >= 0 ? SUCCESS : DANGER }]}>
+              <Ionicons name={periodDelta >= 0 ? 'trending-up' : 'trending-down'} size={13} color={periodDelta >= 0 ? colors.success : colors.danger} />
+              <Text style={[styles.improvementBadgeText, { color: periodDelta >= 0 ? colors.success : colors.danger }]}>
                 {periodDelta >= 0 ? '+' : ''}{periodDelta}% this period
               </Text>
             </View>
@@ -1566,9 +1545,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.trendCard}>
           {bucketsWithData.length >= 2 ? (
             <>
-              <TrendLineChart points={bucketPoints} width={chartWidth} color={HOME_LAVENDER_DARK} />
+              <TrendLineChart points={bucketPoints} width={chartWidth} color={colors.lavenderDark} />
               <View style={styles.trendMsgRow}>
-                <Ionicons name="checkmark-circle" size={13} color={SUCCESS} />
+                <Ionicons name="checkmark-circle" size={13} color={colors.success} />
                 <Text style={styles.trendMsgText}>
                   {bucketsWithData[bucketsWithData.length - 1].pct! >= bucketsWithData[0].pct!
                     ? 'Reading accuracy has improved over this period.'
@@ -1578,7 +1557,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </>
           ) : (
             <View style={styles.trendEmpty}>
-              <Ionicons name="analytics-outline" size={28} color={HOME_LAVENDER} />
+              <Ionicons name="analytics-outline" size={28} color={colors.lavender} />
               <Text style={styles.trendEmptyText}>Not enough practice sessions in this period to show a trend.</Text>
             </View>
           )}
@@ -1599,7 +1578,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Correct</Text>
           </View>
           <View style={styles.overallStatCell}>
-            <Text style={[styles.overallStatValue, overallStatValueA11yStyle, { color: periodDelta === null ? HOME_INK : periodDelta >= 0 ? SUCCESS : DANGER }]}>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle, { color: periodDelta === null ? colors.ink : periodDelta >= 0 ? colors.success : colors.danger }]}>
               {periodDelta === null ? '--' : `${periodDelta >= 0 ? '+' : ''}${periodDelta}%`}
             </Text>
             <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Improvement</Text>
@@ -1643,7 +1622,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         {weakestSkill && (
           <View style={styles.recommendCard}>
             <View style={styles.recommendIconWrap}>
-              <Ionicons name="bulb" size={18} color={HOME_SUN} />
+              <Ionicons name="bulb" size={18} color={colors.sun} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.recommendTitle}>Recommended Next Step</Text>
@@ -1665,7 +1644,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         {periodAvg !== null && (
           <View style={styles.insightCardV2}>
-            <Ionicons name="sparkles" size={18} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="sparkles" size={18} color={colors.lavenderDark} />
             <Text style={styles.insightCardV2Text}>
               {periodDelta !== null && periodDelta > 0
                 ? `${selectedChild.name.split(' ')[0]}'s reading accuracy has improved by ${periodDelta}% in this period. Consistent practice is helping build confidence.`
@@ -1680,7 +1659,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             visibleHistory.map((session, i) => (
               <View key={`${session.created_at}-${i}`} style={styles.activityRow}>
                 <View style={styles.activityEmoji}>
-                  <Ionicons name="mic" size={18} color={HOME_LAVENDER_DARK} />
+                  <Ionicons name="mic" size={18} color={colors.lavenderDark} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.activityChildName}>Tagalog Word Practice</Text>
@@ -1831,7 +1810,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         key: `lp-${p.id}`,
         sortKey: timeSource || dateKey,
         pillLabel: 'Lesson',
-        pillColor: HOME_LAVENDER_DARK,
+        pillColor: colors.lavenderDark,
         icon: 'book',
         title,
         meta: `${time ? `${time} • ` : ''}${p.status === 'completed' ? 'Completed' : 'In Progress'}`,
@@ -1845,7 +1824,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         key: `act-${a.id}`,
         sortKey: a.deadline,
         pillLabel: 'Lesson',
-        pillColor: HOME_LAVENDER_DARK,
+        pillColor: colors.lavenderDark,
         icon: 'clipboard',
         title: a.title,
         meta: `${new Date(a.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ${a.status}`,
@@ -1879,8 +1858,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         item.activity_type === 'practice' ? 'Practice' :
         item.activity_type === 'appointment' ? 'Appointment' : 'Reminder';
       const pillColor =
-        item.activity_type === 'reading_lesson' ? HOME_LAVENDER_DARK :
-        item.activity_type === 'practice' ? CALENDAR_PRACTICE_BLUE : WARNING;
+        item.activity_type === 'reading_lesson' ? colors.lavenderDark :
+        item.activity_type === 'practice' ? CALENDAR_PRACTICE_BLUE : colors.warning;
       dayEntries.push({
         key: `sched-${item.id}`,
         sortKey: item.start_time ? `${item.scheduled_date}T${item.start_time}` : item.scheduled_date,
@@ -1898,7 +1877,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     return (
       <>
         <LinearGradient
-          colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+          colors={colors.heroGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroProgressCard}
@@ -1943,7 +1922,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
             >
               <Text style={styles.switchChildButtonText}>Switch Child</Text>
-              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={HOME_LAVENDER_DARK} />
+              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.lavenderDark} />
             </TouchableOpacity>
           )}
         </View>
@@ -1961,10 +1940,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   setChildPickerOpen(false);
                 }}
               >
-                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: HOME_LAVENDER_DARK, fontWeight: '800' }]}>
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: colors.lavenderDark, fontWeight: '800' }]}>
                   {child.name}
                 </Text>
-                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={HOME_LAVENDER_DARK} />}
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={colors.lavenderDark} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1979,7 +1958,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Go to previous month"
             >
-              <Ionicons name="chevron-back" size={18} color={PRIMARY} />
+              <Ionicons name="chevron-back" size={18} color={colors.primary} />
             </TouchableOpacity>
             <Text style={styles.calendarMonth}>{monthLabel}</Text>
             <TouchableOpacity
@@ -2002,7 +1981,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Go to next month"
             >
-              <Ionicons name="chevron-forward" size={18} color={PRIMARY} />
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
           </View>
           <View style={styles.weekHeader}>
@@ -2028,10 +2007,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   <Text style={[styles.dayText, selected && styles.dayTextSelected]}>{cell.date.getDate()}</Text>
                   {hasAnyDot && (
                     <View style={styles.dayDots}>
-                      {dayTypes.lesson && <View style={[styles.dayDot, { backgroundColor: HOME_LAVENDER_DARK }]} />}
+                      {dayTypes.lesson && <View style={[styles.dayDot, { backgroundColor: colors.lavenderDark }]} />}
                       {dayTypes.practice && <View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} />}
-                      {dayTypes.completed && <View style={[styles.dayDot, { backgroundColor: SUCCESS }]} />}
-                      {dayTypes.reminder && <View style={[styles.dayDot, { backgroundColor: WARNING }]} />}
+                      {dayTypes.completed && <View style={[styles.dayDot, { backgroundColor: colors.success }]} />}
+                      {dayTypes.reminder && <View style={[styles.dayDot, { backgroundColor: colors.warning }]} />}
                     </View>
                   )}
                 </TouchableOpacity>
@@ -2039,10 +2018,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             })}
           </View>
           <View style={styles.dayLegendRow}>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: HOME_LAVENDER_DARK }]} /><Text style={styles.dayLegendText}>Lesson</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.lavenderDark }]} /><Text style={styles.dayLegendText}>Lesson</Text></View>
             <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} /><Text style={styles.dayLegendText}>Practice</Text></View>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: SUCCESS }]} /><Text style={styles.dayLegendText}>Completed</Text></View>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: WARNING }]} /><Text style={styles.dayLegendText}>Reminder</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.success }]} /><Text style={styles.dayLegendText}>Completed</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.warning }]} /><Text style={styles.dayLegendText}>Reminder</Text></View>
           </View>
         </View>
 
@@ -2116,12 +2095,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.weekSummaryCard}>
           <View style={styles.weekSummaryHeaderRow}>
-            <Ionicons name="bar-chart" size={16} color={HOME_SAGE} />
+            <Ionicons name="bar-chart" size={16} color={colors.sage} />
             <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>This Week</Text>
           </View>
           <View style={styles.weekSummaryStatsRow}>
             <View style={styles.weekSummaryStat}>
-              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: HOME_LAVENDER_DARK }]}>{weekLessonsCompleted}</Text>
+              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: colors.lavenderDark }]}>{weekLessonsCompleted}</Text>
               <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Lessons</Text>
             </View>
             <View style={styles.weekSummaryStat}>
@@ -2129,7 +2108,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Practice Sessions</Text>
             </View>
             <View style={styles.weekSummaryStat}>
-              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: HOME_SAGE }]}>{activeDaysThisWeek}</Text>
+              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: colors.sage }]}>{activeDaysThisWeek}</Text>
               <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Active Days</Text>
             </View>
           </View>
@@ -2141,13 +2120,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.upcomingCard}>
           <View style={styles.upcomingHeaderRow}>
-            <Ionicons name="alarm" size={16} color={HOME_SUN} />
+            <Ionicons name="alarm" size={16} color={colors.sun} />
             <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Upcoming Reminders</Text>
           </View>
           {upcomingReminders.length ? (
             upcomingReminders.map((item) => (
               <View key={item.id} style={styles.upcomingRow}>
-                <Ionicons name={SCHEDULED_TYPE_ICON[item.activity_type]} size={15} color={HOME_SUN} />
+                <Ionicons name={SCHEDULED_TYPE_ICON[item.activity_type]} size={15} color={colors.sun} />
                 <Text style={styles.upcomingRowText}>
                   {item.title} • {new Date(`${item.scheduled_date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                   {item.start_time ? ` ${item.start_time.slice(0, 5)}` : ''}
@@ -2169,28 +2148,28 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             accessibilityRole="button"
             accessibilityLabel="Add a reminder"
           >
-            <Ionicons name="add-circle" size={16} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="add-circle" size={16} color={colors.lavenderDark} />
             <Text style={styles.quickActionText}>Add Reminder</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View progress">
-            <Ionicons name="bar-chart" size={16} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="bar-chart" size={16} color={colors.lavenderDark} />
             <Text style={styles.quickActionText}>View Progress</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Open notification settings">
-            <Ionicons name="settings" size={16} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="settings" size={16} color={colors.lavenderDark} />
             <Text style={styles.quickActionText}>Notification Settings</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.overviewGrid}>
           <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
-            <Ionicons name="book" size={20} color={HOME_LAVENDER_DARK} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_LAVENDER_DARK }]}>{wordsPracticed}</Text>
+            <Ionicons name="book" size={20} color={colors.lavenderDark} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavenderDark }]}>{wordsPracticed}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Words Practiced</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
-            <Ionicons name="checkmark-circle" size={20} color={HOME_SAGE} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
+            <Ionicons name="checkmark-circle" size={20} color={colors.sage} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sage }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>All-Time Average</Text>
           </View>
         </View>
@@ -2198,7 +2177,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.parentInsightCard}>
           <View style={{ flex: 1, paddingRight: 8 }}>
             <View style={styles.upcomingHeaderRow}>
-              <Ionicons name="bulb" size={16} color={HOME_LAVENDER_DARK} />
+              <Ionicons name="bulb" size={16} color={colors.lavenderDark} />
               <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle, { fontSize: a11ySize(14) }]}>Parent Insight</Text>
             </View>
             <Text style={styles.parentInsightText}>
@@ -2227,7 +2206,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     isLast = false,
   ) => (
     <View style={[styles.settingsToggleRow, isLast && { borderBottomWidth: 0 }]}>
-      <Ionicons name={icon} size={20} color={HOME_LAVENDER_DARK} />
+      <Ionicons name={icon} size={20} color={colors.lavenderDark} />
       <View style={{ flex: 1 }}>
         <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>{title}</Text>
         <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{subtitle}</Text>
@@ -2237,7 +2216,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         onValueChange={(next) => updateParentSetting(key, next as any)}
         disabled={savingSettingKey === '__all__'}
         trackColor={{ false: '#cbd5e1', true: 'rgba(95,82,176,0.4)' }}
-        thumbColor={value ? HOME_LAVENDER_DARK : '#f8fafc'}
+        thumbColor={value ? colors.lavenderDark : '#f8fafc'}
         accessibilityRole="switch"
         accessibilityLabel={title}
         accessibilityHint={subtitle}
@@ -2338,19 +2317,19 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         );
       })}
       <TouchableOpacity style={styles.enrollChildRow} onPress={() => setShowEnroll(true)}>
-        <Ionicons name="add" size={18} color={HOME_LAVENDER_DARK} />
+        <Ionicons name="add" size={18} color={colors.lavenderDark} />
         <Text style={styles.enrollChildRowText}>Enroll New Child</Text>
       </TouchableOpacity>
 
       <Text style={styles.settingsGroupTitle}>Account Settings</Text>
       <View style={styles.settingsListCard}>
         <TouchableOpacity style={styles.settingsRow} onPress={() => setEditProfileVisible(true)}>
-          <Ionicons name="person-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <Ionicons name="person-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Personal Information</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Update your name and phone number</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+          <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingsRow}
@@ -2360,16 +2339,16 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             setEmailModalVisible(true);
           }}
         >
-          <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Email Address</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentEmail}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+          <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
 
         {!parentSettings ? (
-          <ActivityIndicator color={HOME_LAVENDER_DARK} style={{ marginVertical: 16 }} />
+          <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
         ) : (
           <>
             {renderToggleRow('book-outline', 'Lesson Updates', 'When your child opens a lesson', 'lesson_notifications', parentSettings.lesson_notifications)}
@@ -2383,13 +2362,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <Text style={styles.settingsGroupTitle}>Reading Support Preferences</Text>
       <View style={styles.settingsListCard}>
         {!parentSettings ? (
-          <ActivityIndicator color={HOME_LAVENDER_DARK} style={{ marginVertical: 16 }} />
+          <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
         ) : (
           <>
             {renderToggleRow('text-outline', 'Dyslexia-Friendly Font', 'Use a font designed to improve readability', 'dyslexia_font', parentSettings.dyslexia_font)}
             {renderToggleRow('volume-high-outline', 'Text-to-Speech', 'Listen to text read aloud in the app', 'tts_enabled', parentSettings.tts_enabled)}
             <View style={[styles.settingsToggleRow, { borderBottomWidth: 0 }]}>
-              <Ionicons name="speedometer-outline" size={20} color={HOME_LAVENDER_DARK} />
+              <Ionicons name="speedometer-outline" size={20} color={colors.lavenderDark} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Speech Speed</Text>
                 <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentSettings.speech_rate || 'normal'}</Text>
@@ -2415,25 +2394,25 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <Text style={styles.settingsGroupTitle}>Help & Support</Text>
       <View style={styles.settingsListCard}>
         <TouchableOpacity style={styles.settingsRow} onPress={contactSupport}>
-          <Ionicons name="headset-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <Ionicons name="headset-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Contact Support</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Get help from our team</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+          <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingsRow}
           onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => {})}
         >
-          <Ionicons name="shield-checkmark-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Privacy Policy</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={HOME_INK_SOFT} />
+          <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <View style={[styles.settingsRow, { borderBottomWidth: 0 }]}>
-          <Ionicons name="information-circle-outline" size={20} color={HOME_LAVENDER_DARK} />
+          <Ionicons name="information-circle-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>App Version</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{appVersion} - Up to date</Text>
@@ -2472,7 +2451,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={PRIMARY} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -2481,7 +2460,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <TouchableOpacity onPress={openSidebar} style={styles.menuButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Ionicons name="menu-outline" size={26} color={PRIMARY} />
+          <Ionicons name="menu-outline" size={26} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.appTitle}>LinawLetra</Text>
         {/* Balances menuButton's width so appTitle stays centered now that
@@ -2582,7 +2561,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <View style={styles.emailModalHeader}>
               <Text style={styles.emailModalTitle}>Baguhin ang Email</Text>
               <TouchableOpacity onPress={() => setEmailModalVisible(false)} disabled={savingEmail}>
-                <Ionicons name="close" size={24} color={HOME_INK} />
+                <Ionicons name="close" size={24} color={colors.ink} />
               </TouchableOpacity>
             </View>
             <TextInput
@@ -2592,7 +2571,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               autoCapitalize="none"
               keyboardType="email-address"
               placeholder="Bagong email"
-              placeholderTextColor={HOME_INK_SOFT}
+              placeholderTextColor={colors.inkSoft}
             />
             {!!emailModalError && (
               <Text style={styles.emailModalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
@@ -2615,18 +2594,18 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 48, paddingBottom: 12,
-    backgroundColor: SURFACE, borderBottomWidth: 1, borderBottomColor: BORDER,
+    backgroundColor: SURFACE, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   menuButton: { padding: 6 },
   topBarSpacer: { width: 38 },
   settingsButton: { padding: 6, marginRight: 6 },
-  appTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY, flex: 1, textAlign: 'center' },
-  errorBanner: { color: DANGER, marginHorizontal: 16, marginTop: 12, marginBottom: 8 },
+  appTitle: { fontSize: 20, fontWeight: '900', color: colors.primary, flex: 1, textAlign: 'center' },
+  errorBanner: { color: colors.danger, marginHorizontal: 16, marginTop: 12, marginBottom: 8 },
   content: { padding: 16, paddingBottom: 40 },
   overlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000', zIndex: 99 },
   sidebar: {
     position: 'absolute', top: 0, bottom: 0, left: 0, width: 270,
-    backgroundColor: PRIMARY, paddingTop: 48, zIndex: 100,
+    backgroundColor: colors.primary, paddingTop: 48, zIndex: 100,
     shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.18, shadowRadius: 20, elevation: 20,
   },
@@ -2651,7 +2630,7 @@ const styles = StyleSheet.create({
   navItemActive: { backgroundColor: '#fff' },
   navLabel: { fontSize: 14, fontWeight: '700', color: '#fff', flex: 1 },
   navLabelActive: { color: PRIMARY_TEXT },
-  navDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: DANGER },
+  navDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger },
   sidebarLogout: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     margin: 20, padding: 16, borderRadius: 14,
@@ -2660,37 +2639,37 @@ const styles = StyleSheet.create({
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   childCard: {
     backgroundColor: SURFACE, borderRadius: 20, padding: 18,
-    marginBottom: 14, borderWidth: 1, borderColor: BORDER,
+    marginBottom: 14, borderWidth: 1, borderColor: colors.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 2,
   },
   childCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   childAvatar: {
     width: 46, height: 46, borderRadius: 23,
-    backgroundColor: PRIMARY_LIGHT, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
   },
-  childAvatarText: { fontSize: 18, fontWeight: '900', color: PRIMARY },
-  childName: { fontSize: 17, fontWeight: '900', color: TEXT_PRIMARY },
-  childMeta: { fontSize: 12, color: TEXT_SECONDARY, marginTop: 2 },
+  childAvatarText: { fontSize: 18, fontWeight: '900', color: colors.primary },
+  childName: { fontSize: 17, fontWeight: '900', color: colors.textPrimary },
+  childMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   levelBadge: { borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 },
   levelBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  greeting: { fontSize: 14, color: TEXT_SECONDARY, fontStyle: 'italic', marginBottom: 14, lineHeight: 20 },
+  greeting: { fontSize: 14, color: colors.textSecondary, fontStyle: 'italic', marginBottom: 14, lineHeight: 20 },
   statsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
   statChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: PRIMARY_LIGHT, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
   },
   statChipText: { fontSize: 12, fontWeight: '800', color: PRIMARY_TEXT },
-  progressTrack: { height: 8, backgroundColor: BORDER, borderRadius: 999, overflow: 'hidden', marginBottom: 6 },
-  progressFill: { height: '100%', backgroundColor: PRIMARY, borderRadius: 999 },
-  progressLabel: { fontSize: 11, color: TEXT_SECONDARY, textAlign: 'right', marginBottom: 10 },
+  progressTrack: { height: 8, backgroundColor: colors.border, borderRadius: 999, overflow: 'hidden', marginBottom: 6 },
+  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 999 },
+  progressLabel: { fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginBottom: 10 },
   childDetails: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  emptyDetail: { color: TEXT_SECONDARY, fontSize: 13, marginTop: 8 },
+  emptyDetail: { color: colors.textSecondary, fontSize: 13, marginTop: 8 },
   quickActions: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 8 },
   quickAction: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, backgroundColor: SURFACE,
+    paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.lavenderDark, backgroundColor: SURFACE,
   },
-  quickActionText: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK },
+  quickActionText: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
 
   // Home tab redesign - shares the Student Dashboard's HOME_* palette for
@@ -2698,100 +2677,100 @@ const styles = StyleSheet.create({
   // emoji) compared to the more playful student-facing screens.
   homeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
   homeAvatar: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: HOME_LAVENDER,
+    width: 48, height: 48, borderRadius: 24, backgroundColor: colors.lavender,
     alignItems: 'center', justifyContent: 'center',
   },
   homeAvatarText: { fontSize: 18, fontWeight: '900', color: '#fff' },
-  homeGreeting: { fontSize: 22, fontWeight: '900', color: HOME_INK },
-  homeGreetingSub: { fontSize: 13, color: HOME_INK_SOFT, marginTop: 2 },
+  homeGreeting: { fontSize: 22, fontWeight: '900', color: colors.ink },
+  homeGreetingSub: { fontSize: 13, color: colors.inkSoft, marginTop: 2 },
   viewingSelector: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'flex-start',
     backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, gap: 6, marginBottom: 12,
   },
-  viewingSelectorText: { fontSize: 13, fontWeight: '800', color: HOME_LAVENDER_DARK },
+  viewingSelectorText: { fontSize: 13, fontWeight: '800', color: colors.lavenderDark },
   childPickerList: {
-    backgroundColor: SURFACE, borderRadius: 14, borderWidth: 1, borderColor: BORDER, marginBottom: 12, overflow: 'hidden',
+    backgroundColor: SURFACE, borderRadius: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 12, overflow: 'hidden',
   },
   childPickerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
   },
-  childPickerRowText: { fontSize: 14, color: TEXT_PRIMARY, fontWeight: '600' },
+  childPickerRowText: { fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
   childSummaryCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: SURFACE, borderRadius: 20, padding: 18, marginBottom: 16,
-    borderWidth: 1, borderColor: BORDER,
+    borderWidth: 1, borderColor: colors.border,
   },
   latestReadingCard: { backgroundColor: '#F8F7FF', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#D9D4F4' },
   latestReadingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  latestReadingEyebrow: { color: HOME_LAVENDER_DARK, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
-  latestReadingWord: { color: HOME_INK, fontSize: 20, fontWeight: '900', marginTop: 3 },
+  latestReadingEyebrow: { color: colors.lavenderDark, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  latestReadingWord: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 3 },
   latestReadingStats: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 14, paddingVertical: 10, marginBottom: 12 },
   latestReadingStat: { flex: 1, alignItems: 'center', paddingHorizontal: 3 },
-  latestReadingValue: { color: HOME_LAVENDER_DARK, fontSize: 16, fontWeight: '900' },
-  latestReadingLabel: { color: HOME_INK_SOFT, fontSize: 9, fontWeight: '700', marginTop: 2, textAlign: 'center' },
-  latestReadingObservation: { color: HOME_INK, fontSize: 12, fontWeight: '700', lineHeight: 18 },
-  latestReadingPractice: { color: HOME_SAGE, fontSize: 12, fontWeight: '800', lineHeight: 18, marginTop: 6 },
+  latestReadingValue: { color: colors.lavenderDark, fontSize: 16, fontWeight: '900' },
+  latestReadingLabel: { color: colors.inkSoft, fontSize: 9, fontWeight: '700', marginTop: 2, textAlign: 'center' },
+  latestReadingObservation: { color: colors.ink, fontSize: 12, fontWeight: '700', lineHeight: 18 },
+  latestReadingPractice: { color: colors.sage, fontSize: 12, fontWeight: '800', lineHeight: 18, marginTop: 6 },
   childAvatarLg: {
     width: 56, height: 56, borderRadius: 28, backgroundColor: '#EFECFB',
     alignItems: 'center', justifyContent: 'center',
   },
-  childAvatarLgText: { fontSize: 22, fontWeight: '900', color: HOME_LAVENDER_DARK },
-  childSummaryName: { fontSize: 18, fontWeight: '900', color: HOME_INK, marginBottom: 8 },
+  childAvatarLgText: { fontSize: 22, fontWeight: '900', color: colors.lavenderDark },
+  childSummaryName: { fontSize: 18, fontWeight: '900', color: colors.ink, marginBottom: 8 },
   childSummaryBadgeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   gradeBadge: { backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  gradeBadgeText: { fontSize: 11, fontWeight: '700', color: TEXT_SECONDARY },
+  gradeBadgeText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
   levelBadgeOutline: { borderRadius: 999, borderWidth: 1.5, paddingHorizontal: 10, paddingVertical: 4 },
   levelBadgeOutlineText: { fontSize: 11, fontWeight: '800' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusDotLg: { width: 8, height: 8, borderRadius: 4 },
-  statusRowText: { fontSize: 12, fontWeight: '700', color: HOME_INK_SOFT },
+  statusRowText: { fontSize: 12, fontWeight: '700', color: colors.inkSoft },
   readingProgressCard: {
     backgroundColor: SURFACE, borderRadius: 20, padding: 20, marginBottom: 16,
-    borderWidth: 1, borderColor: BORDER, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center',
   },
   readingProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
-  readingProgressTitle: { fontSize: 17, fontWeight: '900', color: HOME_INK },
-  readingProgressPct: { fontSize: 26, fontWeight: '900', color: HOME_LAVENDER_DARK },
+  readingProgressTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
+  readingProgressPct: { fontSize: 26, fontWeight: '900', color: colors.lavenderDark },
   improvementBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10,
   },
   improvementBadgeText: { fontSize: 12, fontWeight: '800' },
-  readingProgressMessage: { fontSize: 13, color: HOME_INK_SOFT, textAlign: 'center' },
-  homeSectionTitle: { fontSize: 16, fontWeight: '900', color: HOME_INK, marginBottom: 10 },
+  readingProgressMessage: { fontSize: 13, color: colors.inkSoft, textAlign: 'center' },
+  homeSectionTitle: { fontSize: 16, fontWeight: '900', color: colors.ink, marginBottom: 10 },
   overviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   overviewCard: { width: '47%', borderRadius: 16, padding: 14 },
   overviewValue: { fontSize: 20, fontWeight: '900', marginTop: 8 },
-  overviewLabel: { fontSize: 12, color: TEXT_SECONDARY, marginTop: 2, fontWeight: '700' },
+  overviewLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2, fontWeight: '700' },
   trendCard: {
     backgroundColor: SURFACE, borderRadius: 18, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: BORDER,
+    borderWidth: 1, borderColor: colors.border,
   },
   trendMsgRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  trendMsgText: { fontSize: 12, color: HOME_INK_SOFT, flex: 1 },
+  trendMsgText: { fontSize: 12, color: colors.inkSoft, flex: 1 },
   trendEmpty: { alignItems: 'center', paddingVertical: 24, gap: 8 },
-  trendEmptyText: { fontSize: 13, color: HOME_INK_SOFT, textAlign: 'center' },
+  trendEmptyText: { fontSize: 13, color: colors.inkSoft, textAlign: 'center' },
   skillCardTrack: { height: 5, backgroundColor: '#f3f4f6', borderRadius: 999, overflow: 'hidden' },
   skillCardFill: { height: '100%', borderRadius: 999 },
   currentLessonCard: {
     backgroundColor: SURFACE, borderRadius: 16, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: BORDER, gap: 6,
+    borderWidth: 1, borderColor: colors.border, gap: 6,
   },
-  currentLessonTitle: { fontSize: 14, fontWeight: '800', color: HOME_INK, flex: 1 },
+  currentLessonTitle: { fontSize: 14, fontWeight: '800', color: colors.ink, flex: 1 },
 
   // Home tab redesign - decor, child card, hero, weekly chart, insight,
   // goal, recent feed, support banner
   homeGreetingDecor: { width: 64, height: 43, marginLeft: 4 },
-  childSummaryEyebrow: { fontSize: 11, fontWeight: '800', color: HOME_INK_SOFT, textTransform: 'uppercase', letterSpacing: 0.4 },
+  childSummaryEyebrow: { fontSize: 11, fontWeight: '800', color: colors.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4 },
   switchChildButton: {
     flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFECFB',
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'flex-start',
   },
-  switchChildButtonText: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK },
+  switchChildButtonText: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
   heroProgressCard: {
     borderRadius: 26, padding: 20, marginBottom: 16, overflow: 'hidden',
-    shadowColor: HERO_GRADIENT_START, shadowOpacity: 0.3, shadowRadius: 20,
+    shadowColor: colors.heroGradient[0], shadowOpacity: 0.3, shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 }, elevation: 6,
   },
   // Soft translucent circles for depth - purely decorative, sit behind
@@ -2829,7 +2808,7 @@ const styles = StyleSheet.create({
     borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18, alignSelf: 'flex-start',
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
-  heroProgressButtonText: { fontSize: 12, fontWeight: '800', color: HERO_GRADIENT_START },
+  heroProgressButtonText: { fontSize: 12, fontWeight: '800', color: colors.heroGradient[0] },
   heroProgressRingWrap: {
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
@@ -2839,41 +2818,41 @@ const styles = StyleSheet.create({
   weekBarRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 90, marginBottom: 10 },
   weekBarCol: { alignItems: 'center', gap: 6, flex: 1 },
   weekBarTrack: { height: 70, width: 16, justifyContent: 'flex-end' },
-  weekBarFill: { width: 16, borderRadius: 8, backgroundColor: HOME_LAVENDER },
-  weekBarLabel: { fontSize: 10, color: TEXT_SECONDARY, fontWeight: '700' },
-  weekBarSummary: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '700', textAlign: 'center' },
+  weekBarFill: { width: 16, borderRadius: 8, backgroundColor: colors.lavender },
+  weekBarLabel: { fontSize: 10, color: colors.textSecondary, fontWeight: '700' },
+  weekBarSummary: { fontSize: 12, color: colors.inkSoft, fontWeight: '700', textAlign: 'center' },
   skillOverviewRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  skillOverviewMeta: { fontSize: 11, color: HOME_INK_SOFT, fontWeight: '600', marginTop: 4, marginLeft: 26 },
-  skillOverviewEmpty: { fontSize: 13, color: HOME_INK_SOFT, fontWeight: '600' },
-  homeSectionSub: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '600', marginTop: -6, marginBottom: 10 },
+  skillOverviewMeta: { fontSize: 11, color: colors.inkSoft, fontWeight: '600', marginTop: 4, marginLeft: 26 },
+  skillOverviewEmpty: { fontSize: 13, color: colors.inkSoft, fontWeight: '600' },
+  homeSectionSub: { fontSize: 12, color: colors.inkSoft, fontWeight: '600', marginTop: -6, marginBottom: 10 },
   weeklyInsightCard: {
     backgroundColor: SURFACE, borderRadius: 18, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: BORDER, gap: 10,
+    borderWidth: 1, borderColor: colors.border, gap: 10,
   },
   weeklyInsightRow: { gap: 4 },
-  insightRowLabel: { fontSize: 13, fontWeight: '800', color: HOME_INK },
+  insightRowLabel: { fontSize: 13, fontWeight: '800', color: colors.ink },
   insightRowTrack: { height: 6, backgroundColor: '#f3f4f6', borderRadius: 999, overflow: 'hidden' },
   insightRowFill: { height: '100%', borderRadius: 999 },
   insightRowStatus: { fontSize: 11, fontWeight: '700' },
-  insightSeeMore: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK, marginTop: 4 },
+  insightSeeMore: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark, marginTop: 4 },
   goalCard: {
     backgroundColor: '#FFF3DC', borderRadius: 18, padding: 16, marginBottom: 16, gap: 8,
   },
   goalCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  homeSectionTitleInline: { fontSize: 15, fontWeight: '900', color: HOME_INK },
-  goalCardValue: { fontSize: 22, fontWeight: '900', color: HOME_SUN },
+  homeSectionTitleInline: { fontSize: 15, fontWeight: '900', color: colors.ink },
+  goalCardValue: { fontSize: 22, fontWeight: '900', color: colors.sun },
   goalCardTrack: { height: 8, backgroundColor: 'rgba(227,151,26,0.18)', borderRadius: 999, overflow: 'hidden' },
-  goalCardFill: { height: '100%', borderRadius: 999, backgroundColor: HOME_SUN },
-  goalCardSub: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '600' },
+  goalCardFill: { height: '100%', borderRadius: 999, backgroundColor: colors.sun },
+  goalCardSub: { fontSize: 12, color: colors.inkSoft, fontWeight: '600' },
   recentHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  viewAllLink: { fontSize: 12, fontWeight: '800', color: HOME_LAVENDER_DARK },
+  viewAllLink: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
   recentActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: SURFACE, borderRadius: 16,
-    padding: 12, marginBottom: 10, borderWidth: 1, borderColor: BORDER,
+    padding: 12, marginBottom: 10, borderWidth: 1, borderColor: colors.border,
   },
   recentActivityIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  recentActivityDetail: { fontSize: 12, color: HOME_INK_SOFT, fontWeight: '600', marginTop: 2 },
-  recentActivityTime: { fontSize: 11, color: HOME_INK_SOFT, fontWeight: '600' },
+  recentActivityDetail: { fontSize: 12, color: colors.inkSoft, fontWeight: '600', marginTop: 2 },
+  recentActivityTime: { fontSize: 11, color: colors.inkSoft, fontWeight: '600' },
   supportBanner: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 20, padding: 18, marginBottom: 16, overflow: 'hidden',
   },
@@ -2890,60 +2869,60 @@ const styles = StyleSheet.create({
   weekSummaryStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   weekSummaryStat: { alignItems: 'center', gap: 2 },
   weekSummaryStatValue: { fontSize: 20, fontWeight: '900' },
-  weekSummaryStatLabel: { fontSize: 10.5, color: HOME_INK_SOFT, fontWeight: '700', textAlign: 'center' },
+  weekSummaryStatLabel: { fontSize: 10.5, color: colors.inkSoft, fontWeight: '700', textAlign: 'center' },
   weekProgressTrack: { height: 7, backgroundColor: 'rgba(92,128,71,0.16)', borderRadius: 999, overflow: 'hidden' },
-  weekProgressFill: { height: '100%', borderRadius: 999, backgroundColor: HOME_SAGE },
-  weekSummaryCaption: { fontSize: 11.5, color: HOME_INK_SOFT, fontWeight: '600' },
+  weekProgressFill: { height: '100%', borderRadius: 999, backgroundColor: colors.sage },
+  weekSummaryCaption: { fontSize: 11.5, color: colors.inkSoft, fontWeight: '600' },
   upcomingCard: { backgroundColor: '#FFF3DC', borderRadius: 18, padding: 16, marginBottom: 16, gap: 8 },
   upcomingHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  upcomingRowText: { fontSize: 12.5, color: HOME_INK, fontWeight: '700', flex: 1 },
+  upcomingRowText: { fontSize: 12.5, color: colors.ink, fontWeight: '700', flex: 1 },
   parentInsightCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: 18,
     padding: 16, marginBottom: 16,
   },
-  parentInsightText: { fontSize: 12.5, color: HOME_INK, fontWeight: '600', lineHeight: 17, marginTop: 6, marginBottom: 8 },
+  parentInsightText: { fontSize: 12.5, color: colors.ink, fontWeight: '600', lineHeight: 17, marginTop: 6, marginBottom: 8 },
   parentInsightImage: { width: 72, height: 96 },
 
   // Child Progress tab
   trendLineLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  trendLineLabelText: { fontSize: 10, color: TEXT_SECONDARY, flex: 1, textAlign: 'center' },
-  periodFilterLabel: { fontSize: 10, fontWeight: '800', color: TEXT_SECONDARY, letterSpacing: 0.5, marginBottom: 8 },
+  trendLineLabelText: { fontSize: 10, color: colors.textSecondary, flex: 1, textAlign: 'center' },
+  periodFilterLabel: { fontSize: 10, fontWeight: '800', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 8 },
   periodFilterRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   periodChip: {
     flex: 1, backgroundColor: SURFACE, borderRadius: 999, paddingVertical: 9,
-    alignItems: 'center', borderWidth: 1, borderColor: BORDER,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.border,
   },
-  periodChipActive: { backgroundColor: HOME_LAVENDER_DARK, borderColor: HOME_LAVENDER_DARK },
-  periodChipText: { fontSize: 11, fontWeight: '700', color: TEXT_SECONDARY },
+  periodChipActive: { backgroundColor: colors.lavenderDark, borderColor: colors.lavenderDark },
+  periodChipText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
   periodChipTextActive: { color: '#fff' },
-  readingProgressPctSub: { fontSize: 10, color: HOME_INK_SOFT, fontWeight: '700', textAlign: 'center', marginTop: 2 },
+  readingProgressPctSub: { fontSize: 10, color: colors.inkSoft, fontWeight: '700', textAlign: 'center', marginTop: 2 },
   overallStatsRow: {
     flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 16, padding: 14,
-    marginBottom: 12, borderWidth: 1, borderColor: BORDER,
+    marginBottom: 12, borderWidth: 1, borderColor: colors.border,
   },
   overallStatCell: { flex: 1, alignItems: 'center' },
-  overallStatValue: { fontSize: 17, fontWeight: '900', color: HOME_INK },
-  overallStatLabel: { fontSize: 10, color: TEXT_SECONDARY, marginTop: 3, fontWeight: '700' },
+  overallStatValue: { fontSize: 17, fontWeight: '900', color: colors.ink },
+  overallStatLabel: { fontSize: 10, color: colors.textSecondary, marginTop: 3, fontWeight: '700' },
   skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   skillGridCard: {
     width: '47%', backgroundColor: SURFACE, borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: BORDER, gap: 6,
+    borderWidth: 1, borderColor: colors.border, gap: 6,
   },
   skillGridTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 },
-  skillGridLabel: { fontSize: 12, fontWeight: '800', color: HOME_INK, flex: 1 },
+  skillGridLabel: { fontSize: 12, fontWeight: '800', color: colors.ink, flex: 1 },
   skillGridPct: { fontSize: 15, fontWeight: '900' },
   skillGridStatus: { fontSize: 11, fontWeight: '700' },
   miniChartCard: {
     backgroundColor: SURFACE, borderRadius: 16, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: BORDER,
+    borderWidth: 1, borderColor: colors.border,
   },
-  miniChartTitle: { fontSize: 13, fontWeight: '800', color: HOME_INK, marginBottom: 10 },
+  miniChartTitle: { fontSize: 13, fontWeight: '800', color: colors.ink, marginBottom: 10 },
   miniChartBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 70 },
   miniBarCol: { alignItems: 'center', gap: 4, flex: 1 },
-  miniBar: { width: 14, borderRadius: 4, backgroundColor: HOME_LAVENDER },
-  miniBarLabel: { fontSize: 9, color: TEXT_SECONDARY },
-  miniChartSub: { fontSize: 11, color: HOME_INK_SOFT, marginTop: 10, textAlign: 'center' },
+  miniBar: { width: 14, borderRadius: 4, backgroundColor: colors.lavender },
+  miniBarLabel: { fontSize: 9, color: colors.textSecondary },
+  miniChartSub: { fontSize: 11, color: colors.inkSoft, marginTop: 10, textAlign: 'center' },
   recommendCard: {
     flexDirection: 'row', gap: 12, backgroundColor: '#FFF3DC', borderRadius: 16,
     padding: 16, marginBottom: 12, alignItems: 'flex-start',
@@ -2952,10 +2931,10 @@ const styles = StyleSheet.create({
     width: 34, height: 34, borderRadius: 17, backgroundColor: '#fff',
     alignItems: 'center', justifyContent: 'center',
   },
-  recommendTitle: { fontSize: 13, fontWeight: '800', color: HOME_INK, marginBottom: 4 },
-  recommendText: { fontSize: 12, color: HOME_INK_SOFT, lineHeight: 17, marginBottom: 10 },
+  recommendTitle: { fontSize: 13, fontWeight: '800', color: colors.ink, marginBottom: 4 },
+  recommendText: { fontSize: 12, color: colors.inkSoft, lineHeight: 17, marginBottom: 10 },
   recommendButton: {
-    backgroundColor: HOME_SUN, borderRadius: 999, paddingVertical: 9,
+    backgroundColor: colors.sun, borderRadius: 999, paddingVertical: 9,
     paddingHorizontal: 14, alignSelf: 'flex-start',
   },
   recommendButtonText: { color: '#fff', fontSize: 11, fontWeight: '800' },
@@ -2963,22 +2942,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 10, backgroundColor: '#EFECFB', borderRadius: 16,
     padding: 16, marginBottom: 16, alignItems: 'flex-start',
   },
-  insightCardV2Text: { fontSize: 12, color: HOME_INK, lineHeight: 18, flex: 1 },
+  insightCardV2Text: { fontSize: 12, color: colors.ink, lineHeight: 18, flex: 1 },
   detailedReportButton: {
-    backgroundColor: HOME_LAVENDER_DARK, borderRadius: 16, paddingVertical: 16,
+    backgroundColor: colors.lavenderDark, borderRadius: 16, paddingVertical: 16,
     alignItems: 'center', marginTop: 4, marginBottom: 8,
   },
   detailedReportButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   recentActivityScore: { fontSize: 15, fontWeight: '900' },
 
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  sectionHeaderTitle: { fontSize: 18, fontWeight: '900', color: TEXT_PRIMARY, flex: 1 },
-  sectionHeaderSub: { fontSize: 12, color: TEXT_SECONDARY },
+  sectionHeaderTitle: { fontSize: 18, fontWeight: '900', color: colors.textPrimary, flex: 1 },
+  sectionHeaderSub: { fontSize: 12, color: colors.textSecondary },
   monthButton: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: PRIMARY_LIGHT,
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2987,18 +2966,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     marginBottom: 16,
   },
   calendarCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8 },
-  todayPill: { backgroundColor: HOME_LAVENDER_DARK, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
+  todayPill: { backgroundColor: colors.lavenderDark, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
   todayPillText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  dayLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: BORDER },
+  dayLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
   dayLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  dayLegendText: { fontSize: 11, fontWeight: '700', color: TEXT_SECONDARY },
-  calendarMonth: { fontSize: 16, fontWeight: '900', color: TEXT_PRIMARY },
+  dayLegendText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
+  calendarMonth: { fontSize: 16, fontWeight: '900', color: colors.textPrimary },
   weekHeader: { flexDirection: 'row', marginBottom: 8 },
-  weekHeaderText: { flex: 1, textAlign: 'center', color: TEXT_SECONDARY, fontSize: 11, fontWeight: '800' },
+  weekHeaderText: { flex: 1, textAlign: 'center', color: colors.textSecondary, fontSize: 11, fontWeight: '800' },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   dayCell: {
     width: `${100 / 7}%`,
@@ -3008,18 +2987,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 4,
   },
-  dayCellSelected: { backgroundColor: PRIMARY },
-  dayText: { color: TEXT_PRIMARY, fontWeight: '800' },
+  dayCellSelected: { backgroundColor: colors.primary },
+  dayText: { color: colors.textPrimary, fontWeight: '800' },
   dayTextSelected: { color: '#fff' },
   dayDots: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
   dayDot: { width: 6, height: 6, borderRadius: 3 },
-  dayCount: { fontSize: 9, color: TEXT_SECONDARY, fontWeight: '800' },
+  dayCount: { fontSize: 9, color: colors.textSecondary, fontWeight: '800' },
   selectedTasksCard: {
     backgroundColor: SURFACE,
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     marginBottom: 16,
   },
   dayEntryRow: {
@@ -3029,93 +3008,93 @@ const styles = StyleSheet.create({
   dayEntryIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   dayEntryPill: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 3 },
   dayEntryPillText: { fontSize: 9.5, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
-  dayEntryTitle: { fontSize: 13.5, fontWeight: '800', color: TEXT_PRIMARY },
-  dayEntryMeta: { fontSize: 11.5, color: TEXT_SECONDARY, fontWeight: '600', marginTop: 1 },
+  dayEntryTitle: { fontSize: 13.5, fontWeight: '800', color: colors.textPrimary },
+  dayEntryMeta: { fontSize: 11.5, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
   dayEntryAction: { borderWidth: 1.3, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
   dayEntryActionText: { fontSize: 10.5, fontWeight: '800' },
-  selectedTasksTitle: { color: TEXT_PRIMARY, fontWeight: '900', fontSize: 16, marginBottom: 10 },
+  selectedTasksTitle: { color: colors.textPrimary, fontWeight: '900', fontSize: 16, marginBottom: 10 },
   selectedTasksHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   scheduledCompleteButton: { padding: 4 },
-  insightCard: { backgroundColor: PRIMARY_LIGHT, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: PRIMARY, padding: 16, marginBottom: 12 },
+  insightCard: { backgroundColor: colors.primaryLight, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: colors.primary, padding: 16, marginBottom: 12 },
   insightChildName: { fontSize: 14, fontWeight: '900', color: PRIMARY_TEXT, marginBottom: 10 },
   insightRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#c7d2fe' },
-  insightText: { color: TEXT_PRIMARY, lineHeight: 20 },
-  activityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: BORDER },
-  activityEmoji: { width: 44, height: 44, borderRadius: 22, backgroundColor: PRIMARY_LIGHT, alignItems: 'center', justifyContent: 'center' },
+  insightText: { color: colors.textPrimary, lineHeight: 20 },
+  activityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  activityEmoji: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   activityEmojiText: { fontSize: 22 },
-  activityChildName: { fontWeight: '800', color: TEXT_PRIMARY },
-  activityTitle: { color: TEXT_SECONDARY, fontSize: 13, marginTop: 2 },
-  activityDate: { fontSize: 11, color: TEXT_SECONDARY, marginTop: 2 },
+  activityChildName: { fontWeight: '800', color: colors.textPrimary },
+  activityTitle: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  activityDate: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
   rewardsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   rewardCell: { width: '47%', borderRadius: 16, padding: 14, alignItems: 'center', borderWidth: 1.5 },
   rewardEmoji: { fontSize: 30, marginBottom: 8 },
   rewardImage: { width: 56, height: 56, marginBottom: 8 },
-  rewardTitle: { fontSize: 13, fontWeight: '800', textAlign: 'center', marginBottom: 10, color: TEXT_PRIMARY },
+  rewardTitle: { fontSize: 13, fontWeight: '800', textAlign: 'center', marginBottom: 10, color: colors.textPrimary },
   rewardChildRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center' },
   rewardChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },
   rewardChipText: { fontSize: 10, fontWeight: '700' },
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyEmoji: { fontSize: 48, marginBottom: 14 },
-  emptyText: { color: TEXT_SECONDARY, fontSize: 15, textAlign: 'center' },
-  emptyButton: { backgroundColor: PRIMARY, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16 },
+  emptyText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
+  emptyButton: { backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16 },
   emptyButtonText: { color: '#fff', fontWeight: '800' },
-  rewardsChip: { backgroundColor: PRIMARY_LIGHT, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
+  rewardsChip: { backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
   rewardsChipText: { color: PRIMARY_TEXT, fontWeight: '800', fontSize: 11 },
 
   accountCard: {
-    backgroundColor: SURFACE, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: BORDER, marginBottom: 20,
+    backgroundColor: SURFACE, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 20,
   },
   accountCardTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   accountAvatar: { width: 60, height: 60, borderRadius: 30 },
   accountAvatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
-  accountAvatarInitial: { color: HOME_LAVENDER_DARK, fontSize: 20, fontWeight: '900' },
-  accountName: { fontSize: 16, fontWeight: '900', color: HOME_INK },
-  accountEmail: { fontSize: 12, color: HOME_INK_SOFT, marginTop: 2 },
+  accountAvatarInitial: { color: colors.lavenderDark, fontSize: 20, fontWeight: '900' },
+  accountName: { fontSize: 16, fontWeight: '900', color: colors.ink },
+  accountEmail: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   accountBadge: {
     alignSelf: 'flex-start', backgroundColor: '#EFECFB', borderRadius: 999,
     paddingHorizontal: 10, paddingVertical: 3, marginTop: 6,
   },
-  accountBadgeText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 11 },
+  accountBadgeText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 11 },
   editProfileButton: {
-    borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderRadius: 999,
+    borderWidth: 1.5, borderColor: colors.lavenderDark, borderRadius: 999,
     paddingVertical: 11, alignItems: 'center', marginTop: 14,
   },
-  editProfileButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '900', fontSize: 13 },
+  editProfileButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13 },
 
   unsavedSettingsBar: {
-    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: HOME_SUN, borderRadius: 16,
+    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: colors.sun, borderRadius: 16,
     padding: 14, marginBottom: 16, gap: 10,
   },
-  unsavedSettingsBarText: { color: HOME_INK, fontWeight: '700', fontSize: 13 },
+  unsavedSettingsBarText: { color: colors.ink, fontWeight: '700', fontSize: 13 },
   unsavedSettingsBarButtons: { flexDirection: 'row', gap: 10 },
   discardSettingsButton: {
     flex: 1, minHeight: 44, borderRadius: 999, borderWidth: 1.5, borderColor: '#D1D5DB',
     alignItems: 'center', justifyContent: 'center',
   },
-  discardSettingsButtonText: { color: HOME_INK_SOFT, fontWeight: '800', fontSize: 14 },
+  discardSettingsButtonText: { color: colors.inkSoft, fontWeight: '800', fontSize: 14 },
   saveSettingsButton: {
-    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: HOME_LAVENDER_DARK,
+    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: colors.lavenderDark,
     alignItems: 'center', justifyContent: 'center',
   },
   saveSettingsButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
-  settingsGroupTitle: { fontSize: 15, fontWeight: '900', color: HOME_INK, marginBottom: 10, marginTop: 4 },
+  settingsGroupTitle: { fontSize: 15, fontWeight: '900', color: colors.ink, marginBottom: 10, marginTop: 4 },
   childSettingsCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: SURFACE, borderRadius: 18,
-    padding: 14, borderWidth: 1, borderColor: BORDER, marginBottom: 10,
+    padding: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 10,
   },
   childAvatarSize: { width: 52, height: 52, borderRadius: 26 },
-  manageChildButton: { borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 },
-  manageChildButtonText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 12 },
+  manageChildButton: { borderWidth: 1.5, borderColor: colors.lavenderDark, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 },
+  manageChildButtonText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
   enrollChildRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: HOME_LAVENDER_DARK, borderStyle: 'dashed', borderRadius: 16,
+    borderWidth: 1.5, borderColor: colors.lavenderDark, borderStyle: 'dashed', borderRadius: 16,
     paddingVertical: 14, marginBottom: 20,
   },
-  enrollChildRowText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 14 },
+  enrollChildRowText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 14 },
 
   settingsListCard: {
-    backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1, borderColor: BORDER, marginBottom: 20, overflow: 'hidden',
+    backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1, borderColor: colors.border, marginBottom: 20, overflow: 'hidden',
   },
   settingsRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14,
@@ -3125,20 +3104,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14,
     borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
   },
-  settingsRowTitle: { color: HOME_INK, fontWeight: '800', fontSize: 14 },
-  settingsRowSub: { color: HOME_INK_SOFT, fontSize: 11, marginTop: 2 },
+  settingsRowTitle: { color: colors.ink, fontWeight: '800', fontSize: 14 },
+  settingsRowSub: { color: colors.inkSoft, fontSize: 11, marginTop: 2 },
   speedSegment: { flexDirection: 'row', backgroundColor: '#EFECFB', borderRadius: 999, padding: 3 },
   speedSegmentButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
-  speedSegmentButtonActive: { backgroundColor: HOME_LAVENDER_DARK },
-  speedSegmentText: { color: HOME_LAVENDER_DARK, fontWeight: '800', fontSize: 11, textTransform: 'capitalize' },
+  speedSegmentButtonActive: { backgroundColor: colors.lavenderDark },
+  speedSegmentText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 11, textTransform: 'capitalize' },
   speedSegmentTextActive: { color: '#fff' },
 
   emailModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   emailModalSheet: { backgroundColor: '#fff', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   emailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  emailModalTitle: { fontSize: 20, fontWeight: '800', color: HOME_INK },
-  emailModalInput: { borderWidth: 1, borderColor: BORDER, borderRadius: 10, padding: 12, fontSize: 15, color: HOME_INK },
+  emailModalTitle: { fontSize: 20, fontWeight: '800', color: colors.ink },
+  emailModalInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, color: colors.ink },
   emailModalError: { color: '#E0574C', marginTop: 10, fontWeight: '600' },
-  emailModalSubmit: { backgroundColor: HOME_LAVENDER_DARK, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  emailModalSubmit: { backgroundColor: colors.lavenderDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   emailModalSubmitText: { color: '#fff', fontWeight: '800' },
 });

@@ -13,22 +13,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { sendEmailOTP, validateEmail } from '../services/otpService';
+import { colors, typography } from '../theme';
 
 interface ResendVerificationProps {
   navigation: any;
 }
-
-// Same warm "reading journey" identity tokens used across every other auth
-// screen (Login/Sign Up/Forgot Password/Reset Password/Email Verification) —
-// this screen should feel like a continuation of the same flow.
-const HOME_CREAM = '#FBF3E2';
-const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#5F5044';
-const HOME_CORAL = '#E06B4C';
-const HOME_LAVENDER_DARK = '#5F52B0';
-const SUCCESS = '#10b981';
-const FONT_DISPLAY = 'Baloo2_800ExtraBold';
-const FONT_DISPLAY_SEMI = 'Baloo2_600SemiBold';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_RESEND_ATTEMPTS = 3;
@@ -144,7 +133,7 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={20} color={HOME_LAVENDER_DARK} />
+            <Ionicons name="chevron-back" size={20} color={colors.lavenderDark} />
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
 
@@ -162,7 +151,7 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
 
           {successMessage ? (
             <View style={styles.successBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
-              <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
               <Text style={styles.successBannerText}>{successMessage}</Text>
             </View>
           ) : null}
@@ -170,11 +159,11 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
             <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={20} color={HOME_LAVENDER_DARK} style={styles.inputLeadingIcon} />
+              <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email address"
-                placeholderTextColor={HOME_INK_SOFT}
+                placeholderTextColor={colors.inkSoft}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -215,7 +204,7 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
         </View>
 
         <View style={styles.trustNote}>
-          <Ionicons name="shield-checkmark-outline" size={14} color={HOME_INK_SOFT} />
+          <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
           <Text style={styles.trustNoteText}>Your information is protected and securely handled.</Text>
         </View>
       </ScrollView>
@@ -226,7 +215,7 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HOME_CREAM,
+    backgroundColor: colors.cream,
   },
   scroll: {
     flex: 1,
@@ -269,7 +258,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 13,
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     marginTop: -8,
     marginBottom: 8,
   },
@@ -277,28 +266,28 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     ...Platform.select({
       web: { boxShadow: '0px 10px 24px rgba(95,82,176,0.35)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24 },
     }),
   },
   title: {
     fontSize: 24,
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: FONT_DISPLAY,
-    color: HOME_INK,
+    fontFamily: typography.family.display,
+    color: colors.ink,
     paddingHorizontal: 20,
   },
   subtitle: {
     fontSize: 14,
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Avenir' : 'sans-serif',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     lineHeight: 20,
     marginBottom: 20,
     paddingHorizontal: 28,
@@ -316,7 +305,7 @@ const styles = StyleSheet.create({
     elevation: 10,
     ...Platform.select({
       web: { boxShadow: '0px 20px 40px rgba(59,50,44,0.12)' },
-      default: { shadowColor: HOME_INK, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+      default: { shadowColor: colors.ink, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.1, shadowRadius: 40 },
     }),
   },
   backButton: {
@@ -326,7 +315,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
   },
   backButtonText: {
-    color: HOME_LAVENDER_DARK,
+    color: colors.lavenderDark,
     fontSize: 14,
     marginLeft: 4,
     fontWeight: '700',
@@ -340,10 +329,10 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderLeftWidth: 4,
-    borderLeftColor: HOME_CORAL,
+    borderLeftColor: colors.coral,
   },
   infoBanner: {
-    color: HOME_INK,
+    color: colors.ink,
     textAlign: 'center',
     marginBottom: 16,
     fontSize: 13,
@@ -351,7 +340,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderLeftWidth: 4,
-    borderLeftColor: HOME_LAVENDER_DARK,
+    borderLeftColor: colors.lavenderDark,
   },
   successBanner: {
     flexDirection: 'row',
@@ -359,7 +348,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: 'rgba(16,185,129,0.1)',
     borderLeftWidth: 4,
-    borderLeftColor: SUCCESS,
+    borderLeftColor: colors.success,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -379,7 +368,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: HOME_INK,
+    color: colors.ink,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
@@ -400,11 +389,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
-    color: HOME_INK,
+    color: colors.ink,
     padding: 0,
   },
   button: {
-    backgroundColor: HOME_LAVENDER_DARK,
+    backgroundColor: colors.lavenderDark,
     paddingVertical: 16,
     borderRadius: 24,
     alignItems: 'center',
@@ -413,7 +402,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     ...Platform.select({
       web: { boxShadow: '0px 4px 12px rgba(95,82,176,0.28)' },
-      default: { shadowColor: HOME_LAVENDER_DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
+      default: { shadowColor: colors.lavenderDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12 },
     }),
   },
   buttonDisabled: {
@@ -428,11 +417,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
-    fontFamily: FONT_DISPLAY_SEMI,
+    fontFamily: typography.family.displaySemi,
   },
   attemptsText: {
     textAlign: 'center',
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
     marginTop: 14,
   },
@@ -445,7 +434,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   trustNoteText: {
-    color: HOME_INK_SOFT,
+    color: colors.inkSoft,
     fontSize: 12,
     textAlign: 'center',
   },
