@@ -2865,7 +2865,7 @@ const styles = StyleSheet.create({
 
   // Calendar tab
   calendarHeroImage: { width: 76, height: 51, position: 'absolute', right: 16, bottom: 14, opacity: 0.95 },
-  weekSummaryCard: { backgroundColor: '#E9F1E2', borderRadius: 18, padding: 16, marginBottom: 16, gap: 10 },
+  weekSummaryCard: { backgroundColor: '#E9F1E2', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 10, ...shadows.card },
   weekSummaryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   weekSummaryStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   weekSummaryStat: { alignItems: 'center', gap: 2 },
@@ -2874,13 +2874,14 @@ const styles = StyleSheet.create({
   weekProgressTrack: { height: 7, backgroundColor: 'rgba(92,128,71,0.16)', borderRadius: 999, overflow: 'hidden' },
   weekProgressFill: { height: '100%', borderRadius: 999, backgroundColor: colors.sage },
   weekSummaryCaption: { fontSize: 11.5, color: colors.inkSoft, fontWeight: '600' },
-  upcomingCard: { backgroundColor: '#FFF3DC', borderRadius: 18, padding: 16, marginBottom: 16, gap: 8 },
+  upcomingCard: { backgroundColor: '#FFF3DC', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8, ...shadows.card },
   upcomingHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   upcomingRowText: { fontSize: 12.5, color: colors.ink, fontWeight: '700', flex: 1 },
   parentInsightCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: 18,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: radius.md,
     padding: 16, marginBottom: 16,
+    ...shadows.card,
   },
   parentInsightText: { fontSize: 12.5, color: colors.ink, fontWeight: '600', lineHeight: 17, marginTop: 6, marginBottom: 8 },
   parentInsightImage: { width: 72, height: 96 },
@@ -2966,10 +2967,9 @@ const styles = StyleSheet.create({
   },
   calendarCard: {
     backgroundColor: SURFACE,
-    borderRadius: 18,
+    borderRadius: radius.md,
     padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...shadows.card,
     marginBottom: 16,
   },
   calendarCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8 },
