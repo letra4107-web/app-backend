@@ -37,7 +37,7 @@ import {
 } from '../services/settingsService';
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { useAccessibility } from '../contexts/AccessibilityContext';
-import { colors, typography } from '../theme';
+import { colors, typography, radius, shadows } from '../theme';
 
 const BG = '#F4F1FB';
 const SURFACE = '#ffffff';
@@ -890,7 +890,8 @@ const styles = StyleSheet.create({
   heroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
   tipCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF3DC',
-    borderRadius: 20, padding: 16, marginTop: 14,
+    borderRadius: radius.lg, padding: 16, marginTop: 14,
+    ...shadows.card,
   },
   tipIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.sun, alignItems: 'center', justifyContent: 'center' },
   tipCardTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 15, marginBottom: 4 },
@@ -947,14 +948,11 @@ const styles = StyleSheet.create({
   versionFooter: { textAlign: 'center', color: colors.inkSoft, fontSize: 12, fontWeight: '600', marginTop: 18, marginBottom: 8 },
   card: {
     backgroundColor: SURFACE,
-    borderRadius: 20,
+    borderRadius: radius.lg,
     padding: 16,
     marginTop: 14,
+    ...shadows.card,
     shadowColor: colors.lavenderDark,
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
   },
   cardDark: { backgroundColor: '#0b1220', borderColor: '#1f2937' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
@@ -998,7 +996,7 @@ const styles = StyleSheet.create({
   segmentText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12, textTransform: 'capitalize' },
   segmentTextActive: { color: '#fff' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(30,23,66,0.55)', justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20 },
+  modalCard: { backgroundColor: '#fff', borderRadius: radius.xl, padding: 20, ...shadows.raised },
   modalTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 18, marginBottom: 4 },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
 });
