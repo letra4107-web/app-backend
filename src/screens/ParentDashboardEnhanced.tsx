@@ -1112,7 +1112,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="checkmark-circle" size={20} color={HOME_SAGE} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Reading Accuracy</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>All-Time Average</Text>
           </View>
         </View>
 
@@ -1294,6 +1294,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       { key: 'all', label: 'All Time' },
     ];
     const periodDays = progressPeriod === '7d' ? 7 : progressPeriod === '30d' ? 30 : progressPeriod === '90d' ? 90 : null;
+    const periodRingLabel = PERIOD_LABELS.find((p) => p.key === progressPeriod)?.label || 'All Time';
     const nowMs = Date.now();
     const dayMs = 86400000;
 
@@ -1547,7 +1548,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={{ alignItems: 'center', marginVertical: 12 }}>
             <ProgressRing percent={periodAvg ?? 0} color={HOME_LAVENDER_DARK} trackColor="rgba(124,111,207,0.15)">
               <Text style={styles.readingProgressPct}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
-              <Text style={styles.readingProgressPctSub}>Current Progress</Text>
+              <Text style={styles.readingProgressPctSub}>{periodRingLabel}</Text>
             </ProgressRing>
           </View>
           {periodDelta !== null && (
@@ -2190,7 +2191,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="checkmark-circle" size={20} color={HOME_SAGE} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: HOME_SAGE }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Average Accuracy</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>All-Time Average</Text>
           </View>
         </View>
 
