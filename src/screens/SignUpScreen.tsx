@@ -49,7 +49,7 @@ interface FormValid {
 // continuation of the same flow, not a separate style.
 const HOME_CREAM = '#FBF3E2';
 const HOME_INK = '#3B322C';
-const HOME_INK_SOFT = '#8A7B6C';
+const HOME_INK_SOFT = '#5F5044';
 const HOME_CORAL = '#E06B4C';
 const HOME_LAVENDER_DARK = '#5F52B0';
 const SUCCESS = '#10b981';

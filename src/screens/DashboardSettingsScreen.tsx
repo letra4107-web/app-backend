@@ -44,7 +44,7 @@ const MUTED = '#6b7280';
 // Shared token set — matches the palette established across the Home/Learn/
 // Practice/Progress/Badges tabs, so Settings doesn't feel like a different app.
 const INK = '#3B322C';
-const INK_SOFT = '#8A7B6C';
+const INK_SOFT = '#5F5044';
 const LAVENDER = '#7C6FCF';
 const LAVENDER_DARK = '#5F52B0';
 const CORAL = '#E06B4C';

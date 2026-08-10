@@ -12,7 +12,7 @@ import {
 
 const LAVENDER_DARK = '#5F52B0';
 const INK = '#3B322C';
-const INK_SOFT = '#8A8078';
+const INK_SOFT = '#5F5044';
 const BORDER = '#E7DFD0';
 const DANGER = '#E0574C';
 
