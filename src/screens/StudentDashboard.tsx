@@ -218,6 +218,8 @@ export default function StudentDashboard({ navigation }: any) {
   // read-along, driven by real Google TTS timepoints; null when idle.
   const [karaokeSyllableIndex, setKaraokeSyllableIndex] = useState<number | null>(null);
   const [karaokeLoading, setKaraokeLoading] = useState(false);
+  const [listenPlaying, setListenPlaying] = useState(false);
+  const [listenJustFinished, setListenJustFinished] = useState(false);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
   // Set when a Learn tab category card (Letters/Syllables/Words) is tapped,
   // so the Practice tab actually narrows to that category instead of always
@@ -1192,17 +1194,42 @@ export default function StudentDashboard({ navigation }: any) {
 
     setKaraokeLoading(true);
     setKaraokeSyllableIndex(0);
+    setListenJustFinished(false);
     speakSyllablesCloud(parts, {
       onSyllableIndex: (index) => setKaraokeSyllableIndex(index),
       onDone: () => {
         setKaraokeSyllableIndex(null);
         setKaraokeLoading(false);
+        setListenJustFinished(true);
       },
       onError: (message) => {
         setKaraokeSyllableIndex(null);
         setKaraokeLoading(false);
         setPracticeStatus(message);
         speakPracticeWord(word);
+      },
+    });
+  };
+
+  // Same plain-playback path as speakPracticeWord, but tracks a
+  // playing/just-finished state so the Listen & Read screen can show real
+  // visual feedback (pulsing "now playing" badge, brief "finished" check)
+  // instead of the static display it had before - unlike Say the Word,
+  // there's no speech-recognition result to drive that state off of here.
+  const playListenWord = (word = selectedWord || '') => {
+    if (!word) return;
+    stopSpeaking();
+    stopCloudSpeaking();
+    setListenPlaying(true);
+    setListenJustFinished(false);
+    speakWordCloud(word.replace(/-/g, ' '), {
+      onDone: () => {
+        setListenPlaying(false);
+        setListenJustFinished(true);
+      },
+      onError: (message) => {
+        setListenPlaying(false);
+        setPracticeStatus(message);
       },
     });
   };
@@ -2001,32 +2028,93 @@ export default function StudentDashboard({ navigation }: any) {
       setPracticeTranscript('');
       setPracticeProcessing(false);
       setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
+      setListenPlaying(false);
+      setListenJustFinished(false);
+      setKaraokeSyllableIndex(null);
+      setKaraokeLoading(false);
       // "Listen & Read" always speaks - that's the mode's whole purpose.
       // "Say the Word" only auto-speaks on select if Auto Read Words is on.
-      if (mode === 'listen' || dashboardSettings?.auto_read_words !== false) {
+      if (mode === 'listen') {
+        playListenWord(word);
+      } else if (dashboardSettings?.auto_read_words !== false) {
         speakPracticeWord(word);
       }
     };
 
     if (selectedWord && child && practiceMode === 'listen') {
+      const isKaraokeActive = karaokeLoading || karaokeSyllableIndex !== null;
+      const isAnyPlaying = listenPlaying || isKaraokeActive;
+      const listenBadgeColor = isAnyPlaying ? VIVID_TEAL : listenJustFinished ? SUCCESS : HOME_LAVENDER;
+      const listenBadgeIcon = isAnyPlaying ? 'volume-high' : listenJustFinished ? 'checkmark' : 'book-outline';
+      const listenStatusText = isAnyPlaying
+        ? 'Pinapatugtog... sundan ng mata ang bawat pantig.'
+        : listenJustFinished
+        ? 'Magaling! Ulitin muli o magpatuloy sa susunod.'
+        : 'Pakinggan ang salita habang sinusundan mo ito sa mata.';
+
       return (
         <View style={{ flex: 1 }}>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+          {/* Rendered outside the ScrollView so it stays pinned while content scrolls underneath it - same pattern as the Say the Word hero. */}
+          <LinearGradient
+            colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID, HERO_GRADIENT_END]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroBanner}
+          >
             <TouchableOpacity
+              style={styles.heroBackRow}
               onPress={() => {
                 stopSpeaking();
+                stopCloudSpeaking();
                 setSelectedWord(null);
                 setSelectedContentId(null);
               }}
-              style={styles.backButton}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <Ionicons name="arrow-back" size={20} color={HOME_LAVENDER_DARK} />
-              <Text style={[styles.backText, bodyA11y]}>Bumalik</Text>
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <Text style={[styles.heroBackText, bodyA11y]}>Bumalik</Text>
             </TouchableOpacity>
+            <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Basahin{'\n'}Kasama Ako</Text>
+            <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Sundan ng mata ang bawat pantig habang binabasa ko ito para sa iyo.</Text>
+            <Image source={require('../../assets/reading.webp')} style={styles.heroImage} resizeMode="contain" />
+          </LinearGradient>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+            <View style={styles.learnProgressCard}>
+              <View style={styles.learnProgressTopRow}>
+                <View style={styles.practiceProgressTitleRow}>
+                  <Ionicons name="albums-outline" size={16} color={HOME_LAVENDER_DARK} />
+                  <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Today&apos;s Practice</Text>
+                </View>
+                {wordTotal > 0 && (
+                  <View style={styles.practiceWordPill}>
+                    <Text style={[styles.practiceWordPillText, smallLabelA11y]}>Word {wordPosition} of {wordTotal}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.learnProgressTrack}>
+                <View style={{ width: `${wordTotal ? Math.max(4, Math.round((wordPosition / wordTotal) * 100)) : 4}%`, height: '100%' }}>
+                  <LinearGradient
+                    colors={[HERO_GRADIENT_START, HERO_GRADIENT_MID]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{ flex: 1, borderRadius: 5 }}
+                  />
+                </View>
+              </View>
+            </View>
 
             <View style={styles.practiceHero}>
+              <Animated.View
+                style={[
+                  styles.practiceMoodBadge,
+                  { backgroundColor: listenBadgeColor },
+                  { transform: [{ scale: mascotPulse }] },
+                ]}
+              >
+                <Ionicons name={listenBadgeIcon as any} size={26} color="#fff" />
+              </Animated.View>
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Pakinggan at Basahin</Text>
               <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
               <SyllableKaraokeText
@@ -2047,19 +2135,28 @@ export default function StudentDashboard({ navigation }: any) {
 
               <View style={styles.listenButtonRow}>
                 <TouchableOpacity
-                  style={[styles.sayWordButton, { flex: 1, width: undefined, backgroundColor: HOME_SAGE, shadowColor: HOME_SAGE }]}
-                  onPress={() => speakPracticeWord(selectedWord)}
+                  style={[
+                    styles.sayWordButton,
+                    { flex: 1, width: undefined, backgroundColor: HOME_SAGE, shadowColor: HOME_SAGE },
+                    listenPlaying && styles.listenButtonActive,
+                  ]}
+                  onPress={() => playListenWord(selectedWord)}
+                  disabled={isKaraokeActive}
                   accessibilityRole="button"
                   accessibilityLabel={`Play pronunciation for ${selectedWord}`}
                 >
-                  <Ionicons name="volume-high" size={26} color="#fff" />
-                  <Text style={[styles.sayWordButtonText, buttonA11y]}>Pakinggan</Text>
+                  <Ionicons name={listenPlaying ? 'volume-high' : 'play'} size={26} color="#fff" />
+                  <Text style={[styles.sayWordButtonText, buttonA11y]}>{listenPlaying ? 'Pinapatugtog' : 'Pakinggan'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.sayWordButton, { flex: 1, width: undefined, backgroundColor: HOME_LAVENDER_DARK, shadowColor: HOME_LAVENDER_DARK }]}
+                  style={[
+                    styles.sayWordButton,
+                    { flex: 1, width: undefined, backgroundColor: HOME_LAVENDER_DARK, shadowColor: HOME_LAVENDER_DARK },
+                    isKaraokeActive && styles.listenButtonActive,
+                  ]}
                   onPress={() => playSyllableKaraoke(selectedWord)}
-                  disabled={karaokeLoading}
+                  disabled={karaokeLoading || listenPlaying}
                   accessibilityRole="button"
                   accessibilityLabel={`Play slow syllable-by-syllable pronunciation for ${selectedWord}`}
                 >
@@ -2072,7 +2169,7 @@ export default function StudentDashboard({ navigation }: any) {
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.practiceStatus, bodyA11y]}>Pakinggan ang salita habang sinusundan mo ito sa mata.</Text>
+              <Text style={[styles.practiceStatus, bodyA11y]}>{listenStatusText}</Text>
             </View>
 
             <TouchableOpacity
@@ -5305,6 +5402,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sayWordButtonListening: { backgroundColor: DANGER },
+  listenButtonActive: { borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)' },
   sayWordButtonText: { color: '#fff', fontWeight: '900', fontSize: 20 },
   practiceStatus: { color: HOME_INK, textAlign: 'center', fontWeight: '800', marginTop: 14 },
   practiceTranscript: { color: HOME_INK_SOFT, textAlign: 'center', marginTop: 8, fontWeight: '700' },
