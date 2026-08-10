@@ -2726,8 +2726,8 @@ const styles = StyleSheet.create({
   statusDotLg: { width: 8, height: 8, borderRadius: 4 },
   statusRowText: { fontSize: 12, fontWeight: '700', color: colors.inkSoft },
   readingProgressCard: {
-    backgroundColor: SURFACE, borderRadius: 20, padding: 20, marginBottom: 16,
-    borderWidth: 1, borderColor: colors.border, alignItems: 'center',
+    backgroundColor: SURFACE, borderRadius: radius.lg, padding: 20, marginBottom: 16,
+    ...shadows.card, alignItems: 'center',
   },
   readingProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
   readingProgressTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
@@ -2908,7 +2908,7 @@ const styles = StyleSheet.create({
   skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   skillGridCard: {
     width: '47%', backgroundColor: SURFACE, borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: colors.border, gap: 6,
+    ...shadows.card, gap: 6,
   },
   skillGridTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 },
   skillGridLabel: { fontSize: 12, fontWeight: '800', color: colors.ink, flex: 1 },
@@ -2916,7 +2916,7 @@ const styles = StyleSheet.create({
   skillGridStatus: { fontSize: 11, fontWeight: '700' },
   miniChartCard: {
     backgroundColor: SURFACE, borderRadius: 16, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: colors.border,
+    ...shadows.card,
   },
   miniChartTitle: { fontSize: 13, fontWeight: '800', color: colors.ink, marginBottom: 10 },
   miniChartBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 70 },
@@ -2927,6 +2927,7 @@ const styles = StyleSheet.create({
   recommendCard: {
     flexDirection: 'row', gap: 12, backgroundColor: '#FFF3DC', borderRadius: 16,
     padding: 16, marginBottom: 12, alignItems: 'flex-start',
+    ...shadows.card,
   },
   recommendIconWrap: {
     width: 34, height: 34, borderRadius: 17, backgroundColor: '#fff',
@@ -2942,6 +2943,7 @@ const styles = StyleSheet.create({
   insightCardV2: {
     flexDirection: 'row', gap: 10, backgroundColor: '#EFECFB', borderRadius: 16,
     padding: 16, marginBottom: 16, alignItems: 'flex-start',
+    ...shadows.card,
   },
   insightCardV2Text: { fontSize: 12, color: colors.ink, lineHeight: 18, flex: 1 },
   detailedReportButton: {
@@ -2996,10 +2998,9 @@ const styles = StyleSheet.create({
   dayCount: { fontSize: 9, color: colors.textSecondary, fontWeight: '800' },
   selectedTasksCard: {
     backgroundColor: SURFACE,
-    borderRadius: 18,
+    borderRadius: radius.md,
     padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...shadows.card,
     marginBottom: 16,
   },
   dayEntryRow: {
