@@ -41,6 +41,7 @@
     "expo-secure-store": "~15.0.8",
     "expo-speech": "~14.0.8",
     "expo-speech-recognition": "sdk-54",
+    "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.11",
     "fast-levenshtein": "^3.0.0",
