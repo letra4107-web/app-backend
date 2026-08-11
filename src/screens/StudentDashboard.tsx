@@ -20,7 +20,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import ConfettiOverlay from '../components/ConfettiOverlay';
 import AchievementModal from './AchievementModal';
 import { getAsiaManilaDate, getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
-import { buildNextProgress, ChildProgress, getCanonicalStudentStats, progressFromCanonicalStats, saveProgress } from '../services/progressService';
+import { buildNextProgress, ChildProgress, saveProgress } from '../services/progressService';
 import {
   ACHIEVEMENTS, unlockAchievements, getPronunciationStats, PronunciationStats, AchievementCategory, AchievementDefinition,
   MIN_ATTEMPTS_FOR_AVERAGE_BADGE, CHALLENGING_WORDS_REQUIRED, IMPROVEMENT_POINTS_REQUIRED, averageAccuracy,
@@ -648,11 +648,6 @@ export default function StudentDashboard({ navigation }: any) {
     setUploadsError('');
     const currentProgress = profile.child_progress?.[0] || emptyProgress(profile.id);
     setProgress(currentProgress);
-    getCanonicalStudentStats(profile.id)
-      .then((stats) => setProgress(progressFromCanonicalStats(stats)))
-      .catch((statsError) => {
-        console.warn('[StudentDashboard] canonical stats load failed; using joined progress:', statsError?.message || statsError);
-      });
 
     // The learning profile lives in `children`, while avatar_url is stored in
     // the shared auxiliary profile row used by Settings.
@@ -693,14 +688,6 @@ export default function StudentDashboard({ navigation }: any) {
     setUploads(uploads);
     setLessons(lessonRows);
     setActivities(assignedActivities);
-  };
-
-  const applySavedProgress = (saved: { progress?: ChildProgress; stats?: any } | null | undefined, fallback?: ChildProgress) => {
-    if (saved?.stats) {
-      setProgress(progressFromCanonicalStats(saved.stats));
-      return;
-    }
-    setProgress(saved?.progress || fallback || null);
   };
 
   useEffect(() => {
@@ -1056,12 +1043,13 @@ export default function StudentDashboard({ navigation }: any) {
 
     if (!progress) return;
     const next = { ...progress, activities_completed: (progress.activities_completed || 0) + 1 };
-    applySavedProgress(await saveProgress(next), next);
+    await saveProgress(next);
+    setProgress(next);
 
     const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next);
     if (newlyUnlocked?.length) {
       const saved = await saveProgress(updatedProgress);
-      applySavedProgress(saved, updatedProgress);
+      setProgress(saved.progress);
       // Only celebrate badges the server confirms are genuinely new-to-storage
       // this call - the client-side `newlyUnlocked` check above can be stale
       // (see saveProgress's newlyPersistedAchievementIds doc comment), which
@@ -1107,7 +1095,8 @@ export default function StudentDashboard({ navigation }: any) {
             last_practice_date: getAsiaManilaDate(),
           }
         : computed;
-      applySavedProgress(await saveProgress(next), next);
+      await saveProgress(next);
+      setProgress(next);
       await notifyParent(
         'Word of the Day',
         `${child?.name || 'Student'} ${correct ? 'completed' : 'tried'} the word "${wordOfDay?.word || ''}" and earned ${addXp} XP.`,
@@ -1123,7 +1112,7 @@ export default function StudentDashboard({ navigation }: any) {
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next);
       if (newlyUnlocked?.length) {
         const saved = await saveProgress(updatedProgress);
-        applySavedProgress(saved, updatedProgress);
+        setProgress(saved.progress);
         // See the analogous comment in completeActivity - only celebrate
         // badges the server confirms are genuinely new-to-storage this call.
         const celebrate = newlyUnlocked.find((a) => saved.newlyPersistedAchievementIds?.includes(a.id));
@@ -1500,12 +1489,13 @@ export default function StudentDashboard({ navigation }: any) {
       next.longest_streak = progress.longest_streak ?? next.longest_streak;
 
       console.debug('[Practice] preserved streak (server authoritative):', { previousStreak: beforeStreak, nextStreak: next.streak });
-      applySavedProgress(await saveProgress(next), next);
+      await saveProgress(next);
+      setProgress(next);
       await notifyParent('XP Update', `${child?.name || 'Student'} earned ${xpAward} XP from speech practice.`, 'xp');
       const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next);
       if (newlyUnlocked?.length) {
         const saved = await saveProgress(updatedProgress);
-        applySavedProgress(saved, updatedProgress);
+        setProgress(saved.progress);
         // See the analogous comment in completeActivity - only celebrate
         // badges the server confirms are genuinely new-to-storage this call.
         const celebrate = newlyUnlocked.find((a) => saved.newlyPersistedAchievementIds?.includes(a.id));

@@ -1,6 +1,5 @@
 const express = require('express');
 const { supabaseAdmin } = require('../config/supabase');
-const { getStudentStats } = require('../services/studentStatsService');
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
 const asNumber = (value, fallback = 0) => {
@@ -41,37 +40,6 @@ const mergeAchievements = (existing, incoming) => {
 
 const createProgressRouter = (supabase = supabaseAdmin) => {
   const router = express.Router();
-
-  const getAuthUser = async (req) => {
-    const token = bearerTokenFrom(req.headers.authorization);
-    if (!token) return null;
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user?.id) return null;
-    return data.user;
-  };
-
-  const canAccessChild = async (req, childIdOrAuthUid) => {
-    const authUser = await getAuthUser(req);
-    if (!authUser?.id) return { allowed: false, status: 401, child: null };
-
-      const { data: child, error } = await supabase
-        .from('children')
-        .select('id,auth_uid,parent_id')
-        .or(`id.eq.${childIdOrAuthUid},auth_uid.eq.${childIdOrAuthUid}`)
-        .maybeSingle();
-
-    if (error) {
-      console.error('[progress] stats child lookup failed:', serializeSupabaseError(error));
-      return { allowed: false, status: 500, child: null };
-    }
-    if (!child?.id) return { allowed: false, status: 404, child: null };
-
-    return {
-      allowed: child.auth_uid === authUser.id || child.parent_id === authUser.id,
-      status: child.auth_uid === authUser.id || child.parent_id === authUser.id ? 200 : 403,
-      child,
-    };
-  };
 
   const requireAuthenticatedStudent = async (req, res, next) => {
     try {
@@ -201,38 +169,10 @@ const createProgressRouter = (supabase = supabaseAdmin) => {
         console.error('[progress] Supabase upsert failed:', serializeSupabaseError(error));
         return res.status(500).json({ success: false, message: 'Failed to update reward progress.' });
       }
-      const stats = await getStudentStats(supabase, progressStudentId).catch((error) => {
-        console.warn('[progress] canonical stats after update failed:', error?.message || error);
-        return null;
-      });
-      return res.json({
-        success: true,
-        progress: stats?.childProgress || data,
-        stats,
-        newlyPersistedAchievementIds: newlyPersistedIds,
-      });
+      return res.json({ success: true, progress: data, newlyPersistedAchievementIds: newlyPersistedIds });
     } catch (error) {
       console.error('[progress] update failed:', error);
       return res.status(500).json({ success: false, message: error?.message || 'Failed to update progress.' });
-    }
-  });
-
-  router.get('/:studentId/stats', async (req, res) => {
-    try {
-      const { studentId } = req.params;
-      const access = await canAccessChild(req, studentId);
-      if (!access.child) {
-        return res.status(access.status).json({ success: false, message: access.status === 404 ? 'Student not found.' : 'Unable to verify student access.' });
-      }
-      if (!access.allowed) {
-        return res.status(access.status).json({ success: false, message: 'You do not have permission to access this student.' });
-      }
-
-      const stats = await getStudentStats(supabase, access.child.id);
-      return res.json({ success: true, data: stats });
-    } catch (error) {
-      console.error('[progress] canonical stats failed:', error?.message || error);
-      return res.status(500).json({ success: false, message: 'Unable to load canonical student stats.' });
     }
   });
 
