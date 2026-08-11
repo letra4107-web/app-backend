@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { signOutUser } from './supabaseService';
 
 export type SettingsRole = 'parent' | 'student';
 export type FontSize = 'small' | 'medium' | 'large';
@@ -279,6 +280,6 @@ export async function changeEmail(email: string) {
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await signOutUser();
   if (error) throw error;
 }

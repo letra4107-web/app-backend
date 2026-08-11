@@ -91,11 +91,9 @@ export const saveProgress = async (progress: ChildProgress) => {
   // raced ahead of it, so callers must not use it to decide what's "new".
   return postJson<{ success: boolean; progress: ChildProgress; newlyPersistedAchievementIds?: string[] }>(buildApiUrl('/progress/update'), {
     xp: progress.xp,
-    streak: progress.streak,
-    longestStreak: progress.longest_streak ?? 0,
-    longest_streak: progress.longest_streak ?? 0,
-    lastPracticeDate: progress.last_practice_date,
-    last_practice_date: progress.last_practice_date,
+    // streak, longest_streak, and last_practice_date are intentionally not
+    // submitted here. Only a successful server-side Word of the Day
+    // completion owns those fields.
     completedWords: progress.completed_words,
     wordCount: progress.word_count ?? progress.completed_words?.length ?? 0,
     word_count: progress.word_count ?? progress.completed_words?.length ?? 0,

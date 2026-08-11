@@ -1,8 +1,14 @@
 const stripQuotes = (value = '') => String(value).trim().replace(/^"(.*)"$/, '$1');
+const nodemailer = require('nodemailer');
 
 const BREVO_API_KEY = (process.env.BREVO_API_KEY || '').trim();
 const BREVO_SEND_URL = 'https://api.brevo.com/v3/smtp/email';
 const BREVO_ACCOUNT_URL = 'https://api.brevo.com/v3/account';
+const DIRECT_SMTP_HOST = stripQuotes(process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com');
+const DIRECT_SMTP_PORT = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 465);
+const DIRECT_SMTP_USER = stripQuotes(process.env.SMTP_USER || process.env.EMAIL_USER || '');
+const DIRECT_SMTP_PASS = stripQuotes(process.env.SMTP_PASS || process.env.EMAIL_PASS || '');
+const directSmtpConfigured = Boolean(DIRECT_SMTP_USER && DIRECT_SMTP_PASS);
 
 const emailFrom = stripQuotes(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>');
 const isProduction = (process.env.NODE_ENV || 'development') === 'production';
@@ -25,6 +31,17 @@ const parseSender = (raw) => {
 };
 
 const sender = parseSender(emailFrom);
+const directTransporter = directSmtpConfigured
+  ? nodemailer.createTransport({
+      host: DIRECT_SMTP_HOST,
+      port: DIRECT_SMTP_PORT,
+      secure: DIRECT_SMTP_PORT === 465,
+      auth: { user: DIRECT_SMTP_USER, pass: DIRECT_SMTP_PASS },
+      connectionTimeout: VERIFY_TIMEOUT_MS,
+      greetingTimeout: VERIFY_TIMEOUT_MS,
+      socketTimeout: SEND_TIMEOUT_MS,
+    })
+  : null;
 
 const withTimeout = (promise, timeoutMs, label) => {
   let timeoutId;
@@ -269,6 +286,117 @@ const sendOTPEmail = async (email, otp) => {
   }
 };
 
+const sendPasswordResetEmail = async (email, resetLink) => {
+  if (!smtpConfigured) {
+    throw new Error('BREVO_API_KEY is missing. Cannot send password reset email.');
+  }
+
+  const safeLink = String(resetLink || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const info = await sendMail({
+    to: email,
+    replyTo: emailFrom,
+    subject: 'Reset your LinawLetra password',
+    text: `Reset your LinawLetra password using this secure link: ${resetLink}\n\nThis link is single-use and expires. If you did not request it, you can ignore this email.`,
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+        <body style="margin:0;padding:0;background:#f6f2ff;font-family:Arial,'Helvetica Neue',sans-serif;color:#312e3f;">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr><td align="center" style="padding:32px 16px;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 50px rgba(76,61,130,0.12);">
+                <tr><td style="padding:32px;text-align:center;background:#f0ebff;">
+                  <div style="font-size:26px;font-weight:800;color:#5f52b0;">LinawLetra</div>
+                  <h1 style="margin:18px 0 8px;font-size:24px;color:#312e3f;">Reset your password</h1>
+                  <p style="margin:0;color:#665f73;line-height:24px;">Use the secure button below to choose a new password.</p>
+                </td></tr>
+                <tr><td style="padding:32px;text-align:center;">
+                  <a href="${safeLink}" style="display:inline-block;background:#6759c5;color:#ffffff;text-decoration:none;font-weight:700;padding:15px 28px;border-radius:999px;">Reset Password</a>
+                  <p style="margin:24px 0 0;color:#766f82;font-size:13px;line-height:20px;">This link is single-use and expires. If you did not request a reset, you can safely ignore this email.</p>
+                </td></tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+      </html>
+    `,
+  });
+
+  mailerLog('log', 'password reset email sent', { to: email, messageId: info.messageId, response: info.response });
+  return { success: true, messageId: info.messageId, response: info.response };
+};
+
+const sendPasswordResetCodeEmail = async (email, otp) => {
+  const mailOptions = {
+    to: email,
+    replyTo: emailFrom,
+    subject: 'Your LinawLetra password reset code',
+    text: `Your LinawLetra password reset code is ${otp}. It expires in 5 minutes. Do not share this code with anyone.`,
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+        <body style="margin:0;padding:0;background:#f6f2ff;font-family:Arial,'Helvetica Neue',sans-serif;color:#312e3f;">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr><td align="center" style="padding:32px 16px;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 50px rgba(76,61,130,0.12);">
+                <tr><td style="padding:32px;text-align:center;background:#f0ebff;">
+                  <div style="font-size:26px;font-weight:800;color:#5f52b0;">LinawLetra</div>
+                  <h1 style="margin:18px 0 8px;font-size:24px;color:#312e3f;">Password reset code</h1>
+                  <p style="margin:0;color:#665f73;line-height:24px;">Enter this code in the LinawLetra app to choose a new password.</p>
+                </td></tr>
+                <tr><td style="padding:32px;text-align:center;">
+                  <div style="display:inline-block;background:#f8f6ff;border:1px solid #d9d2ff;border-radius:18px;padding:18px 26px;font-size:32px;font-weight:800;letter-spacing:10px;color:#5144a3;">${otp}</div>
+                  <p style="margin:24px 0 0;color:#766f82;font-size:13px;line-height:20px;">This code expires in 5 minutes and can only be used once. Do not share it with anyone.</p>
+                </td></tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+      </html>
+    `,
+  };
+
+  if (directTransporter) {
+    try {
+      const directInfo = await withTimeout(
+        directTransporter.sendMail({ ...mailOptions, from: emailFrom }),
+        SEND_TIMEOUT_MS,
+        'Direct SMTP password reset email',
+      );
+      mailerLog('log', 'password reset code sent through direct SMTP', {
+        to: email,
+        messageId: directInfo.messageId,
+        accepted: directInfo.accepted,
+        rejected: directInfo.rejected,
+        response: directInfo.response,
+      });
+      return { success: true, messageId: directInfo.messageId, response: directInfo.response, provider: 'smtp' };
+    } catch (error) {
+      mailerLog('warn', 'direct SMTP password reset failed; falling back to Brevo', {
+        to: email,
+        code: error?.code,
+        responseCode: error?.responseCode,
+        message: error?.message || String(error),
+      });
+    }
+  }
+
+  if (!smtpConfigured) {
+    throw new Error('No password reset email provider is configured.');
+  }
+
+  const info = await sendMail(mailOptions);
+
+  mailerLog('log', 'password reset code sent', { to: email, messageId: info.messageId, response: info.response });
+  return { success: true, messageId: info.messageId, response: info.response, provider: 'brevo' };
+};
+
 // Nodemailer-shaped adapter so existing call sites (server.js /health/smtp,
 // routes/auth.js's direct transactional send) don't need to change.
 const transporter = {
@@ -279,6 +407,8 @@ const transporter = {
 module.exports = {
   transporter,
   sendOTPEmail,
+  sendPasswordResetEmail,
+  sendPasswordResetCodeEmail,
   smtpConfigured,
   emailFrom,
   verifyMailerConnection,

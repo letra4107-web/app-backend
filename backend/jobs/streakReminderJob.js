@@ -30,7 +30,7 @@ const buildReminderCopy = (streak) => ({
 const findStudentsAtRisk = async (supabaseAdmin, todayKey) => {
   const { data, error } = await supabaseAdmin
     .from('child_progress')
-    .select('child_id, streak, last_practice_date, children!inner(auth_uid)')
+    .select('child_id, streak, last_practice_date, children!inner(auth_uid, parent_id)')
     .gt('streak', 0)
     .neq('last_practice_date', todayKey);
 
@@ -80,6 +80,8 @@ const runStreakReminderCheck = async (supabaseAdmin) => {
       const { title, message } = buildReminderCopy(row.streak);
       const { error: insertError } = await supabaseAdmin.from('notifications').insert({
         user_id: userId,
+        student_id: row.child_id,
+        parent_id: row.children.parent_id,
         title,
         body: message,
         message,

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
-import { completeAuthSession } from '../services/supabaseService';
+import { completeAuthSession, completePasswordReset } from '../services/supabaseService';
 import { colors, typography } from '../theme';
 
 interface ResetPasswordProps {
@@ -23,8 +23,16 @@ interface ResetPasswordProps {
 
 type Stage = 'exchanging' | 'invalid' | 'form' | 'success';
 
+const firstParam = (value: unknown): string => {
+  if (Array.isArray(value)) return String(value[0] || '');
+  return typeof value === 'string' ? value : '';
+};
+
 const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
-  const [stage, setStage] = useState<Stage>('exchanging');
+  const isOtpMode = route?.params?.mode === 'otp';
+  const resetEmail = firstParam(route?.params?.email).trim().toLowerCase();
+  const [stage, setStage] = useState<Stage>(isOtpMode ? 'form' : 'exchanging');
+  const [resetCode, setResetCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,23 +44,61 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
   // deep link — React Navigation's linking config (App.tsx) hands it to us as
   // a route param automatically.
   useEffect(() => {
+    if (isOtpMode) return;
+
+    let active = true;
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' && active) setStage('form');
+    });
+
     const exchange = async () => {
-      const code = route?.params?.code;
-      if (!code) {
-        setStage('invalid');
-        return;
-      }
+      const params = route?.params || {};
+      const code = firstParam(params.code);
+      const accessToken = firstParam(params.access_token);
+      const refreshToken = firstParam(params.refresh_token);
+      const tokenHash = firstParam(params.token_hash);
+      const callbackError = firstParam(params.error_description) || firstParam(params.error);
+
       try {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
-        setStage('form');
+        if (callbackError) throw new Error(decodeURIComponent(callbackError.replace(/\+/g, ' ')));
+
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
+        } else if (accessToken && refreshToken) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (sessionError) throw sessionError;
+        } else if (tokenHash) {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+          if (verifyError) throw verifyError;
+        } else {
+          const { data, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw sessionError;
+          if (!data.session) throw new Error('No recovery session was found.');
+        }
+
+        if (active) setStage('form');
       } catch (e: any) {
-        console.error('[ResetPassword] exchangeCodeForSession failed:', e?.message || e);
-        setStage('invalid');
+        console.error('[ResetPassword] recovery session failed:', e?.message || e);
+        if (active) {
+          setError('For your security, reset links expire and can only be used once. Request a new link below.');
+          setStage('invalid');
+        }
       }
     };
     exchange();
-  }, [route?.params?.code]);
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [isOtpMode, route?.params]);
 
   const passwordError = (() => {
     if (!password) return '';
@@ -62,13 +108,21 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
     return '';
   })();
   const confirmError = confirmPassword && confirmPassword !== password ? 'Passwords do not match' : '';
-  const isValid = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && confirmPassword === password;
+  const isValid = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && confirmPassword === password
+    && (!isOtpMode || /^\d{6}$/.test(resetCode));
 
   const handleSubmit = async () => {
     if (!isValid || loading) return;
     setLoading(true);
     setError('');
     try {
+      if (isOtpMode) {
+        await completePasswordReset(resetEmail, resetCode, password);
+        setStage('success');
+        setTimeout(() => navigation.replace('Login'), 1200);
+        return;
+      }
+
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
 
@@ -84,7 +138,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
       }
     } catch (e: any) {
       console.error('[ResetPassword] updateUser failed:', e?.message || e);
-      setError(e?.message || 'Hindi na-update ang password. Subukan muli.');
+      setError(e?.data?.message || e?.message || 'Hindi na-update ang password. Subukan muli.');
     } finally {
       setLoading(false);
     }
@@ -119,6 +173,11 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
             <Text style={styles.subtitle}>
               This password reset link is no longer valid. Please request a new one.
             </Text>
+            {error ? (
+              <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                {error}
+              </Text>
+            ) : null}
             <TouchableOpacity style={styles.button} onPress={() => navigation.replace('ForgotPassword')}>
               <Text style={styles.buttonText}>Request New Link</Text>
             </TouchableOpacity>
@@ -128,12 +187,34 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
         {stage === 'form' && (
           <View style={styles.card}>
             <Text style={styles.title}>Set New Password</Text>
-            <Text style={styles.subtitle}>Choose a new password for your account.</Text>
+            <Text style={styles.subtitle}>
+              {isOtpMode ? `Enter the six-digit code sent to ${resetEmail}, then choose a new password.` : 'Choose a new password for your account.'}
+            </Text>
 
             {error ? (
               <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
                 {error}
               </Text>
+            ) : null}
+
+            {isOtpMode ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Reset Code</Text>
+                <View style={[styles.inputWrapper, resetCode.length > 0 && !/^\d{6}$/.test(resetCode) && styles.inputWrapperError]}>
+                  <Ionicons name="keypad-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter six-digit code"
+                    placeholderTextColor={colors.inkSoft}
+                    value={resetCode}
+                    onChangeText={(value) => setResetCode(value.replace(/\D/g, '').slice(0, 6))}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    editable={!loading}
+                    accessibilityLabel="Password reset code"
+                  />
+                </View>
+              </View>
             ) : null}
 
             <View style={styles.inputGroup}>
@@ -206,7 +287,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
           <View style={styles.card}>
             <Ionicons name="checkmark-circle" size={40} color={colors.success} style={{ alignSelf: 'center', marginBottom: 12 }} />
             <Text style={styles.title}>Password Updated!</Text>
-            <Text style={styles.subtitle}>Redirecting you to your dashboard...</Text>
+            <Text style={styles.subtitle}>{isOtpMode ? 'Returning you to Login...' : 'Redirecting you to your dashboard...'}</Text>
             <ActivityIndicator size="small" color={colors.lavenderDark} style={{ marginTop: 12 }} />
           </View>
         )}

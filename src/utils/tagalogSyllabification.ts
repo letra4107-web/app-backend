@@ -4,8 +4,6 @@
 
 const VOWELS = 'aeiouáéíóúâêîôûäëïöü';
 
-const isLetter = (c: string) => !!c && c.length === 1 && /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(c);
-
 export const syllabifyWord = (input = ''): { syllables: string[]; display: string } => {
   if (!input) return { syllables: [], display: '' };
   // Preserve existing manual hyphenation.

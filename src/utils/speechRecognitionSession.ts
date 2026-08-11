@@ -8,6 +8,7 @@ export const createSpeechRecognitionSession = ({
   onStopRequested,
   hardTimeoutMs = 12000,
   speechEndDelayMs = 200,
+  transcriptSilenceMs = 0,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
 }: {
@@ -16,6 +17,7 @@ export const createSpeechRecognitionSession = ({
   onStopRequested?: (reason: SpeechStopReason) => void;
   hardTimeoutMs?: number;
   speechEndDelayMs?: number;
+  transcriptSilenceMs?: number;
   setTimer?: typeof setTimeout;
   clearTimer?: typeof clearTimeout;
 }) => {
@@ -71,14 +73,26 @@ export const createSpeechRecognitionSession = ({
       const normalized = transcript.trim();
       if (normalized) latestTranscript = normalized;
       if (isFinal && normalized) {
+        if (silenceTimer) clearTimer(silenceTimer);
+        silenceTimer = null;
         requestStop('final-result');
         submitOnce(normalized);
+      } else if (normalized && transcriptSilenceMs > 0) {
+        // Some Android recognizers do not emit `speechend`/a final result
+        // until the user manually taps Stop. Treat a short pause after an
+        // interim transcript as the end of a one-word response instead.
+        if (silenceTimer) clearTimer(silenceTimer);
+        silenceTimer = setTimer(() => {
+          silenceTimer = null;
+          requestStop('speechend');
+        }, transcriptSilenceMs);
       }
     },
     onSpeechEnd() {
-      if (disposed || !active || stopRequested || silenceTimer) return;
+      if (disposed || !active || stopRequested) return;
       // Android emits speechend after its configured 2.3s complete-silence
       // window. A short grace period lets a trailing final result arrive.
+      if (silenceTimer) clearTimer(silenceTimer);
       silenceTimer = setTimer(() => {
         silenceTimer = null;
         requestStop('speechend');

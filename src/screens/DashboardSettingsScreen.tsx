@@ -62,6 +62,9 @@ type Props = {
   // accessibility-relevant fields immediately, instead of only picking up
   // the change the next time this screen mounts fresh.
   onSaved?: (settings: DashboardSettings) => void;
+  // Profile data is separate from dashboard preferences. Notify an embedding
+  // dashboard immediately so its Home and sidebar stay in sync.
+  onProfileChanged?: (profile: ProfileState) => void;
 };
 
 type MicPermissionState = 'checking' | 'granted' | 'denied';
@@ -77,7 +80,7 @@ type ProfileState = {
 
 type AccountModal = 'password' | 'email' | null;
 
-export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar, onSaved }: Props) {
+export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar, onSaved, onProfileChanged }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
   // `settings` is the DRAFT the user is currently editing (toggles update
@@ -98,6 +101,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   const [error, setError] = useState('');
   const [modal, setModal] = useState<AccountModal>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [micPermission, setMicPermission] = useState<MicPermissionState>('checking');
   const fade = useRef(new Animated.Value(0)).current;
@@ -240,6 +244,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           avatar_url: profile.avatar_url,
         });
       }
+      onProfileChanged?.({ ...profile, full_name: profile.full_name.trim() });
       showSuccess('Profile saved.');
     } catch (e: any) {
       showError(e?.message || 'Could not save profile.');
@@ -267,7 +272,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       if (canceled || !uri) return;
       setSavingProfile(true);
       const publicUrl = await uploadAvatar(authUid, uri, mimeType);
-      setProfile((prev) => ({ ...prev, avatar_url: publicUrl }));
+      const updatedProfile = { ...profile, avatar_url: publicUrl };
+      setProfile(updatedProfile);
+      onProfileChanged?.(updatedProfile);
       showSuccess('Profile photo updated.');
     } catch (e: any) {
       showError(e?.message || 'Could not upload profile photo.');
@@ -319,10 +326,15 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       showError('Password must be at least 8 characters.');
       return;
     }
+    if (newPassword !== confirmPassword) {
+      showError('Passwords do not match.');
+      return;
+    }
     setSavingKey('password');
     try {
       await changePassword(newPassword);
       setNewPassword('');
+      setConfirmPassword('');
       setModal(null);
       showSuccess('Password updated.');
     } catch (e: any) {
@@ -354,7 +366,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   const logout = async () => {
     try {
       await signOut();
-      navigation.replace('Login');
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (e: any) {
       showError(e?.message || 'Could not log out.');
     }
@@ -831,14 +843,26 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           <View style={[styles.modalCard, dark && styles.cardDark]}>
             <Text style={[styles.modalTitle, dark && styles.textDark]}>{modal === 'password' ? 'Change Password' : 'Change Email'}</Text>
             {modal === 'password' ? (
-              <TextInput
-                style={[styles.input, dark && styles.inputDark]}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry
-                placeholder="New password"
-                placeholderTextColor="#94a3b8"
-              />
+              <>
+                <TextInput
+                  style={[styles.input, dark && styles.inputDark]}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  placeholder="New password (at least 8 characters)"
+                  placeholderTextColor="#94a3b8"
+                />
+                <TextInput
+                  style={[styles.input, dark && styles.inputDark, { marginTop: 10 }]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  placeholder="Confirm new password"
+                  placeholderTextColor="#94a3b8"
+                />
+              </>
             ) : (
               <TextInput
                 style={[styles.input, dark && styles.inputDark]}
@@ -851,7 +875,11 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
               />
             )}
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.secondaryButton} onPress={() => setModal(null)}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => {
+                setModal(null);
+                setNewPassword('');
+                setConfirmPassword('');
+              }}>
                 <Text style={styles.secondaryButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity

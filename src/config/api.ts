@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 const DEFAULT_TIMEOUT_MS = 30000;
 
@@ -21,14 +21,62 @@ const ensureApiPath = (value: string) => {
    reliable stand-in for the dev machine's LAN IP.
 -------------------------- */
 const getMetroLanHost = (): string | null => {
+  const candidates = new Set<string>();
+
+  const envLanHost = process.env.EXPO_PUBLIC_LOCAL_IP || process.env.EXPO_PUBLIC_LAN_HOST;
+  if (envLanHost) {
+    candidates.add(String(envLanHost).trim());
+  }
+
+  const parseHost = (value: string | null | undefined) => {
+    if (!value) return null;
+
+    const raw = String(value).trim();
+    if (!raw) return null;
+
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        const parsed = new URL(raw);
+        return parsed.hostname;
+      }
+
+      if (/^exp:\/\//i.test(raw)) {
+        const parsed = new URL(raw);
+        return parsed.hostname;
+      }
+
+      const withoutScheme = raw.replace(/^.*:\/\//, '').replace(/^.*@/, '');
+      const host = withoutScheme.split(':')[0].split('/')[0].trim();
+      return host || null;
+    } catch {
+      return null;
+    }
+  };
+
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any)?.expoGoConfig?.debuggerHost ||
     (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
     (Constants as any)?.manifest?.debuggerHost;
 
-  const host = String(hostUri || '').split(':')[0].trim();
-  return host && host !== 'localhost' && host !== '127.0.0.1' ? host : null;
+  const hostFromUri = parseHost(hostUri);
+  if (hostFromUri && hostFromUri !== 'localhost' && hostFromUri !== '127.0.0.1') {
+    candidates.add(hostFromUri);
+  }
+
+  try {
+    const scriptUrl = (NativeModules as any)?.SourceCode?.scriptURL;
+    if (typeof scriptUrl === 'string') {
+      const parsedHost = parseHost(scriptUrl);
+      if (parsedHost && parsedHost !== 'localhost' && parsedHost !== '127.0.0.1') {
+        candidates.add(parsedHost);
+      }
+    }
+  } catch {
+    // Ignore invalid or unavailable script URLs.
+  }
+
+  return Array.from(candidates)[0] || null;
 };
 
 /* -------------------------
@@ -37,7 +85,15 @@ const getMetroLanHost = (): string | null => {
 export const getApiBaseUrl = (): string => {
   // In development (Expo web/localhost), use the local backend to avoid CORS
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    let localUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5002';
+    const manifestApiUrl =
+      (Constants.expoConfig as any)?.extra?.EXPO_PUBLIC_API_URL ||
+      (Constants.expoConfig as any)?.extra?.EXPO_PUBLIC_BASE_URL ||
+      (Constants as any)?.manifest?.extra?.EXPO_PUBLIC_API_URL ||
+      (Constants as any)?.manifest?.extra?.EXPO_PUBLIC_BASE_URL ||
+      process.env.EXPO_PUBLIC_API_URL ||
+      process.env.EXPO_PUBLIC_BASE_URL;
+
+    let localUrl = manifestApiUrl || 'http://localhost:5002';
     if (localUrl.includes('up.railway.app')) {
       console.warn(
         '[API] DEV mode is pointing at the production Railway API. Set EXPO_PUBLIC_API_URL to http://localhost:5002 in .env and restart with expo start -c.'
@@ -53,10 +109,18 @@ export const getApiBaseUrl = (): string => {
         console.log('[API] Physical device detected — rewriting localhost to Metro host:', rewritten);
         localUrl = rewritten;
       } else {
-        console.warn(
-          '[API] Running on a physical device but could not detect the dev machine LAN IP. ' +
-          'If requests fail, set EXPO_PUBLIC_API_URL in .env to http://<your-computer-LAN-IP>:5002.'
-        );
+        const fallbackHost = process.env.EXPO_PUBLIC_LOCAL_IP || process.env.EXPO_PUBLIC_LAN_HOST;
+        if (fallbackHost) {
+          const port = localUrl.match(/:(\d+)/)?.[1] || '5002';
+          const rewritten = `http://${fallbackHost}:${port}`;
+          console.log('[API] Physical device detected — using configured LAN IP:', rewritten);
+          localUrl = rewritten;
+        } else {
+          console.warn(
+            '[API] Running on a physical device but could not detect the dev machine LAN IP. ' +
+            'If requests fail, set EXPO_PUBLIC_LOCAL_IP in .env to your LAN IP and restart Expo.'
+          );
+        }
       }
     }
 

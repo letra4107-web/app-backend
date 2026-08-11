@@ -53,7 +53,16 @@ class ProgressQuery {
     return this;
   }
   async maybeSingle() {
-    return { data: { achievements: [], level: 'Intermediate' }, error: null };
+    return {
+      data: {
+        achievements: [],
+        level: 'Intermediate',
+        streak: 4,
+        longest_streak: 7,
+        last_practice_date: '2026-08-11',
+      },
+      error: null,
+    };
   }
   upsert(payload) {
     this.payload = payload;
@@ -132,11 +141,17 @@ const withServer = async (supabase, callback) => {
         student_id: '00000000-0000-4000-8000-000000000098',
         level: 'Advanced',
         xp: 99999,
+        streak: 999,
+        longestStreak: 999,
+        lastPracticeDate: '2099-01-01',
       },
     });
     assert.strictEqual(update.status, 200);
     assert.strictEqual(supabase.state.progressPayload.child_id, supabase.state.studentId);
     assert.strictEqual(supabase.state.progressPayload.level, 'Intermediate');
+    assert.strictEqual(supabase.state.progressPayload.streak, 4);
+    assert.strictEqual(supabase.state.progressPayload.longest_streak, 7);
+    assert.strictEqual(supabase.state.progressPayload.last_practice_date, '2026-08-11');
 
     const contentAttempt = await request({
       port,

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
+import { getStateFromPath, NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -36,8 +36,31 @@ const Stack = createStackNavigator();
 // open the app directly into the ResetPassword screen, with the `code` query
 // param handed to it as route.params.code — both cold-start (app not running)
 // and warm (already open) cases are handled by this same config.
+const normalizeRecoveryUrl = (url: string) =>
+  url.replace(
+    /#(?=(?:access_token|refresh_token|token_hash|type|error|error_description)=)/,
+    url.includes('?') ? '&' : '?'
+  );
+
 const linking = {
   prefixes: ['linawletra://'],
+  async getInitialURL() {
+    const url = await Linking.getInitialURL();
+    return url ? normalizeRecoveryUrl(url) : null;
+  },
+  subscribe(listener: (url: string) => void) {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      listener(normalizeRecoveryUrl(url));
+    });
+    return () => subscription.remove();
+  },
+  getStateFromPath(path: string, options: any) {
+    // Supabase implicit recovery links place session values in the URL hash.
+    // React Navigation normally ignores that fragment, so normalize it into
+    // query parameters before building ResetPassword's route params.
+    const normalizedPath = normalizeRecoveryUrl(path);
+    return getStateFromPath(normalizedPath, options);
+  },
   config: {
     screens: {
       ResetPassword: 'reset-password',

@@ -32,6 +32,25 @@ describe('Word of the Day speech session', () => {
     expect(submit).toHaveBeenCalledTimes(1);
   });
 
+  it('auto-stops a one-word response after interim transcript silence', () => {
+    jest.useFakeTimers();
+    const stop = jest.fn();
+    const submit = jest.fn();
+    const session = createSpeechRecognitionSession({
+      stopRecognition: stop,
+      submitTranscript: submit,
+      transcriptSilenceMs: 1300,
+    });
+    session.start();
+    session.onTranscript('isda', false);
+    jest.advanceTimersByTime(1299);
+    expect(stop).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(stop).toHaveBeenCalledTimes(1);
+    session.onRecognitionEnd();
+    expect(submit).toHaveBeenCalledWith('isda');
+  });
+
   it('keeps manual stop and the 12-second hard timeout', () => {
     const manual = setup();
     expect(manual.session.manualStop()).toBe(true);

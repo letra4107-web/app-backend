@@ -237,8 +237,44 @@ export const signInUser = async (email: string, password: string) => {
   return response;
 };
 
+const clearPersistedSupabaseSession = async () => {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage === 'undefined') return;
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => localStorage.removeItem(key));
+    return;
+  }
+
+  // A remote sign-out can fail while the phone is offline. Removing only the
+  // app's Supabase auth token still guarantees that logout works locally.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const AsyncStorageModule = require('@react-native-async-storage/async-storage');
+  const storage = AsyncStorageModule?.default || AsyncStorageModule;
+  const keys: string[] = await storage.getAllKeys();
+  const authKeys = keys.filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'));
+  if (authKeys.length) await storage.multiRemove(authKeys);
+};
+
 export const signOutUser = async () => {
-  return supabase.auth.signOut();
+  let remoteError: any = null;
+  try {
+    const result = await Promise.race([
+      supabase.auth.signOut({ scope: 'local' }),
+      new Promise<{ error: Error }>((resolve) => {
+        setTimeout(() => resolve({ error: new Error('Logout request timed out.') }), 8000);
+      }),
+    ]);
+    remoteError = result.error;
+  } catch (error) {
+    remoteError = error;
+  }
+
+  // Always clear the persisted token. This is intentionally local-first:
+  // users must be able to leave their account even without a network signal.
+  await clearPersistedSupabaseSession();
+  if (remoteError) console.warn('[Auth] remote sign-out failed; local session was cleared:', remoteError?.message || remoteError);
+  return { error: null };
 };
 
 export type OAuthProvider = 'google' | 'facebook';
@@ -473,8 +509,20 @@ export const completeAuthSession = async (
 // there's no website that handles this link, so a web redirect would be a
 // dead end on a native build.
 export const resetPassword = async (email: string) => {
-  const redirectTo = AuthSession.makeRedirectUri({ scheme: 'linawletra', path: 'reset-password' });
-  return supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  const redirectTo = Platform.OS === 'web'
+    ? AuthSession.makeRedirectUri({ path: 'reset-password' })
+    : 'linawletra://reset-password';
+  try {
+    const data = await postJson(buildApiUrl('/auth/request-password-reset'), { email, redirectTo }, 30000);
+    return { data, error: null };
+  } catch (error: any) {
+    const message = error?.data?.message || error?.message || 'Unable to send the reset email.';
+    return { data: null, error: { ...error, message, status: error?.status } };
+  }
+};
+
+export const completePasswordReset = async (email: string, code: string, password: string) => {
+  return postJson(buildApiUrl('/auth/complete-password-reset'), { email, code, password }, 30000);
 };
 
 export const getCurrentSession = async () => {

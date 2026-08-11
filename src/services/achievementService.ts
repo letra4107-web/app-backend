@@ -1,5 +1,4 @@
 import { supabase } from '../config/supabase';
-import { createParentNotification } from './notificationService';
 import { speakPhrase } from './ttsService';
 import { ChildProgress } from './progressService';
 
@@ -294,8 +293,6 @@ const REGULAR_BADGE_IDS = ACHIEVEMENTS.map((a) => a.id).filter(
 
 export const unlockAchievements = async (
   progress: ChildProgress,
-  childName: string,
-  parentId?: string,
 ) => {
   const unlockedIds = new Set((progress.achievements || []).map((achievement) => achievement.id));
   const hadZeroBadgesBefore = unlockedIds.size === 0;
@@ -346,27 +343,6 @@ export const unlockAchievements = async (
 
   const first = newlyUnlocked[0];
   speakPhrase(`Binabati kita! Nakuha mo ang badge na ${first.title}!`);
-
-  if (parentId) {
-    try {
-      await createParentNotification({
-        studentId: progress.child_id,
-        parentId,
-        title: 'Bagong Badge!',
-        message: `${childName} earned ${first.title}!`,
-        type: 'achievement',
-      });
-    } catch (error: any) {
-      console.warn('[Achievements] parent notification insert failed:', {
-        parentId,
-        code: error?.code,
-        message: error?.message,
-        details: error?.details,
-        hint: error?.hint,
-        status: error?.status,
-      });
-    }
-  }
 
   return { progress: updatedProgress, newlyUnlocked };
 };

@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const PRODUCTION_BACKEND_URL = 'https://app-backend-production-f32c.up.railway.app';
 const envAndroidPackage = process.env.ANDROID_PACKAGE || process.env.EXPO_ANDROID_PACKAGE;
-const configuredApiUrl = PRODUCTION_BACKEND_URL;
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_BASE_URL || PRODUCTION_BACKEND_URL;
 
 module.exports = ({ config }) => {
   const androidPackage = envAndroidPackage || config.android?.package;

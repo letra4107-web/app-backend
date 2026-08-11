@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl, postJson } from '../config/api';
@@ -41,23 +40,15 @@ export default function StudentWordOfDay({
   const [isRecording, setIsRecording] = useState(false);
   const [starting, setStarting] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [completedToday, setCompletedToday] = useState(log.correct === true);
   const [message, setMessage] = useState('');
   const [analysis, setAnalysis] = useState<{ accuracy: number; feedback: string } | null>(null);
-  const pulse = useSharedValue(1);
   const isStartingRef = useRef(false);
   const isListeningRef = useRef(false);
   const processingRef = useRef(false);
   const recordingStartedAtRef = useRef<number | null>(null);
   const recognitionSessionRef = useRef<SpeechRecognitionSession | null>(null);
   const isMountedRef = useRef(true);
-
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
-
-  useEffect(() => {
-    pulse.value = isRecording
-      ? withRepeat(withSequence(withTiming(1.08, { duration: 450 }), withTiming(1, { duration: 450 })), -1)
-      : withTiming(1);
-  }, [isRecording, pulse]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -67,6 +58,10 @@ export default function StudentWordOfDay({
       if (isListeningRef.current) ExpoSpeechRecognitionModule.abort();
     };
   }, []);
+
+  useEffect(() => {
+    setCompletedToday(log.correct === true);
+  }, [log.id, log.correct]);
 
   const submitTranscript = async (transcript: string) => {
     const normalizedTranscript = transcript.trim();
@@ -93,7 +88,8 @@ export default function StudentWordOfDay({
       recordingStartedAtRef.current = null;
       if (!isMountedRef.current) return;
       if (response.alreadyCompleted) {
-        setMessage(response.message || "You already completed today's Word of the Day. Come back tomorrow!");
+        setCompletedToday(true);
+        setMessage('');
         return;
       }
       if (!response.success || !response.transcript) throw new Error(response.message || 'Speech recognition did not return a transcript.');
@@ -106,6 +102,7 @@ export default function StudentWordOfDay({
         ? SUCCESS_PHRASES[Math.floor(Math.random() * SUCCESS_PHRASES.length)]
         : TRY_PHRASES[Math.floor(Math.random() * TRY_PHRASES.length)]);
       setAnalysis({ accuracy: score, feedback: phrase });
+      if (correct) setCompletedToday(true);
       speakPhrase(phrase, { onError: setMessage });
       if (!correct) {
         setTimeout(() => {
@@ -196,6 +193,9 @@ export default function StudentWordOfDay({
           setMessage('Sinusuri ang iyong bigkas...');
         },
         hardTimeoutMs: 12000,
+        // Word of the Day expects one short word. Auto-submit after the child
+        // finishes speaking even on recognizers that never emit `speechend`.
+        transcriptSilenceMs: 1300,
       });
       recognitionSessionRef.current.start();
       recordingStartedAtRef.current = Date.now();
@@ -203,8 +203,11 @@ export default function StudentWordOfDay({
         lang: 'fil-PH',
         interimResults: true,
         continuous: false,
-        maxAlternatives: 3,
-        contextualStrings: [log.word, log.word.replace(/-/g, '')],
+        maxAlternatives: 1,
+        // Do not put the expected answer in contextualStrings. Android treats
+        // those strings as recognition bias and can "correct" a genuinely
+        // wrong pronunciation such as "idsa" into "isda", producing a false
+        // pass before the server ever sees what the child actually said.
         ...(Platform.OS === 'android' ? {
           androidIntentOptions: {
             EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2300,
@@ -233,7 +236,7 @@ export default function StudentWordOfDay({
     }
   };
 
-  const isDone = disabled || log.correct === true || (log.attempts || 0) >= 3;
+  const isDone = disabled || completedToday || (log.attempts || 0) >= 3;
 
   const display = definition?.display_word || syllabifyText(log.word || '');
   const attemptCount = log.attempts || 0;
@@ -242,7 +245,7 @@ export default function StudentWordOfDay({
     <View style={styles.container}>
       <View style={styles.card}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerCopy}>
             <Text style={styles.title}>Pakinggan at Basahin</Text>
             <Text style={styles.subtitle}>Salitang Ngayon</Text>
           </View>
@@ -264,10 +267,13 @@ export default function StudentWordOfDay({
           </View>
         )}
 
-        {log.correct ? (
+        {completedToday ? (
           <View style={styles.completedTodayBanner}>
-            <Text style={styles.completedTodayText}>✅ Natapos na ngayon</Text>
-            <Text style={styles.completedTodaySubtext}>Babalik bukas para sa bagong salita.</Text>
+            <View style={styles.completedTodayTitleRow}>
+              <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+              <Text style={styles.completedTodayText}>Tapos mo na itong basahin!</Text>
+            </View>
+            <Text style={styles.completedTodaySubtext}>Come back tomorrow para sa bagong salita.</Text>
           </View>
         ) : (
           <>
@@ -292,9 +298,9 @@ export default function StudentWordOfDay({
 
             <Text style={styles.micHint}>
               {starting
-                ? 'Naghahanda sila...'
+                ? 'Naghahanda...'
                 : isRecording
-                ? 'Nakikinig... Basahin ang salita nang malinaw.'
+                ? 'Nakikinig... Awtomatikong titigil pagkatapos mong magsalita.'
                 : 'Pindutin ang mikropono at basahin ang salita nang malakas.'}
             </Text>
 
@@ -333,9 +339,13 @@ export default function StudentWordOfDay({
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
-  card: { width: '100%', backgroundColor: '#fff', borderRadius: 28, padding: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+  // StudentDashboard already provides the outer Word of the Day card. Keep
+  // this component edge-to-edge inside it so small Android screens do not
+  // lose usable width to a second card/padding layer.
+  container: { width: '100%', paddingTop: 10 },
+  card: { width: '100%' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  headerCopy: { flex: 1, minWidth: 0, paddingRight: 10 },
   title: { color: colors.lavenderDark, fontSize: 20, fontWeight: '900' },
   subtitle: { color: colors.inkSoft, fontSize: 13, marginTop: 4 },
   chip: { backgroundColor: '#F4EDFF', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
@@ -346,10 +356,10 @@ const styles = StyleSheet.create({
   wordMeaning: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', marginTop: 10, textAlign: 'center', lineHeight: 18, maxWidth: '85%' },
   recommendationBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFECFB', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 },
   recommendationText: { flex: 1, color: colors.lavenderDark, fontSize: 13, fontWeight: '700', lineHeight: 18 },
-  buttonRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginBottom: 14 },
-  listenButton: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: colors.lavender, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', minWidth: 140, justifyContent: 'center' },
+  buttonRow: { width: '100%', flexDirection: 'row', gap: 10, alignItems: 'stretch', marginBottom: 14 },
+  listenButton: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: colors.lavender, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 12, backgroundColor: '#fff', justifyContent: 'center' },
   listenText: { color: colors.lavenderDark, fontWeight: '800', marginLeft: 6, fontSize: 14 },
-  recordButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingHorizontal: 18, paddingVertical: 12, backgroundColor: colors.lavender, minWidth: 140 },
+  recordButton: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 12, backgroundColor: colors.lavender },
   recordText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   disabledButton: { backgroundColor: '#D1D5DB' },
   progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 14 },
@@ -369,6 +379,7 @@ const styles = StyleSheet.create({
   doneText: { fontWeight: '800', color: colors.textPrimary, fontSize: 15 },
   doneSubtext: { color: colors.textSecondary, marginTop: 4, fontSize: 13, textAlign: 'center' },
   completedTodayBanner: { marginTop: 12, padding: 16, width: '100%', borderRadius: 18, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: colors.success, alignItems: 'center' },
+  completedTodayTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   completedTodayText: { color: colors.success, fontWeight: '800', fontSize: 15 },
   completedTodaySubtext: { color: colors.textSecondary, fontWeight: '600', marginTop: 4, textAlign: 'center', fontSize: 13 },
 });

@@ -15,6 +15,7 @@
     "test:smoke": "node tests/server_smoke.test.js",
     "test:practice-auth": "node tests/practice_auth.test.js",
     "test:progress-auth": "node tests/progress_auth.test.js",
+    "test:word-of-day": "node tests/word_of_day_scoring.test.js",
     "test:personalization": "node tests/personalization.test.js",
     "test:pronunciation": "node tests/pronunciation_tests.js",
     "seed:reading-content": "node scripts/seedReadingContent.js"
@@ -32,6 +33,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "multer": "^2.1.1",
     "node-cron": "^4.6.0",
+    "nodemailer": "^7.0.0",
     "openai": "^4.28.0",
     "pdf-parse": "^1.1.1",
     "ws": "^8.21.0",

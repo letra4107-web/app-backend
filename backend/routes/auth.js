@@ -1,5 +1,5 @@
 const express = require('express');
-const { transporter } = require('../config/mailer');
+const { sendPasswordResetCodeEmail, transporter } = require('../config/mailer');
 const { supabaseAdmin } = require('../config/supabase');
 const { createOTPSession, verifyOTP, canResendOTP, deleteOTPSession } = require('../models/otp');
 const { enqueueOtpEmail } = require('../jobs/otpEmailQueue');
@@ -18,6 +18,8 @@ const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const OTP_REQUEST_CACHE_TTL_MS = 2 * 60 * 1000;
 const otpRequestCache = new Map();
 const otpRequestInFlight = new Map();
+const passwordResetRequestTimes = new Map();
+const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
 
 const isValidEmail = (email) => OTP_EMAIL_REGEX.test(String(email || '').trim());
 const bearerTokenFrom = (authorization = '') => {
@@ -84,6 +86,114 @@ const findUserIdByEmail = async (email) => {
   }
   return `user_${normalizeEmail(email)}`;
 };
+
+router.post('/request-password-reset', async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  const genericMessage = "If an account exists with this email, you'll receive a six-digit reset code shortly.";
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
+  }
+
+  const lastRequestedAt = passwordResetRequestTimes.get(email) || 0;
+  if (Date.now() - lastRequestedAt < PASSWORD_RESET_COOLDOWN_MS) {
+    return res.status(429).json({ success: false, message: 'Please wait one minute before requesting another reset link.' });
+  }
+  const requestedAt = Date.now();
+  passwordResetRequestTimes.set(email, requestedAt);
+  const cleanupTimer = setTimeout(() => {
+    if (passwordResetRequestTimes.get(email) === requestedAt) {
+      passwordResetRequestTimes.delete(email);
+    }
+  }, PASSWORD_RESET_COOLDOWN_MS + 1000);
+  cleanupTimer.unref?.();
+
+  try {
+    const { data: profileRows, error: profileError } = await supabaseAdmin
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .limit(1);
+    if (profileError) throw profileError;
+
+    const profile = Array.isArray(profileRows) ? profileRows[0] : null;
+    if (!profile?.id) {
+      authLog('log', 'password reset requested for unknown email', { email });
+      return res.json({ success: true, message: genericMessage });
+    }
+
+    const { data: authResult, error: authError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    const authUser = authResult?.user;
+    if (authError || !authUser || normalizeEmail(authUser.email) !== email) {
+      authLog('warn', 'password reset profile has no matching Auth user', {
+        email,
+        userId: profile.id,
+        error: authError?.message,
+      });
+      return res.json({ success: true, message: genericMessage });
+    }
+
+    const otpSession = await createOTPSession(profile.id, email);
+    const delivery = await sendPasswordResetCodeEmail(email, otpSession.otp);
+    authLog('log', 'password reset code accepted by email provider', {
+      email,
+      userId: profile.id,
+      messageId: delivery.messageId,
+      provider: delivery.provider,
+    });
+    return res.json({ success: true, message: genericMessage, deliveryMethod: 'code' });
+  } catch (error) {
+    passwordResetRequestTimes.delete(email);
+    authLog('error', 'password reset delivery failed', {
+      email,
+      message: error?.message || String(error),
+      code: error?.code,
+      responseCode: error?.responseCode,
+    });
+    return res.status(503).json({
+      success: false,
+      message: 'We could not send the reset email right now. Please try again in a moment.',
+    });
+  }
+});
+
+router.post('/complete-password-reset', async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  const code = String(req.body?.code || '').trim();
+  const password = String(req.body?.password || '');
+
+  if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
+    return res.status(400).json({ success: false, message: 'Enter the valid email and six-digit reset code.' });
+  }
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+    return res.status(400).json({ success: false, message: 'Password must have 8 characters, one uppercase letter, and one number.' });
+  }
+
+  try {
+    const { data: profiles, error: profileError } = await supabaseAdmin
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .limit(1);
+    if (profileError) throw profileError;
+    const profile = Array.isArray(profiles) ? profiles[0] : null;
+    if (!profile?.id) return res.status(400).json({ success: false, message: 'Invalid or expired reset code.' });
+
+    const verification = await verifyOTP(profile.id, code);
+    if (normalizeEmail(verification.email) !== email) {
+      throw new Error('Reset code does not match this email.');
+    }
+
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, { password });
+    if (updateError) throw updateError;
+    await deleteOTPSession(profile.id);
+    authLog('log', 'password reset completed', { email, userId: profile.id });
+    return res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (error) {
+    authLog('warn', 'password reset completion failed', { email, message: error?.message || String(error) });
+    return res.status(400).json({ success: false, message: error?.message || 'Invalid or expired reset code.' });
+  }
+});
 
 const findOtpSessionUserId = async (email, preferredUserId = '') => {
   const normalizedEmail = normalizeEmail(email);

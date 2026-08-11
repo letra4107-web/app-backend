@@ -9,7 +9,7 @@ import {
   subscribeToParentNotifications,
 } from '../services/notificationService';
 import { useAccessibility } from '../contexts/AccessibilityContext';
-import { colors } from '../theme';
+import { colors, radius, shadows } from '../theme';
 
 // SURFACE/BORDER/DANGER are intentionally NOT theme.colors equivalents -
 // one-off hex values kept local rather than coerced onto a nearby color.
@@ -430,8 +430,8 @@ const styles = StyleSheet.create({
   error: { color: DANGER, marginBottom: 12 },
 
   summaryBanner: {
-    flexDirection: 'row', gap: 12, backgroundColor: SURFACE, borderRadius: 16, padding: 14,
-    marginBottom: 14, borderWidth: 1, borderColor: BORDER, alignItems: 'center',
+    flexDirection: 'row', gap: 12, backgroundColor: SURFACE, borderRadius: radius.md, padding: 14,
+    marginBottom: 14, alignItems: 'center', ...shadows.card,
   },
   summaryIconWrap: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: colors.lavenderDark,
@@ -452,8 +452,8 @@ const styles = StyleSheet.create({
   list: { paddingBottom: 20 },
   groupLabel: { fontWeight: '900', color: colors.ink, fontSize: 13, marginBottom: 8, marginTop: 4 },
   card: {
-    flexDirection: 'row', gap: 12, backgroundColor: SURFACE, padding: 14, borderRadius: 16,
-    borderWidth: 1, borderColor: BORDER, marginBottom: 10,
+    flexDirection: 'row', gap: 12, backgroundColor: SURFACE, padding: 14, borderRadius: radius.md,
+    marginBottom: 10, ...shadows.card,
   },
   cardIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   closeButton: { padding: 6 },
 
   spotlightCard: {
-    backgroundColor: colors.lavenderDark, borderRadius: 20, padding: 18, marginTop: 8,
+    backgroundColor: colors.lavenderDark, borderRadius: radius.lg, padding: 18, marginTop: 8, ...shadows.raised,
   },
   spotlightBadge: {
     alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 12,

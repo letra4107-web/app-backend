@@ -1,4 +1,6 @@
 import { supabase } from '../config/supabase';
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 type Profile = {
   id?: string;
@@ -419,32 +421,46 @@ const MIME_TO_EXT: Record<string, string> = {
 };
 
 export async function uploadAvatar(userId: string, uri: string, mimeType?: string) {
-  try {
+  if (!userId || !uri) throw new Error('Missing account or selected photo.');
+
+  // React Native's fetch(file://...).blob() produces a Blob wrapper that
+  // Supabase Storage cannot reliably upload. Expo FileSystem gives Storage
+  // the real bytes instead. Keep Blob on web, where it is natively supported.
+  let fileBody: Blob | ArrayBuffer;
+  let detectedMime = '';
+  let fileSize = 0;
+  if (Platform.OS === 'web') {
     const response = await fetch(uri);
+    if (!response.ok) throw new Error('Could not read the selected photo.');
     const blob = await response.blob();
-    // `uri` is a blob: URL on web (and can lack a real extension on native too),
-    // so the extension must come from the asset's actual MIME type - never
-    // parsed out of the URI string, which the ImagePicker result's own
-    // `mimeType` (or the fetched blob's `.type` as a fallback) reliably gives us.
-    const resolvedMime = mimeType || blob.type || 'image/jpeg';
-    const fileExt = MIME_TO_EXT[resolvedMime.toLowerCase()] || 'jpg';
-    // No prefix here - the bucket passed to .from() below is already the
-    // target bucket, so prefixing it again just doubled the path. The real
-    // bucket in this project is named "avatar" (singular) - it was created
-    // after this function was first written against an assumed "avatars"
-    // name, so every upload has been hitting a nonexistent bucket.
-    const filePath = `${userId}.${fileExt}`;
-    const { data, error: uploadError } = await supabase.storage.from('avatar').upload(filePath, blob, {
-      upsert: true,
-      cacheControl: '3600',
-      contentType: resolvedMime,
-    });
-    if (uploadError) throw uploadError;
-    const { data: publicData } = supabase.storage.from('avatar').getPublicUrl(data.path);
-    const publicUrl = publicData?.publicUrl || null;
-    await updateProfile({ id: userId, avatar_url: publicUrl });
-    return publicUrl;
-  } catch (e) {
-    throw e;
+    fileBody = blob;
+    detectedMime = blob.type;
+    fileSize = blob.size;
+  } else {
+    fileBody = await new File(uri).arrayBuffer();
+    fileSize = fileBody.byteLength;
   }
+
+  if (!fileSize) {
+    throw new Error('The selected photo is empty. Please choose another photo.');
+  }
+
+  const resolvedMime = (mimeType || detectedMime || 'image/jpeg').toLowerCase();
+  const fileExt = MIME_TO_EXT[resolvedMime] || 'jpg';
+  const filePath = `${userId}.${fileExt}`;
+  const { data, error: uploadError } = await supabase.storage.from('avatar').upload(filePath, fileBody, {
+    upsert: true,
+    cacheControl: '3600',
+    contentType: resolvedMime,
+  });
+  if (uploadError) throw uploadError;
+
+  const { data: publicData } = supabase.storage.from('avatar').getPublicUrl(data.path);
+  if (!publicData?.publicUrl) throw new Error('The uploaded photo has no public URL.');
+
+  // The object path is deliberately stable, so add a version query to prevent
+  // React Native's image cache from continuing to show the previous avatar.
+  const publicUrl = `${publicData.publicUrl}?v=${Date.now()}`;
+  await updateProfile({ id: userId, avatar_url: publicUrl });
+  return publicUrl;
 }

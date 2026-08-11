@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, AppState, AppStateStatus, Image, Linking, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, Animated, AppState, AppStateStatus, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,7 +30,7 @@ import { speakPhrase, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '
 import { speakWordCloud, speakSyllablesCloud, stopCloudSpeaking } from '../services/cloudTtsService';
 import SyllableKaraokeText from '../components/SyllableKaraokeText';
 import WordMeaningReveal from '../components/WordMeaningReveal';
-import { fetchDashboardSettings, updateDashboardSettings, DashboardSettings } from '../services/settingsService';
+import { fetchDashboardSettings, DashboardSettings } from '../services/settingsService';
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { PRACTICE_PASSING_SCORE, scorePronunciation, scoreMessage } from '../utils/scorePronunciation';
@@ -39,6 +39,7 @@ import { fetchPronunciationSessions } from '../services/pronunciationSessionServ
 import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem, subscribeToStudentNotifications } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
 import DashboardSettingsScreen from './DashboardSettingsScreen';
+import DashboardBottomNav, { BottomNavItem } from '../components/DashboardBottomNav';
 import { logPhonemeConfusion } from '../services/phonemeService';
 import { analyzePhonology } from '../utils/tagalogPhonemes';
 import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
@@ -53,6 +54,7 @@ import {
   recordReadingContentAttempt,
 } from '../services/readingContentService';
 import { colors, typography, radius, shadows } from '../theme';
+import { fetchStudentProfile } from '../services/profileService';
 
 type ChildProfile = {
   id: string;
@@ -143,6 +145,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function StudentDashboard({ navigation }: any) {
   const [child, setChild] = useState<ChildProfile | null>(null);
+  const [studentAvatarUrl, setStudentAvatarUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState<ChildProgress | null>(null);
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
   const [manilaDateKey, setManilaDateKey] = useState(getAsiaManilaDate());
@@ -195,6 +198,7 @@ export default function StudentDashboard({ navigation }: any) {
   type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
   const [achievement, setAchievement] = useState<{ image: any; title: string; category?: AchievementCategory; xp?: number } | null>(null);
   const [expandedBadgeId, setExpandedBadgeId] = useState<string | null>(null);
@@ -447,22 +451,6 @@ export default function StudentDashboard({ navigation }: any) {
   // Accessibility toggle - not a second source of truth. DashboardSettingsScreen
   // unmounts/remounts whenever the Settings tab is left and reopened, so it
   // always refetches this value fresh; nothing to keep in sync there.
-  const toggleDyslexiaFont = async (next: boolean) => {
-    if (!child?.auth_uid) return;
-    const previous = dashboardSettings;
-    setDashboardSettings((prev) => (prev ? { ...prev, dyslexia_font: next } : prev));
-    setAccessibilitySettings({ dyslexiaFont: next });
-    try {
-      const saved = await updateDashboardSettings(child.auth_uid, 'student', { dyslexia_font: next });
-      setDashboardSettings(saved);
-      setAccessibilitySettings(accessibilityFromSettings(saved));
-    } catch (error: any) {
-      console.warn('[Sidebar] dyslexia_font toggle failed:', error?.message || error);
-      setDashboardSettings(previous);
-      setAccessibilitySettings(accessibilityFromSettings(previous));
-    }
-  };
-
   // Same mailto pattern as DashboardSettingsScreen's contactSupport (that
   // component isn't mounted from the sidebar, so this is a small, deliberate
   // duplication matching how ParentDashboardEnhanced already keeps its own
@@ -473,6 +461,19 @@ export default function StudentDashboard({ navigation }: any) {
     const url = `mailto:support@linawletra.app?subject=${subject}&body=${body}`;
     const canOpen = await Linking.canOpenURL(url);
     if (canOpen) await Linking.openURL(url);
+  };
+
+  const handleStudentLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const { error: logoutError } = await signOutUser();
+      if (logoutError) throw logoutError;
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    } catch (logoutError: any) {
+      setLoggingOut(false);
+      Alert.alert('Hindi Maka-logout', logoutError?.message || 'Subukan muli.');
+    }
   };
 
   const loadPronunciationStats = async (childId?: string) => {
@@ -647,6 +648,14 @@ export default function StudentDashboard({ navigation }: any) {
     setUploadsError('');
     const currentProgress = profile.child_progress?.[0] || emptyProgress(profile.id);
     setProgress(currentProgress);
+
+    // The learning profile lives in `children`, while avatar_url is stored in
+    // the shared auxiliary profile row used by Settings.
+    void fetchStudentProfile(profile.auth_uid)
+      .then((studentProfile) => setStudentAvatarUrl(studentProfile?.avatar_url || null))
+      .catch((avatarError: any) => {
+        console.warn('[StudentDashboard] avatar load failed:', avatarError?.message || avatarError);
+      });
 
     const [wordLog, uploads, lessonRows, assignedActivities, , , , , , , definitions] = await Promise.all([
       getOrCreateWordOfDay(profile.id, Number(profile.grade_level || 1)).catch((err) => {
@@ -1002,8 +1011,7 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       await markLessonCompleted(child.id, lesson.id);
       void loadLessonProgress(child.id);
-      await notifyParent('Lesson Completed', `${child?.name || 'Student'} completed "${lesson.title}".`, 'lesson');
-      await notifyStudent('Lesson Completed!', `You finished "${lesson.title}". Great work!`, 'lesson');
+      await notifyStudent('Lesson Completed!', `${child?.name || 'Student'} finished "${lesson.title}". Great work!`, 'lesson');
     } catch {
       Alert.alert('Error', 'Hindi na-save ang progress. Subukan muli.');
     }
@@ -1038,7 +1046,7 @@ export default function StudentDashboard({ navigation }: any) {
     await saveProgress(next);
     setProgress(next);
 
-    const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
+    const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next);
     if (newlyUnlocked?.length) {
       const saved = await saveProgress(updatedProgress);
       setProgress(saved.progress);
@@ -1049,7 +1057,7 @@ export default function StudentDashboard({ navigation }: any) {
       const celebrate = newlyUnlocked.find((a) => saved.newlyPersistedAchievementIds?.includes(a.id));
       if (celebrate) {
         setAchievement({ image: celebrate.image, title: celebrate.title });
-        await notifyStudent('New Badge Unlocked!', `You earned the "${celebrate.title}" badge!`, 'achievement');
+        await notifyStudent('New Badge Unlocked!', `${child?.name || 'Student'} earned the "${celebrate.title}" badge!`, 'achievement');
       }
     }
   };
@@ -1062,6 +1070,12 @@ export default function StudentDashboard({ navigation }: any) {
     completion?: { streak?: number; longest_streak?: number; xp_awarded?: number; total_xp?: number },
   ) => {
     try {
+      // The endpoint has already saved this authoritative result. Reflect it
+      // immediately so the card changes from the mic controls to the
+      // completed-today message without requiring a dashboard reload.
+      setWordOfDay((current) => current
+        ? { ...current, attempts, correct: correct ? true : current.correct }
+        : current);
       if (!progress) return;
       const addXp = completion?.xp_awarded ?? 0;
       const computed = buildNextProgress(progress, wordOfDay?.word || '', 0, {
@@ -1076,6 +1090,9 @@ export default function StudentDashboard({ navigation }: any) {
             xp: completion.total_xp ?? computed.xp,
             streak: completion.streak ?? computed.streak,
             longest_streak: completion.longest_streak ?? computed.longest_streak,
+            // Keep the local snapshot aligned with the server-owned Manila
+            // day used by the successful Word-of-the-Day transaction.
+            last_practice_date: getAsiaManilaDate(),
           }
         : computed;
       await saveProgress(next);
@@ -1092,7 +1109,7 @@ export default function StudentDashboard({ navigation }: any) {
           'streak',
         );
       }
-      const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
+      const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next);
       if (newlyUnlocked?.length) {
         const saved = await saveProgress(updatedProgress);
         setProgress(saved.progress);
@@ -1106,7 +1123,7 @@ export default function StudentDashboard({ navigation }: any) {
             category: celebrate.category,
             xp: celebrate.xpReward,
           });
-          await notifyStudent('New Badge Unlocked!', `You earned the "${celebrate.title}" badge!`, 'achievement');
+          await notifyStudent('New Badge Unlocked!', `${child?.name || 'Student'} earned the "${celebrate.title}" badge!`, 'achievement');
         }
       }
     } catch (e) {
@@ -1331,16 +1348,21 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   // Student-facing counterpart to notifyParent - writes user_id = the
-  // student's own auth_uid. Before this, nothing in the app ever wrote a
+  // student's own auth_uid and links the same row to the enrolled child's
+  // parent so it appears in both notification views and parent realtime.
+  // Before this, nothing in the app ever wrote a
   // notification row addressed to the student themselves (every existing
   // call site was parent-only), so the student's own Notifications tab had
   // no real content to show. Only called at genuinely real events below -
   // deliberately not mirrored for every notifyParent() call, to avoid
   // notification spam (e.g. no per-attempt XP/assignment noise).
   const notifyStudent = async (title: string, message: string, type: string) => {
-    if (!child?.auth_uid) return;
+    if (!child?.auth_uid || !child?.id || !child?.parent_id) return;
     try {
-      await createNotification(child.auth_uid, title, message, type);
+      await createNotification(child.auth_uid, title, message, type, {
+        studentId: child.id,
+        parentId: child.parent_id,
+      });
     } catch (error: any) {
       console.warn('[StudentDashboard] student notification failed:', {
         title,
@@ -1470,7 +1492,7 @@ export default function StudentDashboard({ navigation }: any) {
       await saveProgress(next);
       setProgress(next);
       await notifyParent('XP Update', `${child?.name || 'Student'} earned ${xpAward} XP from speech practice.`, 'xp');
-      const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next, child?.name || '', child?.parent_id);
+      const { progress: updatedProgress, newlyUnlocked } = await unlockAchievements(next);
       if (newlyUnlocked?.length) {
         const saved = await saveProgress(updatedProgress);
         setProgress(saved.progress);
@@ -1484,7 +1506,7 @@ export default function StudentDashboard({ navigation }: any) {
             category: celebrate.category,
             xp: celebrate.xpReward,
           });
-          await notifyStudent('New Badge Unlocked!', `You earned the "${celebrate.title}" badge!`, 'achievement');
+          await notifyStudent('New Badge Unlocked!', `${child?.name || 'Student'} earned the "${celebrate.title}" badge!`, 'achievement');
         }
       }
     } catch (e) {
@@ -2430,9 +2452,13 @@ export default function StudentDashboard({ navigation }: any) {
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.homeHeaderRow}>
-          <View style={styles.homeHeaderAvatar}>
-            <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
-          </View>
+          {studentAvatarUrl ? (
+            <Image source={{ uri: studentAvatarUrl }} style={styles.homeHeaderAvatar} />
+          ) : (
+            <View style={styles.homeHeaderAvatar}>
+              <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.homeGreetingHello, cardTitleA11y]}>Practice</Text>
             <Text style={[styles.homeGreetingSub, bodyA11y]}>Magsanay tayong magbasa nang magkasama!</Text>
@@ -3035,56 +3061,42 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={[styles.categorySub, smallLabelA11y]}>Assessment content — not ordinary practice</Text>
           </View>
         )}
-        <View style={[styles.categoryCard, styles.categoryTipCard, { backgroundColor: '#FEF3D6' }]}>
+      </View>
+
+      <View style={styles.learnSupportStack}>
+        <View style={[styles.categoryTipCard, styles.learnSupportCard, { backgroundColor: '#FEF3D6' }]}>
           <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.amber }]}>
             <Ionicons name="bulb" size={20} color="#fff" />
           </View>
-          <Text style={[styles.categoryTitle, cardTitleA11y]}>Reading Tip</Text>
-          <Text style={[styles.categorySub, bodyA11y]}>Bigkasin ang bawat pantig nang dahan-dahan bago pagsamahin.</Text>
+          <View style={styles.learnSupportCopy}>
+            <Text style={[styles.categoryTitle, cardTitleA11y]}>Reading Tip</Text>
+            <Text style={[styles.categorySub, bodyA11y]}>Bigkasin ang bawat pantig nang dahan-dahan bago pagsamahin.</Text>
+          </View>
           <Image source={require('../../assets/learnboypng.webp')} style={styles.categoryTipImage} resizeMode="contain" />
         </View>
-      </View>
 
-      <View style={styles.learnBottomRow}>
-        {continueReadingLesson ? (
-          <View style={[styles.learnContinueCard, styles.learnBottomCard]}>
-            <View style={{ maxWidth: '66%' }}>
-              <View style={styles.learnContinuePill}>
-                <Text style={[styles.learnContinuePillText, smallLabelA11y]}>IPAGPATULOY</Text>
-              </View>
-              <Text style={[styles.learnContinueTitle, cardTitleA11y]} numberOfLines={2}>{continueReadingLesson.title}</Text>
-              <TouchableOpacity
-                style={styles.learnContinueButton}
-                onPress={() => openLesson(continueReadingLesson)}
-                accessibilityRole="button"
-                accessibilityLabel={`Continue lesson: ${continueReadingLesson.title}`}
-              >
-                <Text style={[styles.learnContinueButtonText, buttonA11y]}>Ipagpatuloy</Text>
-              </TouchableOpacity>
+        <View style={styles.learnContinueCard}>
+          <View style={styles.learnContinueCopy}>
+            <View style={styles.learnContinuePill}>
+              <Text style={[styles.learnContinuePillText, smallLabelA11y]}>{continueReadingLesson ? 'IPAGPATULOY' : 'MGA PANTIG'}</Text>
             </View>
-            <Image source={require('../../assets/learn2.webp')} style={styles.learnContinueImage} resizeMode="contain" />
+            <Text style={[styles.learnContinueTitle, cardTitleA11y]}>Magsanay Magbasa</Text>
+            {!!continueReadingLesson && (
+              <Text style={[styles.learnContinueSub, bodyA11y]} numberOfLines={2}>{continueReadingLesson.title}</Text>
+            )}
+            <TouchableOpacity
+              style={styles.learnContinueButton}
+              onPress={() => continueReadingLesson ? openLesson(continueReadingLesson) : goToPractice()}
+              accessibilityRole="button"
+              accessibilityLabel={continueReadingLesson ? `Continue lesson: ${continueReadingLesson.title}` : 'Start reading practice'}
+            >
+              <Text style={[styles.learnContinueButtonText, buttonA11y]}>{continueReadingLesson ? 'Ipagpatuloy' : 'Simulan'}</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <View style={[styles.learnContinueCard, styles.learnBottomCard]}>
-            <View style={{ maxWidth: '66%' }}>
-              <View style={styles.learnContinuePill}>
-                <Text style={[styles.learnContinuePillText, smallLabelA11y]}>MGA PANTIG</Text>
-              </View>
-              <Text style={[styles.learnContinueTitle, cardTitleA11y]}>Magsanay Magbasa</Text>
-              <TouchableOpacity
-                style={styles.learnContinueButton}
-                onPress={() => goToPractice()}
-                accessibilityRole="button"
-                accessibilityLabel="Start practice"
-              >
-                <Text style={[styles.learnContinueButtonText, buttonA11y]}>Simulan</Text>
-              </TouchableOpacity>
-            </View>
-            <Image source={require('../../assets/learn2.webp')} style={styles.learnContinueImage} resizeMode="contain" />
-          </View>
-        )}
+          <Image source={require('../../assets/learn2.webp')} style={styles.learnContinueImage} resizeMode="contain" />
+        </View>
 
-        <View style={[styles.learnGoalCard, styles.learnBottomCard]}>
+        <View style={styles.learnGoalCard}>
           <Text style={[styles.learnGoalTitle, cardTitleA11y]}>Daily Learning Goal</Text>
           <Text style={[styles.learnGoalSub, bodyA11y]}>{goalDone} of {DAILY_GOAL} learning activities today</Text>
           <View style={styles.learnGoalTrack}>
@@ -3886,7 +3898,7 @@ export default function StudentDashboard({ navigation }: any) {
             {recentlyEarned.map((r) => (
               <View key={r.badge.id} style={styles.homeRecentActivityCard}>
                 <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: '#FFF3DC' }]}>
-                  <Image source={r.badge.image} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                  <Image source={r.badge.image} style={{ width: 30, height: 30 }} resizeMode="contain" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.homeRecentActivityTitle, cardSubtitleA11y]}>{r.badge.title}</Text>
@@ -4203,17 +4215,37 @@ export default function StudentDashboard({ navigation }: any) {
         setDashboardSettings(saved);
         setAccessibilitySettings(accessibilityFromSettings(saved));
       }}
+      onProfileChanged={(updatedProfile) => {
+        setStudentAvatarUrl(updatedProfile.avatar_url || null);
+        if (updatedProfile.full_name) {
+          setChild((current) => current ? { ...current, name: updatedProfile.full_name as string } : current);
+        }
+      }}
     />
   );
 
-  const navPendingCount = activities.filter((a) => a.status === 'pending' || a.status === 'overdue').length;
-  const navBadgeFraction = `${progress?.achievements?.length || 0}/${ACHIEVEMENTS.length}`;
   // Same unread-notification count that used to live in the header bell on
   // every tab - now surfaced only via the "Notifications" row in the sidebar.
   const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
   // Same accuracy_sum/total_attempts formula as the Progress tab's "Overall
   // Reading Progress" ring - not a separately-computed version.
-  const sidebarOverallPct = progress ? Math.round(averageAccuracy(progress)) : 0;
+  const studentBottomItems: BottomNavItem[] = [
+    { key: 'home', label: 'Home', icon: 'home-outline' },
+    { key: 'learn', label: 'Learn', icon: 'library-outline' },
+    { key: 'practice', label: 'Practice', icon: 'mic-outline' },
+    { key: 'progress', label: 'Progress', icon: 'analytics-outline' },
+    { key: 'achievements', label: 'Badges', icon: 'ribbon-outline' },
+  ];
+  const studentSidebarItems = [
+    { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => navigateTo('settings') },
+    { key: 'notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadNotifCount, onPress: () => navigateTo('notifications') },
+    { key: 'settings', label: 'Settings', icon: 'settings-outline', onPress: () => navigateTo('settings') },
+    { key: 'accessibility', label: 'Accessibility', icon: 'accessibility-outline', onPress: () => navigateTo('settings') },
+    { key: 'preferences', label: 'Preferences', icon: 'options-outline', onPress: () => navigateTo('settings') },
+    { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupportFromSidebar },
+    { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', 'A supportive reading companion designed to help every learner grow with confidence.') },
+    { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
+  ];
 
   const topHeaderNode = (
     <View style={styles.topHeader}>
@@ -4288,6 +4320,12 @@ export default function StudentDashboard({ navigation }: any) {
         </>
       )}
 
+      <DashboardBottomNav
+        items={studentBottomItems}
+        activeKey={section}
+        onSelect={(key) => navigateTo(key as Section)}
+      />
+
       {/* Sidebar overlay + animated sidebar */}
       {sidebarOpen && (
         <Animated.View style={[styles.overlay, { opacity: overlayAnim, pointerEvents: sidebarOpen ? 'auto' : 'none' }]}>
@@ -4306,9 +4344,13 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="close" size={18} color="#fff" />
             </TouchableOpacity>
             <View style={styles.sidebarProfileRow}>
-              <View style={styles.sidebarAvatarWrap}>
-                <Text style={styles.sidebarAvatarText}>{initials}</Text>
-              </View>
+              {studentAvatarUrl ? (
+                <Image source={{ uri: studentAvatarUrl }} style={styles.sidebarAvatarWrap} />
+              ) : (
+                <View style={styles.sidebarAvatarWrap}>
+                  <Text style={styles.sidebarAvatarText}>{initials}</Text>
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.sidebarProfileName} numberOfLines={1}>{child?.name || 'Estudyante'}</Text>
                 <Text style={styles.sidebarProfileGrade}>Grade {child?.grade_level || '-'} Student</Text>
@@ -4319,102 +4361,26 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           </LinearGradient>
 
-          <View style={styles.sidebarLogoRow}>
-            <View style={styles.sidebarLogoIconWrap}>
-              <Ionicons name="book" size={18} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sidebarLogoText}>LinawLetra</Text>
-              <Text style={styles.sidebarLogoTagline}>Clearer Reading. Brighter Learning.</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sidebarSectionLabel}>MAIN NAVIGATION</Text>
-          {[
-            { k: 'home', l: 'Home', i: 'home-outline' },
-            { k: 'learn', l: 'Learn', i: 'library-outline', count: navPendingCount },
-            { k: 'practice', l: 'Practice', i: 'mic-outline' },
-            { k: 'progress', l: 'Progress', i: 'analytics-outline' },
-            { k: 'achievements', l: 'Badges', i: 'ribbon-outline', fraction: navBadgeFraction },
-            { k: 'settings', l: 'Settings', i: 'settings-outline' },
-          ].map((it: any) => {
-            const active = section === it.k;
-            return (
-              <TouchableOpacity
-                key={it.k}
-                style={[styles.navItem, active && styles.navItemActive]}
-                onPress={() => navigateTo(it.k)}
-              >
-                <View style={[styles.navIconWrap, active && styles.navIconWrapActive]}>
-                  <Ionicons name={it.i as any} size={17} color={active ? colors.lavenderDark : colors.inkSoft} />
-                </View>
-                <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.l}</Text>
-                {!!it.count && (
-                  <View style={styles.navCountBadge}>
-                    <Text style={styles.navCountBadgeText}>{it.count > 9 ? '9+' : it.count}</Text>
-                  </View>
-                )}
-                {!!it.fraction && (
-                  <View style={styles.navFractionPill}>
-                    <Text style={styles.navFractionPillText}>{it.fraction}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-
-          <Text style={styles.sidebarSectionLabel}>PROGRESS</Text>
-          <View style={styles.sidebarProgressCard}>
-            <Text style={styles.sidebarProgressTitle}>Your Reading Progress</Text>
-            <Text style={styles.sidebarProgressPct}>{sidebarOverallPct}% Complete</Text>
-            <View style={styles.sidebarProgressTrack}>
-              <View style={[styles.sidebarProgressFill, { width: `${Math.max(4, sidebarOverallPct)}%` }]} />
-            </View>
-            <Text style={styles.sidebarProgressMsg}>Keep going {getFirstName(child?.name || '')}! ✦</Text>
-            <Image source={require('../../assets/menu.webp')} style={styles.sidebarProgressImage} resizeMode="contain" />
-          </View>
-
-          <Text style={styles.sidebarSectionLabel}>QUICK ACCESS</Text>
-          <TouchableOpacity style={styles.sidebarQuickRow} onPress={() => navigateTo('notifications')}>
-            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: colors.vivid.teal }]}>
-              <Ionicons name="notifications" size={16} color="#fff" />
-            </View>
-            <Text style={styles.sidebarQuickLabel}>Notifications</Text>
-            {unreadNotifCount > 0 && (
-              <View style={styles.navCountBadge}>
-                <Text style={styles.navCountBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+          <Text style={styles.sidebarSectionLabel}>STUDENT MENU</Text>
+          {studentSidebarItems.map((item) => (
+            <TouchableOpacity key={item.key} style={styles.navItem} onPress={item.onPress} activeOpacity={0.78}>
+              <View style={styles.navIconWrap}>
+                <Ionicons name={item.icon as any} size={20} color={colors.lavenderDark} />
               </View>
-            )}
-            <Ionicons name="chevron-forward" size={16} color={colors.inkSoft} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.sidebarQuickRow} onPress={contactSupportFromSidebar}>
-            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: colors.vivid.teal }]}>
-              <Ionicons name="help-circle" size={16} color="#fff" />
-            </View>
-            <Text style={styles.sidebarQuickLabel}>Help & Support</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.inkSoft} />
-          </TouchableOpacity>
-
-          <View style={styles.sidebarAccessibilityCard}>
-            <View style={[styles.sidebarQuickIconWrap, { backgroundColor: colors.sage }]}>
-              <Ionicons name="accessibility" size={16} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sidebarAccessibilityTitle}>Dyslexia-Friendly Mode</Text>
-              <Text style={styles.sidebarAccessibilitySub}>Make reading more comfortable.</Text>
-            </View>
-            <Switch
-              value={!!dashboardSettings?.dyslexia_font}
-              onValueChange={toggleDyslexiaFont}
-              trackColor={{ false: '#cbd5e1', true: 'rgba(124,111,207,0.4)' }}
-              thumbColor={dashboardSettings?.dyslexia_font ? colors.lavenderDark : '#f8fafc'}
-            />
-          </View>
+              <Text style={styles.navLabel}>{item.label}</Text>
+              {!!item.badge && (
+                <View style={styles.navCountBadge}>
+                  <Text style={styles.navCountBadgeText}>{item.badge > 9 ? '9+' : item.badge}</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
+            </TouchableOpacity>
+          ))}
 
           <Text style={styles.sidebarSectionLabel}>ACCOUNT</Text>
-          <TouchableOpacity style={styles.sidebarLogout} onPress={async () => { await signOutUser(); navigation.replace('Login'); }}>
-            <Ionicons name="log-out-outline" size={20} color="#fff" />
-            <Text style={styles.sidebarLogoutText}>Log Out</Text>
+          <TouchableOpacity style={[styles.sidebarLogout, loggingOut && { opacity: 0.65 }]} onPress={handleStudentLogout} disabled={loggingOut}>
+            {loggingOut ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="log-out-outline" size={20} color="#fff" />}
+            <Text style={styles.sidebarLogoutText}>{loggingOut ? 'Logging out...' : 'Logout'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>
@@ -4707,7 +4673,7 @@ const styles = StyleSheet.create({
   // --- Badges tab (accent: lavender, ties into Home's achievement showcase) ---
   // 1280x1920 in the source art (own ratio group, distinct from
   // learn.png/book.png and singing.png/learn2.png).
-  badgesHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 140, height: 210 },
+  badgesHeroImage: { position: 'absolute', right: -2, bottom: -10, width: 154, height: 231 },
   achievementSummaryCard: {
     backgroundColor: '#fff', borderRadius: 28, padding: 20, marginBottom: 20,
     ...shadows.raised,
@@ -4723,7 +4689,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, padding: 14, width: '100%',
     ...shadows.card,
   },
-  achievementFeaturedImage: { width: 44, height: 44 },
+  achievementFeaturedImage: { width: 50, height: 50 },
   achievementFeaturedTitle: { color: colors.ink, fontWeight: '900', fontSize: 14, marginBottom: 2 },
   achievementFeaturedDesc: { color: colors.inkSoft, fontWeight: '600', fontSize: 12 },
   spotlightEyebrow: { color: colors.lavenderDark, fontWeight: '900', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
@@ -4733,7 +4699,7 @@ const styles = StyleSheet.create({
     ...shadows.hero,
   },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png).
-  badgesCelebrateImage: { position: 'absolute', right: 14, top: 10, width: 76, height: 134 },
+  badgesCelebrateImage: { position: 'absolute', right: 10, top: 8, width: 84, height: 147 },
   badgesCelebrateTitle: { fontFamily: typography.family.display, color: '#fff', fontSize: 20, marginBottom: 4 },
   badgesCelebrateSub: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 13, marginBottom: 16, lineHeight: 18 },
   badgesNextCard: { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: radius.md, padding: 14, marginBottom: 14 },
@@ -4761,7 +4727,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 10, right: 10, width: 22, height: 22, borderRadius: 11,
     backgroundColor: 'rgba(59,50,44,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
-  badgeImage: { width: 72, height: 72 },
+  badgeImage: { width: 80, height: 80 },
   badgeImageLocked: { opacity: 0.45 },
   badgeTitle: { textAlign: 'center', fontWeight: '800', color: colors.ink, marginTop: 8, fontSize: 13 },
   badgeCondition: { textAlign: 'center', color: colors.inkSoft, fontSize: 12, marginTop: 8, lineHeight: 16 },
@@ -4784,7 +4750,7 @@ const styles = StyleSheet.create({
   spotlightCard: { backgroundColor: '#fff', borderRadius: radius.xl, padding: 18, marginBottom: 20, ...shadows.card },
   spotlightTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16, marginBottom: 12 },
   spotlightRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
-  spotlightImage: { width: 56, height: 56 },
+  spotlightImage: { width: 62, height: 62 },
   spotlightBadgeTitle: { color: colors.ink, fontWeight: '900', fontSize: 15, marginBottom: 4 },
   spotlightProgressText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12, marginBottom: 6 },
   spotlightTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden' },
@@ -4831,10 +4797,11 @@ const styles = StyleSheet.create({
   learnEmptySubtext: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', lineHeight: 19 },
   learnMarkDoneText: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, textDecorationLine: 'underline' },
   learnContinueCard: {
-    backgroundColor: colors.sage, borderRadius: radius.xl, padding: 18, marginBottom: 20,
+    backgroundColor: colors.sage, borderRadius: radius.xl, padding: 18, minHeight: 158,
     ...shadows.raised, shadowColor: colors.sage,
     position: 'relative', overflow: 'hidden',
   },
+  learnContinueCopy: { maxWidth: '72%', flex: 1, justifyContent: 'center' },
   learnContinuePill: {
     alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)',
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10,
@@ -4862,10 +4829,10 @@ const styles = StyleSheet.create({
   learnJourneyTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginBottom: 8 },
   learnJourneyFill: { height: '100%', borderRadius: 5, backgroundColor: colors.lavender },
   learnJourneyMsg: { color: colors.inkSoft, fontWeight: '600', fontSize: 13 },
-  learnHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
+  learnHeroImage: { position: 'absolute', right: -2, bottom: -10, width: 132, height: 233 },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png) -
   // sized to that real aspect ratio, not the 1120x2240 group's heroImage box.
-  progressHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
+  progressHeroImage: { position: 'absolute', right: -2, bottom: -10, width: 132, height: 233 },
   learnProgressCard: {
     backgroundColor: '#fff', borderRadius: radius.xl, padding: 18, marginBottom: 20,
     ...shadows.raised,
@@ -4916,17 +4883,22 @@ const styles = StyleSheet.create({
     position: 'relative',
     ...shadows.card,
   },
-  categoryTipCard: { justifyContent: 'flex-start', overflow: 'hidden' },
+  categoryTipCard: { position: 'relative', overflow: 'hidden' },
   categoryIconWrap: {
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
   categoryTitle: { color: colors.ink, fontWeight: '900', fontSize: 15, marginBottom: 4 },
   categorySub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, lineHeight: 16 },
-  categoryTipImage: { position: 'absolute', right: 2, bottom: -6, width: 52, height: 92 },
+  categoryTipImage: { position: 'absolute', right: 4, bottom: -8, width: 66, height: 116 },
 
-  learnBottomRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
-  learnBottomCard: { flex: 1, marginBottom: 0 },
-  learnContinueImage: { position: 'absolute', right: 4, bottom: -8, width: 52, height: 104 },
+  learnSupportStack: { gap: 12, marginBottom: 8 },
+  learnSupportCard: {
+    minHeight: 118, borderRadius: radius.lg, padding: 16, paddingRight: 76,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    ...shadows.card,
+  },
+  learnSupportCopy: { flex: 1, minWidth: 0 },
+  learnContinueImage: { position: 'absolute', right: 8, bottom: -12, width: 80, height: 158 },
   learnGoalCard: {
     backgroundColor: colors.lavenderDark, borderRadius: 24, padding: 18,
     shadowColor: colors.lavenderDark, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
@@ -4997,10 +4969,10 @@ const styles = StyleSheet.create({
   },
   sidebarProfileRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 24 },
   sidebarAvatarWrap: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.22)',
+    width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
   },
-  sidebarAvatarText: { fontSize: 22, fontWeight: '900', color: '#fff' },
+  sidebarAvatarText: { fontSize: 26, fontWeight: '900', color: '#fff' },
   sidebarProfileName: { fontFamily: typography.family.displaySemi, fontSize: 16, color: '#fff' },
   sidebarProfileGrade: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 12, marginTop: 2 },
   sidebarProfileLink: { color: '#fff', fontWeight: '900', fontSize: 12, marginTop: 6, textDecorationLine: 'underline' },
@@ -5050,7 +5022,7 @@ const styles = StyleSheet.create({
   sidebarProgressMsg: { color: colors.inkSoft, fontWeight: '700', fontSize: 11, marginTop: 8, maxWidth: '72%' },
   // 1120x2240 in the source art (same ratio group as singing.png/learn2.png) -
   // "peeking" from the bottom-right corner of the mini progress card.
-  sidebarProgressImage: { position: 'absolute', right: -6, bottom: -10, width: 70, height: 140 },
+  sidebarProgressImage: { position: 'absolute', right: -7, bottom: -11, width: 78, height: 154 },
   sidebarQuickRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 14, padding: 12, marginBottom: 8,
@@ -5104,7 +5076,7 @@ const styles = StyleSheet.create({
   // rectangle so the full character shows with no cropping, anchored to
   // bleed slightly past the card's bottom-right corner (heroBanner's
   // overflow:hidden clips it cleanly, matching the reference).
-  heroImage: { position: 'absolute', right: 0, bottom: -12, width: 112, height: 224 },
+  heroImage: { position: 'absolute', right: -2, bottom: -14, width: 124, height: 246 },
   readyPracticeCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: '#FBE7DF', borderRadius: radius.xl, padding: 18, marginBottom: 16,
@@ -5173,7 +5145,7 @@ const styles = StyleSheet.create({
   // width-scaled height (2x the box width, matching the real ratio), so it
   // crops the bottom off instead of the middle and keeps the head visible.
   homeContinueImageWrap: { width: 52, height: 52, borderRadius: 14, overflow: 'hidden', backgroundColor: '#fff' },
-  homeContinueImage: { width: 52, height: 104, position: 'absolute', top: 0, left: 0 },
+  homeContinueImage: { width: 58, height: 114, position: 'absolute', top: 0, left: 0 },
   homeContinueLessonCount: { color: colors.lavenderDark, fontWeight: '700', fontSize: 11, marginBottom: 8 },
   homeHeroCard: {
     backgroundColor: colors.cream, borderRadius: radius.xl, padding: 18, marginBottom: 16,
@@ -5211,7 +5183,7 @@ const styles = StyleSheet.create({
   // Same full-character, no-crop treatment as the hero's waving.png (1:2
   // source ratio), just smaller - bleeds past the banner's bottom-right
   // corner, clipped by the banner's own overflow:hidden.
-  homeQuoteImage: { position: 'absolute', right: -4, bottom: -10, width: 68, height: 136 },
+  homeQuoteImage: { position: 'absolute', right: -6, bottom: -12, width: 75, height: 150 },
   homeQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   homeQuickCard: {
     flex: 1, borderRadius: 20, paddingVertical: 16, alignItems: 'center', minHeight: 88, justifyContent: 'center',
@@ -5244,7 +5216,7 @@ const styles = StyleSheet.create({
     zIndex: 10, elevation: 10,
   },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png).
-  notifHeroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
+  notifHeroImage: { position: 'absolute', right: -2, bottom: -10, width: 132, height: 233 },
   notifSummaryCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
     borderRadius: 24, padding: 16, marginBottom: 16,
@@ -5450,7 +5422,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F3FC', borderRadius: radius.xl, padding: 16, marginTop: 8, marginBottom: 20,
     ...shadows.card,
   },
-  encourageImage: { width: 64, height: 113 },
+  encourageImage: { width: 71, height: 124 },
   encourageTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 15, marginBottom: 4 },
   encourageSub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginBottom: 12 },
   encourageButtonRow: { flexDirection: 'row', gap: 10 },

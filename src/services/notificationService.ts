@@ -23,6 +23,11 @@ export type ParentNotificationInput = {
   type: string;
 };
 
+export type StudentNotificationLink = {
+  studentId: string;
+  parentId: string;
+};
+
 export const fetchNotifications = async (userId: string) => {
   if (!userId) return [];
 
@@ -111,13 +116,21 @@ export const subscribeToStudentNotifications = (
   };
 };
 
-export const createNotification = async (userId: string, title: string, body: string, type: string) => {
+export const createNotification = async (
+  userId: string,
+  title: string,
+  body: string,
+  type: string,
+  link?: StudentNotificationLink,
+) => {
   if (!userId) {
     throw new Error('Cannot create notification without an authenticated user id.');
   }
 
   await postJson(buildApiUrl('/notifications'), {
     user_id: userId,
+    student_id: link?.studentId || null,
+    parent_id: link?.parentId || null,
     title,
     body,
     type,

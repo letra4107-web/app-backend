@@ -74,11 +74,6 @@ const createProgressRouter = (supabase = supabaseAdmin) => {
       const progressStudentId = req.authenticatedStudentId;
       const {
         xp,
-        streak,
-        longestStreak,
-        longest_streak,
-        lastPracticeDate,
-        last_practice_date,
         completedWords,
         completed_words,
         wordCount,
@@ -101,10 +96,7 @@ const createProgressRouter = (supabase = supabaseAdmin) => {
       const normalizedCompletedWords = asArray(completedWords || completed_words);
       const normalizedWordCount = asNumber(wordCount ?? word_count, normalizedCompletedWords.length);
       const normalizedXp = asNumber(xp, 0);
-      const normalizedStreak = asNumber(streak, 0);
-      const normalizedLongestStreak = Math.max(asNumber(longestStreak ?? longest_streak, 0), normalizedStreak);
       const normalizedTotalAttempts = asNumber(totalAttempts ?? total_attempts, 0);
-      const normalizedLastPracticeDate = asDateKey(lastPracticeDate || last_practice_date);
       const rawBaselineAccuracy = baselineAccuracy ?? baseline_accuracy;
       const normalizedBaselineAccuracy = rawBaselineAccuracy == null ? null : asNumber(rawBaselineAccuracy, null);
       const normalizedAccuracySum = asNumber(accuracySum ?? accuracy_sum, 0);
@@ -112,7 +104,7 @@ const createProgressRouter = (supabase = supabaseAdmin) => {
 
       const { data: existingRow, error: existingRowError } = await supabase
         .from('child_progress')
-        .select('achievements,level')
+        .select('achievements,level,streak,longest_streak,last_practice_date')
         .eq('child_id', progressStudentId)
         .maybeSingle();
       if (existingRowError) {
@@ -120,6 +112,13 @@ const createProgressRouter = (supabase = supabaseAdmin) => {
         return res.status(500).json({ success: false, message: 'Unable to load current progress safely.' });
       }
       const existingAchievements = asArray(existingRow?.achievements);
+      // Streak ownership belongs exclusively to the successful Word of the
+      // Day transaction in speech.js / its RPC. Ordinary progress saves must
+      // preserve these fields; otherwise a stale client response can erase
+      // today's completion date or manufacture/increment a streak.
+      const serverStreak = asNumber(existingRow?.streak, 0);
+      const serverLongestStreak = Math.max(asNumber(existingRow?.longest_streak, 0), serverStreak);
+      const serverLastPracticeDate = asDateKey(existingRow?.last_practice_date);
       const { merged: mergedAchievements, newlyPersistedIds } = mergeAchievements(
         existingAchievements,
         asArray(achievements),
@@ -128,9 +127,9 @@ const createProgressRouter = (supabase = supabaseAdmin) => {
       const payload = {
         child_id: progressStudentId,
         xp: normalizedXp,
-        streak: normalizedStreak,
-        longest_streak: normalizedLongestStreak,
-        last_practice_date: normalizedLastPracticeDate,
+        streak: serverStreak,
+        longest_streak: serverLongestStreak,
+        last_practice_date: serverLastPracticeDate,
         completed_words: normalizedCompletedWords,
         word_count: normalizedWordCount,
         achievements: mergedAchievements,

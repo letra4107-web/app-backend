@@ -139,7 +139,7 @@ router.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
     try {
       const { data: gradeStudents, error: studentsError } = await supabaseAdmin
         .from('children')
-        .select('id, auth_uid')
+        .select('id, auth_uid, parent_id')
         .eq('grade_level', grade);
 
       if (studentsError) {
@@ -150,6 +150,7 @@ router.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
           .map((student) => ({
             user_id: student.auth_uid,
             student_id: student.id,
+            parent_id: student.parent_id,
             title: 'New Lesson Ready',
             body: `A new lesson "${title}" is ready for you!`,
             message: `A new lesson "${title}" is ready for you!`,

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Linking, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Image, Linking, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
@@ -19,10 +19,12 @@ import { StudentActivity } from '../services/activityService';
 import { fetchScheduledActivities, completeScheduledActivity, ScheduledActivity } from '../services/scheduledActivityService';
 import { buildApiUrl, getJson } from '../config/api';
 import ErrorBoundary from '../components/ErrorBoundary';
+import DashboardBottomNav, { BottomNavItem } from '../components/DashboardBottomNav';
 import {
   fetchDashboardSettings,
   updateDashboardSettings,
   changeEmail,
+  changePassword,
   DashboardSettings,
   SpeechRate,
 } from '../services/settingsService';
@@ -30,12 +32,13 @@ import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
 import { averageAccuracy } from '../services/achievementService';
-import { colors, typography, radius, shadows } from '../theme';
+import { colors, radius, shadows } from '../theme';
 
 // Same daily-goal formula as the Student Dashboard (total_attempts mod
 // DAILY_GOAL) - kept identical so a child's "goal" means the same thing
 // whether they or their parent is looking at it.
 const DAILY_GOAL = 5;
+const SIDEBAR_WIDTH = 300;
 // Distinct from theme.colors.lavenderDark so the Calendar's Lesson vs
 // Practice day-dots read as genuinely different hues at 6px, not two shades
 // of purple.
@@ -171,11 +174,11 @@ const PRIMARY_TEXT = '#3730a3';
 const SURFACE = '#ffffff';
 const BACKGROUND = '#f5f3ff';
 
-const NAV_ITEMS: { key: Section; label: string; icon: string }[] = [
-  { key: 'welcome', label: 'Dashboard / Home', icon: 'home-outline' },
-  { key: 'progress', label: 'Child Progress', icon: 'bar-chart-outline' },
+const PARENT_BOTTOM_ITEMS: BottomNavItem[] = [
+  { key: 'welcome', label: 'Home', icon: 'home-outline' },
+  { key: 'progress', label: 'Progress', icon: 'bar-chart-outline' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar-outline' },
-  { key: 'notifications', label: 'Notifications / Reports', icon: 'notifications-outline' },
+  { key: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
   { key: 'settings', label: 'Settings', icon: 'settings-outline' },
 ];
 
@@ -212,7 +215,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     { word: string; accuracy_percentage: number; is_correct?: boolean | null; duration_seconds?: number | null; attempts?: number | null; created_at: string }[]
   >([]);
   const [childReadingProfile, setChildReadingProfile] = useState<ReadingProfile | null>(null);
-  const [progressPeriod, setProgressPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [progressPeriod, setProgressPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('all');
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [childLessonsTotal, setChildLessonsTotal] = useState<number | null>(null);
   const [childLessonsList, setChildLessonsList] = useState<Lesson[]>([]);
@@ -333,8 +336,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [newEmailInput, setNewEmailInput] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailModalError, setEmailModalError] = useState('');
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordModalError, setPasswordModalError] = useState('');
 
-  const sidebarAnim = useRef(new Animated.Value(-270)).current;
+  const sidebarAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const loadingParentRef = useRef<string | null>(null);
   const loadedParentRef = useRef<string | null>(null);
@@ -594,6 +602,46 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     }
   };
 
+  const openPasswordModal = () => {
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+    setPasswordModalError('');
+    setPasswordModalVisible(true);
+  };
+
+  const closePasswordModal = () => {
+    if (savingPassword) return;
+    setPasswordModalVisible(false);
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+    setPasswordModalError('');
+  };
+
+  const submitPasswordChange = async () => {
+    if (newPasswordInput.length < 8) {
+      setPasswordModalError('Ang password ay dapat hindi bababa sa 8 character.');
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordModalError('Hindi magkatugma ang dalawang password.');
+      return;
+    }
+
+    setPasswordModalError('');
+    setSavingPassword(true);
+    try {
+      await changePassword(newPasswordInput);
+      setPasswordModalVisible(false);
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+      Alert.alert('Password Updated', 'Matagumpay na napalitan ang iyong password.');
+    } catch (err: any) {
+      setPasswordModalError(err?.message || 'Hindi mapalitan ang password. Subukan muli.');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const loadParent = async (id: string, email?: string) => {
     if (loadingParentRef.current === id) {
       console.log('[ParentDashboard] duplicate load skipped:', { auth_uid: id });
@@ -704,6 +752,28 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     [parentName],
   );
 
+  const selectedChild = useMemo(
+    () => children.find((row) => row.id === selectedChildId) || children[0] || null,
+    [children, selectedChildId],
+  );
+  const selectedChildStats = useMemo(() => {
+    const progress = selectedChild?.child_progress?.[0];
+    const sessionAverage = childSessions.length
+      ? Math.round(childSessions.reduce((sum, session) => sum + (Number(session.accuracy_percentage) || 0), 0) / childSessions.length)
+      : null;
+    return {
+      overallAccuracy: progress ? Math.round(averageAccuracy(progress)) : sessionAverage,
+      wordsPracticed: progress?.word_count ?? progress?.completed_words?.length ?? 0,
+      totalAttempts: progress?.total_attempts ?? childSessions.length,
+      streak: progress?.streak ?? 0,
+    };
+  }, [selectedChild, childSessions]);
+  const enrolledChildrenText = children.length === 0
+    ? 'No enrolled child yet'
+    : children.length === 1
+      ? '1 child enrolled'
+      : `${children.length} children enrolled`;
+
   const openSidebar = () => {
     setSidebarOpen(true);
     Animated.parallel([
@@ -714,7 +784,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
   const closeSidebar = () => {
     Animated.parallel([
-      Animated.timing(sidebarAnim, { toValue: -270, duration: 240, useNativeDriver: true }),
+      Animated.timing(sidebarAnim, { toValue: -SIDEBAR_WIDTH, duration: 240, useNativeDriver: true }),
       Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
     ]).start(() => setSidebarOpen(false));
   };
@@ -784,9 +854,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       return (
         <>
           <View style={styles.homeHeaderRow}>
-            <View style={styles.homeAvatar}>
-              <Text style={styles.homeAvatarText}>{initials}</Text>
-            </View>
+            {parentAvatarUrl ? (
+              <Image source={{ uri: parentAvatarUrl }} style={styles.homeAvatar} />
+            ) : (
+              <View style={styles.homeAvatar}>
+                <Text style={styles.homeAvatarText}>{initials}</Text>
+              </View>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Good Day, {parentName || 'Loading...'}!</Text>
               <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Here&apos;s how your child is doing today.</Text>
@@ -805,9 +879,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     const progress = selectedChild.child_progress?.[0];
     const level = (progress?.level || 'Beginner') as Level;
-    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
+    const avgAccuracy = selectedChildStats.overallAccuracy;
     const isActivelyLearning = !!progress?.last_practice_date && progress.last_practice_date.slice(0, 10) === new Date().toISOString().slice(0, 10);
-    const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
+    const wordsPracticed = selectedChildStats.wordsPracticed;
     const lessonsCompleted = childCompletedLessons ?? 0;
     const latestReading = childSessions[0] || null;
 
@@ -928,9 +1002,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     return (
       <>
         <View style={styles.homeHeaderRow}>
-          <View style={styles.homeAvatar}>
-            <Text style={styles.homeAvatarText}>{initials}</Text>
-          </View>
+          {parentAvatarUrl ? (
+            <Image source={{ uri: parentAvatarUrl }} style={styles.homeAvatar} />
+          ) : (
+            <View style={styles.homeAvatar}>
+              <Text style={styles.homeAvatarText}>{initials}</Text>
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Good Day, {parentName || 'Loading...'}!</Text>
             <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Here&apos;s how your child is doing today.</Text>
@@ -1006,7 +1084,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading ? `${Math.round(latestReading.accuracy_percentage || 0)}%` : '--'}</Text><Text style={styles.latestReadingLabel}>Accuracy</Text></View>
             <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.attempts ?? '--'}</Text><Text style={styles.latestReadingLabel}>Attempts</Text></View>
             <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.duration_seconds != null ? `${latestReading.duration_seconds}s` : '--'}</Text><Text style={styles.latestReadingLabel}>Duration</Text></View>
-            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{progress?.streak || 0}</Text><Text style={styles.latestReadingLabel}>Day Streak</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{selectedChildStats.streak}</Text><Text style={styles.latestReadingLabel}>Day Streak</Text></View>
           </View>
           <Text style={styles.latestReadingObservation}>
             {childReadingProfile?.insights[0] || 'Complete more reading practice to generate an observation.'}
@@ -1289,13 +1367,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     const avgOf = (rows: typeof childSessions) =>
       rows.length ? Math.round(rows.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / rows.length) : null;
-    const periodAvg = avgOf(inPeriod);
+    const periodAvg = progressPeriod === 'all' ? selectedChildStats.overallAccuracy : avgOf(inPeriod);
     const priorAvg = avgOf(priorPeriod);
     const periodDelta = periodDays !== null && periodAvg !== null && priorAvg !== null ? periodAvg - priorAvg : null;
 
     const totalWords = inPeriod.length;
-    const correctCount = inPeriod.filter((s) => s.is_correct).length;
-
     const tierColor = (pct: number) => (pct >= 80 ? colors.success : pct >= 60 ? colors.warning : colors.danger);
     const tierMessage = (pct: number | null) =>
       pct === null
@@ -1521,7 +1597,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.readingProgressCard}>
           <View style={styles.readingProgressHeader}>
-            <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>Overall Reading Progress</Text>
+            <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>
+              {progressPeriod === 'all' ? 'All-Time Reading Accuracy' : `${periodRingLabel} Reading Accuracy`}
+            </Text>
             <Ionicons name="book" size={24} color={colors.lavender} />
           </View>
           <View style={{ alignItems: 'center', marginVertical: 12 }}>
@@ -1566,22 +1644,20 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Reading Skills</Text>
         <View style={styles.overallStatsRow}>
           <View style={styles.overallStatCell}>
-            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
-            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Overall</Text>
+                <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{selectedChildStats.overallAccuracy !== null ? `${selectedChildStats.overallAccuracy}%` : '--'}</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>All-Time Average</Text>
           </View>
           <View style={styles.overallStatCell}>
-            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{totalWords}</Text>
-            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Total Words</Text>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{selectedChildStats.wordsPracticed}</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Words Practiced</Text>
           </View>
           <View style={styles.overallStatCell}>
-            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{correctCount}</Text>
-            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Correct</Text>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{selectedChildStats.totalAttempts}</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Total Attempts</Text>
           </View>
           <View style={styles.overallStatCell}>
-            <Text style={[styles.overallStatValue, overallStatValueA11yStyle, { color: periodDelta === null ? colors.ink : periodDelta >= 0 ? colors.success : colors.danger }]}>
-              {periodDelta === null ? '--' : `${periodDelta >= 0 ? '+' : ''}${periodDelta}%`}
-            </Text>
-            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Improvement</Text>
+            <Text style={[styles.overallStatValue, overallStatValueA11yStyle, { color: colors.coral }]}>{selectedChildStats.streak}</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Day Streak</Text>
           </View>
         </View>
 
@@ -1704,8 +1780,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     const progress = selectedChild.child_progress?.[0];
     const level = (progress?.level || 'Beginner') as Level;
-    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
-    const wordsPracticed = progress?.word_count ?? progress?.completed_words?.length ?? 0;
+    const avgAccuracy = selectedChildStats.overallAccuracy;
+    const wordsPracticed = selectedChildStats.wordsPracticed;
 
     // Scoped to the selected child only - the calendar previously showed
     // every enrolled child's activities merged together with no selector.
@@ -2331,6 +2407,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
+        <TouchableOpacity style={styles.settingsRow} onPress={openPasswordModal}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Change Password</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Update your account password securely</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingsRow}
           onPress={() => {
@@ -2474,43 +2558,78 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </Text>
       )}
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {renderSection()}
       </ScrollView>
+
+      <DashboardBottomNav
+        items={PARENT_BOTTOM_ITEMS.map((item) => item.key === 'notifications' ? { ...item, badge: unreadNotifications } : item)}
+        activeKey={section}
+        onSelect={(key) => navigateTo(key as Section)}
+      />
 
       {sidebarOpen && (
         <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} onTouchEnd={closeSidebar} />
       )}
 
+      {sidebarOpen && (
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: sidebarAnim }] }]}> 
-        <View style={styles.sidebarProfile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          <Text style={styles.sidebarName}>{parentName}</Text>
-          <Text style={styles.sidebarEmail}>{parentEmail}</Text>
-        </View>
-        <ScrollView style={styles.sidebarNav} showsVerticalScrollIndicator={false}>
-          {NAV_ITEMS.map((item) => (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.navItem, section === item.key && styles.navItemActive]}
-              onPress={() => navigateTo(item.key)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: section === item.key }}
-              accessibilityLabel={item.label}
-            >
-              <Ionicons name={item.icon as any} size={20} color={section === item.key ? PRIMARY_TEXT : '#fff'} />
-              <Text style={[styles.navLabel, section === item.key && styles.navLabelActive]}>{item.label}</Text>
-              {item.key === 'notifications' && unreadNotifications > 0 && <View style={styles.navDot} />}
+        <ScrollView style={styles.sidebarScroll} contentContainerStyle={styles.sidebarScrollContent} showsVerticalScrollIndicator={false}>
+          <LinearGradient colors={['#F0E9FF', '#FCEAF4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sidebarHero}>
+            <TouchableOpacity style={styles.sidebarCloseButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={closeSidebar}>
+              <Ionicons name="close" size={20} color={colors.primary} />
             </TouchableOpacity>
-          ))}
+            <View style={styles.sidebarHeroRow}>
+              {parentAvatarUrl ? (
+                <Image source={{ uri: parentAvatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              )}
+              <View style={styles.sidebarHeroText}>
+                <Text style={styles.sidebarName} numberOfLines={2}>{parentName}</Text>
+                <Text style={styles.sidebarEmail} numberOfLines={2}>{parentEmail}</Text>
+              </View>
+            </View>
+            <View style={styles.sidebarHeroFooter}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sidebarHeroMeta}>{enrolledChildrenText}</Text>
+                {selectedChild ? <Text style={styles.sidebarHeroSub}>Managing {selectedChild.name}</Text> : null}
+              </View>
+              <Image source={require('../../assets/parentreading.webp')} style={styles.sidebarHeroImage} resizeMode="contain" />
+            </View>
+          </LinearGradient>
+
+          <View style={styles.sidebarBody}>
+            <Text style={styles.sidebarSectionLabel}>Parent Menu</Text>
+            {[
+              { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => { closeSidebar(); setEditProfileVisible(true); } },
+              { key: 'children', label: 'Children', icon: 'people-outline', onPress: () => navigateTo('welcome') },
+              { key: 'account', label: 'Account', icon: 'person-circle-outline', onPress: () => navigateTo('settings') },
+              { key: 'preferences', label: 'App Preferences', icon: 'options-outline', onPress: () => navigateTo('settings') },
+              { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupport },
+              { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', `Version ${appVersion}\nA supportive reading companion for children and families.`) },
+              { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
+            ].map((item) => (
+              <TouchableOpacity key={item.key} style={styles.navItem} onPress={item.onPress} activeOpacity={0.78}>
+                <View style={styles.navIconWrap}>
+                  <Ionicons name={item.icon as any} size={20} color={colors.lavenderDark} />
+                </View>
+                <Text style={styles.navLabel}>{item.label}</Text>
+                <Ionicons name="chevron-forward" size={18} color="#8B7DAE" />
+              </TouchableOpacity>
+            ))}
+
+            <Text style={styles.sidebarSectionLabel}>Account</Text>
+            <TouchableOpacity style={styles.sidebarLogout} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+              <Text style={styles.sidebarLogoutText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
-        <TouchableOpacity style={styles.sidebarLogout} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#fff" />
-          <Text style={styles.sidebarLogoutText}>Mag-log out</Text>
-        </TouchableOpacity>
       </Animated.View>
+      )}
 
       <EnrollChildModal
         visible={showEnroll}
@@ -2554,6 +2673,51 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           setEditProfileVisible(false);
         }}
       />
+
+      <Modal visible={passwordModalVisible} animationType="slide" transparent onRequestClose={closePasswordModal}>
+        <View style={styles.emailModalBackdrop}>
+          <View style={styles.emailModalSheet}>
+            <View style={styles.emailModalHeader}>
+              <Text style={styles.emailModalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={closePasswordModal} disabled={savingPassword}>
+                <Ionicons name="close" size={24} color={colors.ink} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.passwordModalHint}>Use at least 8 characters for your new password.</Text>
+            <TextInput
+              style={styles.emailModalInput}
+              value={newPasswordInput}
+              onChangeText={setNewPasswordInput}
+              autoCapitalize="none"
+              secureTextEntry
+              placeholder="New password"
+              placeholderTextColor={colors.inkSoft}
+            />
+            <TextInput
+              style={[styles.emailModalInput, styles.passwordConfirmInput]}
+              value={confirmPasswordInput}
+              onChangeText={setConfirmPasswordInput}
+              autoCapitalize="none"
+              secureTextEntry
+              placeholder="Confirm new password"
+              placeholderTextColor={colors.inkSoft}
+              onSubmitEditing={submitPasswordChange}
+            />
+            {!!passwordModalError && (
+              <Text style={styles.emailModalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                {passwordModalError}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.emailModalSubmit, savingPassword && { opacity: 0.6 }]}
+              onPress={submitPasswordChange}
+              disabled={savingPassword}
+            >
+              {savingPassword ? <ActivityIndicator color="#fff" /> : <Text style={styles.emailModalSubmitText}>Update Password</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={emailModalVisible} animationType="slide" transparent onRequestClose={() => setEmailModalVisible(false)}>
         <View style={styles.emailModalBackdrop}>
@@ -2600,43 +2764,88 @@ const styles = StyleSheet.create({
   topBarSpacer: { width: 38 },
   settingsButton: { padding: 6, marginRight: 6 },
   appTitle: { fontSize: 20, fontWeight: '900', color: colors.primary, flex: 1, textAlign: 'center' },
+  mainScroll: { flex: 1 },
   errorBanner: { color: colors.danger, marginHorizontal: 16, marginTop: 12, marginBottom: 8 },
   content: { padding: 16, paddingBottom: 40 },
   overlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000', zIndex: 99 },
   sidebar: {
-    position: 'absolute', top: 0, bottom: 0, left: 0, width: 270,
-    backgroundColor: colors.primary, paddingTop: 48, zIndex: 100,
-    shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.18, shadowRadius: 20, elevation: 20,
+    position: 'absolute', top: 0, bottom: 0, left: 0, width: SIDEBAR_WIDTH,
+    backgroundColor: '#F7F5FC', paddingTop: 0, zIndex: 100,
+    shadowColor: '#594B78', shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.14, shadowRadius: 24, elevation: 18,
   },
-  sidebarProfile: {
-    alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)',
+  sidebarScroll: { flex: 1 },
+  sidebarScrollContent: { paddingBottom: 36 },
+  sidebarHero: {
+    paddingTop: 48, paddingHorizontal: 20, paddingBottom: 20,
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
+  sidebarCloseButton: { position: 'absolute', top: 20, right: 16, zIndex: 2 },
+  sidebarHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingRight: 30 },
+  sidebarHeroText: { flex: 1, minWidth: 0 },
+  sidebarHeroFooter: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 12, paddingLeft: 4 },
+  sidebarHeroMeta: { color: '#75658F', fontSize: 12 },
+  sidebarHeroSub: { color: '#514466', fontSize: 12, marginTop: 4, fontWeight: '600' },
+  sidebarHeroImage: { width: 76, height: 76 },
+  sidebarBody: { paddingHorizontal: 20, paddingTop: 20 },
+  sidebarSectionLabel: { color: '#69598C', fontSize: 12, fontWeight: '800', letterSpacing: 0.8, marginBottom: 12 },
   avatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    width: 70, height: 70, borderRadius: 35,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 26, fontWeight: '900', color: '#fff' },
-  sidebarName: { fontSize: 17, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  sidebarEmail: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4, textAlign: 'center' },
-  sidebarNav: { flex: 1, paddingHorizontal: 14, paddingTop: 16 },
+  avatarText: { fontSize: 29, fontWeight: '900', color: colors.primary },
+  sidebarName: { fontSize: 18, lineHeight: 22, fontWeight: '900', color: '#30254D' },
+  sidebarEmail: { fontSize: 12, lineHeight: 17, color: '#756A87', marginTop: 4 },
   navItem: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 13, paddingHorizontal: 16, borderRadius: 14,
-    marginBottom: 4,
+    paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18,
+    marginBottom: 8, backgroundColor: '#FFFFFF',
   },
-  navItemActive: { backgroundColor: '#fff' },
-  navLabel: { fontSize: 14, fontWeight: '700', color: '#fff', flex: 1 },
+  navItemActive: { backgroundColor: '#E9E2FF' },
+  navIconWrap: {
+    width: 36, height: 36, borderRadius: 14,
+    backgroundColor: '#F0ECFA', alignItems: 'center', justifyContent: 'center',
+  },
+  navIconWrapActive: { backgroundColor: '#FFFFFF' },
+  navLabel: { fontSize: 14, fontWeight: '700', color: '#44375F', flex: 1 },
   navLabelActive: { color: PRIMARY_TEXT },
-  navDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger },
+  navBadge: {
+    minWidth: 26, paddingHorizontal: 8, height: 24, borderRadius: 12,
+    backgroundColor: colors.vivid.amber, alignItems: 'center', justifyContent: 'center',
+  },
+  navBadgeText: { color: '#1f2937', fontSize: 12, fontWeight: '800' },
+  quickAccessButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 14, borderRadius: 18, backgroundColor: '#FFFFFF', marginBottom: 10,
+  },
+  quickAccessIconWrap: {
+    width: 38, height: 38, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
+  quickAccessLabel: { flex: 1, fontSize: 14, fontWeight: '800', color: '#44375F' },
+  sidebarProgressCard: {
+    marginTop: 12, padding: 18, borderRadius: radius.lg,
+    backgroundColor: '#FFFFFF',
+  },
+  sidebarProgressTitle: { fontSize: 13, fontWeight: '700', color: '#69598C', marginBottom: 10 },
+  sidebarProgressValue: { fontSize: 28, fontWeight: '900', color: '#30254D', marginBottom: 12 },
+  sidebarProgressTrack: { height: 8, backgroundColor: '#E9E4F2', borderRadius: 999, overflow: 'hidden', marginBottom: 8 },
+  sidebarProgressFill: { height: '100%', backgroundColor: colors.vivid.teal, borderRadius: 999 },
+  sidebarProgressStatus: { fontSize: 12, color: '#756A87' },
+  sidebarAccessibilityCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 16, borderRadius: radius.lg, backgroundColor: '#FFFFFF', marginTop: 16,
+  },
+  sidebarAccessibilityText: { flex: 1, marginRight: 12 },
+  sidebarAccessibilityTitle: { fontSize: 13, fontWeight: '700', color: '#44375F', marginBottom: 4 },
+  sidebarAccessibilitySub: { fontSize: 12, color: '#756A87' },
   sidebarLogout: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    margin: 20, padding: 16, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginTop: 20, padding: 16, borderRadius: 18,
+    backgroundColor: '#FDEBEC',
   },
-  sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  sidebarLogoutText: { color: colors.danger, fontWeight: '800', fontSize: 14 },
   childCard: {
     backgroundColor: SURFACE, borderRadius: 20, padding: 18,
     marginBottom: 14, borderWidth: 1, borderColor: colors.border,
@@ -2761,7 +2970,7 @@ const styles = StyleSheet.create({
 
   // Home tab redesign - decor, child card, hero, weekly chart, insight,
   // goal, recent feed, support banner
-  homeGreetingDecor: { width: 64, height: 43, marginLeft: 4 },
+  homeGreetingDecor: { width: 72, height: 48, marginLeft: 4 },
   childSummaryEyebrow: { fontSize: 11, fontWeight: '800', color: colors.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4 },
   switchChildButton: {
     flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFECFB',
@@ -2784,7 +2993,7 @@ const styles = StyleSheet.create({
   },
   // Peeks in from the bottom-right corner, below the ring's row and to the
   // right of the left-aligned button/message, so nothing sits on top of it.
-  heroProgressImage: { width: 84, height: 112, position: 'absolute', right: 4, bottom: -8, opacity: 0.95 },
+  heroProgressImage: { width: 94, height: 125, position: 'absolute', right: 2, bottom: -9, opacity: 0.95 },
   heroProgressTopRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
   heroProgressEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   heroProgressIconWrap: {
@@ -2861,10 +3070,10 @@ const styles = StyleSheet.create({
   supportBannerText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '600', marginBottom: 10 },
   supportBannerButton: { backgroundColor: '#111827', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
   supportBannerButtonText: { fontSize: 12, fontWeight: '800', color: '#fff' },
-  supportBannerImage: { width: 66, height: 88, opacity: 0.95 },
+  supportBannerImage: { width: 74, height: 98, opacity: 0.95 },
 
   // Calendar tab
-  calendarHeroImage: { width: 76, height: 51, position: 'absolute', right: 16, bottom: 14, opacity: 0.95 },
+  calendarHeroImage: { width: 86, height: 58, position: 'absolute', right: 12, bottom: 12, opacity: 0.95 },
   weekSummaryCard: { backgroundColor: '#E9F1E2', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 10, ...shadows.card },
   weekSummaryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   weekSummaryStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -2884,7 +3093,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   parentInsightText: { fontSize: 12.5, color: colors.ink, fontWeight: '600', lineHeight: 17, marginTop: 6, marginBottom: 8 },
-  parentInsightImage: { width: 72, height: 96 },
+  parentInsightImage: { width: 80, height: 107 },
 
   // Child Progress tab
   trendLineLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
@@ -3030,7 +3239,7 @@ const styles = StyleSheet.create({
   rewardsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   rewardCell: { width: '47%', borderRadius: 16, padding: 14, alignItems: 'center', borderWidth: 1.5 },
   rewardEmoji: { fontSize: 30, marginBottom: 8 },
-  rewardImage: { width: 56, height: 56, marginBottom: 8 },
+  rewardImage: { width: 64, height: 64, marginBottom: 8 },
   rewardTitle: { fontSize: 13, fontWeight: '800', textAlign: 'center', marginBottom: 10, color: colors.textPrimary },
   rewardChildRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center' },
   rewardChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },
@@ -3047,9 +3256,9 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 20,
   },
   accountCardTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  accountAvatar: { width: 60, height: 60, borderRadius: 30 },
+  accountAvatar: { width: 68, height: 68, borderRadius: 34 },
   accountAvatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
-  accountAvatarInitial: { color: colors.lavenderDark, fontSize: 20, fontWeight: '900' },
+  accountAvatarInitial: { color: colors.lavenderDark, fontSize: 23, fontWeight: '900' },
   accountName: { fontSize: 16, fontWeight: '900', color: colors.ink },
   accountEmail: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   accountBadge: {
@@ -3118,7 +3327,9 @@ const styles = StyleSheet.create({
   emailModalSheet: { backgroundColor: '#fff', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   emailModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   emailModalTitle: { fontSize: 20, fontWeight: '800', color: colors.ink },
+  passwordModalHint: { color: colors.inkSoft, fontSize: 12, lineHeight: 17, marginBottom: 12 },
   emailModalInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, color: colors.ink },
+  passwordConfirmInput: { marginTop: 10 },
   emailModalError: { color: '#E0574C', marginTop: 10, fontWeight: '600' },
   emailModalSubmit: { backgroundColor: colors.lavenderDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   emailModalSubmitText: { color: '#fff', fontWeight: '800' },

@@ -563,3 +563,6 @@ router.post('/practice-word', upload.single('audio'), async (req, res) => {
 });
 
 module.exports = router;
+// Exported on the router object only for focused regression tests. The HTTP
+// API remains the default Express-router export used by server.js.
+module.exports.wordAccuracy = wordAccuracy;

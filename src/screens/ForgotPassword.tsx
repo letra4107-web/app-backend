@@ -19,7 +19,7 @@ interface ForgotPasswordProps {
   navigation: any;
 }
 
-const REASSURANCE_TEXT = "If an account exists with this email, you'll receive a reset link shortly. Check your inbox and spam folder.";
+const REASSURANCE_TEXT = "If an account exists with this email, you'll receive a six-digit reset code shortly. Check your inbox and spam folder.";
 
 const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -62,7 +62,8 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const { error } = await resetPassword(email.trim());
+      const normalizedEmail = email.trim().toLowerCase();
+      const { error } = await resetPassword(normalizedEmail);
 
       // Supabase's resetPasswordForEmail is already designed not to reveal
       // whether an account exists for this email — but even so, we must never
@@ -91,16 +92,29 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
           setGeneralError('Network error. Please check your connection and try again.');
           return;
         }
+        if (status >= 500 || message.includes('could not send') || message.includes('unable to send')) {
+          setGeneralError('We could not send the reset email right now. Please try again in a moment.');
+          return;
+        }
         // Deliberately no other branches — anything else (including account
         // existence) falls through to the generic confirmation below.
       }
 
       setSubmitted(true);
+      navigation.navigate('ResetPassword', { mode: 'otp', email: normalizedEmail });
     } catch (error: any) {
       console.error('[ForgotPassword] Reset error:', error);
       setGeneralError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.replace('Login');
     }
   };
 
@@ -122,7 +136,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
         </View>
 
         <Text style={styles.title}>Forgot Your Password?</Text>
-        <Text style={styles.subtitle}>No worries. Enter your email and we&apos;ll send you a link to reset your password.</Text>
+        <Text style={styles.subtitle}>No worries. Enter your email and we&apos;ll send you a six-digit code to reset your password.</Text>
 
         <View style={styles.card}>
           {generalError ? (
@@ -174,7 +188,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.buttonText}>Send Reset Link</Text>
+                  <Text style={styles.buttonText}>Send Reset Code</Text>
                 )}
               </TouchableOpacity>
 
@@ -183,7 +197,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
           )}
         </View>
 
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backRow}>
+        <TouchableOpacity onPress={handleBackToLogin} style={styles.backRow}>
           <Ionicons name="chevron-back" size={18} color={colors.lavenderDark} />
           <Text style={styles.backText}>Back to Login</Text>
         </TouchableOpacity>

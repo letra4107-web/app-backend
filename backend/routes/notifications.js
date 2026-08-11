@@ -17,6 +17,14 @@ const normalizeNotification = (row = {}) => ({
   created_at: row.created_at || new Date().toISOString(),
 });
 
+const mergeNotifications = (...groups) => {
+  const byId = new Map();
+  groups.flat().filter(Boolean).forEach((row) => byId.set(String(row.id), row));
+  return [...byId.values()].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+  );
+};
+
 const fetchNotificationsForUser = async (userId) => {
   const select = '*';
   const order = { ascending: false };
@@ -27,7 +35,41 @@ const fetchNotificationsForUser = async (userId) => {
     .or(`parent_id.eq.${userId},user_id.eq.${userId}`)
     .order('created_at', order);
 
-  if (!result.error) return result;
+  if (!result.error) {
+    // A parent must also see rows addressed only to an enrolled student. This
+    // includes historical student notifications created before parent_id was
+    // attached to every new row.
+    const { data: children, error: childrenError } = await supabaseAdmin
+      .from('children')
+      .select('id, auth_uid')
+      .eq('parent_id', userId);
+
+    if (childrenError || !children?.length) return result;
+
+    const childIds = children.map((child) => child.id).filter(Boolean);
+    const childAuthUids = children.map((child) => child.auth_uid).filter(Boolean);
+    const childQueries = [];
+
+    if (childAuthUids.length) {
+      childQueries.push(
+        supabaseAdmin.from('notifications').select(select).in('user_id', childAuthUids).order('created_at', order),
+      );
+    }
+    if (childIds.length) {
+      childQueries.push(
+        supabaseAdmin.from('notifications').select(select).in('student_id', childIds).order('created_at', order),
+      );
+    }
+
+    const childResults = await Promise.all(childQueries);
+    const childError = childResults.find((childResult) => childResult.error)?.error;
+    if (childError) return { data: null, error: childError };
+
+    return {
+      data: mergeNotifications(result.data || [], ...childResults.map((childResult) => childResult.data || [])),
+      error: null,
+    };
+  }
 
   const message = String(result.error?.message || '').toLowerCase();
   const missingParentId = isMissingColumnError(result.error, 'parent_id') || message.includes('parent_id');

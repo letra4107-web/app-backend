@@ -73,7 +73,7 @@ const isOriginAllowed = (origin) => {
     }
 
     if (protocol === 'http:' && isPrivateLanHost(hostname)) {
-      return process.env.NODE_ENV !== 'production';
+      return true;
     }
 
     return protocol === 'https:' && allowedHostPatterns.some((pattern) => pattern.test(hostname));
