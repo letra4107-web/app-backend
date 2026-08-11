@@ -1,4 +1,4 @@
-import { buildApiUrl, postJson } from '../config/api';
+import { buildApiUrl, getJson, postJson } from '../config/api';
 
 export type ReadingLevel = 'Beginner' | 'Intermediate' | 'Advanced';
 
@@ -26,6 +26,42 @@ export type ChildProgress = {
   // stays exact regardless of how many attempts have accumulated.
   accuracy_sum?: number;
   activities_completed?: number;
+};
+
+export type CanonicalStudentStats = {
+  studentId: string;
+  childId: string;
+  userId?: string | null;
+  parentId?: string | null;
+  name?: string;
+  xp: number;
+  level: ReadingLevel;
+  streak: number;
+  longestStreak: number;
+  totalAttempts: number;
+  total_attempts: number;
+  correctAttempts: number;
+  accuracy: number;
+  accuracySum: number;
+  accuracy_sum: number;
+  activitiesCompleted: number;
+  activities_completed: number;
+  wordsCompleted: number;
+  words_completed: number;
+  completedWords: string[];
+  completed_words: string[];
+  lessonsCompleted: number;
+  lessons_completed: number;
+  baselineAccuracy?: number | null;
+  baseline_accuracy?: number | null;
+  dailyGoal: { target: number; completed: number; percentage: number };
+  badges: any[];
+  achievements: { id: string; unlockedAt?: string }[];
+  recentActivity: any[];
+  recentActivities: any[];
+  notifications: any[];
+  lastActivityAt?: string | null;
+  childProgress: ChildProgress;
 };
 
 const toDateKey = (date = new Date()) => date.toISOString().slice(0, 10);
@@ -89,7 +125,7 @@ export const saveProgress = async (progress: ChildProgress) => {
   // signal for "should the unlock celebration fire" - the achievements array
   // on `progress` (this function's argument) can be stale if another save
   // raced ahead of it, so callers must not use it to decide what's "new".
-  return postJson<{ success: boolean; progress: ChildProgress; newlyPersistedAchievementIds?: string[] }>(buildApiUrl('/progress/update'), {
+  return postJson<{ success: boolean; progress: ChildProgress; stats?: CanonicalStudentStats; newlyPersistedAchievementIds?: string[] }>(buildApiUrl('/progress/update'), {
     xp: progress.xp,
     // streak, longest_streak, and last_practice_date are intentionally not
     // submitted here. Only a successful server-side Word of the Day
@@ -105,3 +141,47 @@ export const saveProgress = async (progress: ChildProgress) => {
     activitiesCompleted: progress.activities_completed ?? 0,
   });
 };
+
+export const getCanonicalStudentStats = async (studentId: string) => {
+  const response = await getJson<{ success: boolean; data: CanonicalStudentStats }>(
+    buildApiUrl(`/progress/${studentId}/stats`),
+  );
+  return response.data;
+};
+
+export const progressFromCanonicalStats = (stats: CanonicalStudentStats): ChildProgress => ({
+  ...(stats.childProgress || emptyFromStats(stats)),
+  child_id: stats.childId || stats.studentId,
+  xp: stats.xp || 0,
+  level: stats.level || 'Beginner',
+  streak: stats.streak || 0,
+  longest_streak: stats.longestStreak || stats.childProgress?.longest_streak || 0,
+  total_attempts: stats.totalAttempts || stats.total_attempts || 0,
+  accuracy_sum: stats.accuracySum || stats.accuracy_sum || 0,
+  baseline_accuracy: stats.baselineAccuracy ?? stats.baseline_accuracy ?? null,
+  activities_completed: stats.activitiesCompleted || stats.activities_completed || 0,
+  completed_words: stats.completedWords || stats.completed_words || [],
+  word_count: stats.wordsCompleted || stats.words_completed || stats.completedWords?.length || 0,
+  badges: stats.badges || [],
+  achievements: (stats.achievements || []).map((achievement: any) => ({
+    ...achievement,
+    id: achievement.id,
+    unlockedAt: achievement.unlockedAt || achievement.unlocked_at || new Date().toISOString(),
+  })),
+});
+
+const emptyFromStats = (stats: CanonicalStudentStats): ChildProgress => ({
+  child_id: stats.childId || stats.studentId,
+  xp: 0,
+  level: 'Beginner',
+  streak: 0,
+  longest_streak: 0,
+  last_practice_date: null,
+  completed_words: [],
+  total_attempts: 0,
+  achievements: [],
+  badges: [],
+  baseline_accuracy: null,
+  accuracy_sum: 0,
+  activities_completed: 0,
+});

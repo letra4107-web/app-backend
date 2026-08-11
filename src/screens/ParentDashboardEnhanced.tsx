@@ -32,6 +32,7 @@ import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
 import { averageAccuracy } from '../services/achievementService';
+import { getCanonicalStudentStats, progressFromCanonicalStats } from '../services/progressService';
 import { colors, radius, shadows } from '../theme';
 
 // Same daily-goal formula as the Student Dashboard (total_attempts mod
@@ -368,8 +369,20 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           : [row.child_progress]
         : [],
     })) as ChildRow[];
-    setChildren(rows);
-    return rows;
+    const canonicalRows = await Promise.all(rows.map(async (row) => {
+      try {
+        const stats = await getCanonicalStudentStats(row.id);
+        return {
+          ...row,
+          child_progress: [progressFromCanonicalStats(stats)],
+        };
+      } catch (statsError: any) {
+        console.warn('[ParentDashboard] canonical child stats failed; using joined progress:', statsError?.message || statsError);
+        return row;
+      }
+    }));
+    setChildren(canonicalRows);
+    return canonicalRows;
   };
 
   const loadActivitiesForChildren = async (rows: ChildRow[], activeParentId = parentId) => {
