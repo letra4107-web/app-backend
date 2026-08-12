@@ -1719,6 +1719,48 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
+          {/* Deadlines widget — moved to top so upcoming due dates are the
+              first thing a student sees on Home */}
+          <View style={styles.homeDeadlinesCard}>
+            <View style={styles.homeDeadlinesHeader}>
+              <Text style={[styles.homeDeadlinesTitle, cardTitleA11y]}>📅 Upcoming Deadlines</Text>
+              <TouchableOpacity
+                onPress={() => setSection('learn')}
+                accessibilityRole="button"
+                accessibilityLabel="View all lessons"
+              >
+                <Text style={[styles.homeDeadlinesLink, cardSubtitleA11y]}>View lessons</Text>
+              </TouchableOpacity>
+            </View>
+            {activities.length ? (
+              activities.slice(0, 3).map((activity) => (
+                <TouchableOpacity
+                  key={activity.id}
+                  style={styles.homeActivityRow}
+                  onPress={() => setSection('learn')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${activity.title}, due ${new Date(activity.deadline).toLocaleDateString()}`}
+                >
+                  <View style={[styles.homeStatusDot, { backgroundColor: getStatusColor(activity.status) }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.homeActivityTitle, cardSubtitleA11y]}>{activity.title}</Text>
+                    <Text style={[styles.homeActivityMeta, smallLabelA11y]}>
+                      {activity.subject || 'Activity'} • {new Date(activity.deadline).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.homeDeadlinesEmpty}>
+                <Text style={styles.homeDeadlinesEmptyEmoji}>🌱</Text>
+                <Text style={[styles.homeDeadlinesEmptyText, bodyA11y]}>
+                  Malinis ang schedule mo ngayon. Magpatuloy sa pagsasanay!
+                </Text>
+              </View>
+            )}
+          </View>
+
           {/* Today's Reading Progress — real daily-goal data (same mechanic as
               the Practice tab's step-dots; resets every 5 attempts, not at
               midnight, since there's no calendar-day tracking yet) */}
@@ -1938,47 +1980,6 @@ export default function StudentDashboard({ navigation }: any) {
               </View>
               <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Progress</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Deadlines widget */}
-          <View style={styles.homeDeadlinesCard}>
-            <View style={styles.homeDeadlinesHeader}>
-              <Text style={[styles.homeDeadlinesTitle, cardTitleA11y]}>📅 Upcoming Deadlines</Text>
-              <TouchableOpacity
-                onPress={() => setSection('learn')}
-                accessibilityRole="button"
-                accessibilityLabel="View all lessons"
-              >
-                <Text style={[styles.homeDeadlinesLink, cardSubtitleA11y]}>View lessons</Text>
-              </TouchableOpacity>
-            </View>
-            {activities.length ? (
-              activities.slice(0, 3).map((activity) => (
-                <TouchableOpacity
-                  key={activity.id}
-                  style={styles.homeActivityRow}
-                  onPress={() => setSection('learn')}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${activity.title}, due ${new Date(activity.deadline).toLocaleDateString()}`}
-                >
-                  <View style={[styles.homeStatusDot, { backgroundColor: getStatusColor(activity.status) }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.homeActivityTitle, cardSubtitleA11y]}>{activity.title}</Text>
-                    <Text style={[styles.homeActivityMeta, smallLabelA11y]}>
-                      {activity.subject || 'Activity'} • {new Date(activity.deadline).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
-                </TouchableOpacity>
-              ))
-            ) : (
-              <View style={styles.homeDeadlinesEmpty}>
-                <Text style={styles.homeDeadlinesEmptyEmoji}>🌱</Text>
-                <Text style={[styles.homeDeadlinesEmptyText, bodyA11y]}>
-                  Malinis ang schedule mo ngayon. Magpatuloy sa pagsasanay!
-                </Text>
-              </View>
-            )}
           </View>
         </ScrollView>
       </>
