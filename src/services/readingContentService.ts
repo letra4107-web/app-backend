@@ -2,7 +2,7 @@ import { buildApiUrl, getJson, postJson } from '../config/api';
 import { supabase } from '../config/supabase';
 import type { ReadingLevel } from './progressService';
 
-export type ReadingContentType = 'word' | 'phonetic' | 'phrase' | 'sentence' | 'paragraph';
+export type ReadingContentType = 'word' | 'phonetic' | 'phrase' | 'sentence' | 'paragraph' | 'story';
 
 export type ReadingContentItem = {
   id: string;

@@ -5,8 +5,8 @@ const PRACTICE_TYPES_BY_LEVEL = Object.freeze({
   advanced: ['word', 'sentence'],
 });
 const CONFUSION_PAIRS = ['d-r', 'b-p', 'd-t', 'g-k', 'n-ng', 'm-n', 'l-r', 's-ts', 'e-i', 'o-u', 'a-o'];
-const STRATEGY_VERSION = 'cold-start-ranker-v3-sequential-frontier';
-const FEATURE_SCHEMA_VERSION = 'readiness-v2-official-progression';
+const STRATEGY_VERSION = 'cold-start-ranker-v4-module-frontier';
+const FEATURE_SCHEMA_VERSION = 'readiness-v3-module-scope';
 const OUTCOME_WINDOW_DAYS = 30;
 
 // DESIGN LIMITATION: these weights were manually chosen from domain reasoning
@@ -111,7 +111,9 @@ const pairExposure = (text) => {
 };
 
 const structuralLoad = (item) => {
-  const typeBase = { phonetic: 0.15, word: 0.30, phrase: 0.50, sentence: 0.72 }[item.content_type] || 0.5;
+  const typeBase = {
+    phonetic: 0.15, word: 0.30, phrase: 0.50, sentence: 0.72, paragraph: 0.82, story: 0.86,
+  }[item.content_type] || 0.5;
   const textLengthLoad = clamp(normalizeText(item.content_text).replace(/\s/g, '').length / 80) * 0.20;
   return clamp(typeBase + textLengthLoad);
 };
@@ -121,7 +123,7 @@ const nextLevel = (level) => LEVELS[LEVELS.indexOf(level) + 1] || level;
 const rankCurriculum = ({
   sessions = [], confusions = [], contentAttempts = [], curriculum = [],
   completedContentIds = [], officialProgression = {}, now = new Date(), limit = 10,
-  allowedContentTypes = null,
+  allowedContentTypes = null, moduleScope = null,
 }) => {
   const orderedSessions = [...sessions].filter((row) => asDate(row.created_at))
     .sort((left, right) => asDate(left.created_at) - asDate(right.created_at));
@@ -131,10 +133,17 @@ const rankCurriculum = ({
   const successRate = recentFive.length ? recentFive.filter((row) => row.is_correct === true).length / recentFive.length : null;
   const trend = accuracySlope(accuracies);
 
-  const currentDifficultyRaw = String(officialProgression.effective_level || 'Beginner').toLowerCase();
+  const moduleMode = moduleScope?.configured === true;
+  const activeModule = moduleMode ? moduleScope?.currentModule || null : null;
+  const currentDifficultyRaw = String(
+    activeModule?.level || officialProgression.effective_level || 'Beginner',
+  ).toLowerCase();
   const currentDifficulty = LEVELS.includes(currentDifficultyRaw) ? currentDifficultyRaw : 'beginner';
   const officialProgressionEligible = officialProgression.official_progression_eligible === true;
-  const shouldAdvance = officialProgressionEligible && currentDifficulty !== 'advanced';
+  // Module advancement is owned by passed module assessments. The ranker is
+  // never allowed to infer or perform a level transition while modules are
+  // configured, even if the retained legacy count snapshot says eligible.
+  const shouldAdvance = !moduleMode && officialProgressionEligible && currentDifficulty !== 'advanced';
   const recommendedDifficulty = shouldAdvance ? nextLevel(currentDifficulty) : currentDifficulty;
 
   const windowStart = now.getTime() - (OUTCOME_WINDOW_DAYS * 86400000);
@@ -151,19 +160,23 @@ const rankCurriculum = ({
   }, {});
   const confusionRates = Object.fromEntries(CONFUSION_PAIRS.map((pair) => [pair, (confusionCounts[pair] || 0) / denominator]));
 
-  const levelTypes = PRACTICE_TYPES_BY_LEVEL[recommendedDifficulty];
+  const levelTypes = moduleMode
+    ? (activeModule?.instructional_content_type ? [activeModule.instructional_content_type] : [])
+    : PRACTICE_TYPES_BY_LEVEL[recommendedDifficulty];
   const requestedTypes = Array.isArray(allowedContentTypes) ? allowedContentTypes : levelTypes;
   const allowedTypes = levelTypes.filter((contentType) => requestedTypes.includes(contentType));
+  const moduleContentIds = new Set(moduleMode ? (moduleScope?.contentIds || []).map(String) : []);
   const eligibleCurriculum = curriculum.filter((item) => (
     String(item.level || '').toLowerCase() === recommendedDifficulty
     && allowedTypes.includes(item.content_type)
-    && item.content_type !== 'paragraph'
-    && item.is_assessment !== true
+    && (!moduleMode || moduleContentIds.has(String(item.id)))
+    && (!moduleMode || item.module_role !== 'assessment')
+    && (moduleMode || (item.content_type !== 'paragraph' && item.is_assessment !== true))
   ));
-  // Workbook order is binding inside each content track. Personalization is
-  // deliberately constrained to rank only the first incomplete item from
-  // each track; it can choose Word-vs-Phonetic (for example), but can never
-  // move Word 12 ahead of an incomplete Word 11.
+  // The active module's item_order is binding in module mode. During staged
+  // rollout, the legacy path retains workbook order inside each content track.
+  // Personalization may tie-break only among valid frontier items and can
+  // never move a later item ahead of an earlier incomplete item.
   const candidatePool = buildTrackFrontier(eligibleCurriculum, completedContentIds, allowedTypes);
   const baseStructuralLoad = { beginner: 0.35, intermediate: 0.55, advanced: 0.75 }[recommendedDifficulty];
   // Difficulty adapts only inside the authorized frontier. It never changes
@@ -256,6 +269,14 @@ const rankCurriculum = ({
     placement_override_level: officialProgression.placement_override_level || null,
     program_complete: officialProgression.program_complete === true,
     official_requirements: officialProgression.requirements || [],
+    module_scope: {
+      configured: moduleMode,
+      module_id: activeModule?.id || null,
+      module_number: activeModule?.module_number || null,
+      level: activeModule?.level || null,
+      instructional_content_type: activeModule?.instructional_content_type || null,
+      candidate_content_count: moduleContentIds.size,
+    },
     label_source: 'authoritative_client_curriculum_v1',
     confusion_window_days: OUTCOME_WINDOW_DAYS,
     confusion_rates: Object.fromEntries(Object.entries(confusionRates).map(([key, value]) => [key, round(value)])),

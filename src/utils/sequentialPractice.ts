@@ -2,7 +2,7 @@ import type { ReadingContentItem, ReadingContentType } from '../services/reading
 
 export type PracticeItemState = 'completed' | 'current' | 'locked';
 
-const FALLBACK_TRACK_ORDER: ReadingContentType[] = ['word', 'phonetic', 'phrase', 'sentence', 'paragraph'];
+const FALLBACK_TRACK_ORDER: ReadingContentType[] = ['word', 'phonetic', 'phrase', 'sentence', 'paragraph', 'story'];
 
 const sortableNumber = (value: number | null | undefined) => (
   Number.isFinite(value) && Number(value) > 0 ? Number(value) : Number.MAX_SAFE_INTEGER

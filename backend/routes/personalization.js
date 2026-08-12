@@ -24,6 +24,62 @@ const loadCompletedContentIds = async (supabase, studentId) => {
   }
 };
 
+const isMissingModuleFoundation = (error) => (
+  error?.code === 'PGRST202'
+  || /could not find (the )?function/i.test(String(error?.message || ''))
+);
+
+// Staged rollout: before migration 042 is applied (or before modules are
+// activated), personalization safely remains on the legacy level frontier.
+// Once configured=true, the RPC becomes the sole source of candidate scope.
+const loadModuleScope = async (supabase, studentId) => {
+  const pathResult = await supabase.rpc('get_student_module_path', { p_student_id: studentId });
+  if (pathResult.error) {
+    if (isMissingModuleFoundation(pathResult.error)) {
+      return { data: { configured: false, currentModule: null, contentIds: [] }, error: null };
+    }
+    return { data: null, error: pathResult.error };
+  }
+
+  const path = pathResult.data || {};
+  const currentModule = path.current_module || null;
+  if (path.configured !== true || !currentModule?.id) {
+    return {
+      data: { configured: path.configured === true, currentModule, contentIds: [], curriculum: [] },
+      error: null,
+    };
+  }
+
+  const contentResult = await supabase.rpc('get_reading_module_content', {
+    p_student_id: studentId,
+    p_module_id: currentModule.id,
+  });
+  if (contentResult.error) return { data: null, error: contentResult.error };
+
+  const items = Array.isArray(contentResult.data?.items) ? contentResult.data.items : [];
+  const curriculum = items.map((item) => ({
+    id: item.content_id,
+    word_id: item.word_id || null,
+    content_text: item.content_text,
+    content_type: item.content_type,
+    level: item.level,
+    sequence_no: item.item_order,
+    source_row: item.item_order,
+    pattern_note: item.pattern_note || null,
+    is_assessment: false,
+    module_role: item.role,
+  }));
+  return {
+    data: {
+      configured: true,
+      currentModule,
+      contentIds: curriculum.filter((item) => item.module_role !== 'assessment').map((item) => item.id),
+      curriculum,
+    },
+    error: null,
+  };
+};
+
 const createPersonalizationRouter = (supabase = supabaseAdmin) => {
   const router = express.Router();
 
@@ -100,23 +156,41 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
       }
 
       const officialProgression = progressionResult.data || {};
-      const currentLevel = String(officialProgression.effective_level || 'Beginner');
-      const canAdvance = currentLevel !== 'Advanced' && officialProgression.official_progression_eligible === true;
-      const targetLevel = canAdvance
-        ? ({ Beginner: 'Intermediate', Intermediate: 'Advanced' }[currentLevel] || currentLevel)
-        : currentLevel;
-      // A level contains at most 400 rankable items (200 words + 200 companion
-      // activities), so this query stays below the project 1,000-row cap.
-      const curriculumResult = await supabase
-        .from('reading_content')
-        .select('id,word_id,content_text,content_type,level,sequence_no,source_row,pattern_note,is_assessment')
-        .eq('level', targetLevel)
-        .eq('is_active', true)
-        .neq('content_type', 'paragraph')
-        .order('sequence_no', { ascending: true });
-      if (curriculumResult.error) {
-        console.error('[Personalization] curriculum load failed:', curriculumResult.error.message || curriculumResult.error);
+      // Word of the Day remains a separate daily feature. Ordinary Practice is
+      // module-scoped as soon as modules are activated; until then this helper
+      // returns configured=false and preserves the existing frontier.
+      const moduleScopeResult = purpose === 'practice'
+        ? await loadModuleScope(supabase, studentId)
+        : { data: { configured: false, currentModule: null, contentIds: [] }, error: null };
+      if (moduleScopeResult.error) {
+        console.error('[Personalization] module scope load failed:', moduleScopeResult.error.message || moduleScopeResult.error);
         return res.status(503).json({ success: false, message: 'Personalized recommendations are temporarily unavailable.' });
+      }
+      const moduleScope = moduleScopeResult.data;
+
+      let curriculum;
+      if (moduleScope.configured) {
+        curriculum = moduleScope.curriculum || [];
+      } else {
+        const currentLevel = String(officialProgression.effective_level || 'Beginner');
+        const canAdvance = currentLevel !== 'Advanced' && officialProgression.official_progression_eligible === true;
+        const targetLevel = canAdvance
+          ? ({ Beginner: 'Intermediate', Intermediate: 'Advanced' }[currentLevel] || currentLevel)
+          : currentLevel;
+        // Legacy compatibility path until the separate module activation and
+        // progression-cutover migration is approved.
+        const curriculumResult = await supabase
+          .from('reading_content')
+          .select('id,word_id,content_text,content_type,level,sequence_no,source_row,pattern_note,is_assessment')
+          .eq('level', targetLevel)
+          .eq('is_active', true)
+          .neq('content_type', 'paragraph')
+          .order('sequence_no', { ascending: true });
+        if (curriculumResult.error) {
+          console.error('[Personalization] curriculum load failed:', curriculumResult.error.message || curriculumResult.error);
+          return res.status(503).json({ success: false, message: 'Personalized recommendations are temporarily unavailable.' });
+        }
+        curriculum = curriculumResult.data || [];
       }
 
       const result = rankCurriculum({
@@ -124,8 +198,9 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
         confusions: confusionsResult.data || [],
         contentAttempts: attemptsResult.data || [],
         completedContentIds: completionsResult.data || [],
-        curriculum: curriculumResult.data || [],
+        curriculum,
         officialProgression,
+        moduleScope,
         limit,
         allowedContentTypes: purpose === 'word_of_day'
           ? ['word']
@@ -158,8 +233,12 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
             weights: result.weights,
             weight_origin: 'manually_selected_domain_reasoning_not_empirically_tuned',
             primary_priority: 'weakness_targeting',
-            candidate_policy: 'first_incomplete_item_per_required_content_track',
-            sequence_authority: 'reading_content.sequence_no_then_source_row_then_id',
+            candidate_policy: moduleScope.configured
+              ? 'first_incomplete_item_inside_current_unlocked_module'
+              : 'legacy_first_incomplete_item_per_required_content_track',
+            sequence_authority: moduleScope.configured
+              ? 'reading_module_items.item_order_then_content_id'
+              : 'reading_content.sequence_no_then_source_row_then_id',
             limitation: 'Tune and validate weights only after sufficient real recommendation outcomes accumulate.',
             purpose,
           },
@@ -270,3 +349,4 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
 
 module.exports = createPersonalizationRouter();
 module.exports.createPersonalizationRouter = createPersonalizationRouter;
+module.exports.loadModuleScope = loadModuleScope;

@@ -96,6 +96,29 @@ const testPureRanking = () => {
   assert(advancing.items.every((item) => ['word', 'phrase'].includes(item.contentType)));
   assert(advancing.items.every((item) => item.level === 'intermediate'));
   assert(!advancing.items.some((item) => item.contentType === 'paragraph'));
+
+  const moduleScoped = rankCurriculum({
+    sessions, confusions, contentAttempts, curriculum,
+    completedContentIds: [],
+    officialProgression: officialProgression(true),
+    moduleScope: {
+      configured: true,
+      currentModule: {
+        id: 'module-phonetics-1',
+        module_number: 1,
+        level: 'Beginner',
+        instructional_content_type: 'phonetic',
+      },
+      contentIds: ['content-beginner-da', 'content-beginner-dra'],
+    },
+    now,
+    limit: 4,
+  });
+  assert.strictEqual(moduleScoped.shouldAdvance, false);
+  assert.strictEqual(moduleScoped.recommendedDifficulty, 'beginner');
+  assert.deepStrictEqual(moduleScoped.items.map((item) => item.contentId), ['content-beginner-da']);
+  assert.strictEqual(moduleScoped.readiness.module_scope.module_id, 'module-phonetics-1');
+  assert(!moduleScoped.items.some((item) => item.contentId === 'content-beginner-bata'));
   return staying;
 };
 
@@ -146,8 +169,11 @@ class FakeQuery {
   }
 }
 
-const createFakeSupabase = () => {
-  const state = { inserts: {}, sessionFilter: null, confusionFilter: null, attemptFilter: null, completionFilter: null };
+const createFakeSupabase = ({ moduleConfigured = false } = {}) => {
+  const state = {
+    inserts: {}, sessionFilter: null, confusionFilter: null, attemptFilter: null, completionFilter: null,
+    moduleConfigured,
+  };
   return {
     state,
     auth: {
@@ -159,9 +185,41 @@ const createFakeSupabase = () => {
     },
     from(table) { return new FakeQuery(table, state); },
     async rpc(name, params) {
-      assert.strictEqual(name, 'get_student_reading_progress');
       assert.strictEqual(params.p_student_id, studentId);
-      return { data: officialProgression(false), error: null };
+      if (name === 'get_student_reading_progress') {
+        return { data: officialProgression(false), error: null };
+      }
+      if (name === 'get_student_module_path') {
+        return moduleConfigured
+          ? {
+            data: {
+              configured: true,
+              current_module: {
+                id: 'module-phonetics-1',
+                module_number: 1,
+                level: 'Beginner',
+                instructional_content_type: 'phonetic',
+              },
+              modules: [],
+            },
+            error: null,
+          }
+          : { data: { configured: false, current_module: null, modules: [] }, error: null };
+      }
+      if (name === 'get_reading_module_content') {
+        assert.strictEqual(params.p_module_id, 'module-phonetics-1');
+        return {
+          data: {
+            items: [
+              { content_id: 'content-beginner-da', content_text: 'da', content_type: 'phonetic', level: 'Beginner', item_order: 1, role: 'practice' },
+              { content_id: 'content-beginner-dra', content_text: 'dra', content_type: 'phonetic', level: 'Beginner', item_order: 2, role: 'practice' },
+              { content_id: 'content-beginner-assessment-du', content_text: 'du', content_type: 'phonetic', level: 'Beginner', item_order: 3, role: 'assessment' },
+            ],
+          },
+          error: null,
+        };
+      }
+      throw new Error(`Unexpected RPC ${name}`);
     },
   };
 };
@@ -213,9 +271,38 @@ const testEndpoint = async () => {
   }
 };
 
+const testModuleScopedEndpoint = async () => {
+  const supabase = createFakeSupabase({ moduleConfigured: true });
+  const app = express();
+  app.use(express.json());
+  app.use('/api/personalization', createPersonalizationRouter(supabase));
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  try {
+    const response = await request({
+      port: server.address().port,
+      headers: { Authorization: 'Bearer valid-token' },
+      body: { limit: 4 },
+    });
+    assert.strictEqual(response.status, 200);
+    assert.deepStrictEqual(
+      response.body.recommendation.items.map((item) => item.contentId),
+      ['content-beginner-da'],
+    );
+    assert.strictEqual(response.body.recommendation.readiness.module_scope.configured, true);
+    assert.strictEqual(
+      supabase.state.inserts.personalization_recommendations.rationale.candidate_policy,
+      'first_incomplete_item_inside_current_unlocked_module',
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+};
+
 (async () => {
   testPureRanking();
   const sample = await testEndpoint();
+  await testModuleScopedEndpoint();
   console.log('personalization.test.js passed');
   console.log('SAMPLE_RANKED_OUTPUT');
   console.log(JSON.stringify({

@@ -16,7 +16,7 @@ export type RankedContentEntry = {
   contentId: string;
   wordId: string | null;
   contentText: string;
-  contentType: 'word' | 'phonetic' | 'phrase' | 'sentence';
+  contentType: 'word' | 'phonetic' | 'phrase' | 'sentence' | 'story';
   word: string;
   level: WordLevel;
   rank: number;

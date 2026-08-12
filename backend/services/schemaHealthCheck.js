@@ -30,6 +30,10 @@ const TABLES = [
   'personalization_recommendations', 'personalization_recommendation_words', 'personalization_recommendation_outcomes',
   'reading_content', 'reading_level_requirements', 'student_content_attempts', 'student_content_completions',
   'student_reading_level_overrides',
+  'reading_modules', 'reading_module_items', 'reading_module_prerequisites',
+  'reading_module_assessments', 'reading_module_assessment_items',
+  'student_module_assessment_attempts', 'student_module_assessment_responses',
+  'student_module_completions', 'student_equipped_modules',
 ];
 
 const COLUMNS = {
@@ -53,6 +57,13 @@ const FUNCTIONS = [
   ['complete_personalized_word_of_day_attempt', { p_child_id: 'schema-health-check-probe', p_accuracy: 1, p_is_correct: false }],
   ['get_student_reading_progress', { p_student_id: '00000000-0000-0000-0000-000000000000' }],
   ['record_student_content_attempt', { p_student_id: '00000000-0000-0000-0000-000000000000', p_content_id: '00000000-0000-0000-0000-000000000000', p_accuracy: 1 }],
+  ['get_student_module_level', { p_student_id: '00000000-0000-0000-0000-000000000000' }],
+  ['get_student_module_path', { p_student_id: '00000000-0000-0000-0000-000000000000' }],
+  ['get_reading_module_content', { p_student_id: '00000000-0000-0000-0000-000000000000', p_module_id: '00000000-0000-0000-0000-000000000000' }],
+  ['start_module_assessment', { p_student_id: '00000000-0000-0000-0000-000000000000', p_assessment_id: '00000000-0000-0000-0000-000000000000' }],
+  ['submit_module_assessment', { p_student_id: '00000000-0000-0000-0000-000000000000', p_attempt_id: '00000000-0000-0000-0000-000000000000', p_responses: [] }],
+  ['equip_student_module', { p_student_id: '00000000-0000-0000-0000-000000000000', p_module_id: '00000000-0000-0000-0000-000000000000', p_slot_number: 1 }],
+  ['unequip_student_module', { p_student_id: '00000000-0000-0000-0000-000000000000', p_module_id: '00000000-0000-0000-0000-000000000000' }],
 ];
 
 const isMissingFunctionError = (error) =>

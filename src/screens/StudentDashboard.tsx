@@ -111,7 +111,9 @@ const DEFAULT_PHONETIC_WORDS = [
 ];
 
 type SkillCategory = 'letters' | 'syllables' | 'words';
-type CurriculumPracticeType = Exclude<ReadingContentType, 'paragraph'>;
+// The legacy Practice surface does not render long-form paragraph/story
+// modules yet; those enter through the upcoming module detail flow.
+type CurriculumPracticeType = Exclude<ReadingContentType, 'paragraph' | 'story'>;
 
 const categorizeWord = (word: string): SkillCategory => {
   const clean = word.replace(/-/g, '');
@@ -1984,8 +1986,8 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderPractice = () => {
     const currentLevel = officialProgression?.effective_level || progress?.level || 'Beginner';
-    const practiceTypeLabels: Record<CurriculumPracticeType, string> = {
-      word: 'Words', phonetic: 'Phonetics', phrase: 'Phrases', sentence: 'Sentences',
+    const practiceTypeLabels: Record<RankedContentEntry['contentType'], string> = {
+      word: 'Words', phonetic: 'Phonetics', phrase: 'Phrases', sentence: 'Sentences', story: 'Stories',
     };
     const companionType: CurriculumPracticeType = currentLevel === 'Beginner'
       ? 'phonetic'
