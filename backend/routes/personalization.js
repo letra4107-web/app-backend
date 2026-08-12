@@ -52,8 +52,13 @@ const loadModuleScope = async (supabase, studentId, officialLevel = null) => {
     return { data: null, error: new Error('Current module is outside the student official level.') };
   }
   if (path.configured !== true || !currentModule?.id) {
+    // The module system can be globally active (path.configured === true)
+    // while this particular student has no currentModule (not yet placed,
+    // or between modules). That is not the same as "use module curriculum" -
+    // report configured=false here so the caller falls back to the legacy
+    // reading_content frontier instead of an empty module curriculum.
     return {
-      data: { configured: path.configured === true, currentModule, contentIds: [], curriculum: [] },
+      data: { configured: false, currentModule, contentIds: [], curriculum: [] },
       error: null,
     };
   }
