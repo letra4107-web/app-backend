@@ -55,6 +55,7 @@ import {
 } from '../services/readingContentService';
 import { colors, typography, radius, shadows } from '../theme';
 import { fetchStudentProfile } from '../services/profileService';
+import StudentModules from './StudentModules';
 
 type ChildProfile = {
   id: string;
@@ -4271,11 +4272,26 @@ export default function StudentDashboard({ navigation }: any) {
           {renderWordOfDay()}
         </View>
       ) : section === 'learn' ? (
-        // Same reasoning as Home: renderActivities() now opens with its own
-        // hero banner (menu trigger + notification bell), so topHeaderNode
-        // would duplicate that chrome.
         <View style={styles.homeBg}>
-          {renderActivities()}
+          {/* Presentation-only Beginner Modules 1-5 surface. This replaces the
+              old teacher-lesson-first Learn layout for the MVP, but it does
+              not merge Badges, remove its nav item, or imply that B/K/D is
+              the final Beginner curriculum. */}
+          <StudentModules
+            firstName={getFirstName(child?.name || 'Mag-aaral')}
+            onOpenSidebar={openSidebar}
+            onPracticeItem={(item) => {
+              setPracticeCategoryFilter(item.content_type as CurriculumPracticeType);
+              setPracticeMode('say');
+              setSelectedWord(item.content_text);
+              setSelectedContentId(item.content_id);
+              setPracticeResult(null);
+              setPracticeAttempts(0);
+              setPracticeTranscript('');
+              setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
+              setSection('practice');
+            }}
+          />
         </View>
       ) : section === 'practice' && selectedWord && practiceMode !== 'listen' ? (
         // Same reasoning again, scoped narrowly: only the mic/"say" screen

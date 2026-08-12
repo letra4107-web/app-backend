@@ -274,6 +274,7 @@ mountRoute('/api/notifications', () => require('./routes/notifications'));
 mountRoute('/api/practice', () => require('./routes/practice'));
 mountRoute('/api/personalization', () => require('./routes/personalization'));
 mountRoute('/api/words', () => require('./routes/words'));
+mountRoute('/api/modules', () => require('./routes/modules'));
 mountRoute('/api/tts', () => require('./routes/tts'));
 
 app.use((req, res) => {
