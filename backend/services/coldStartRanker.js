@@ -135,15 +135,21 @@ const rankCurriculum = ({
 
   const moduleMode = moduleScope?.configured === true;
   const activeModule = moduleMode ? moduleScope?.currentModule || null : null;
+  const officialLevel = String(officialProgression.effective_level || 'Beginner').toLowerCase();
+  const moduleLevel = String(activeModule?.level || '').toLowerCase();
+  // Defense in depth: RPCs already enforce this boundary, but the pure ranker
+  // also refuses a mismatched module scope so a malformed caller/test fixture
+  // cannot convert an off-level module into recommendation candidates.
+  const isolatedModuleMode = moduleMode && !!activeModule && moduleLevel === officialLevel;
   const currentDifficultyRaw = String(
-    activeModule?.level || officialProgression.effective_level || 'Beginner',
+    isolatedModuleMode ? activeModule.level : officialProgression.effective_level || 'Beginner',
   ).toLowerCase();
   const currentDifficulty = LEVELS.includes(currentDifficultyRaw) ? currentDifficultyRaw : 'beginner';
   const officialProgressionEligible = officialProgression.official_progression_eligible === true;
   // Module advancement is owned by passed module assessments. The ranker is
   // never allowed to infer or perform a level transition while modules are
   // configured, even if the retained legacy count snapshot says eligible.
-  const shouldAdvance = !moduleMode && officialProgressionEligible && currentDifficulty !== 'advanced';
+  const shouldAdvance = !isolatedModuleMode && officialProgressionEligible && currentDifficulty !== 'advanced';
   const recommendedDifficulty = shouldAdvance ? nextLevel(currentDifficulty) : currentDifficulty;
 
   const windowStart = now.getTime() - (OUTCOME_WINDOW_DAYS * 86400000);
@@ -160,18 +166,18 @@ const rankCurriculum = ({
   }, {});
   const confusionRates = Object.fromEntries(CONFUSION_PAIRS.map((pair) => [pair, (confusionCounts[pair] || 0) / denominator]));
 
-  const levelTypes = moduleMode
+  const levelTypes = isolatedModuleMode
     ? (activeModule?.instructional_content_type ? [activeModule.instructional_content_type] : [])
     : PRACTICE_TYPES_BY_LEVEL[recommendedDifficulty];
   const requestedTypes = Array.isArray(allowedContentTypes) ? allowedContentTypes : levelTypes;
   const allowedTypes = levelTypes.filter((contentType) => requestedTypes.includes(contentType));
-  const moduleContentIds = new Set(moduleMode ? (moduleScope?.contentIds || []).map(String) : []);
+  const moduleContentIds = new Set(isolatedModuleMode ? (moduleScope?.contentIds || []).map(String) : []);
   const eligibleCurriculum = curriculum.filter((item) => (
     String(item.level || '').toLowerCase() === recommendedDifficulty
     && allowedTypes.includes(item.content_type)
-    && (!moduleMode || moduleContentIds.has(String(item.id)))
-    && (!moduleMode || item.module_role !== 'assessment')
-    && (moduleMode || (item.content_type !== 'paragraph' && item.is_assessment !== true))
+    && (!isolatedModuleMode || moduleContentIds.has(String(item.id)))
+    && (!isolatedModuleMode || item.module_role !== 'assessment')
+    && (isolatedModuleMode || (item.content_type !== 'paragraph' && item.is_assessment !== true))
   ));
   // The active module's item_order is binding in module mode. During staged
   // rollout, the legacy path retains workbook order inside each content track.
@@ -270,7 +276,7 @@ const rankCurriculum = ({
     program_complete: officialProgression.program_complete === true,
     official_requirements: officialProgression.requirements || [],
     module_scope: {
-      configured: moduleMode,
+      configured: isolatedModuleMode,
       module_id: activeModule?.id || null,
       module_number: activeModule?.module_number || null,
       level: activeModule?.level || null,

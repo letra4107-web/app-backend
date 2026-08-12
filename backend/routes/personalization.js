@@ -32,7 +32,7 @@ const isMissingModuleFoundation = (error) => (
 // Staged rollout: before migration 042 is applied (or before modules are
 // activated), personalization safely remains on the legacy level frontier.
 // Once configured=true, the RPC becomes the sole source of candidate scope.
-const loadModuleScope = async (supabase, studentId) => {
+const loadModuleScope = async (supabase, studentId, officialLevel = null) => {
   const pathResult = await supabase.rpc('get_student_module_path', { p_student_id: studentId });
   if (pathResult.error) {
     if (isMissingModuleFoundation(pathResult.error)) {
@@ -43,6 +43,14 @@ const loadModuleScope = async (supabase, studentId) => {
 
   const path = pathResult.data || {};
   const currentModule = path.current_module || null;
+  if (officialLevel && path.configured === true
+      && String(path.effective_level || '').toLowerCase() !== String(officialLevel).toLowerCase()) {
+    return { data: null, error: new Error('Module path level does not match official progression.') };
+  }
+  if (officialLevel && currentModule?.level
+      && String(currentModule.level).toLowerCase() !== String(officialLevel).toLowerCase()) {
+    return { data: null, error: new Error('Current module is outside the student official level.') };
+  }
   if (path.configured !== true || !currentModule?.id) {
     return {
       data: { configured: path.configured === true, currentModule, contentIds: [], curriculum: [] },
@@ -160,7 +168,7 @@ const createPersonalizationRouter = (supabase = supabaseAdmin) => {
       // module-scoped as soon as modules are activated; until then this helper
       // returns configured=false and preserves the existing frontier.
       const moduleScopeResult = purpose === 'practice'
-        ? await loadModuleScope(supabase, studentId)
+        ? await loadModuleScope(supabase, studentId, officialProgression.effective_level || 'Beginner')
         : { data: { configured: false, currentModule: null, contentIds: [] }, error: null };
       if (moduleScopeResult.error) {
         console.error('[Personalization] module scope load failed:', moduleScopeResult.error.message || moduleScopeResult.error);

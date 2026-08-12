@@ -119,6 +119,29 @@ const testPureRanking = () => {
   assert.deepStrictEqual(moduleScoped.items.map((item) => item.contentId), ['content-beginner-da']);
   assert.strictEqual(moduleScoped.readiness.module_scope.module_id, 'module-phonetics-1');
   assert(!moduleScoped.items.some((item) => item.contentId === 'content-beginner-bata'));
+
+  const mismatchedModule = rankCurriculum({
+    sessions, confusions, contentAttempts,
+    curriculum: [{
+      id: 'content-advanced-leak', word_id: 'word-leak', content_text: 'lihim',
+      content_type: 'word', level: 'Advanced', sequence_no: 1,
+      source_row: 1, is_assessment: false, module_role: 'instruction',
+    }],
+    completedContentIds: [],
+    officialProgression: officialProgression(false),
+    moduleScope: {
+      configured: true,
+      currentModule: {
+        id: 'module-advanced-leak', module_number: 1, level: 'Advanced',
+        instructional_content_type: 'word',
+      },
+      contentIds: ['content-advanced-leak'],
+    },
+    now,
+    limit: 4,
+  });
+  assert.strictEqual(mismatchedModule.readiness.module_scope.configured, false);
+  assert.deepStrictEqual(mismatchedModule.items, []);
   return staying;
 };
 
@@ -194,6 +217,7 @@ const createFakeSupabase = ({ moduleConfigured = false } = {}) => {
           ? {
             data: {
               configured: true,
+              effective_level: 'Beginner',
               current_module: {
                 id: 'module-phonetics-1',
                 module_number: 1,

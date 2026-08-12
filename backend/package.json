@@ -17,6 +17,7 @@
     "test:progress-auth": "node tests/progress_auth.test.js",
     "test:word-of-day": "node tests/word_of_day_scoring.test.js",
     "test:personalization": "node tests/personalization.test.js",
+    "test:words-isolation": "node tests/words_level_isolation.test.js",
     "test:pronunciation": "node tests/pronunciation_tests.js",
     "seed:reading-content": "node scripts/seedReadingContent.js"
   },
