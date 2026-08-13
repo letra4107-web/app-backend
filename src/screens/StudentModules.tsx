@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +27,13 @@ const stateMeta = {
 };
 
 const contentTypeLabel = (type: string) => type === 'phonetic' ? 'Mga Tunog' : 'Mga Salita';
+const MODULE_IMAGES: Record<number, number> = {
+  1: require('../../assets/modyul/module1.png'),
+  2: require('../../assets/modyul/module2.png'),
+  3: require('../../assets/modyul/module3.png'),
+  4: require('../../assets/modyul/module4.png'),
+  5: require('../../assets/modyul/module5.png'),
+};
 
 export default function StudentModules({ firstName, onOpenSidebar, onPracticeItem }: Props) {
   const [path, setPath] = useState<StudentModulePath | null>(null);
@@ -34,7 +41,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
   const [assessment, setAssessment] = useState<ModuleAssessmentAttempt | null>(null);
   const [result, setResult] = useState<ModuleAssessmentResult | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [responses, setResponses] = useState<Array<{ assessmentItemId: string; contentAttemptId: string }>>([]);
+  const [responses, setResponses] = useState<{ assessmentItemId: string; contentAttemptId: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -254,8 +261,13 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
             <View style={styles.rail}><View style={[styles.moduleNumber, { backgroundColor: meta.color }]}>{module.state === 'completed' ? <Ionicons name="checkmark" size={20} color="#fff" /> : <Text style={styles.moduleNumberText}>{module.module_number}</Text>}</View>{index < (path?.modules.length || 0) - 1 && <View style={[styles.railLine, module.state === 'completed' && { backgroundColor: colors.sage }]} />}</View>
             <TouchableOpacity style={[styles.moduleCard, module.state === 'locked' && styles.moduleCardLocked]} disabled={module.state === 'locked'} onPress={() => void openModule(module)}>
               <View style={styles.rowBetween}><View style={[styles.statePill, { backgroundColor: meta.bg }]}><Ionicons name={meta.icon} size={12} color={meta.color} /><Text style={[styles.stateText, { color: meta.color }]}>{meta.label}</Text></View><Ionicons name={module.state === 'locked' ? 'lock-closed' : 'chevron-forward'} size={20} color={meta.color} /></View>
-              <Text style={styles.moduleTitle}>Modyul {module.module_number}: {module.title}</Text>
-              <Text style={styles.moduleDescription}>{module.description}</Text>
+              <View style={styles.moduleMainRow}>
+                {!!MODULE_IMAGES[module.module_number] && <View style={styles.moduleImageWrap}><Image source={MODULE_IMAGES[module.module_number]} style={styles.moduleImage} resizeMode="contain" /></View>}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.moduleTitle}>Modyul {module.module_number}: {module.title}</Text>
+                  <Text style={styles.moduleDescription}>{module.description}</Text>
+                </View>
+              </View>
               <Text style={styles.moduleMeta}>{module.content_item_count} {contentTypeLabel(module.instructional_content_type).toLowerCase()} · Pasa: {module.assessment_pass_percentage}%</Text>
               {module.state !== 'locked' && <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${module.state === 'completed' ? 100 : pct}%` }]} /></View>}
             </TouchableOpacity>
@@ -276,10 +288,10 @@ const styles = StyleSheet.create({
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 22 },
   backText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   heroEyebrow: { color: '#F6E9FF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  heroTitle: { color: '#fff', fontSize: 28, lineHeight: 33, fontFamily: typography.family.display },
+  heroTitle: { color: '#fff', fontSize: typography.size.hero, lineHeight: 29, fontFamily: typography.family.display },
   heroSubtitle: { color: '#F8EEFF', fontSize: 14, lineHeight: 20, marginTop: 7, maxWidth: 330 },
   assessmentEyebrow: { color: '#F6E9FF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  detailTitle: { color: '#fff', fontSize: 27, fontFamily: typography.family.display, marginTop: 4 },
+  detailTitle: { color: '#fff', fontSize: typography.size.hero, fontFamily: typography.family.display, marginTop: 4 },
   detailSubtitle: { color: '#F8EEFF', fontSize: 14, lineHeight: 20, marginTop: 5 },
   pathBody: { padding: spacing.lg, paddingBottom: 36 },
   detailBody: { padding: spacing.lg, paddingBottom: 42 },
@@ -294,10 +306,13 @@ const styles = StyleSheet.create({
   railLine: { flex: 1, width: 3, backgroundColor: '#D8D0C8', minHeight: 25 },
   moduleCard: { flex: 1, backgroundColor: '#fff', borderRadius: radius.lg, padding: 16, marginBottom: 15, ...shadows.card },
   moduleCardLocked: { opacity: 0.62, backgroundColor: '#F4F1EC' },
+  moduleMainRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
+  moduleImageWrap: { width: 62, height: 62, borderRadius: radius.md, backgroundColor: '#F4F1FB', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  moduleImage: { width: 54, height: 54 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.pill },
   stateText: { fontSize: 10, fontWeight: '900' },
-  moduleTitle: { color: colors.ink, fontSize: 16, fontFamily: typography.family.display, marginTop: 10 },
+  moduleTitle: { color: colors.ink, fontSize: 16, fontFamily: typography.family.display },
   moduleDescription: { color: colors.inkSoft, fontSize: 12, lineHeight: 17, marginTop: 4 },
   moduleMeta: { color: colors.lavenderDark, fontSize: 11, fontWeight: '800', marginTop: 10 },
   progressTrack: { height: 7, borderRadius: 4, backgroundColor: '#E9E4F2', overflow: 'hidden', marginTop: 11 },

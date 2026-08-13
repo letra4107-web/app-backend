@@ -6,14 +6,67 @@ const router = express.Router();
 const ACTIVITY_TYPES = ['reading_lesson', 'practice', 'reminder', 'appointment'];
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'missed'];
 
+const bearerTokenFrom = (authorization = '') => {
+  const match = String(authorization).match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
+};
+
+const getRequester = async (req) => {
+  const token = bearerTokenFrom(req.headers.authorization);
+  if (!token) return null;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user?.id) return null;
+  const { data: profile } = await supabaseAdmin
+    .from('users')
+    .select('role')
+    .eq('id', data.user.id)
+    .maybeSingle();
+  return { id: data.user.id, role: profile?.role || data.user.user_metadata?.role };
+};
+
+const getChild = async (childId) => {
+  const { data, error } = await supabaseAdmin
+    .from('children')
+    .select('id,parent_id,auth_uid')
+    .eq('id', childId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
+const canViewChildSchedule = (requester, child) => requester && child && (
+  (requester.role === 'parent' && child.parent_id === requester.id) ||
+  (requester.role === 'student' && child.auth_uid === requester.id) ||
+  requester.role === 'teacher' ||
+  requester.role === 'admin'
+);
+
+const canManageActivity = (requester, child, activity) => {
+  if (!requester || !child || !activity) return false;
+  if (requester.role === 'admin') return true;
+  if (requester.role === 'parent') {
+    return child.parent_id === requester.id && activity.created_by === 'parent';
+  }
+  if (requester.role === 'teacher') {
+    return activity.created_by === 'teacher' && activity.created_by_auth_uid === requester.id;
+  }
+  return false;
+};
+
 router.get('/', async (req, res) => {
   try {
+    const requester = await getRequester(req);
+    if (!requester) return res.status(401).json({ success: false, message: 'Authentication is required.' });
     const childId = String(req.query.childId || '').trim();
     const startDate = String(req.query.startDate || '').trim();
     const endDate = String(req.query.endDate || '').trim();
 
     if (!childId) {
       return res.status(400).json({ success: false, message: 'childId is required.' });
+    }
+    const child = await getChild(childId);
+    if (!canViewChildSchedule(requester, child)) {
+      return res.status(403).json({ success: false, message: 'You cannot view this child calendar.' });
     }
 
     let query = supabaseAdmin
@@ -25,6 +78,9 @@ router.get('/', async (req, res) => {
 
     if (startDate) query = query.gte('scheduled_date', startDate);
     if (endDate) query = query.lte('scheduled_date', endDate);
+    if (requester.role === 'teacher') {
+      query = query.eq('created_by', 'teacher').eq('created_by_auth_uid', requester.id);
+    }
 
     const { data, error } = await query;
     if (error) {
@@ -41,6 +97,8 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    const requester = await getRequester(req);
+    if (!requester) return res.status(401).json({ success: false, message: 'Authentication is required.' });
     const childId = String(req.body.childId || '').trim();
     const activityType = String(req.body.activityType || '').trim();
     const title = String(req.body.title || '').trim();
@@ -52,10 +110,17 @@ router.post('/', async (req, res) => {
     if (!ACTIVITY_TYPES.includes(activityType)) {
       return res.status(400).json({ success: false, message: `activityType must be one of: ${ACTIVITY_TYPES.join(', ')}` });
     }
+    const child = await getChild(childId);
+    const parentOwnsChild = requester.role === 'parent' && child?.parent_id === requester.id;
+    if (!parentOwnsChild && requester.role !== 'teacher' && requester.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'You cannot add an activity for this child.' });
+    }
+    const ownerType = requester.role === 'teacher' ? 'teacher' : requester.role === 'admin' ? 'system' : 'parent';
 
     const payload = {
       child_id: childId,
-      created_by: ['parent', 'teacher', 'system'].includes(req.body.createdBy) ? req.body.createdBy : 'parent',
+      created_by: ownerType,
+      created_by_auth_uid: requester.id,
       activity_type: activityType,
       title,
       description: req.body.description || null,
@@ -77,7 +142,20 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
+    const requester = await getRequester(req);
+    if (!requester) return res.status(401).json({ success: false, message: 'Authentication is required.' });
     const { id } = req.params;
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('scheduled_activities')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return res.status(404).json({ success: false, message: 'Activity not found.' });
+    const child = await getChild(existing.child_id);
+    if (!canManageActivity(requester, child, existing)) {
+      return res.status(403).json({ success: false, message: 'Only the activity owner can edit it.' });
+    }
     const updates = {};
 
     if (req.body.title !== undefined) updates.title = String(req.body.title).trim();
@@ -120,7 +198,21 @@ router.patch('/:id', async (req, res) => {
 
 router.post('/:id/complete', async (req, res) => {
   try {
+    const requester = await getRequester(req);
+    if (!requester) return res.status(401).json({ success: false, message: 'Authentication is required.' });
     const { id } = req.params;
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('scheduled_activities')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return res.status(404).json({ success: false, message: 'Activity not found.' });
+    const child = await getChild(existing.child_id);
+    const studentOwnsRecord = requester.role === 'student' && child?.auth_uid === requester.id;
+    if (!studentOwnsRecord && !canManageActivity(requester, child, existing)) {
+      return res.status(403).json({ success: false, message: 'You cannot complete this activity.' });
+    }
     const { data, error } = await supabaseAdmin
       .from('scheduled_activities')
       .update({ status: 'completed', updated_at: new Date().toISOString() })
@@ -138,7 +230,20 @@ router.post('/:id/complete', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    const requester = await getRequester(req);
+    if (!requester) return res.status(401).json({ success: false, message: 'Authentication is required.' });
     const { id } = req.params;
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('scheduled_activities')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return res.status(404).json({ success: false, message: 'Activity not found.' });
+    const child = await getChild(existing.child_id);
+    if (!canManageActivity(requester, child, existing)) {
+      return res.status(403).json({ success: false, message: 'Only the activity owner can delete it.' });
+    }
     const { error } = await supabaseAdmin.from('scheduled_activities').delete().eq('id', id);
     if (error) throw error;
 

@@ -16,7 +16,7 @@ import EnrollChildModal from './EnrollChildModal';
 import AddScheduledActivityModal from './AddScheduledActivityModal';
 import EditParentProfileModal from './EditParentProfileModal';
 import { StudentActivity } from '../services/activityService';
-import { fetchScheduledActivities, completeScheduledActivity, ScheduledActivity } from '../services/scheduledActivityService';
+import { fetchScheduledActivities, completeScheduledActivity, ScheduledActivity, subscribeToScheduledActivities } from '../services/scheduledActivityService';
 import { buildApiUrl, getJson } from '../config/api';
 import ErrorBoundary from '../components/ErrorBoundary';
 import DashboardBottomNav, { BottomNavItem } from '../components/DashboardBottomNav';
@@ -746,6 +746,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     // on every render instead of only when parentId changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentId]);
+
+  useEffect(() => {
+    if (!parentId || !children.length) return undefined;
+    return subscribeToScheduledActivities(children.map((child) => child.id), () => {
+      void loadScheduledActivitiesForChildren(children);
+    });
+    // Reloading is intentionally scoped to changes in the owned child set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentId, children.map((child) => child.id).sort().join(',')]);
 
   const initials = useMemo(
     () => parentName.split(' ').map((word) => word[0]).slice(0, 2).join('').toUpperCase(),
@@ -1939,11 +1948,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       dayEntries.push({
         key: `sched-${item.id}`,
         sortKey: item.start_time ? `${item.scheduled_date}T${item.start_time}` : item.scheduled_date,
-        pillLabel,
+        pillLabel: item.created_by === 'teacher' ? 'Teacher Activity' : pillLabel,
         pillColor,
         icon: SCHEDULED_TYPE_ICON[item.activity_type],
         title: item.title,
-        meta: `${item.start_time ? `${item.start_time.slice(0, 5)} • ` : ''}${item.status === 'completed' ? 'Completed' : item.status === 'missed' ? 'Missed' : 'Planned'}`,
+        meta: `${item.start_time ? `${item.start_time.slice(0, 5)} • ` : ''}${item.status === 'completed' ? 'Completed' : item.status === 'missed' ? 'Missed' : 'Planned'}${item.created_by === 'teacher' ? ' • From teacher' : ''}`,
         scheduledItem: item,
       });
     });
@@ -2112,9 +2121,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <TouchableOpacity
                 key={entry.key}
                 style={styles.dayEntryRow}
-                disabled={!entry.scheduledItem}
+                disabled={!entry.scheduledItem || entry.scheduledItem.created_by !== 'parent'}
                 onPress={() => {
-                  if (entry.scheduledItem) {
+                  if (entry.scheduledItem?.created_by === 'parent') {
                     setEditingScheduledActivity(entry.scheduledItem);
                     setActivityModalVisible(true);
                   }
@@ -2139,7 +2148,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   >
                     <Text style={[styles.dayEntryActionText, { color: entry.pillColor }]}>{entry.actionLabel}</Text>
                   </TouchableOpacity>
-                ) : entry.scheduledItem ? (
+                ) : entry.scheduledItem?.created_by === 'parent' ? (
                   <TouchableOpacity
                     style={styles.scheduledCompleteButton}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -2161,6 +2170,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                       color={getScheduledStatusColor(entry.scheduledItem.status)}
                     />
                   </TouchableOpacity>
+                ) : entry.scheduledItem ? (
+                  <Ionicons name="lock-closed" size={18} color={colors.inkSoft} accessibilityLabel="Teacher-owned activity" />
                 ) : null}
               </TouchableOpacity>
             ))

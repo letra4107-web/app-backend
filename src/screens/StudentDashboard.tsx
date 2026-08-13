@@ -55,6 +55,7 @@ import {
 } from '../services/readingContentService';
 import { colors, typography, radius, shadows } from '../theme';
 import { fetchStudentProfile } from '../services/profileService';
+import { studentAvatarSource } from '../utils/studentAvatar';
 import StudentModules from './StudentModules';
 
 type ChildProfile = {
@@ -149,6 +150,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export default function StudentDashboard({ navigation }: any) {
   const [child, setChild] = useState<ChildProfile | null>(null);
   const [studentAvatarUrl, setStudentAvatarUrl] = useState<string | null>(null);
+  const [studentAvatarKey, setStudentAvatarKey] = useState<string | null>(null);
   const [progress, setProgress] = useState<ChildProgress | null>(null);
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
   const [manilaDateKey, setManilaDateKey] = useState(getAsiaManilaDate());
@@ -652,10 +654,12 @@ export default function StudentDashboard({ navigation }: any) {
     const currentProgress = profile.child_progress?.[0] || emptyProgress(profile.id);
     setProgress(currentProgress);
 
-    // The learning profile lives in `children`, while avatar_url is stored in
-    // the shared auxiliary profile row used by Settings.
+    // The learning profile and avatar both live on the canonical child row.
     void fetchStudentProfile(profile.auth_uid)
-      .then((studentProfile) => setStudentAvatarUrl(studentProfile?.avatar_url || null))
+      .then((studentProfile) => {
+        setStudentAvatarUrl(studentProfile?.avatar_url || null);
+        setStudentAvatarKey(studentProfile?.avatar_key || null);
+      })
       .catch((avatarError: any) => {
         console.warn('[StudentDashboard] avatar load failed:', avatarError?.message || avatarError);
       });
@@ -2225,13 +2229,6 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{accuracyToday}%</Text>
             <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Average Accuracy</Text>
           </View>
-          <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.amber }]}>
-              <Ionicons name="albums" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.practiceStatsValue, statValueA11y]}>{remainingWords}</Text>
-            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Remaining Words</Text>
-          </View>
         </View>
       </View>
     );
@@ -2456,8 +2453,8 @@ export default function StudentDashboard({ navigation }: any) {
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.homeHeaderRow}>
-          {studentAvatarUrl ? (
-            <Image source={{ uri: studentAvatarUrl }} style={styles.homeHeaderAvatar} />
+          {studentAvatarSource(studentAvatarKey, studentAvatarUrl) ? (
+            <Image source={studentAvatarSource(studentAvatarKey, studentAvatarUrl)!} style={styles.homeHeaderAvatar} resizeMode="contain" />
           ) : (
             <View style={styles.homeHeaderAvatar}>
               <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
@@ -4221,6 +4218,7 @@ export default function StudentDashboard({ navigation }: any) {
       }}
       onProfileChanged={(updatedProfile) => {
         setStudentAvatarUrl(updatedProfile.avatar_url || null);
+        setStudentAvatarKey(updatedProfile.avatar_key || null);
         if (updatedProfile.full_name) {
           setChild((current) => current ? { ...current, name: updatedProfile.full_name as string } : current);
         }
@@ -4363,8 +4361,8 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="close" size={18} color="#fff" />
             </TouchableOpacity>
             <View style={styles.sidebarProfileRow}>
-              {studentAvatarUrl ? (
-                <Image source={{ uri: studentAvatarUrl }} style={styles.sidebarAvatarWrap} />
+              {studentAvatarSource(studentAvatarKey, studentAvatarUrl) ? (
+                <Image source={studentAvatarSource(studentAvatarKey, studentAvatarUrl)!} style={styles.sidebarAvatarWrap} resizeMode="contain" />
               ) : (
                 <View style={styles.sidebarAvatarWrap}>
                   <Text style={styles.sidebarAvatarText}>{initials}</Text>
@@ -5089,7 +5087,7 @@ const styles = StyleSheet.create({
   heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: typography.family.display, lineHeight: 32, maxWidth: '68%' },
+  heroGreeting: { color: '#fff', fontSize: typography.size.hero, fontFamily: typography.family.display, lineHeight: 29, maxWidth: '68%' },
   heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
   // 1:2 aspect ratio in the source art (1120x2240) - sized as a tall
   // rectangle so the full character shows with no cropping, anchored to

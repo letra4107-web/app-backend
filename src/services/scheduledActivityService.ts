@@ -1,4 +1,5 @@
 import { buildApiUrl, getJson, postJson, patchJson, deleteJson, isRetryableNetworkError } from '../config/api';
+import { supabase } from '../config/supabase';
 
 export type ScheduledActivityType = 'reading_lesson' | 'practice' | 'reminder' | 'appointment';
 export type ScheduledActivityStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed';
@@ -7,6 +8,7 @@ export type ScheduledActivity = {
   id: string;
   child_id: string;
   created_by: 'parent' | 'teacher' | 'system';
+  created_by_auth_uid?: string | null;
   activity_type: ScheduledActivityType;
   title: string;
   description: string | null;
@@ -138,4 +140,28 @@ export const deleteScheduledActivity = async (id: string): Promise<void> => {
     console.warn('[ScheduledActivities] delete failed:', error?.message || error);
     throw wrapError(error, 'Hindi ma-delete ang activity.');
   }
+};
+
+export const subscribeToScheduledActivities = (
+  childIds: string[],
+  onChange: () => void,
+) => {
+  const ids = [...new Set(childIds.filter(Boolean))].sort();
+  if (!ids.length) return () => undefined;
+
+  const channel = supabase
+    .channel(`scheduled-activities-${ids.join('-')}-${Date.now()}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'scheduled_activities' },
+      (payload) => {
+        const row = (payload.new && Object.keys(payload.new).length ? payload.new : payload.old) as { child_id?: string };
+        if (row?.child_id && ids.includes(row.child_id)) onChange();
+      },
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 };

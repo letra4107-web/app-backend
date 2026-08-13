@@ -98,7 +98,7 @@ export const startModuleAssessment = async (assessmentId: string) => {
 
 export const submitModuleAssessment = async (
   attemptId: string,
-  responses: Array<{ assessmentItemId: string; contentAttemptId: string }>,
+  responses: { assessmentItemId: string; contentAttemptId: string }[],
 ) => {
   const response = await postJson<{ success: boolean; result: ModuleAssessmentResult }>(
     buildApiUrl(`/modules/attempts/${encodeURIComponent(attemptId)}/submit`),

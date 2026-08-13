@@ -15,6 +15,8 @@ type Profile = {
   gender?: string | null;
   address?: string | null;
   avatar_url?: string | null;
+  avatar_key?: string | null;
+  achievements?: { id: string; unlockedAt?: string }[];
 };
 
 const parentProfileInFlight = new Map<string, Promise<Profile | null>>();
@@ -356,40 +358,55 @@ export async function fetchProfile(userId: string, authenticatedUser?: Authentic
 // home on `children` yet, so those still round-trip through that shared
 // auxiliary row - only `full_name` needs to come from the real source.
 export async function fetchStudentProfile(authUid: string, authenticatedUser?: AuthenticatedProfileUser) {
-  const [childResult, aux] = await Promise.all([
-    supabase.from('children').select('name').eq('auth_uid', authUid).maybeSingle(),
-    fetchProfile(authUid, authenticatedUser),
-  ]);
-  const { data: childRow, error: childError } = childResult;
+  const user = authenticatedUser || (await supabase.auth.getUser()).data?.user;
+  const { data: childRow, error: childError } = await supabase
+    .from('children')
+    .select('name,username,phone_number,avatar_key,avatar_url,child_progress(achievements)')
+    .eq('auth_uid', authUid)
+    .maybeSingle();
   if (childError) throw childError;
 
+  const progress = Array.isArray((childRow as any)?.child_progress)
+    ? (childRow as any).child_progress[0]
+    : (childRow as any)?.child_progress;
+
   return {
-    ...aux,
     id: authUid,
     auth_uid: authUid,
-    full_name: childRow?.name || aux?.full_name || '',
-    name: childRow?.name || aux?.name || '',
+    full_name: childRow?.name || '',
+    name: childRow?.name || '',
+    username: childRow?.username,
+    email: user?.email || childRow?.username,
+    phone: (childRow as any)?.phone_number || '',
+    phone_number: (childRow as any)?.phone_number || '',
+    avatar_key: (childRow as any)?.avatar_key || null,
+    avatar_url: (childRow as any)?.avatar_url || null,
+    achievements: progress?.achievements || [],
   } as Profile;
 }
 
 export async function updateStudentProfile(
   authUid: string,
-  updates: { full_name?: string; avatar_url?: string | null; phone?: string; phone_number?: string },
+  updates: { full_name?: string; avatar_url?: string | null; avatar_key?: string | null; phone?: string; phone_number?: string },
 ) {
-  if (updates.full_name !== undefined) {
-    const { error } = await supabase.from('children').update({ name: updates.full_name }).eq('auth_uid', authUid);
+  const childUpdates: Record<string, unknown> = {};
+  if (updates.full_name !== undefined) childUpdates.name = updates.full_name;
+  if (updates.avatar_url !== undefined) childUpdates.avatar_url = updates.avatar_url;
+  if (updates.avatar_key !== undefined) childUpdates.avatar_key = updates.avatar_key;
+  if (updates.phone_number !== undefined || updates.phone !== undefined) {
+    childUpdates.phone_number = updates.phone_number || updates.phone || null;
+  }
+  if (Object.keys(childUpdates).length) {
+    const { error } = await supabase.from('children').update(childUpdates).eq('auth_uid', authUid);
     if (error) throw error;
   }
 
-  const auxUpdates: Profile = { id: authUid };
-  if (updates.avatar_url !== undefined) auxUpdates.avatar_url = updates.avatar_url;
-  if (updates.phone_number !== undefined || updates.phone !== undefined) {
-    auxUpdates.phone = updates.phone_number || updates.phone;
-    auxUpdates.phone_number = updates.phone_number || updates.phone;
-  }
-  if (Object.keys(auxUpdates).length > 1) {
-    await updateProfile(auxUpdates);
-  }
+}
+
+export async function setStudentAvatar(avatarKey: string) {
+  const { data, error } = await supabase.rpc('set_student_avatar', { p_avatar_key: avatarKey });
+  if (error) throw error;
+  return data as { avatar_key: string; avatar_url: null };
 }
 
 export async function updateProfile(profile: Profile) {

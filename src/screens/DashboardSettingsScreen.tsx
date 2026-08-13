@@ -22,7 +22,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { supabase } from '../config/supabase';
-import { fetchProfile, fetchStudentProfile, updateProfile, updateStudentProfile, uploadAvatar } from '../services/profileService';
+import { fetchProfile, fetchStudentProfile, setStudentAvatar, updateProfile, updateStudentProfile, uploadAvatar } from '../services/profileService';
+import { ACHIEVEMENTS } from '../services/achievementService';
+import { DEFAULT_STUDENT_AVATARS, studentAvatarSource } from '../utils/studentAvatar';
 import {
   changeEmail,
   changePassword,
@@ -76,6 +78,8 @@ type ProfileState = {
   phone?: string;
   phone_number?: string;
   avatar_url?: string | null;
+  avatar_key?: string | null;
+  achievements?: { id: string; unlockedAt?: string }[];
 };
 
 type AccountModal = 'password' | 'email' | null;
@@ -181,6 +185,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           phone: profileData?.phone || profileData?.phone_number || '',
           phone_number: profileData?.phone_number || profileData?.phone || '',
           avatar_url: profileData?.avatar_url || null,
+          avatar_key: profileData?.avatar_key || null,
+          achievements: profileData?.achievements || [],
         });
         setSettings(settingsData);
         setSavedSettings(settingsData);
@@ -204,6 +210,16 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     const name = profile.full_name || (isParent ? 'Parent' : 'Student');
     return name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
   }, [isParent, profile.full_name]);
+  const avatarSource = useMemo(
+    () => isParent
+      ? (profile.avatar_url ? { uri: profile.avatar_url } : null)
+      : studentAvatarSource(profile.avatar_key, profile.avatar_url),
+    [isParent, profile.avatar_key, profile.avatar_url],
+  );
+  const unlockedBadgeAvatars = useMemo(() => {
+    const unlocked = new Set((profile.achievements || []).map((item) => item.id));
+    return ACHIEVEMENTS.filter((badge) => unlocked.has(badge.id));
+  }, [profile.achievements]);
 
   const showSuccess = (text: string) => {
     setMessage(text);
@@ -233,6 +249,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           phone: profile.phone_number || profile.phone,
           phone_number: profile.phone_number || profile.phone,
           avatar_url: profile.avatar_url,
+          avatar_key: profile.avatar_key,
         });
       } else {
         // Students' real name lives on `children.name`, not the `parents`
@@ -254,6 +271,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   };
 
   const pickAvatar = async () => {
+    if (!isParent) return;
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -278,6 +296,22 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       showSuccess('Profile photo updated.');
     } catch (e: any) {
       showError(e?.message || 'Could not upload profile photo.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const chooseStudentAvatar = async (avatarKey: string) => {
+    if (isParent || savingProfile || avatarKey === profile.avatar_key) return;
+    setSavingProfile(true);
+    try {
+      await setStudentAvatar(avatarKey);
+      const updatedProfile = { ...profile, avatar_key: avatarKey, avatar_url: null };
+      setProfile(updatedProfile);
+      onProfileChanged?.(updatedProfile);
+      showSuccess('Avatar updated.');
+    } catch (e: any) {
+      showError(e?.message || 'Could not save avatar.');
     } finally {
       setSavingProfile(false);
     }
@@ -526,8 +560,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
               <Text style={[styles.subtitle, dark && styles.mutedDark]}>Make LinawLetra work best for you.</Text>
             </View>
             <TouchableOpacity onPress={scrollToProfile}>
-              {profile.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.headerAvatar} />
+              {avatarSource ? (
+                <Image source={avatarSource} style={styles.headerAvatar} resizeMode="contain" />
               ) : (
                 <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
                   <Text style={styles.headerAvatarInitial}>{initials}</Text>
@@ -542,8 +576,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
 
         <View style={[styles.card, dark && styles.cardDark, styles.summaryCard]}>
           <View style={styles.profileTop}>
-            {profile.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+            {avatarSource ? (
+              <Image source={avatarSource} style={styles.avatar} resizeMode="contain" />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarInitial}>{initials}</Text>
@@ -767,23 +801,67 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
         >
           <Section title="Profile" icon="person">
             <View style={styles.profileTop}>
-              <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrap} disabled={savingProfile}>
-                {profile.avatar_url ? (
-                  <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              <TouchableOpacity onPress={isParent ? pickAvatar : undefined} style={styles.avatarWrap} disabled={savingProfile || !isParent}>
+                {avatarSource ? (
+                  <Image source={avatarSource} style={styles.avatar} resizeMode="contain" />
                 ) : (
                   <View style={[styles.avatar, styles.avatarPlaceholder]}>
                     <Text style={styles.avatarInitial}>{initials}</Text>
                   </View>
                 )}
-                <View style={styles.avatarEdit}>
+                {isParent && <View style={styles.avatarEdit}>
                   <MaterialIcons name="photo-camera" size={16} color="#fff" />
-                </View>
+                </View>}
               </TouchableOpacity>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
                 <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{profile.email}</Text>
               </View>
             </View>
+
+            {!isParent && (
+              <View style={styles.avatarPickerSection}>
+                <Text style={styles.avatarPickerTitle}>Edit Avatar</Text>
+                <Text style={styles.avatarPickerHint}>Choose an icon or one of your unlocked badges.</Text>
+                <Text style={styles.avatarPickerLabel}>Default icons</Text>
+                <View style={styles.avatarPickerGrid}>
+                  {DEFAULT_STUDENT_AVATARS.map((item) => {
+                    const selected = profile.avatar_key === item.key;
+                    return <TouchableOpacity
+                      key={item.key}
+                      style={[styles.avatarOption, selected && styles.avatarOptionSelected]}
+                      onPress={() => void chooseStudentAvatar(item.key)}
+                      disabled={savingProfile}
+                      accessibilityLabel={`${item.label} avatar`}
+                      accessibilityState={{ selected }}
+                    >
+                      <Image source={item.image} style={styles.avatarOptionImage} resizeMode="contain" />
+                      {selected && <View style={styles.avatarOptionCheck}><MaterialIcons name="check" size={12} color="#fff" /></View>}
+                    </TouchableOpacity>;
+                  })}
+                </View>
+                <Text style={styles.avatarPickerLabel}>Unlocked badges</Text>
+                {unlockedBadgeAvatars.length ? (
+                  <View style={styles.avatarPickerGrid}>
+                    {unlockedBadgeAvatars.map((badge) => {
+                      const key = `badge:${badge.id}`;
+                      const selected = profile.avatar_key === key;
+                      return <TouchableOpacity
+                        key={badge.id}
+                        style={[styles.avatarOption, selected && styles.avatarOptionSelected]}
+                        onPress={() => void chooseStudentAvatar(key)}
+                        disabled={savingProfile}
+                        accessibilityLabel={`${badge.title} badge avatar`}
+                        accessibilityState={{ selected }}
+                      >
+                        <Image source={badge.image} style={styles.avatarOptionImage} resizeMode="contain" />
+                        {selected && <View style={styles.avatarOptionCheck}><MaterialIcons name="check" size={12} color="#fff" /></View>}
+                      </TouchableOpacity>;
+                    })}
+                  </View>
+                ) : <Text style={styles.avatarEmptyText}>Unlock a badge to use it as your avatar.</Text>}
+              </View>
+            )}
 
             <TextInput
               style={[styles.input, dark && styles.inputDark]}
@@ -912,7 +990,7 @@ const styles = StyleSheet.create({
   heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  heroGreeting: { color: '#fff', fontSize: 26, fontFamily: typography.family.display, lineHeight: 32, maxWidth: '68%' },
+  heroGreeting: { color: '#fff', fontSize: typography.size.hero, fontFamily: typography.family.display, lineHeight: 29, maxWidth: '68%' },
   heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png/clipboard.png).
   heroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
@@ -998,6 +1076,16 @@ const styles = StyleSheet.create({
   avatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: colors.lavender, fontSize: 28, fontWeight: '900' },
   avatarEdit: { position: 'absolute', right: -4, bottom: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
+  avatarPickerSection: { marginTop: 14, borderTopWidth: 1, borderTopColor: '#EEE9F9', paddingTop: 14 },
+  avatarPickerTitle: { color: colors.ink, fontFamily: typography.family.displaySemi, fontSize: 16 },
+  avatarPickerHint: { color: colors.inkSoft, fontSize: 12, marginTop: 2, marginBottom: 12 },
+  avatarPickerLabel: { color: colors.ink, fontSize: 12, fontWeight: '800', marginTop: 8, marginBottom: 7 },
+  avatarPickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  avatarOption: { width: 58, height: 58, borderRadius: 18, backgroundColor: '#F8F7FC', borderWidth: 1.5, borderColor: '#E5DDF2', alignItems: 'center', justifyContent: 'center' },
+  avatarOptionSelected: { borderColor: colors.lavenderDark, backgroundColor: '#EFECFB' },
+  avatarOptionImage: { width: 46, height: 46 },
+  avatarOptionCheck: { position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.lavenderDark, alignItems: 'center', justifyContent: 'center' },
+  avatarEmptyText: { color: colors.inkSoft, fontSize: 12, fontStyle: 'italic' },
   profileName: { fontSize: 18, fontWeight: '900', color: colors.ink },
   input: {
     minHeight: 48,

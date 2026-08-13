@@ -27,13 +27,32 @@ const bearerTokenFrom = (authorization = '') => {
   return match ? match[1].trim() : '';
 };
 const makeUuid = () => crypto.randomUUID ? crypto.randomUUID() : `child-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-const gradeFromAge = (age) => {
-  const numericAge = Number(age);
-  if (numericAge <= 6) return 1;
-  if (numericAge >= 12) return 7;
-  return Math.max(1, Math.min(7, numericAge - 5));
+const difficultyFromGrade = (gradeLevel) => {
+  if (gradeLevel <= 2) return 'Beginner';
+  if (gradeLevel <= 4) return 'Intermediate';
+  return 'Advanced';
 };
-const cleanDifficulty = (value) => ['Beginner', 'Intermediate', 'Advanced'].includes(value) ? value : 'Beginner';
+const STUDENT_PASSWORD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+const makeStudentPassword = () => Array.from(
+  { length: 10 },
+  () => STUDENT_PASSWORD_CHARS[crypto.randomInt(0, STUDENT_PASSWORD_CHARS.length)],
+).join('');
+const makeStudentUsernameBase = (name) => {
+  const parts = String(name || '').trim().toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean);
+  const first = parts[0] || 'bata';
+  const last = parts.length > 1 ? parts[parts.length - 1] : first;
+  return `${first[0] || 'b'}${last}`.replace(/\s+/g, '');
+};
+const getAvailableStudentUsername = async (name) => {
+  const base = makeStudentUsernameBase(name);
+  for (let suffix = 0; suffix < 50; suffix += 1) {
+    const candidate = `${base}${suffix === 0 ? '' : suffix + 1}@linawletra.edu.ph`;
+    const { data, error } = await supabaseAdmin.from('children').select('id').eq('username', candidate).maybeSingle();
+    if (error) throw error;
+    if (!data) return candidate;
+  }
+  return `${base}${Date.now()}@linawletra.edu.ph`;
+};
 const hashPassword = async (password) => {
   if (bcrypt) return bcrypt.hash(password, 10);
   const salt = crypto.randomBytes(16).toString('hex');
@@ -517,6 +536,7 @@ router.post('/set-role', async (req, res) => {
 });
 
 router.post('/enroll-child', async (req, res) => {
+  let createdAuthUid = null;
   try {
     const token = bearerTokenFrom(req.headers.authorization);
     if (!token) return res.status(401).json({ success: false, message: 'Authentication is required.' });
@@ -537,47 +557,46 @@ router.post('/enroll-child', async (req, res) => {
     const parentId = authenticated.user.id;
     const parentEmail = authenticated.user.email || parentProfile?.email;
 
-    const {
-      childName,
-      age,
-      readingDifficulty,
-      placementOverrideReason,
-      gradeLevel,
-      username,
-      password,
-    } = req.body;
+    const { childName, gradeLevel } = req.body;
+    const cleanName = String(childName || '').trim();
+    const finalGradeLevel = Number(gradeLevel);
 
-    if (!parentEmail || !childName || !username || !password) {
+    if (!parentEmail || cleanName.length < 2 || !Number.isInteger(finalGradeLevel) || finalGradeLevel < 1 || finalGradeLevel > 6) {
       return res.status(400).json({
         success: false,
-        message: 'A parent email, childName, username and password are required',
+        message: 'Student name and a grade level from 1 to 6 are required.',
       });
     }
 
-    const authEmail = normalizeEmail(username);
-    const numericAge = Number(age);
-    const finalGradeLevel = Number.isFinite(numericAge) ? gradeFromAge(numericAge) : Number(gradeLevel || 1);
-    const level = cleanDifficulty(readingDifficulty);
-    const overrideReason = String(placementOverrideReason || '').trim();
-    if (level !== 'Beginner' && overrideReason.length < 10) {
-      return res.status(400).json({
+    const { data: existingEnrollment, error: existingEnrollmentError } = await supabaseAdmin
+      .from('children')
+      .select('id')
+      .eq('parent_id', parentId)
+      .eq('grade_level', finalGradeLevel)
+      .ilike('name', cleanName)
+      .limit(1)
+      .maybeSingle();
+    if (existingEnrollmentError) throw existingEnrollmentError;
+    if (existingEnrollment) {
+      return res.status(409).json({
         success: false,
-        message: 'A specific placementOverrideReason is required for non-Beginner enrollment.',
+        message: 'Naka-enroll na ang estudyanteng ito. I-refresh ang Manage Children upang makita ang record.',
       });
     }
 
-    if (!isValidEmail(authEmail) || !authEmail.endsWith('@linawletra.edu.ph')) {
-      return res.status(400).json({ success: false, message: 'Generated username is invalid' });
-    }
+    const level = difficultyFromGrade(finalGradeLevel);
+    const authEmail = await getAvailableStudentUsername(cleanName);
+    const password = makeStudentPassword();
 
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email: authEmail,
       password,
-      user_metadata: { displayName: childName, role: 'student', parentId },
+      user_metadata: { displayName: cleanName, role: 'student', parentId },
       email_confirm: true,
     });
     if (createErr) throw createErr;
     const userRecord = created.user || created;
+    createdAuthUid = userRecord.id;
 
     await supabaseAdmin.auth.admin.updateUserById(userRecord.id, { user_metadata: { role: 'student', parentId } });
 
@@ -585,7 +604,7 @@ router.post('/enroll-child', async (req, res) => {
     const childEntry = {
       id: childId,
       parent_id: parentId,
-      name: childName,
+      name: cleanName,
       grade_level: finalGradeLevel,
       username: authEmail,
       auth_uid: userRecord.id,
@@ -597,7 +616,7 @@ router.post('/enroll-child', async (req, res) => {
 
     const { error: profileError } = await supabaseAdmin.from('users').upsert({
       id: userRecord.id,
-      name: childName,
+      name: cleanName,
       email: authEmail,
       role: 'student',
       parent_id: parentId,
@@ -625,7 +644,7 @@ router.post('/enroll-child', async (req, res) => {
       const { error: overrideError } = await supabaseAdmin.from('student_reading_level_overrides').insert({
         student_id: childId,
         override_level: level,
-        reason: overrideReason,
+        reason: `Automatic grade placement: Grade ${finalGradeLevel}`,
         created_by_auth_uid: parentId,
       });
       if (overrideError) throw overrideError;
@@ -668,9 +687,27 @@ Reading Level: ${level}
     });
   } catch (error) {
     console.error('Error in enroll-child:', error);
+    if (createdAuthUid) {
+      const { data: partialChild } = await supabaseAdmin
+        .from('children')
+        .select('id')
+        .eq('auth_uid', createdAuthUid)
+        .maybeSingle();
+      if (partialChild?.id) {
+        await supabaseAdmin.from('children').delete().eq('id', partialChild.id);
+      }
+      await supabaseAdmin.from('users').delete().eq('id', createdAuthUid);
+      const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(createdAuthUid);
+      if (rollbackError) {
+        authLog('error', 'failed to roll back incomplete child enrollment', {
+          authUid: createdAuthUid,
+          message: rollbackError.message,
+        });
+      }
+    }
     return res.status(500).json({
       success: false,
-      message: 'Failed to enroll child',
+      message: 'Hindi makumpleto ang enrollment. Walang duplicate student record na ginawa.',
     });
   }
 });
