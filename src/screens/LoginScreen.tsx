@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ScrollView, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildApiUrl, postJson } from '../config/api';
 import {
   signInUser, getChildByUsername, mapSupabaseAuthErrorCode,
@@ -14,6 +13,8 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+  const identifierInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,45 +24,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [lastErrorCode, setLastErrorCode] = useState('');
   const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [attempts, setAttempts] = useState(0);
-  const [blockedUntil, setBlockedUntil] = useState<number | null>(null);
   const [touchedIdentifier, setTouchedIdentifier] = useState(false);
   const [touchedPassword, setTouchedPassword] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-
-  const loadAttempts = useCallback(async () => {
-    const storedAttempts = await AsyncStorage.getItem('loginAttempts');
-    const storedBlocked = await AsyncStorage.getItem('blockedUntil');
-    if (storedAttempts) setAttempts(parseInt(storedAttempts));
-    if (storedBlocked) {
-      const blockedTime = parseInt(storedBlocked);
-      if (Date.now() < blockedTime) {
-        setBlockedUntil(blockedTime);
-      } else {
-        resetAttempts();
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    loadAttempts();
-  }, [loadAttempts]);
-
-  const saveAttempts = async (nextAttempts: number, nextBlockedUntil: number | null) => {
-    await AsyncStorage.setItem('loginAttempts', nextAttempts.toString());
-    if (nextBlockedUntil) {
-      await AsyncStorage.setItem('blockedUntil', nextBlockedUntil.toString());
-    } else {
-      await AsyncStorage.removeItem('blockedUntil');
-    }
-  };
-
-  const resetAttempts = async () => {
-    setAttempts(0);
-    setBlockedUntil(null);
-    await AsyncStorage.removeItem('loginAttempts');
-    await AsyncStorage.removeItem('blockedUntil');
-  };
 
   const validateIdentifier = (value: string) => {
     const trimmed = value.trim();
@@ -145,17 +110,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setTouchedIdentifier(true);
     setTouchedPassword(true);
 
-    if (blockedUntil && Date.now() < blockedUntil) {
-      setGlobalError('Too many login attempts. Try again in 1 hour.');
-      return;
-    }
     const identifierValid = validateIdentifier(identifier);
     const passwordValid = validatePassword(password);
     if (!identifierValid || !passwordValid) {
       setGlobalError('Please fix the errors below');
+      if (!identifierValid) identifierInputRef.current?.focus();
+      else passwordInputRef.current?.focus();
       return;
     }
 
+    Keyboard.dismiss();
     setLoading(true);
     try {
       const identifierValue = identifier.trim();
@@ -206,7 +170,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       }
 
       await completeAuthSession(user, isEmail, navigation, (message) => setGlobalError(message));
-      resetAttempts();
     } catch (error: any) {
       const expectedAuthCodes = new Set([
         'auth/user-not-found',
@@ -241,23 +204,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       setGlobalError(friendlyError);
       setLastErrorCode(error.code || 'default');
       setPassword('');
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      let nextBlockedUntil = blockedUntil;
-      if (newAttempts >= 5) {
-        const blockTime = Date.now() + 60 * 60 * 1000; // 1 hour
-        setBlockedUntil(blockTime);
-        nextBlockedUntil = blockTime;
-      }
-      await saveAttempts(newAttempts, nextBlockedUntil);
     } finally {
       setLoading(false);
     }
   };
 
-  // Google/Facebook are not subject to the password-guessing lockout above —
-  // that mechanism exists specifically to slow down password brute-forcing,
-  // which doesn't apply here, so no attempts/blockedUntil bookkeeping.
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     clearErrors();
     setOauthLoading(provider);
@@ -270,7 +221,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       if (!data?.user) return; // web: full-page redirect already in flight
       await ensureUserProfileForOAuthUser(data.user);
       await completeAuthSession(data.user, true, navigation, (message) => setGlobalError(message));
-      resetAttempts();
     } catch (error: any) {
       console.error('[Login] OAuth login error:', { provider, message: error?.message, code: error?.code });
       const providerLabel = provider === 'google' ? 'Google' : 'Facebook';
@@ -281,16 +231,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   };
 
   const isBusy = loading || !!oauthLoading;
-  const isRateLimited = !!blockedUntil && Date.now() < blockedUntil;
-  // Only look "disabled" once the user has actually tried to submit with a
-  // problem, or while something is genuinely in flight — not merely because
-  // the form is untouched on first load.
-  const hasValidationBlock = submitAttempted && (!!identifierError || !!passwordError || !identifier || !password);
-  const isButtonDisabled = isBusy || isRateLimited || hasValidationBlock;
+  // Supabase/backend authentication already applies server-side throttling.
+  // A persistent client-only lockout was both bypassable and could strand a
+  // legitimate user for an hour, so only an in-flight request disables taps.
+  const isButtonDisabled = isBusy;
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.backgroundDecor}>
           <View style={styles.circleTopLeft} />
           <View style={styles.circleRight} />
@@ -319,6 +272,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             ]}>
               <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
+                ref={identifierInputRef}
                 style={styles.input}
                 placeholder="Enter your email"
                 placeholderTextColor={colors.inkSoft}
@@ -330,6 +284,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 onBlur={() => setTouchedIdentifier(true)}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
                 editable={!loading}
                 accessible={true}
                 accessibilityLabel="Email input"
@@ -351,6 +308,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             ]}>
               <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
+                ref={passwordInputRef}
                 style={styles.input}
                 placeholder="Enter your password"
                 placeholderTextColor={colors.inkSoft}
@@ -362,6 +320,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 onBlur={() => setTouchedPassword(true)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                returnKeyType="done"
+                onSubmitEditing={() => void handleLogin()}
                 editable={!loading}
                 accessible={true}
                 accessibilityLabel="Password input"
@@ -382,7 +342,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <Text style={styles.link}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.button, isButtonDisabled ? styles.buttonDisabled : {}]} onPress={handleLogin} disabled={!!isButtonDisabled}>
+          <TouchableOpacity
+            style={[styles.button, isButtonDisabled ? styles.buttonDisabled : {}]}
+            onPress={() => void handleLogin()}
+            disabled={isButtonDisabled}
+            accessibilityRole="button"
+            accessibilityLabel="Log In"
+            accessibilityState={{ disabled: isButtonDisabled, busy: loading }}
+          >
             <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Log In'}</Text>
           </TouchableOpacity>
 
