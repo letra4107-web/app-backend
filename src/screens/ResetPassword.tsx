@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
-import { completeAuthSession, completePasswordReset } from '../services/supabaseService';
+import { completeAuthSession, completePasswordReset, resetPassword } from '../services/supabaseService';
 import { colors, typography } from '../theme';
 
 interface ResetPasswordProps {
@@ -38,7 +38,16 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(isOtpMode ? 60 : 0);
+  const [resendMessage, setResendMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOtpMode || resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [isOtpMode, resendCooldown]);
 
   // The recovery `code` arrives as a query param on the linawletra://reset-password
   // deep link — React Navigation's linking config (App.tsx) hands it to us as
@@ -144,6 +153,37 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
     }
   };
 
+  const handleResend = async () => {
+    if (!isOtpMode || !resetEmail || resending || resendCooldown > 0) return;
+
+    setResending(true);
+    setError('');
+    setResendMessage('');
+    try {
+      const { error: resendError } = await resetPassword(resetEmail);
+      if (resendError) {
+        const status = resendError.status;
+        if (status === 429) {
+          setError('Please wait one minute before requesting another reset code.');
+          setResendCooldown(60);
+        } else if (status >= 500) {
+          setError('We could not resend the code right now. Please try again in a moment.');
+        } else {
+          setError(resendError.message || 'We could not resend the code. Please try again.');
+        }
+        return;
+      }
+
+      setResetCode('');
+      setResendCooldown(60);
+      setResendMessage('A new six-digit code was sent. Check your inbox and spam folder.');
+    } catch (resendError: any) {
+      setError(resendError?.message || 'We could not resend the code. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -197,6 +237,12 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
               </Text>
             ) : null}
 
+            {resendMessage ? (
+              <Text style={styles.successBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                {resendMessage}
+              </Text>
+            ) : null}
+
             {isOtpMode ? (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Reset Code</Text>
@@ -214,6 +260,21 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
                     accessibilityLabel="Password reset code"
                   />
                 </View>
+                <TouchableOpacity
+                  onPress={handleResend}
+                  disabled={resending || resendCooldown > 0}
+                  style={styles.resendButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={resendCooldown > 0 ? `Resend code in ${resendCooldown} seconds` : 'Resend reset code'}
+                >
+                  {resending ? (
+                    <ActivityIndicator size="small" color={colors.lavenderDark} />
+                  ) : (
+                    <Text style={[styles.resendText, resendCooldown > 0 && styles.resendTextDisabled]}>
+                      {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Didn\'t receive it? Resend code'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               </View>
             ) : null}
 
@@ -400,8 +461,34 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: colors.coral,
   },
+  successBanner: {
+    color: '#166534',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 13,
+    backgroundColor: 'rgba(34,197,94,0.10)',
+    padding: 12,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+  },
   inputGroup: {
     marginBottom: 16,
+  },
+  resendButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+  },
+  resendText: {
+    color: colors.lavenderDark,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  resendTextDisabled: {
+    color: colors.inkSoft,
+    fontWeight: '500',
   },
   label: {
     fontSize: 12,

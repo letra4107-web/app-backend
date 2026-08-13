@@ -65,8 +65,8 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
       const normalizedEmail = email.trim().toLowerCase();
       const { error } = await resetPassword(normalizedEmail);
 
-      // Supabase's resetPasswordForEmail is already designed not to reveal
-      // whether an account exists for this email — but even so, we must never
+      // The backend is designed not to reveal whether an account exists for
+      // this email. Even so, we must never
       // let a "user not found"-style error surface as a distinct message here
       // (account enumeration). Only genuinely account-agnostic failures
       // (rate limiting, malformed email, network) get their own message;
@@ -75,7 +75,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
       if (error) {
         const message = String(error.message || '').toLowerCase();
         const status = (error as any)?.status;
-        console.warn('[ForgotPassword] resetPasswordForEmail returned an error (may still be safe to treat as generic):', {
+        console.warn('[ForgotPassword] reset-code request returned an error:', {
           status,
           message: error.message,
         });

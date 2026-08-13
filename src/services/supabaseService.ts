@@ -504,20 +504,19 @@ export const completeAuthSession = async (
   }
 };
 
-// Deep-links back into the app (ResetPassword screen, registered in App.tsx's
-// linking config) instead of Supabase's dashboard-configured web Site URL —
-// there's no website that handles this link, so a web redirect would be a
-// dead end on a native build.
+// Password resets use the backend's six-digit OTP flow. Keeping this request
+// behind the backend lets the API return the same response for known and
+// unknown addresses, which prevents account enumeration.
 export const resetPassword = async (email: string) => {
-  const redirectTo = Platform.OS === 'web'
-    ? AuthSession.makeRedirectUri({ path: 'reset-password' })
-    : 'linawletra://reset-password';
   try {
-    const data = await postJson(buildApiUrl('/auth/request-password-reset'), { email, redirectTo }, 30000);
+    const data = await postJson(buildApiUrl('/auth/request-password-reset'), { email }, 30000);
     return { data, error: null };
   } catch (error: any) {
     const message = error?.data?.message || error?.message || 'Unable to send the reset email.';
-    return { data: null, error: { ...error, message, status: error?.status } };
+    return {
+      data: null,
+      error: { message, status: error?.status, data: error?.data },
+    };
   }
 };
 
