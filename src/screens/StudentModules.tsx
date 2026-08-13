@@ -240,12 +240,12 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
     <View style={styles.screen}>
       <LinearGradient colors={colors.heroGradient} style={styles.pathHero}>
         <TouchableOpacity style={styles.menuButton} onPress={onOpenSidebar}><Ionicons name="menu" size={22} color="#fff" /></TouchableOpacity>
-        <Text style={styles.heroEyebrow}>BEGINNER · PRESENTATION MVP</Text>
+        <Text style={styles.heroEyebrow}>BEGINNER LEVEL</Text>
         <Text style={styles.heroTitle}>Tuloy ang pagkatuto, {firstName}!</Text>
         <Text style={styles.heroSubtitle}>Tapusin ang bawat module at pagsusulit upang mabuksan ang susunod.</Text>
       </LinearGradient>
       <ScrollView contentContainerStyle={styles.pathBody}>
-        <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Modules 1–5 are the presentation curriculum. More sounds and levels will follow.</Text></View>
+        <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Modyul 1–5 ang kasalukuyang curriculum. May dagdag pang tunog at antas na darating.</Text></View>
         <Text style={styles.sectionTitle}>Ang Iyong Module Path</Text>
         {path?.modules.map((module, index) => {
           const meta = stateMeta[module.state];

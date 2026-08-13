@@ -22,6 +22,9 @@ const passwordResetRequestTimes = new Map();
 const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
 
 const isValidEmail = (email) => OTP_EMAIL_REGEX.test(String(email || '').trim());
+// Escapes Postgres ILIKE wildcard metacharacters (% and _) so a child name
+// like "An_a" or "A%" is matched literally instead of as a pattern.
+const escapeIlikePattern = (value) => String(value || '').replace(/[\\%_]/g, (match) => `\\${match}`);
 const otpExpiryPayload = (expiresAt) => {
   const expiresAtMs = new Date(expiresAt).getTime();
   const expiresInSeconds = Number.isFinite(expiresAtMs)
@@ -580,7 +583,7 @@ router.post('/enroll-child', async (req, res) => {
       .select('id')
       .eq('parent_id', parentId)
       .eq('grade_level', finalGradeLevel)
-      .ilike('name', cleanName)
+      .ilike('name', escapeIlikePattern(cleanName))
       .limit(1)
       .maybeSingle();
     if (existingEnrollmentError) throw existingEnrollmentError;

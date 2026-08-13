@@ -80,6 +80,12 @@ USING (
   )
 );
 
+-- Without this, DELETE change events only carry the primary key (id), not
+-- child_id, so subscribeToScheduledActivities can't tell which child's
+-- calendar to refresh and silently drops the event. Same fix already
+-- applied to notifications in migration 041.
+ALTER TABLE public.scheduled_activities REPLICA IDENTITY FULL;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
