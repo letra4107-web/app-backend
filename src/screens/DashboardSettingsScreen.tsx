@@ -24,7 +24,8 @@ import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { supabase } from '../config/supabase';
 import { fetchProfile, fetchStudentProfile, setStudentAvatar, updateProfile, updateStudentProfile, uploadAvatar } from '../services/profileService';
 import { ACHIEVEMENTS } from '../services/achievementService';
-import { DEFAULT_STUDENT_AVATARS, studentAvatarSource } from '../utils/studentAvatar';
+import { fetchStudentModulePath, ReadingModuleSummary } from '../services/moduleService';
+import { DEFAULT_STUDENT_AVATARS, STUDENT_MODULE_AVATARS, studentAvatarSource } from '../utils/studentAvatar';
 import {
   changeEmail,
   changePassword,
@@ -87,6 +88,7 @@ type AccountModal = 'password' | 'email' | null;
 export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar, onSaved, onProfileChanged }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
+  const [completedAvatarModules, setCompletedAvatarModules] = useState<ReadingModuleSummary[]>([]);
   // `settings` is the DRAFT the user is currently editing (toggles update
   // this immediately, for a responsive UI) - `savedSettings` is what's
   // actually persisted on the backend. They diverge the moment a toggle is
@@ -172,9 +174,13 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           navigation.replace('Login');
           return;
         }
-        const [profileData, settingsData] = await Promise.all([
+        const [profileData, settingsData, modulePath] = await Promise.all([
           isParent ? fetchProfile(user.id, user) : fetchStudentProfile(user.id, user),
           fetchDashboardSettings(user.id, role, user.id),
+          isParent ? Promise.resolve(null) : fetchStudentModulePath().catch((moduleError) => {
+            console.warn('Could not load completed module avatars:', moduleError);
+            return null;
+          }),
         ]);
         if (!mounted) return;
         setAuthUid(user.id);
@@ -188,6 +194,11 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           avatar_key: profileData?.avatar_key || null,
           achievements: profileData?.achievements || [],
         });
+        setCompletedAvatarModules(
+          (modulePath?.modules || []).filter(
+            (module) => module.state === 'completed' && !!STUDENT_MODULE_AVATARS[module.module_number],
+          ),
+        );
         setSettings(settingsData);
         setSavedSettings(settingsData);
         setTtsEnabled(settingsData.tts_enabled);
@@ -822,7 +833,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             {!isParent && (
               <View style={styles.avatarPickerSection}>
                 <Text style={styles.avatarPickerTitle}>Edit Avatar</Text>
-                <Text style={styles.avatarPickerHint}>Choose an icon or one of your unlocked badges.</Text>
+                <Text style={styles.avatarPickerHint}>Choose a default icon, unlocked badge, or completed module.</Text>
                 <Text style={styles.avatarPickerLabel}>Default icons</Text>
                 <View style={styles.avatarPickerGrid}>
                   {DEFAULT_STUDENT_AVATARS.map((item) => {
@@ -860,6 +871,27 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                     })}
                   </View>
                 ) : <Text style={styles.avatarEmptyText}>Unlock a badge to use it as your avatar.</Text>}
+                <Text style={styles.avatarPickerLabel}>Completed modules</Text>
+                {completedAvatarModules.length ? (
+                  <View style={styles.avatarPickerGrid}>
+                    {completedAvatarModules.map((module) => {
+                      const key = `module:${module.module_number}`;
+                      const selected = profile.avatar_key === key;
+                      return <TouchableOpacity
+                        key={module.id}
+                        style={[styles.avatarOption, selected && styles.avatarOptionSelected]}
+                        onPress={() => void chooseStudentAvatar(key)}
+                        disabled={savingProfile}
+                        accessibilityLabel={`Module ${module.module_number}: ${module.title} avatar`}
+                        accessibilityHint="Uses this completed module icon as your profile avatar"
+                        accessibilityState={{ selected }}
+                      >
+                        <Image source={STUDENT_MODULE_AVATARS[module.module_number]} style={styles.avatarOptionImage} resizeMode="contain" />
+                        {selected && <View style={styles.avatarOptionCheck}><MaterialIcons name="check" size={12} color="#fff" /></View>}
+                      </TouchableOpacity>;
+                    })}
+                  </View>
+                ) : <Text style={styles.avatarEmptyText}>Complete a module to use its icon as your avatar.</Text>}
               </View>
             )}
 

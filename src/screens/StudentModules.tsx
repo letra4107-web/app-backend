@@ -13,6 +13,7 @@ import {
   ReadingModuleSummary, startModuleAssessment, StudentModulePath,
   submitModuleAssessment,
 } from '../services/moduleService';
+import { STUDENT_MODULE_AVATARS } from '../utils/studentAvatar';
 
 type Props = {
   firstName: string;
@@ -27,14 +28,6 @@ const stateMeta = {
 };
 
 const contentTypeLabel = (type: string) => type === 'phonetic' ? 'Mga Tunog' : 'Mga Salita';
-const MODULE_IMAGES: Record<number, number> = {
-  1: require('../../assets/modyul/module1.png'),
-  2: require('../../assets/modyul/module2.png'),
-  3: require('../../assets/modyul/module3.png'),
-  4: require('../../assets/modyul/module4.png'),
-  5: require('../../assets/modyul/module5.png'),
-};
-
 export default function StudentModules({ firstName, onOpenSidebar, onPracticeItem }: Props) {
   const [path, setPath] = useState<StudentModulePath | null>(null);
   const [detail, setDetail] = useState<ReadingModuleContent | null>(null);
@@ -262,7 +255,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
             <TouchableOpacity style={[styles.moduleCard, module.state === 'locked' && styles.moduleCardLocked]} disabled={module.state === 'locked'} onPress={() => void openModule(module)}>
               <View style={styles.rowBetween}><View style={[styles.statePill, { backgroundColor: meta.bg }]}><Ionicons name={meta.icon} size={12} color={meta.color} /><Text style={[styles.stateText, { color: meta.color }]}>{meta.label}</Text></View><Ionicons name={module.state === 'locked' ? 'lock-closed' : 'chevron-forward'} size={20} color={meta.color} /></View>
               <View style={styles.moduleMainRow}>
-                {!!MODULE_IMAGES[module.module_number] && <View style={styles.moduleImageWrap}><Image source={MODULE_IMAGES[module.module_number]} style={styles.moduleImage} resizeMode="contain" /></View>}
+                {!!STUDENT_MODULE_AVATARS[module.module_number] && <View style={styles.moduleImageWrap}><Image source={STUDENT_MODULE_AVATARS[module.module_number]} style={styles.moduleImage} resizeMode="contain" /></View>}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.moduleTitle}>Modyul {module.module_number}: {module.title}</Text>
                   <Text style={styles.moduleDescription}>{module.description}</Text>
