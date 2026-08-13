@@ -57,6 +57,8 @@ import { colors, typography, radius, shadows } from '../theme';
 import { fetchStudentProfile } from '../services/profileService';
 import { studentAvatarSource } from '../utils/studentAvatar';
 import StudentModules from './StudentModules';
+import StudentProfileScreen from './StudentProfileScreen';
+import TabHeroHeader from '../components/TabHeroHeader';
 
 type ChildProfile = {
   id: string;
@@ -200,7 +202,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [readingContent, setReadingContent] = useState<ReadingContentItem[]>([]);
   const [completedContentIds, setCompletedContentIds] = useState<Set<string>>(new Set());
   const [officialProgression, setOfficialProgression] = useState<OfficialReadingProgress | null>(null);
-  type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings';
+  type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings' | 'profile';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -1679,31 +1681,15 @@ export default function StudentDashboard({ navigation }: any) {
             expo-linear-gradient (already installed, not a new library).
             Rendered outside the ScrollView below so it stays pinned while
             content scrolls underneath it. */}
-        <LinearGradient
-          colors={colors.heroGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
-          <View style={styles.heroTopRow}>
-            <TouchableOpacity
-              style={styles.heroLogoRow}
-              onPress={openSidebar}
-              accessibilityRole="button"
-              accessibilityLabel="Open navigation menu"
-            >
-              <View style={styles.heroMenuIconWrap}>
-                <Ionicons name="menu-outline" size={20} color="#fff" />
-                {unreadNotifCount > 0 && <View style={styles.heroMenuDot} />}
-              </View>
-              <Ionicons name="book" size={16} color="#fff" />
-              <Text style={styles.heroLogoText}>LinawLetra</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Kumusta,{'\n'}{getFirstName(child?.name || '')}! 👋</Text>
-          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Handa ka na bang matuto ngayon?</Text>
-          <Image source={require('../../assets/waving.webp')} style={styles.heroImage} resizeMode="contain" />
-        </LinearGradient>
+        <TabHeroHeader
+          onMenuPress={openSidebar}
+          notifDot={unreadNotifCount > 0}
+          title={`Kumusta,\n${getFirstName(child?.name || '')}! 👋`}
+          subtitle="Handa ka na bang matuto ngayon?"
+          illustration={require('../../assets/waving.webp')}
+          titleA11yStyle={heroTitleA11yStyle}
+          subtitleA11yStyle={heroSubtitleA11yStyle}
+        />
 
         <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
           {!!error && (
@@ -2055,30 +2041,20 @@ export default function StudentDashboard({ navigation }: any) {
       return (
         <View style={{ flex: 1 }}>
           {/* Rendered outside the ScrollView so it stays pinned while content scrolls underneath it - same pattern as the Say the Word hero. */}
-          <LinearGradient
-            colors={colors.heroGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroBanner}
-          >
-            <TouchableOpacity
-              style={styles.heroBackRow}
-              onPress={() => {
-                stopSpeaking();
-                stopCloudSpeaking();
-                setSelectedWord(null);
-                setSelectedContentId(null);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="arrow-back" size={20} color="#fff" />
-              <Text style={[styles.heroBackText, bodyA11y]}>Bumalik</Text>
-            </TouchableOpacity>
-            <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Basahin{'\n'}Kasama Ako</Text>
-            <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Sundan ng mata ang bawat pantig habang binabasa ko ito para sa iyo.</Text>
-            <Image source={require('../../assets/reading.webp')} style={styles.heroImage} resizeMode="contain" />
-          </LinearGradient>
+          <TabHeroHeader
+            onBackPress={() => {
+              stopSpeaking();
+              stopCloudSpeaking();
+              setSelectedWord(null);
+              setSelectedContentId(null);
+            }}
+            title={'Basahin\nKasama Ako'}
+            subtitle="Sundan ng mata ang bawat pantig habang binabasa ko ito para sa iyo."
+            illustration={require('../../assets/reading.webp')}
+            titleA11yStyle={heroTitleA11yStyle}
+            subtitleA11yStyle={heroSubtitleA11yStyle}
+            backLabelA11yStyle={bodyA11y}
+          />
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
             <View style={styles.learnProgressCard}>
@@ -2250,33 +2226,23 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={{ flex: 1 }}>
           <ConfettiOverlay visible={confettiVisible} />
           {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
-          <LinearGradient
-            colors={colors.heroGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroBanner}
-          >
-            <TouchableOpacity
-              style={styles.heroBackRow}
-              onPress={() => {
-                ExpoSpeechRecognitionModule.abort();
-                setSelectedWord(null);
-                setSelectedContentId(null);
-                setPracticeResult(null);
-                setPracticeAttempts(0);
-                setPracticeTranscript('');
-                setPracticeProcessing(false);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="arrow-back" size={20} color="#fff" />
-              <Text style={[styles.heroBackText, bodyA11y]}>Bumalik</Text>
-            </TouchableOpacity>
-            <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Voice Reading{'\n'}Practice</Text>
-            <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo.</Text>
-            <Image source={require('../../assets/singing.webp')} style={styles.heroImage} resizeMode="contain" />
-          </LinearGradient>
+          <TabHeroHeader
+            onBackPress={() => {
+              ExpoSpeechRecognitionModule.abort();
+              setSelectedWord(null);
+              setSelectedContentId(null);
+              setPracticeResult(null);
+              setPracticeAttempts(0);
+              setPracticeTranscript('');
+              setPracticeProcessing(false);
+            }}
+            title={'Voice Reading\nPractice'}
+            subtitle="Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo."
+            illustration={require('../../assets/singing.webp')}
+            titleA11yStyle={heroTitleA11yStyle}
+            subtitleA11yStyle={heroSubtitleA11yStyle}
+            backLabelA11yStyle={bodyA11y}
+          />
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
             <View style={styles.learnProgressCard}>
@@ -2451,21 +2417,17 @@ export default function StudentDashboard({ navigation }: any) {
     const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
 
     return (
+      <View style={{ flex: 1 }}>
+        <TabHeroHeader
+          onMenuPress={openSidebar}
+          notifDot={unreadNotifCount > 0}
+          title="Practice"
+          subtitle="Magsanay tayong magbasa nang magkasama!"
+          illustration={require('../../assets/singing.webp')}
+          titleA11yStyle={heroTitleA11yStyle}
+          subtitleA11yStyle={heroSubtitleA11yStyle}
+        />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-        <View style={styles.homeHeaderRow}>
-          {studentAvatarSource(studentAvatarKey, studentAvatarUrl) ? (
-            <Image source={studentAvatarSource(studentAvatarKey, studentAvatarUrl)!} style={styles.homeHeaderAvatar} resizeMode="contain" />
-          ) : (
-            <View style={styles.homeHeaderAvatar}>
-              <Text style={styles.homeHeaderAvatarText}>{initials}</Text>
-            </View>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.homeGreetingHello, cardTitleA11y]}>Practice</Text>
-            <Text style={[styles.homeGreetingSub, bodyA11y]}>Magsanay tayong magbasa nang magkasama!</Text>
-          </View>
-        </View>
-
         <View style={styles.goalCard}>
           <View style={styles.goalTopRow}>
             <Text style={[styles.goalTitle, cardTitleA11y]}>Today&apos;s Practice</Text>
@@ -2639,49 +2601,10 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         )}
 
-        {/* Compact, read-only progress summary - replaces the old full word
-            grid. reading_content stays the source of truth server-side; the
-            client only ever fetches/shows the current item plus a count,
-            never the whole sequence rendered as tappable cards. */}
-        <View style={styles.learnProgressCard}>
-          <View style={styles.learnProgressTopRow}>
-            <View style={styles.practiceProgressTitleRow}>
-              <Ionicons name="albums-outline" size={16} color={colors.lavenderDark} />
-              <Text style={[styles.learnProgressTitle, cardTitleA11y]}>
-                {practiceCategoryFilter ? practiceTypeLabels[practiceCategoryFilter] : 'Curriculum Progress'}
-              </Text>
-            </View>
-            {wordTotal > 0 && (
-              <View style={styles.practiceWordPill}>
-                <Text style={[styles.practiceWordPillText, smallLabelA11y]}>Salita {wordPosition} sa {wordTotal}</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.learnProgressTrack}>
-            <View style={{ width: `${wordTotal ? Math.max(4, Math.round((wordsDoneCount / wordTotal) * 100)) : 4}%`, height: '100%' }}>
-              <LinearGradient
-                colors={[colors.heroGradient[0], colors.heroGradient[1]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{ flex: 1, borderRadius: 5 }}
-              />
-            </View>
-          </View>
-          <View style={styles.practiceTipRow}>
-            <Ionicons name="bulb" size={14} color={colors.sun} />
-            <Text style={[styles.practiceTipText, bodyA11y]}>
-              {wordTotal === 0
-                ? 'Wala pang item sa antas na ito.'
-                : remainingWords > 0
-                ? `${remainingWords} pang item para matapos ang set na ito!`
-                : 'Tapos na ang buong set!'}
-            </Text>
-          </View>
-        </View>
-
         {renderSessionProgressCard()}
         {renderReadingTipCard()}
       </ScrollView>
+      </View>
     );
   };
 
@@ -3280,28 +3203,15 @@ export default function StudentDashboard({ navigation }: any) {
     return (
       <>
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
-        <LinearGradient
-          colors={colors.heroGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
-          <View style={styles.heroTopRow}>
-            <TouchableOpacity
-              style={styles.heroLogoRow}
-              onPress={openSidebar}
-              accessibilityRole="button"
-              accessibilityLabel="Open navigation menu"
-            >
-              <Ionicons name="menu-outline" size={20} color="#fff" />
-              <Ionicons name="book" size={16} color="#fff" />
-              <Text style={styles.heroLogoText}>LinawLetra</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>My Reading{'\n'}Progress</Text>
-          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>See how much you&apos;ve improved on your reading journey.</Text>
-          <Image source={require('../../assets/clipboard.webp')} style={styles.progressHeroImage} resizeMode="contain" />
-        </LinearGradient>
+        <TabHeroHeader
+          onMenuPress={openSidebar}
+          title={'My Reading\nProgress'}
+          subtitle="See how much you've improved on your reading journey."
+          illustration={require('../../assets/clipboard.webp')}
+          illustrationStyle={styles.progressHeroImage}
+          titleA11yStyle={heroTitleA11yStyle}
+          subtitleA11yStyle={heroSubtitleA11yStyle}
+        />
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.progressHeroCard}>
@@ -3762,28 +3672,15 @@ export default function StudentDashboard({ navigation }: any) {
     return (
       <>
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
-        <LinearGradient
-          colors={colors.heroGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
-          <View style={styles.heroTopRow}>
-            <TouchableOpacity
-              style={styles.heroLogoRow}
-              onPress={openSidebar}
-              accessibilityRole="button"
-              accessibilityLabel="Open navigation menu"
-            >
-              <Ionicons name="menu-outline" size={20} color="#fff" />
-              <Ionicons name="book" size={16} color="#fff" />
-              <Text style={styles.heroLogoText}>LinawLetra</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>My Learning{'\n'}Badges</Text>
-          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Celebrate every reading milestone you achieve!</Text>
-          <Image source={require('../../assets/trophy.webp')} style={styles.badgesHeroImage} resizeMode="contain" />
-        </LinearGradient>
+        <TabHeroHeader
+          onMenuPress={openSidebar}
+          title={'My Learning\nBadges'}
+          subtitle="Celebrate every reading milestone you achieve!"
+          illustration={require('../../assets/trophy.webp')}
+          illustrationStyle={styles.badgesHeroImage}
+          titleA11yStyle={heroTitleA11yStyle}
+          subtitleA11yStyle={heroSubtitleA11yStyle}
+        />
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.achievementSummaryCard}>
@@ -4064,31 +3961,16 @@ export default function StudentDashboard({ navigation }: any) {
     return (
       <>
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
-        <LinearGradient
-          colors={colors.heroGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
-          <View style={styles.heroTopRow}>
-            <TouchableOpacity
-              style={styles.heroLogoRow}
-              onPress={openSidebar}
-              accessibilityRole="button"
-              accessibilityLabel="Open navigation menu"
-            >
-              <View style={styles.heroMenuIconWrap}>
-                <Ionicons name="menu-outline" size={20} color="#fff" />
-                {unreadNotifCount > 0 && <View style={styles.heroMenuDot} />}
-              </View>
-              <Ionicons name="book" size={16} color="#fff" />
-              <Text style={styles.heroLogoText}>LinawLetra</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Notifications</Text>
-          <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Stay updated on your reading journey.</Text>
-          <Image source={require('../../assets/bell.webp')} style={styles.notifHeroImage} resizeMode="contain" />
-        </LinearGradient>
+        <TabHeroHeader
+          onMenuPress={openSidebar}
+          notifDot={unreadNotifCount > 0}
+          title="Notifications"
+          subtitle="Stay updated on your reading journey."
+          illustration={require('../../assets/bell.webp')}
+          illustrationStyle={styles.notifHeroImage}
+          titleA11yStyle={heroTitleA11yStyle}
+          subtitleA11yStyle={heroSubtitleA11yStyle}
+        />
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.notifSummaryCard}>
@@ -4226,6 +4108,22 @@ export default function StudentDashboard({ navigation }: any) {
     />
   );
 
+  const renderProfile = () => (
+    <StudentProfileScreen
+      navigation={navigation}
+      onOpenSidebar={openSidebar}
+      gradeLevel={child?.grade_level}
+      readingLevel={progress?.level}
+      onProfileChanged={(updatedProfile) => {
+        setStudentAvatarUrl(updatedProfile.avatar_url || null);
+        setStudentAvatarKey(updatedProfile.avatar_key || null);
+        if (updatedProfile.full_name) {
+          setChild((current) => current ? { ...current, name: updatedProfile.full_name as string } : current);
+        }
+      }}
+    />
+  );
+
   // Same unread-notification count that used to live in the header bell on
   // every tab - now surfaced only via the "Notifications" row in the sidebar.
   const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
@@ -4239,26 +4137,13 @@ export default function StudentDashboard({ navigation }: any) {
     { key: 'achievements', label: 'Badges', icon: 'ribbon-outline' },
   ];
   const studentSidebarItems = [
-    { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => navigateTo('settings') },
+    { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => navigateTo('profile') },
     { key: 'notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadNotifCount, onPress: () => navigateTo('notifications') },
     { key: 'settings', label: 'Settings', icon: 'settings-outline', onPress: () => navigateTo('settings') },
-    { key: 'accessibility', label: 'Accessibility', icon: 'accessibility-outline', onPress: () => navigateTo('settings') },
-    { key: 'preferences', label: 'Preferences', icon: 'options-outline', onPress: () => navigateTo('settings') },
     { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupportFromSidebar },
     { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', 'A supportive reading companion designed to help every learner grow with confidence.') },
     { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
   ];
-
-  const topHeaderNode = (
-    <View style={styles.topHeader}>
-      <TouchableOpacity onPress={openSidebar} style={{ padding: 8 }}><Ionicons name="menu-outline" size={28} color={colors.primary} /></TouchableOpacity>
-      <Text style={styles.appTitle}>LinawLetra</Text>
-      <View style={styles.streakPill}>
-        <Ionicons name="flame" size={14} color="#fff" />
-        <Text style={{ color: '#fff', fontWeight: '900', marginLeft: 4 }}>{stats.streak}</Text>
-      </View>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -4292,14 +4177,10 @@ export default function StudentDashboard({ navigation }: any) {
             }}
           />
         </View>
-      ) : section === 'practice' && selectedWord && practiceMode !== 'listen' ? (
-        // Same reasoning again, scoped narrowly: only the mic/"say" screen
-        // inside renderPractice() has its own hero banner (with a back
-        // button, not a menu, since it's a nested detail view reached from
-        // the grid, which still uses topHeaderNode for sidebar access) -
-        // this was missed when that banner was added, leaving the old
-        // header stacked above it. The word-selection grid and "listen"
-        // sub-view are unaffected and keep topHeaderNode as before.
+      ) : section === 'practice' ? (
+        // renderPractice() now renders its own TabHeroHeader in every one of
+        // its states (grid, "say", "listen") - each with the right variant
+        // (menu vs back button) - so this branch needs no header of its own.
         <View style={styles.homeBg}>
           {renderPractice()}
         </View>
@@ -4330,12 +4211,11 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.homeBg}>
           {renderNotifications()}
         </View>
-      ) : (
-        <>
-          {topHeaderNode}
-          {section === 'practice' && renderPractice()}
-        </>
-      )}
+      ) : section === 'profile' ? (
+        <View style={styles.homeBg}>
+          {renderProfile()}
+        </View>
+      ) : null}
 
       <DashboardBottomNav
         items={studentBottomItems}
@@ -4371,7 +4251,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.sidebarProfileName} numberOfLines={1}>{child?.name || 'Estudyante'}</Text>
                 <Text style={styles.sidebarProfileGrade}>Grade {child?.grade_level || '-'} Student</Text>
-                <TouchableOpacity onPress={() => navigateTo('settings')}>
+                <TouchableOpacity onPress={() => navigateTo('profile')}>
                   <Text style={styles.sidebarProfileLink}>View Profile ›</Text>
                 </TouchableOpacity>
               </View>
@@ -4964,9 +4844,6 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 18 },
   modalCard: { backgroundColor: '#fff', borderRadius: 8, padding: 14 },
   close: { alignSelf: 'flex-end', padding: 8 },
-  topHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 48, paddingBottom: 12 },
-  appTitle: { fontSize: 20, fontWeight: '900', color: colors.primary },
-  streakPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   // Tinted indigo scrim (matches the drawer's own palette) instead of flat black
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(30,23,66,0.6)' },
   sidebar: {
@@ -5073,16 +4950,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999,
   },
   homeBannerButtonText: { color: '#fff', fontWeight: '800' },
-  homeGreetingHello: {
-    fontFamily: typography.family.display, fontSize: 20, color: colors.ink,
-  },
-  homeGreetingSub: { color: colors.inkSoft, fontWeight: '600', marginTop: 2, fontSize: 13 },
-  homeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  homeHeaderAvatar: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: colors.lavender,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  homeHeaderAvatarText: { color: '#fff', fontWeight: '900', fontSize: 18 },
   heroBanner: { borderRadius: 28, padding: 22, marginBottom: 20, overflow: 'hidden', position: 'relative', minHeight: 200 },
   heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

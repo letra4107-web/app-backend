@@ -14,6 +14,7 @@ import {
   submitModuleAssessment,
 } from '../services/moduleService';
 import { STUDENT_MODULE_AVATARS } from '../utils/studentAvatar';
+import TabHeroHeader from '../components/TabHeroHeader';
 
 type Props = {
   firstName: string;
@@ -238,12 +239,12 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
 
   return (
     <View style={styles.screen}>
-      <LinearGradient colors={colors.heroGradient} style={styles.pathHero}>
-        <TouchableOpacity style={styles.menuButton} onPress={onOpenSidebar}><Ionicons name="menu" size={22} color="#fff" /></TouchableOpacity>
-        <Text style={styles.heroEyebrow}>BEGINNER LEVEL</Text>
-        <Text style={styles.heroTitle}>Tuloy ang pagkatuto, {firstName}!</Text>
-        <Text style={styles.heroSubtitle}>Tapusin ang bawat module at pagsusulit upang mabuksan ang susunod.</Text>
-      </LinearGradient>
+      <TabHeroHeader
+        onMenuPress={onOpenSidebar}
+        title={`Tuloy ang pagkatuto,\n${firstName}!`}
+        subtitle="Tapusin ang bawat module at pagsusulit upang mabuksan ang susunod."
+        illustration={require('../../assets/learn2.webp')}
+      />
       <ScrollView contentContainerStyle={styles.pathBody}>
         <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Modyul 1–5 ang kasalukuyang curriculum. May dagdag pang tunog at antas na darating.</Text></View>
         <Text style={styles.sectionTitle}>Ang Iyong Module Path</Text>
@@ -275,14 +276,9 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
-  pathHero: { paddingTop: 48, paddingHorizontal: spacing.xl, paddingBottom: 28, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl },
   detailHero: { paddingTop: 46, paddingHorizontal: spacing.xl, paddingBottom: 25, minHeight: 190 },
-  menuButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 22 },
   backText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  heroEyebrow: { color: '#F6E9FF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  heroTitle: { color: '#fff', fontSize: typography.size.hero, lineHeight: 29, fontFamily: typography.family.display },
-  heroSubtitle: { color: '#F8EEFF', fontSize: 14, lineHeight: 20, marginTop: 7, maxWidth: 330 },
   assessmentEyebrow: { color: '#F6E9FF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   detailTitle: { color: '#fff', fontSize: typography.size.hero, fontFamily: typography.family.display, marginTop: 4 },
   detailSubtitle: { color: '#F8EEFF', fontSize: 14, lineHeight: 20, marginTop: 5 },

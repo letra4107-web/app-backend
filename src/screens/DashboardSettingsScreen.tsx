@@ -22,10 +22,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { supabase } from '../config/supabase';
-import { fetchProfile, fetchStudentProfile, setStudentAvatar, updateProfile, updateStudentProfile, uploadAvatar } from '../services/profileService';
-import { ACHIEVEMENTS } from '../services/achievementService';
-import { fetchStudentModulePath, ReadingModuleSummary } from '../services/moduleService';
-import { DEFAULT_STUDENT_AVATARS, STUDENT_MODULE_AVATARS, studentAvatarSource } from '../utils/studentAvatar';
+import { fetchProfile, fetchStudentProfile, updateProfile, uploadAvatar } from '../services/profileService';
+import { studentAvatarSource } from '../utils/studentAvatar';
 import {
   changeEmail,
   changePassword,
@@ -41,6 +39,7 @@ import {
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { useAccessibility } from '../contexts/AccessibilityContext';
 import { colors, typography, radius, shadows } from '../theme';
+import TabHeroHeader from '../components/TabHeroHeader';
 
 const BG = '#F4F1FB';
 const SURFACE = '#ffffff';
@@ -88,7 +87,6 @@ type AccountModal = 'password' | 'email' | null;
 export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar, onSaved, onProfileChanged }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
-  const [completedAvatarModules, setCompletedAvatarModules] = useState<ReadingModuleSummary[]>([]);
   // `settings` is the DRAFT the user is currently editing (toggles update
   // this immediately, for a responsive UI) - `savedSettings` is what's
   // actually persisted on the backend. They diverge the moment a toggle is
@@ -174,13 +172,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           navigation.replace('Login');
           return;
         }
-        const [profileData, settingsData, modulePath] = await Promise.all([
+        const [profileData, settingsData] = await Promise.all([
           isParent ? fetchProfile(user.id, user) : fetchStudentProfile(user.id, user),
           fetchDashboardSettings(user.id, role, user.id),
-          isParent ? Promise.resolve(null) : fetchStudentModulePath().catch((moduleError) => {
-            console.warn('Could not load completed module avatars:', moduleError);
-            return null;
-          }),
         ]);
         if (!mounted) return;
         setAuthUid(user.id);
@@ -194,11 +188,6 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           avatar_key: profileData?.avatar_key || null,
           achievements: profileData?.achievements || [],
         });
-        setCompletedAvatarModules(
-          (modulePath?.modules || []).filter(
-            (module) => module.state === 'completed' && !!STUDENT_MODULE_AVATARS[module.module_number],
-          ),
-        );
         setSettings(settingsData);
         setSavedSettings(settingsData);
         setTtsEnabled(settingsData.tts_enabled);
@@ -227,11 +216,6 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       : studentAvatarSource(profile.avatar_key, profile.avatar_url),
     [isParent, profile.avatar_key, profile.avatar_url],
   );
-  const unlockedBadgeAvatars = useMemo(() => {
-    const unlocked = new Set((profile.achievements || []).map((item) => item.id));
-    return ACHIEVEMENTS.filter((badge) => unlocked.has(badge.id));
-  }, [profile.achievements]);
-
   const showSuccess = (text: string) => {
     setMessage(text);
     setError('');
@@ -251,27 +235,18 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     }
     setSavingProfile(true);
     try {
-      if (isParent) {
-        await updateProfile({
-          id: authUid,
-          full_name: profile.full_name.trim(),
-          name: profile.full_name.trim(),
-          email: profile.email,
-          phone: profile.phone_number || profile.phone,
-          phone_number: profile.phone_number || profile.phone,
-          avatar_url: profile.avatar_url,
-          avatar_key: profile.avatar_key,
-        });
-      } else {
-        // Students' real name lives on `children.name`, not the `parents`
-        // table - see fetchStudentProfile/updateStudentProfile.
-        await updateStudentProfile(authUid, {
-          full_name: profile.full_name.trim(),
-          phone: profile.phone_number || profile.phone,
-          phone_number: profile.phone_number || profile.phone,
-          avatar_url: profile.avatar_url,
-        });
-      }
+      // Reached only from the parent-only Profile Section below - students
+      // edit their profile on the separate StudentProfileScreen instead.
+      await updateProfile({
+        id: authUid,
+        full_name: profile.full_name.trim(),
+        name: profile.full_name.trim(),
+        email: profile.email,
+        phone: profile.phone_number || profile.phone,
+        phone_number: profile.phone_number || profile.phone,
+        avatar_url: profile.avatar_url,
+        avatar_key: profile.avatar_key,
+      });
       onProfileChanged?.({ ...profile, full_name: profile.full_name.trim() });
       showSuccess('Profile saved.');
     } catch (e: any) {
@@ -307,22 +282,6 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       showSuccess('Profile photo updated.');
     } catch (e: any) {
       showError(e?.message || 'Could not upload profile photo.');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
-  const chooseStudentAvatar = async (avatarKey: string) => {
-    if (isParent || savingProfile || avatarKey === profile.avatar_key) return;
-    setSavingProfile(true);
-    try {
-      await setStudentAvatar(avatarKey);
-      const updatedProfile = { ...profile, avatar_key: avatarKey, avatar_url: null };
-      setProfile(updatedProfile);
-      onProfileChanged?.(updatedProfile);
-      showSuccess('Avatar updated.');
-    } catch (e: any) {
-      showError(e?.message || 'Could not save avatar.');
     } finally {
       setSavingProfile(false);
     }
@@ -540,23 +499,12 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           stays pinned while content scrolls underneath it. Parent settings
           (heroMode omitted) keeps its header inside the ScrollView, unchanged. */}
       {heroMode && (
-        <LinearGradient
-          colors={colors.heroGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
-          <View style={styles.heroTopRow}>
-            <TouchableOpacity style={styles.heroLogoRow} onPress={onOpenSidebar}>
-              <Ionicons name="menu-outline" size={20} color="#fff" />
-              <Ionicons name="book" size={16} color="#fff" />
-              <Text style={styles.heroLogoText}>LinawLetra</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.heroGreeting}>Settings</Text>
-          <Text style={styles.heroSubtitle}>Make LinawLetra work best for you.</Text>
-          <Image source={require('../../assets/gear.webp')} style={styles.heroImage} resizeMode="contain" />
-        </LinearGradient>
+        <TabHeroHeader
+          onMenuPress={onOpenSidebar || (() => {})}
+          title="Settings"
+          subtitle="Make LinawLetra work best for you."
+          illustration={require('../../assets/gear.webp')}
+        />
       )}
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {heroMode ? null : (
@@ -585,35 +533,37 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
         {!!message && <Text style={styles.successBanner}>{message}</Text>}
         {!!error && <Text style={styles.errorBanner}>{error}</Text>}
 
-        <View style={[styles.card, dark && styles.cardDark, styles.summaryCard]}>
-          <View style={styles.profileTop}>
-            {avatarSource ? (
-              <Image source={avatarSource} style={styles.avatar} resizeMode="contain" />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarInitial}>{initials}</Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
-              <View style={styles.summaryBadgeRow}>
-                {!!gradeLevel && (
-                  <View style={styles.gradeBadge}>
-                    <Text style={styles.gradeBadgeText}>Grade {gradeLevel}</Text>
-                  </View>
-                )}
-                {!!readingLevel && (
-                  <View style={styles.levelBadge}>
-                    <Text style={styles.levelBadgeText}>{readingLevel}</Text>
-                  </View>
-                )}
+        {isParent && (
+          <View style={[styles.card, dark && styles.cardDark, styles.summaryCard]}>
+            <View style={styles.profileTop}>
+              {avatarSource ? (
+                <Image source={avatarSource} style={styles.avatar} resizeMode="contain" />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarInitial}>{initials}</Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
+                <View style={styles.summaryBadgeRow}>
+                  {!!gradeLevel && (
+                    <View style={styles.gradeBadge}>
+                      <Text style={styles.gradeBadgeText}>Grade {gradeLevel}</Text>
+                    </View>
+                  )}
+                  {!!readingLevel && (
+                    <View style={styles.levelBadge}>
+                      <Text style={styles.levelBadgeText}>{readingLevel}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
+            <TouchableOpacity style={styles.viewProfileButton} onPress={scrollToProfile}>
+              <Text style={styles.viewProfileButtonText}>View Profile</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.viewProfileButton} onPress={scrollToProfile}>
-            <Text style={styles.viewProfileButtonText}>{heroMode ? 'Edit Profile' : 'View Profile'}</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
         {hasUnsavedSettingsChanges && (
           <View style={[styles.unsavedBar, dark && styles.unsavedBarDark]}>
@@ -794,7 +744,6 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             </Section>
 
             <Section title="Account" icon="manage-accounts">
-              <Row icon="person" title="Edit Profile" subtitle="Manage your personal details" onPress={scrollToProfile} />
               <Row icon="lock" title="Change Password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
               <Row icon="email" title="Update Email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
               <Row icon="gavel" title="Privacy & Security" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
@@ -805,123 +754,60 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           </>
         )}
 
-        <View
-          onLayout={(e) => {
-            profileSectionY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <Section title="Profile" icon="person">
-            <View style={styles.profileTop}>
-              <TouchableOpacity onPress={isParent ? pickAvatar : undefined} style={styles.avatarWrap} disabled={savingProfile || !isParent}>
-                {avatarSource ? (
-                  <Image source={avatarSource} style={styles.avatar} resizeMode="contain" />
-                ) : (
-                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                    <Text style={styles.avatarInitial}>{initials}</Text>
+        {isParent && (
+          <View
+            onLayout={(e) => {
+              profileSectionY.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <Section title="Profile" icon="person">
+              <View style={styles.profileTop}>
+                <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrap} disabled={savingProfile}>
+                  {avatarSource ? (
+                    <Image source={avatarSource} style={styles.avatar} resizeMode="contain" />
+                  ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                      <Text style={styles.avatarInitial}>{initials}</Text>
+                    </View>
+                  )}
+                  <View style={styles.avatarEdit}>
+                    <MaterialIcons name="photo-camera" size={16} color="#fff" />
                   </View>
-                )}
-                {isParent && <View style={styles.avatarEdit}>
-                  <MaterialIcons name="photo-camera" size={16} color="#fff" />
-                </View>}
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
-                <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{profile.email}</Text>
-              </View>
-            </View>
-
-            {!isParent && (
-              <View style={styles.avatarPickerSection}>
-                <Text style={styles.avatarPickerTitle}>Edit Avatar</Text>
-                <Text style={styles.avatarPickerHint}>Choose a default icon, unlocked badge, or completed module.</Text>
-                <Text style={styles.avatarPickerLabel}>Default icons</Text>
-                <View style={styles.avatarPickerGrid}>
-                  {DEFAULT_STUDENT_AVATARS.map((item) => {
-                    const selected = profile.avatar_key === item.key;
-                    return <TouchableOpacity
-                      key={item.key}
-                      style={[styles.avatarOption, selected && styles.avatarOptionSelected]}
-                      onPress={() => void chooseStudentAvatar(item.key)}
-                      disabled={savingProfile}
-                      accessibilityLabel={`${item.label} avatar`}
-                      accessibilityState={{ selected }}
-                    >
-                      <Image source={item.image} style={styles.avatarOptionImage} resizeMode="contain" />
-                      {selected && <View style={styles.avatarOptionCheck}><MaterialIcons name="check" size={12} color="#fff" /></View>}
-                    </TouchableOpacity>;
-                  })}
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
+                  <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{profile.email}</Text>
                 </View>
-                <Text style={styles.avatarPickerLabel}>Unlocked badges</Text>
-                {unlockedBadgeAvatars.length ? (
-                  <View style={styles.avatarPickerGrid}>
-                    {unlockedBadgeAvatars.map((badge) => {
-                      const key = `badge:${badge.id}`;
-                      const selected = profile.avatar_key === key;
-                      return <TouchableOpacity
-                        key={badge.id}
-                        style={[styles.avatarOption, selected && styles.avatarOptionSelected]}
-                        onPress={() => void chooseStudentAvatar(key)}
-                        disabled={savingProfile}
-                        accessibilityLabel={`${badge.title} badge avatar`}
-                        accessibilityState={{ selected }}
-                      >
-                        <Image source={badge.image} style={styles.avatarOptionImage} resizeMode="contain" />
-                        {selected && <View style={styles.avatarOptionCheck}><MaterialIcons name="check" size={12} color="#fff" /></View>}
-                      </TouchableOpacity>;
-                    })}
-                  </View>
-                ) : <Text style={styles.avatarEmptyText}>Unlock a badge to use it as your avatar.</Text>}
-                <Text style={styles.avatarPickerLabel}>Completed modules</Text>
-                {completedAvatarModules.length ? (
-                  <View style={styles.avatarPickerGrid}>
-                    {completedAvatarModules.map((module) => {
-                      const key = `module:${module.module_number}`;
-                      const selected = profile.avatar_key === key;
-                      return <TouchableOpacity
-                        key={module.id}
-                        style={[styles.avatarOption, selected && styles.avatarOptionSelected]}
-                        onPress={() => void chooseStudentAvatar(key)}
-                        disabled={savingProfile}
-                        accessibilityLabel={`Module ${module.module_number}: ${module.title} avatar`}
-                        accessibilityHint="Uses this completed module icon as your profile avatar"
-                        accessibilityState={{ selected }}
-                      >
-                        <Image source={STUDENT_MODULE_AVATARS[module.module_number]} style={styles.avatarOptionImage} resizeMode="contain" />
-                        {selected && <View style={styles.avatarOptionCheck}><MaterialIcons name="check" size={12} color="#fff" /></View>}
-                      </TouchableOpacity>;
-                    })}
-                  </View>
-                ) : <Text style={styles.avatarEmptyText}>Complete a module to use its icon as your avatar.</Text>}
               </View>
-            )}
 
-            <TextInput
-              style={[styles.input, dark && styles.inputDark]}
-              value={profile.full_name || ''}
-              onChangeText={(full_name) => setProfile((prev) => ({ ...prev, full_name }))}
-              placeholder="Full name"
-              placeholderTextColor="#94a3b8"
-            />
-            <TextInput
-              style={[styles.input, styles.readOnlyInput, dark && styles.inputDark]}
-              value={profile.email || ''}
-              editable={false}
-              placeholder="Email"
-              placeholderTextColor="#94a3b8"
-            />
-            <TextInput
-              style={[styles.input, dark && styles.inputDark]}
-              value={profile.phone_number || profile.phone || ''}
-              onChangeText={(phone_number) => setProfile((prev) => ({ ...prev, phone_number, phone: phone_number }))}
-              keyboardType="phone-pad"
-              placeholder="Phone number"
-              placeholderTextColor="#94a3b8"
-            />
-            <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={savingProfile}>
-              {savingProfile ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
-            </TouchableOpacity>
-          </Section>
-        </View>
+              <TextInput
+                style={[styles.input, dark && styles.inputDark]}
+                value={profile.full_name || ''}
+                onChangeText={(full_name) => setProfile((prev) => ({ ...prev, full_name }))}
+                placeholder="Full name"
+                placeholderTextColor="#94a3b8"
+              />
+              <TextInput
+                style={[styles.input, styles.readOnlyInput, dark && styles.inputDark]}
+                value={profile.email || ''}
+                editable={false}
+                placeholder="Email"
+                placeholderTextColor="#94a3b8"
+              />
+              <TextInput
+                style={[styles.input, dark && styles.inputDark]}
+                value={profile.phone_number || profile.phone || ''}
+                onChangeText={(phone_number) => setProfile((prev) => ({ ...prev, phone_number, phone: phone_number }))}
+                keyboardType="phone-pad"
+                placeholder="Phone number"
+                placeholderTextColor="#94a3b8"
+              />
+              <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={savingProfile}>
+                {savingProfile ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
+              </TouchableOpacity>
+            </Section>
+          </View>
+        )}
 
         {isParent ? (
           <View style={[styles.card, dark && styles.cardDark]}>
@@ -1017,15 +903,6 @@ const styles = StyleSheet.create({
   backButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: typography.family.displaySemi, fontSize: 24, color: colors.ink },
   subtitle: { fontSize: 13, color: colors.inkSoft, fontWeight: '600', marginTop: 2 },
-  // Same hero-banner shape used on Home/Learn/Practice/Progress/Badges.
-  heroBanner: { borderRadius: 28, padding: 22, marginBottom: 20, overflow: 'hidden', position: 'relative', minHeight: 180 },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
-  heroLogoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  heroGreeting: { color: '#fff', fontSize: typography.size.hero, fontFamily: typography.family.display, lineHeight: 29, maxWidth: '68%' },
-  heroSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', marginTop: 8, maxWidth: '62%' },
-  // 1184x2096 in the source art (same ratio group as learn.png/book.png/clipboard.png).
-  heroImage: { position: 'absolute', right: 0, bottom: -8, width: 120, height: 212 },
   tipCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF3DC',
     borderRadius: radius.lg, padding: 16, marginTop: 14,
@@ -1108,16 +985,6 @@ const styles = StyleSheet.create({
   avatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: colors.lavender, fontSize: 28, fontWeight: '900' },
   avatarEdit: { position: 'absolute', right: -4, bottom: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
-  avatarPickerSection: { marginTop: 14, borderTopWidth: 1, borderTopColor: '#EEE9F9', paddingTop: 14 },
-  avatarPickerTitle: { color: colors.ink, fontFamily: typography.family.displaySemi, fontSize: 16 },
-  avatarPickerHint: { color: colors.inkSoft, fontSize: 12, marginTop: 2, marginBottom: 12 },
-  avatarPickerLabel: { color: colors.ink, fontSize: 12, fontWeight: '800', marginTop: 8, marginBottom: 7 },
-  avatarPickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  avatarOption: { width: 58, height: 58, borderRadius: 18, backgroundColor: '#F8F7FC', borderWidth: 1.5, borderColor: '#E5DDF2', alignItems: 'center', justifyContent: 'center' },
-  avatarOptionSelected: { borderColor: colors.lavenderDark, backgroundColor: '#EFECFB' },
-  avatarOptionImage: { width: 46, height: 46 },
-  avatarOptionCheck: { position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.lavenderDark, alignItems: 'center', justifyContent: 'center' },
-  avatarEmptyText: { color: colors.inkSoft, fontSize: 12, fontStyle: 'italic' },
   profileName: { fontSize: 18, fontWeight: '900', color: colors.ink },
   input: {
     minHeight: 48,
