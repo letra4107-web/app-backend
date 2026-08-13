@@ -123,19 +123,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setLoading(true);
     try {
       const identifierValue = identifier.trim();
+      // Credentials are frequently copy-pasted out of the enrollment email
+      // (Gmail in particular tends to carry a trailing space or newline
+      // along with a selected password), so trim before authenticating -
+      // otherwise a byte-for-byte correct password silently fails to match.
+      const passwordValue = password.trim();
       const isEmail = identifierValue.includes('@');
       let user: any;
 
       if (isEmail) {
         const loginEmail = identifierValue.toLowerCase();
-        console.log('[Login] Attempting email/password login:', {
-          email: loginEmail,
-          identifierChangedByTrim: identifier !== identifier.trim(),
-          passwordLength: password.length,
-          passwordTrimmedLength: password.trim().length,
-          passwordHasOuterWhitespace: password !== password.trim(),
-        });
-        const { data, error } = await signInUser(loginEmail, password);
+        const { data, error } = await signInUser(loginEmail, passwordValue);
         if (error || !data?.user) {
           throwSupabaseLoginError(error);
         }
@@ -151,12 +149,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         const studentData = childResult.data;
         const loginEmail = studentData.auth_email || buildStudentAuthEmail(identifierValue.toLowerCase());
 
-        const { data, error } = await signInUser(loginEmail, password);
+        const { data, error } = await signInUser(loginEmail, passwordValue);
         if (error || !data?.user) {
           if (error?.status === 404 || error?.message?.includes('user not found')) {
             console.log('Student auth user not found, creating auth account on login');
-            await createStudentAuthAccount(identifierValue.toLowerCase(), password, studentData.name || identifierValue);
-            const createResult = await signInUser(loginEmail, password);
+            await createStudentAuthAccount(identifierValue.toLowerCase(), passwordValue, studentData.name || identifierValue);
+            const createResult = await signInUser(loginEmail, passwordValue);
             if (createResult.error || !createResult.data?.user) {
               throw new Error('Unable to sign in after creating student account.');
             }
