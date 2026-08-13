@@ -1,7 +1,7 @@
 const { supabaseAdmin } = require('../config/supabase');
 
 const OTP_COLLECTION = 'otp_sessions';
-const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_RESEND_ATTEMPTS = 3;
 const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
 

@@ -192,7 +192,7 @@ const sendOTPEmail = async (email, otp) => {
     to: email,
     replyTo: emailFrom,
     subject: 'LinawLetra Email Verification',
-    text: `Your verification code is ${otp}. It expires in 5 minutes. Do not share this code with anyone.`,
+    text: `Your verification code is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`,
     html: `
       <!DOCTYPE html>
       <html lang="en">
@@ -235,7 +235,7 @@ const sendOTPEmail = async (email, otp) => {
                         </tr>
                         <tr>
                           <td style="padding-top:20px;text-align:center;">
-                            <p style="margin:0;font-size:14px;color:#475569;line-height:22px;">Valid for <strong>5 minutes</strong></p>
+                            <p style="margin:0;font-size:14px;color:#475569;line-height:22px;">Valid for <strong>10 minutes</strong></p>
                             <p style="margin:10px 0 0;font-size:14px;color:#475569;line-height:22px;">Do not share this code with anyone.</p>
                           </td>
                         </tr>
@@ -336,7 +336,7 @@ const sendPasswordResetCodeEmail = async (email, otp) => {
     to: email,
     replyTo: emailFrom,
     subject: 'Your LinawLetra password reset code',
-    text: `Your LinawLetra password reset code is ${otp}. It expires in 5 minutes. Do not share this code with anyone.`,
+    text: `Your LinawLetra password reset code is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`,
     html: `
       <!DOCTYPE html>
       <html lang="en">
@@ -352,7 +352,7 @@ const sendPasswordResetCodeEmail = async (email, otp) => {
                 </td></tr>
                 <tr><td style="padding:32px;text-align:center;">
                   <div style="display:inline-block;background:#f8f6ff;border:1px solid #d9d2ff;border-radius:18px;padding:18px 26px;font-size:32px;font-weight:800;letter-spacing:10px;color:#5144a3;">${otp}</div>
-                  <p style="margin:24px 0 0;color:#766f82;font-size:13px;line-height:20px;">This code expires in 5 minutes and can only be used once. Do not share it with anyone.</p>
+                  <p style="margin:24px 0 0;color:#766f82;font-size:13px;line-height:20px;">This code expires in 10 minutes and can only be used once. Do not share it with anyone.</p>
                 </td></tr>
               </table>
             </td></tr>

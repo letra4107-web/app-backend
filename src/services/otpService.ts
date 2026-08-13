@@ -14,6 +14,7 @@ export interface OTPResponse {
   message: string;
   data?: any;
   expiresAt?: string;
+  expiresInSeconds?: number;
   emailStatus?: string;
   jobId?: string;
   userId?: string;
@@ -102,15 +103,12 @@ const postJsonWithRetry = async (
   action: string
 ): Promise<OTPResponse> => {
   let lastError: any;
+  // Reuse one idempotency key for every network retry. A new key per retry
+  // can create and email a replacement OTP while the first email is in flight.
+  const clientRequestId = makeClientRequestId(action, body.email || 'unknown', 0);
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const clientRequestId = makeClientRequestId(
-        action,
-        body.email || 'unknown',
-        attempt
-      );
-
       console.log(`[OTP] ${action} attempt ${attempt + 1}`, {
         url,
         clientRequestId,
@@ -127,6 +125,7 @@ const postJsonWithRetry = async (
         message: result?.message || 'OTP request successful.',
         data: result,
         expiresAt: result?.expiresAt,
+        expiresInSeconds: result?.expiresInSeconds,
         emailStatus: result?.emailStatus,
         jobId: result?.jobId,
         userId: result?.userId,

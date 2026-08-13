@@ -22,6 +22,13 @@ const passwordResetRequestTimes = new Map();
 const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
 
 const isValidEmail = (email) => OTP_EMAIL_REGEX.test(String(email || '').trim());
+const otpExpiryPayload = (expiresAt) => {
+  const expiresAtMs = new Date(expiresAt).getTime();
+  const expiresInSeconds = Number.isFinite(expiresAtMs)
+    ? Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000))
+    : 0;
+  return { expiresAt: new Date(expiresAt).toISOString(), expiresInSeconds };
+};
 const bearerTokenFrom = (authorization = '') => {
   const match = String(authorization).match(/^Bearer\s+(.+)$/i);
   return match ? match[1].trim() : '';
@@ -367,7 +374,7 @@ router.post('/send-email-otp', async (req, res) => {
         emailStatus: 'queued',
         jobId: enqueueResult.jobId,
         userId: resolvedUserId,
-        expiresAt: otpSession.expiresAt.toISOString(),
+        ...otpExpiryPayload(otpSession.expiresAt),
       };
     })();
 
@@ -987,7 +994,7 @@ router.post('/resend-otp', async (req, res) => {
         message: 'OTP resent successfully.',
         emailStatus: 'queued',
         jobId: enqueueResult.jobId,
-        expiresAt: otpSession.expiresAt.toISOString(),
+        ...otpExpiryPayload(otpSession.expiresAt),
       });
     }
 
@@ -1011,7 +1018,7 @@ router.post('/resend-otp', async (req, res) => {
         message: 'Previous OTP expired. New OTP email queued for delivery.',
         emailStatus: 'queued',
         jobId: enqueueResult.jobId,
-        expiresAt: otpSession.expiresAt.toISOString(),
+        ...otpExpiryPayload(otpSession.expiresAt),
       });
     }
 
@@ -1028,7 +1035,7 @@ router.post('/resend-otp', async (req, res) => {
       message: 'OTP resend queued for delivery.',
       emailStatus: 'queued',
       jobId: enqueueResult.jobId,
-      expiresAt: existing.expires_at,
+      ...otpExpiryPayload(existing.expires_at),
     });
   } catch (error) {
     console.error('❌ Error in resend-otp:', error);

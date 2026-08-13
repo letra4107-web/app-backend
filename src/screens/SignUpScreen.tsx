@@ -359,6 +359,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         userId,
         otpSent: true,
         expiresAt: otpResult?.expiresAt,
+        expiresInSeconds: otpResult?.expiresInSeconds,
         message: 'Naipadala na ang OTP sa iyong email.',
       });
     } catch (error: any) {

@@ -49,6 +49,16 @@ const formatCountdown = (totalSeconds: number) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+const getLocalExpiry = (expiresAt?: string, expiresInSeconds?: number): string | null => {
+  // Railway is the source of truth for remaining lifetime. Converting that
+  // duration to a local deadline avoids immediate expiry when a phone clock is
+  // a few minutes ahead or behind the server.
+  if (Number.isFinite(expiresInSeconds) && Number(expiresInSeconds) > 0) {
+    return new Date(Date.now() + Number(expiresInSeconds) * 1000).toISOString();
+  }
+  return expiresAt || null;
+};
+
 const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route }) => {
   const routeEmail = route.params?.email || '';
   const routeMessage = route.params?.message || '';
@@ -66,23 +76,27 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
   const [otpQueued, setOtpQueued] = useState(Boolean(route.params?.otpSent));
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   // Real expiry from the backend's otpSession.expiresAt (backend/models/otp.js,
-  // OTP_EXPIRY_MS = 5 min) — NOT OTP_REQUEST_CACHE_TTL_MS (backend/routes/auth.js,
+  // OTP_EXPIRY_MS = 10 min) — NOT OTP_REQUEST_CACHE_TTL_MS (backend/routes/auth.js,
   // 2 min), which is just an anti-duplicate-request cache for the send endpoint
   // and has nothing to do with how long the code the user types is actually valid.
-  const [expiresAt, setExpiresAt] = useState<string | null>(route.params?.expiresAt || null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(() =>
+    getLocalExpiry(route.params?.expiresAt, route.params?.expiresInSeconds)
+  );
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const autoSendInFlightRef = useRef(false);
+  const autoSendStartedRef = useRef(false);
   const sendInFlightRef = useRef(false);
   const otpRefs = useRef<(TextInput | null)[]>([]);
 
   const getVerificationUserId = useCallback(() => currentUser?.id || routeUserId || '', [currentUser, routeUserId]);
-  const applyOtpQueuedState = (message: string, newExpiresAt?: string) => {
+  const applyOtpQueuedState = (message: string, newExpiresAt?: string, expiresInSeconds?: number) => {
     setSuccessMessage(message);
     setInfoMessage('');
     setResendCooldown(RESEND_COOLDOWN_SECONDS);
     setOtpQueued(true);
     setOtp('');
-    if (newExpiresAt) setExpiresAt(newExpiresAt);
+    const localExpiry = getLocalExpiry(newExpiresAt, expiresInSeconds);
+    if (localExpiry) setExpiresAt(localExpiry);
     otpRefs.current[0]?.focus();
   };
 
@@ -100,6 +114,12 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
   useEffect(() => {
     const autoSendOTP = async () => {
       if (!email) return; // No email available
+
+      if (autoSendStartedRef.current) {
+        console.log('[EmailVerification] Auto-send skipped; already started on this screen instance');
+        return;
+      }
+      autoSendStartedRef.current = true;
 
       const verificationUserId = getVerificationUserId();
       const autoSendKey = getAutoSendStorageKey(email, verificationUserId);
@@ -138,6 +158,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         applyOtpQueuedState(
           result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'OTP sent! Please check your email.',
           result.expiresAt,
+          result.expiresInSeconds,
         );
         markAutoSendStarted(autoSendKey);
       } catch (error: any) {
@@ -231,6 +252,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       applyOtpQueuedState(
         result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'A new code has been sent! Please check your email.',
         result.expiresAt,
+        result.expiresInSeconds,
       );
       if (shouldResend) {
         setResendAttempts((prev) => prev + 1);
