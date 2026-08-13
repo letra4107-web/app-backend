@@ -47,9 +47,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     loadAttempts();
   }, [loadAttempts]);
 
-  const saveAttempts = async () => {
-    await AsyncStorage.setItem('loginAttempts', attempts.toString());
-    if (blockedUntil) await AsyncStorage.setItem('blockedUntil', blockedUntil.toString());
+  const saveAttempts = async (nextAttempts: number, nextBlockedUntil: number | null) => {
+    await AsyncStorage.setItem('loginAttempts', nextAttempts.toString());
+    if (nextBlockedUntil) {
+      await AsyncStorage.setItem('blockedUntil', nextBlockedUntil.toString());
+    } else {
+      await AsyncStorage.removeItem('blockedUntil');
+    }
   };
 
   const resetAttempts = async () => {
@@ -204,7 +208,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       await completeAuthSession(user, isEmail, navigation, (message) => setGlobalError(message));
       resetAttempts();
     } catch (error: any) {
-      console.error('[Login] Login error:', {
+      const expectedAuthCodes = new Set([
+        'auth/user-not-found',
+        'auth/wrong-password',
+        'auth/invalid-credential',
+        'auth/invalid-email',
+        'auth/email-not-confirmed',
+        'auth/user-disabled',
+        'auth/too-many-requests',
+      ]);
+      const errorDetails = {
         code: error.code,
         status: error.status,
         message: error.message,
@@ -216,18 +229,27 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               code: error.supabaseError.code,
             }
           : null,
-      });
+      };
+      if (expectedAuthCodes.has(error.code)) {
+        // Invalid credentials are an expected form response. Logging them as
+        // errors opens React Native's red LogBox in development mode.
+        console.info('[Login] Login rejected:', errorDetails);
+      } else {
+        console.error('[Login] Unexpected login error:', errorDetails);
+      }
       const friendlyError = mapAuthError(error.code || 'default');
       setGlobalError(friendlyError);
       setLastErrorCode(error.code || 'default');
       setPassword('');
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
+      let nextBlockedUntil = blockedUntil;
       if (newAttempts >= 5) {
         const blockTime = Date.now() + 60 * 60 * 1000; // 1 hour
         setBlockedUntil(blockTime);
+        nextBlockedUntil = blockTime;
       }
-      saveAttempts();
+      await saveAttempts(newAttempts, nextBlockedUntil);
     } finally {
       setLoading(false);
     }
