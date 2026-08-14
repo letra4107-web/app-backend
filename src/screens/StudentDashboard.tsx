@@ -2629,7 +2629,17 @@ export default function StudentDashboard({ navigation }: any) {
     );
   };
 
-  const renderActivities = () => {
+  // Restored 2026-08-14: this used to be folded into a full-screen
+  // renderActivities() that doubled as the whole Learn tab. Since
+  // StudentModules now owns Learn (the sequential module path), this is
+  // trimmed to just the two things that only exist here - teacher
+  // assignments and teacher-uploaded PDF lessons - and rendered as a fixed
+  // section above <StudentModules/> so it's visible immediately, with no
+  // scrolling past the module list required. Learning Categories/Reading
+  // Tip/Daily Goal/Journey card are deliberately dropped, not restored -
+  // Home and the module path already show that information; keeping it here
+  // too would just be duplicate chrome.
+  const renderAssignmentsSection = () => {
 
     const lessonSubjects = Array.from(new Set(lessons.map((l) => l.subject).filter(Boolean))) as string[];
 
@@ -2639,14 +2649,6 @@ export default function StudentDashboard({ navigation }: any) {
     const filteredLessonsAscending = lessonFilter === 'Lahat'
       ? lessonsAscending
       : lessonsAscending.filter((l) => l.subject === lessonFilter);
-
-    const inProgressRows = lessonProgress
-      .filter((p) => p.status === 'in_progress')
-      .slice()
-      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime());
-    const continueReadingLesson = inProgressRows.length
-      ? lessons.find((l) => l.id === inProgressRows[0].lesson_id) || null
-      : null;
 
     // "Learning Progress" - real completed/total lesson counts, no fixed
     // denominator. See migration/migrations/013_lesson_progress.sql: lessons
@@ -2659,71 +2661,15 @@ export default function StudentDashboard({ navigation }: any) {
       ? Math.round((completedLessonsCount / totalLessonsCount) * 100)
       : 0;
 
-    // Same daily-goal metric already shown on Home and Practice (real
-    // total_attempts mod DAILY_GOAL) - intentionally the same number a third
-    // time, not a competing/fabricated metric.
-    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
-    const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
-
-    // Official workbook curriculum and stable-id completions replace the
-    // historical local arrays/completed_words string matching.
-    const currentReadingLevel = officialProgression?.effective_level || progress?.level || 'Beginner';
-    const currentLevelContent = readingContent.filter((item) => item.level === currentReadingLevel);
-    const wordItems = currentLevelContent.filter((item) => item.content_type === 'word');
-    const companionType: CurriculumPracticeType = currentReadingLevel === 'Beginner'
-      ? 'phonetic'
-      : currentReadingLevel === 'Intermediate' ? 'phrase' : 'sentence';
-    const companionItems = currentLevelContent.filter((item) => item.content_type === companionType);
-    const assessmentItems = readingContent.filter((item) => item.content_type === 'paragraph' && item.is_assessment);
-    const completedCount = (items: ReadingContentItem[]) => items.filter((item) => completedContentIds.has(item.id)).length;
-    const wordsDone = completedCount(wordItems);
-    const companionDone = completedCount(companionItems);
-    const assessmentsDone = completedCount(assessmentItems);
-    const companionLabel = companionType === 'phonetic' ? 'Phonetics' : companionType === 'phrase' ? 'Phrases' : 'Sentences';
-
     const lessonStateLabel = (state: 'not_started' | 'in_progress' | 'completed') =>
       state === 'completed' ? 'Nabasa na' : state === 'in_progress' ? 'Binabasa' : 'Hindi pa binuksan';
 
-    const currentRequirements = officialProgression?.requirements.filter((row) => row.level === currentReadingLevel) || [];
-    const requiredTotal = currentRequirements.reduce((sum, row) => sum + row.required_count, 0);
-    const officialCompletedTotal = currentRequirements.reduce(
-      (sum, row) => sum + Math.min(row.completed_count, row.required_count),
-      0,
-    );
-    const journeyPct = requiredTotal ? Math.round((officialCompletedTotal / requiredTotal) * 100) : 0;
-    const journeyRemaining = Math.max(0, requiredTotal - officialCompletedTotal);
-
     return (
-    <>
-      {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
-      <LinearGradient
-        colors={colors.heroGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroBanner}
-      >
-        <View style={styles.heroTopRow}>
-          <TouchableOpacity
-            style={styles.heroLogoRow}
-            onPress={openSidebar}
-            accessibilityRole="button"
-            accessibilityLabel="Open navigation menu"
-          >
-            <Ionicons name="menu-outline" size={20} color="#fff" />
-            <Ionicons name="book" size={16} color="#fff" />
-            <Text style={styles.heroLogoText}>LinawLetra</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={[styles.heroGreeting, heroTitleA11yStyle]}>Matuto tayo,{'\n'}{getFirstName(child?.name || '')}!</Text>
-        <Text style={[styles.heroSubtitle, heroSubtitleA11yStyle]}>Piliin ang aralin at ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
-        <Image source={require('../../assets/learn.webp')} style={styles.learnHeroImage} resizeMode="contain" />
-      </LinearGradient>
-
-      <ScrollView contentContainerStyle={styles.content}>
+    <View style={styles.assignmentsSectionWrap}>
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
-          <Ionicons name="library" size={16} color={colors.lavenderDark} />
-          <Text style={[styles.learnBadgeText, { color: colors.lavenderDark }, smallLabelA11y]}>LEARN</Text>
+          <Ionicons name="clipboard" size={16} color={colors.lavenderDark} />
+          <Text style={[styles.learnBadgeText, { color: colors.lavenderDark }, smallLabelA11y]}>MGA TAKDANG-ARALIN</Text>
         </View>
         <Text style={[styles.learnSectionSubtitle, bodyA11y]}>Mga takdang-aralin mula sa iyong guro</Text>
       </View>
@@ -2788,11 +2734,11 @@ export default function StudentDashboard({ navigation }: any) {
       )}
 
       <View style={styles.learnSectionHeader}>
-        <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
-          <Ionicons name="flag" size={16} color={colors.lavenderDark} />
-          <Text style={[styles.learnBadgeText, { color: colors.lavenderDark }, smallLabelA11y]}>MY LEARNING PATH</Text>
+        <View style={[styles.learnBadgePill, { backgroundColor: '#E9F1E2' }]}>
+          <Ionicons name="document-text" size={16} color={colors.sage} />
+          <Text style={[styles.learnBadgeText, { color: colors.sage }, smallLabelA11y]}>MGA ARALIN (PDF)</Text>
         </View>
-        <Text style={[styles.learnSectionSubtitle, bodyA11y]}>Sundan ang mga aralin at buuin ang iyong reading skills</Text>
+        <Text style={[styles.learnSectionSubtitle, bodyA11y]}>Mga PDF na inupload ng iyong guro</Text>
       </View>
 
       {totalLessonsCount > 0 ? (
@@ -2970,89 +2916,6 @@ export default function StudentDashboard({ navigation }: any) {
         </>
       )}
 
-      <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Learning Categories</Text>
-      <View style={styles.categoryGrid}>
-        <TouchableOpacity
-          style={[styles.categoryCard, { backgroundColor: '#F1E9FE' }]}
-          onPress={() => goToPractice('word')}
-          accessibilityRole="button"
-          accessibilityLabel={`Practice Words, ${wordsDone} of ${wordItems.length} completed`}
-        >
-          <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.violet }]}>
-            <Ionicons name="book" size={20} color="#fff" />
-          </View>
-          <Text style={[styles.categoryTitle, cardTitleA11y]}>Words</Text>
-          <Text style={[styles.categorySub, bodyA11y]}>{wordsDone} of {wordItems.length} completed</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.categoryCard, { backgroundColor: '#E1F5F2' }]}
-          onPress={() => goToPractice(companionType)}
-          accessibilityRole="button"
-          accessibilityLabel={`Practice ${companionLabel}, ${companionDone} of ${companionItems.length} completed`}
-        >
-          <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.teal }]}>
-            <Ionicons name="reader" size={20} color="#fff" />
-          </View>
-          <Text style={[styles.categoryTitle, cardTitleA11y]}>{companionLabel}</Text>
-          <Text style={[styles.categorySub, bodyA11y]}>{companionDone} of {companionItems.length} completed</Text>
-        </TouchableOpacity>
-        {currentReadingLevel === 'Advanced' && (
-          <View style={[styles.categoryCard, { backgroundColor: '#E7ECF8' }]}>
-            <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.navy }]}>
-              <Ionicons name="document-text" size={20} color="#fff" />
-            </View>
-            <Text style={[styles.categoryTitle, cardTitleA11y]}>Paragraph Assessments</Text>
-            <Text style={[styles.categorySub, bodyA11y]}>{assessmentsDone} of {assessmentItems.length} submitted</Text>
-            <Text style={[styles.categorySub, smallLabelA11y]}>Assessment content — not ordinary practice</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.learnSupportStack}>
-        <View style={[styles.categoryTipCard, styles.learnSupportCard, { backgroundColor: '#FEF3D6' }]}>
-          <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.amber }]}>
-            <Ionicons name="bulb" size={20} color="#fff" />
-          </View>
-          <View style={styles.learnSupportCopy}>
-            <Text style={[styles.categoryTitle, cardTitleA11y]}>Reading Tip</Text>
-            <Text style={[styles.categorySub, bodyA11y]}>Bigkasin ang bawat pantig nang dahan-dahan bago pagsamahin.</Text>
-          </View>
-          <Image source={require('../../assets/learnboypng.webp')} style={styles.categoryTipImage} resizeMode="contain" />
-        </View>
-
-        <View style={styles.learnContinueCard}>
-          <View style={styles.learnContinueCopy}>
-            <View style={styles.learnContinuePill}>
-              <Text style={[styles.learnContinuePillText, smallLabelA11y]}>{continueReadingLesson ? 'IPAGPATULOY' : 'MGA PANTIG'}</Text>
-            </View>
-            <Text style={[styles.learnContinueTitle, cardTitleA11y]}>Magsanay Magbasa</Text>
-            {!!continueReadingLesson && (
-              <Text style={[styles.learnContinueSub, bodyA11y]} numberOfLines={2}>{continueReadingLesson.title}</Text>
-            )}
-            <TouchableOpacity
-              style={styles.learnContinueButton}
-              onPress={() => continueReadingLesson ? openLesson(continueReadingLesson) : goToPractice()}
-              accessibilityRole="button"
-              accessibilityLabel={continueReadingLesson ? `Continue lesson: ${continueReadingLesson.title}` : 'Start reading practice'}
-            >
-              <Text style={[styles.learnContinueButtonText, buttonA11y]}>{continueReadingLesson ? 'Ipagpatuloy' : 'Simulan'}</Text>
-            </TouchableOpacity>
-          </View>
-          <Image source={require('../../assets/learn2.webp')} style={styles.learnContinueImage} resizeMode="contain" />
-        </View>
-
-        <View style={styles.learnGoalCard}>
-          <Text style={[styles.learnGoalTitle, cardTitleA11y]}>Daily Learning Goal</Text>
-          <Text style={[styles.learnGoalSub, bodyA11y]}>{goalDone} of {DAILY_GOAL} learning activities today</Text>
-          <View style={styles.learnGoalTrack}>
-            <View style={[styles.learnGoalTrackFill, { width: `${Math.max(4, goalPct)}%` }]} />
-          </View>
-          <Text style={[styles.learnGoalMsg, bodyA11y]}>
-            {goalDone === 0 ? 'Simulan ang unang aralin ngayon!' : goalDone >= DAILY_GOAL ? 'Tapos na ang goal mo! 🎉' : 'Halos tapos na, ipagpatuloy mo!'}
-          </Text>
-        </View>
-      </View>
-
       {!!uploadsError && (
         <View style={styles.errorBlock}>
           <Text style={[styles.error, bodyA11y]}>{uploadsError}</Text>
@@ -3084,21 +2947,7 @@ export default function StudentDashboard({ navigation }: any) {
           })}
         </View>
       )}
-
-      <View style={styles.learnJourneyCard}>
-        <Text style={styles.learnJourneyTitle}>Iyong Paglalakbay sa Pagbasa</Text>
-        <Text style={styles.learnJourneyLevel}>{currentReadingLevel}</Text>
-        <View style={styles.learnJourneyTrack}>
-          <View style={[styles.learnJourneyFill, { width: `${Math.max(4, journeyPct)}%` }]} />
-        </View>
-        <Text style={styles.learnJourneyMsg}>
-          {officialProgression?.program_complete
-            ? 'Nakumpleto mo na ang official reading program!'
-            : `${journeyRemaining} official curriculum item${journeyRemaining === 1 ? '' : 's'} remaining at this level.`}
-        </Text>
-      </View>
-    </ScrollView>
-    </>
+    </View>
     );
   };
 
@@ -4182,9 +4031,17 @@ export default function StudentDashboard({ navigation }: any) {
               old teacher-lesson-first Learn layout for the MVP, but it does
               not merge Badges, remove its nav item, or imply that B/K/D is
               the final Beginner curriculum. */}
+          {/* Teacher assignments/PDF lessons restored (2026-08-14) -
+              previously dropped entirely when the module path replaced the
+              old Learn layout, leaving Home's "Continue Learning"/"Upcoming
+              Deadlines" cards pointing at a dead end. Passed into
+              StudentModules as topSection so it renders inside its scroll,
+              after the hero header but before the module path list - not as
+              a sibling before the header, and not buried below 17+ modules. */}
           <StudentModules
             firstName={getFirstName(child?.name || 'Mag-aaral')}
             onOpenSidebar={openSidebar}
+            topSection={renderAssignmentsSection()}
             onPracticeItem={(item) => {
               setPracticeCategoryFilter(item.content_type as CurriculumPracticeType);
               setPracticeMode('listen');
@@ -4679,6 +4536,10 @@ const styles = StyleSheet.create({
   spotlightButtonText: { color: '#fff', fontWeight: '900', fontSize: 14 },
   uploadBody: { flex: 1 },
   // --- Learn tab (assignments = lavender family, PDF lessons = sage family) ---
+  assignmentsSectionWrap: {
+    paddingBottom: 10, marginBottom: 6,
+    borderBottomWidth: 1, borderBottomColor: '#E9E4F2',
+  },
   learnSectionHeader: { marginTop: 8, marginBottom: 14 },
   learnBadgePill: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',

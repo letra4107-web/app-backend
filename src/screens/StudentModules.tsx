@@ -20,6 +20,7 @@ type Props = {
   firstName: string;
   onOpenSidebar: () => void;
   onPracticeItem: (item: ModuleContentItem) => void;
+  topSection?: React.ReactNode;
 };
 
 const stateMeta = {
@@ -29,7 +30,7 @@ const stateMeta = {
 };
 
 const contentTypeLabel = (type: string) => type === 'phonetic' ? 'Mga Tunog' : 'Mga Salita';
-export default function StudentModules({ firstName, onOpenSidebar, onPracticeItem }: Props) {
+export default function StudentModules({ firstName, onOpenSidebar, onPracticeItem, topSection }: Props) {
   const [path, setPath] = useState<StudentModulePath | null>(null);
   const [detail, setDetail] = useState<ReadingModuleContent | null>(null);
   const [assessment, setAssessment] = useState<ModuleAssessmentAttempt | null>(null);
@@ -259,6 +260,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
         illustration={require('../../assets/learn2.webp')}
       />
       <ScrollView contentContainerStyle={styles.pathBody}>
+        {topSection}
         <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Sundin ang iyong module path sa ibaba. May dagdag pang laman na darating.</Text></View>
         <Text style={styles.sectionTitle}>Ang Iyong Module Path</Text>
         {path?.modules.map((module, index) => {
