@@ -212,9 +212,12 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
           <TouchableOpacity style={styles.backButton} onPress={() => { setDetail(null); setError(''); void loadPath(); }}>
             <Ionicons name="arrow-back" size={20} color="#fff" /><Text style={styles.backText}>Mga Module</Text>
           </TouchableOpacity>
-          <Text style={styles.assessmentEyebrow}>MODYUL {detail.module.module_number} · {contentTypeLabel(detail.module.instructional_content_type).toUpperCase()}</Text>
-          <Text style={styles.detailTitle}>{detail.module.title}</Text>
-          <Text style={styles.detailSubtitle}>{detail.module.description}</Text>
+          <Text style={[styles.assessmentEyebrow, styles.detailHeroTextCol]}>MODYUL {detail.module.module_number} · {contentTypeLabel(detail.module.instructional_content_type).toUpperCase()}</Text>
+          <Text style={[styles.detailTitle, styles.detailHeroTextCol]}>{detail.module.title}</Text>
+          <Text style={[styles.detailSubtitle, styles.detailHeroTextCol]}>{detail.module.description}</Text>
+          {!!STUDENT_MODULE_AVATARS[detail.module.module_number] && (
+            <Image source={STUDENT_MODULE_AVATARS[detail.module.module_number]} style={styles.detailHeroImage} resizeMode="contain" />
+          )}
         </LinearGradient>
         <ScrollView contentContainerStyle={styles.detailBody}>
           <View style={styles.progressCard}>
@@ -297,6 +300,10 @@ const styles = StyleSheet.create({
   assessmentEyebrow: { color: '#F6E9FF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   detailTitle: { color: '#fff', fontSize: typography.size.hero, fontFamily: typography.family.display, marginTop: 4 },
   detailSubtitle: { color: '#F8EEFF', fontSize: 14, lineHeight: 20, marginTop: 5 },
+  // Reserves space on the right for the module illustration so title/subtitle
+  // text never runs underneath it.
+  detailHeroTextCol: { maxWidth: '64%' },
+  detailHeroImage: { position: 'absolute', right: 8, bottom: 14, width: 92, height: 111 },
   pathBody: { padding: spacing.lg, paddingBottom: 36 },
   detailBody: { padding: spacing.lg, paddingBottom: 42 },
   assessmentBody: { padding: spacing.xl, paddingBottom: 42 },
