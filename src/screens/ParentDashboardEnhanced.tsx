@@ -144,7 +144,7 @@ function TrendLineChart({
   );
 }
 
-type Section = 'welcome' | 'progress' | 'calendar' | 'notifications' | 'settings' | 'profile';
+type Section = 'welcome' | 'progress' | 'calendar' | 'notifications' | 'settings' | 'profile' | 'appSettings';
 type Level = 'Beginner' | 'Intermediate' | 'Advanced';
 
 type ChildProgress = {
@@ -537,7 +537,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   };
 
   useEffect(() => {
-    if (section === 'settings' && parentId && !parentSettings && !settingsLoading) {
+    if (section === 'appSettings' && parentId && !parentSettings && !settingsLoading) {
       void loadParentSettings(parentId);
     }
     // loadParentSettings is intentionally invoked only when the Settings
@@ -2311,43 +2311,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <TabHeroHeader
         onMenuPress={openSidebar}
         title="Profile"
-        subtitle="Manage your account and preferences."
+        subtitle="Manage your account and children."
         notifDot={unreadNotifications > 0}
         titleA11yStyle={settingsHeaderTitleA11yStyle}
         subtitleA11yStyle={settingsHeaderSubA11yStyle}
       />
 
       <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {hasUnsavedParentSettingsChanges && (
-        <View style={styles.unsavedSettingsBar}>
-          <Text style={[styles.unsavedSettingsBarText, saveDiscardBarTextA11yStyle]}>You have unsaved changes.</Text>
-          <View style={styles.unsavedSettingsBarButtons}>
-            <TouchableOpacity
-              style={styles.discardSettingsButton}
-              onPress={discardParentSettingsDraft}
-              disabled={savingSettingKey === '__all__'}
-              accessibilityRole="button"
-              accessibilityLabel="Discard unsaved changes"
-            >
-              <Text style={[styles.discardSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Discard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.saveSettingsButton}
-              onPress={saveParentSettingsDraft}
-              disabled={savingSettingKey === '__all__'}
-              accessibilityRole="button"
-              accessibilityLabel="Save changes"
-            >
-              {savingSettingKey === '__all__' ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={[styles.saveSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       <View style={styles.accountCard}>
         <View style={styles.accountCardTop}>
           {parentAvatarUrl ? (
@@ -2425,7 +2395,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.settingsRow}
+          style={[styles.settingsRow, { borderBottomWidth: 0 }]}
           onPress={() => {
             setNewEmailInput(parentEmail);
             setEmailModalError('');
@@ -2439,7 +2409,58 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
+      </View>
+      </ScrollView>
+    </>
+  );
 
+  // Sidebar-only (not a bottom tab), same drill-down treatment as the
+  // identity-edit Profile screen: back button, hidden bottom bar. Holds
+  // everything that isn't core account identity - notification/reading
+  // preferences and help & support - per the split requested 2026-08-14.
+  const renderAppSettings = () => (
+    <>
+      <TabHeroHeader
+        onBackPress={() => navigateTo('welcome')}
+        title="Settings"
+        subtitle="Preferences and support."
+        titleA11yStyle={settingsHeaderTitleA11yStyle}
+        subtitleA11yStyle={settingsHeaderSubA11yStyle}
+      />
+
+      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {hasUnsavedParentSettingsChanges && (
+        <View style={styles.unsavedSettingsBar}>
+          <Text style={[styles.unsavedSettingsBarText, saveDiscardBarTextA11yStyle]}>You have unsaved changes.</Text>
+          <View style={styles.unsavedSettingsBarButtons}>
+            <TouchableOpacity
+              style={styles.discardSettingsButton}
+              onPress={discardParentSettingsDraft}
+              disabled={savingSettingKey === '__all__'}
+              accessibilityRole="button"
+              accessibilityLabel="Discard unsaved changes"
+            >
+              <Text style={[styles.discardSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.saveSettingsButton}
+              onPress={saveParentSettingsDraft}
+              disabled={savingSettingKey === '__all__'}
+              accessibilityRole="button"
+              accessibilityLabel="Save changes"
+            >
+              {savingSettingKey === '__all__' ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={[styles.saveSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      <Text style={styles.settingsGroupTitle}>Notification Preferences</Text>
+      <View style={styles.settingsListCard}>
         {!parentSettings ? (
           <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
         ) : (
@@ -2563,6 +2584,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         return renderSettings();
       case 'profile':
         return renderProfile();
+      case 'appSettings':
+        return renderAppSettings();
       default:
         return renderWelcome();
     }
@@ -2586,7 +2609,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </Text>
       )}
 
-      {section === 'profile' ? (
+      {section === 'profile' || section === 'appSettings' ? (
         sectionContent
       ) : (
         // Each section owns its own header + ScrollView (or, for Notifications,
@@ -2599,7 +2622,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
       )}
 
-      {section !== 'profile' && (
+      {section !== 'profile' && section !== 'appSettings' && (
         <DashboardBottomNav
           items={PARENT_BOTTOM_ITEMS.map((item) => item.key === 'notifications' ? { ...item, badge: unreadNotifications } : item)}
           activeKey={section}
@@ -2643,8 +2666,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={styles.sidebarBody}>
             <Text style={styles.sidebarSectionLabel}>PARENT MENU</Text>
             {[
-              { key: 'profile', label: 'Edit Profile', icon: 'person-circle-outline', onPress: () => navigateTo('profile') },
               { key: 'children', label: 'Children', icon: 'people-outline', onPress: () => navigateTo('welcome') },
+              { key: 'settings', label: 'Settings', icon: 'settings-outline', onPress: () => navigateTo('appSettings') },
               { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupport },
               { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', `Version ${appVersion}\nA supportive reading companion for children and families.`) },
               { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
