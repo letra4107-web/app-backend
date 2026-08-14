@@ -180,7 +180,7 @@ const PARENT_BOTTOM_ITEMS: BottomNavItem[] = [
   { key: 'progress', label: 'Progress', icon: 'bar-chart-outline' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar-outline' },
   { key: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
-  { key: 'settings', label: 'Settings', icon: 'settings-outline' },
+  { key: 'settings', label: 'Profile', icon: 'person-outline' },
 ];
 
 const LEVEL_COLORS: Record<Level, string> = {
@@ -2310,7 +2310,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     <>
       <TabHeroHeader
         onMenuPress={openSidebar}
-        title="Settings"
+        title="Profile"
         subtitle="Manage your account and preferences."
         notifDot={unreadNotifications > 0}
         titleA11yStyle={settingsHeaderTitleA11yStyle}
@@ -2643,9 +2643,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={styles.sidebarBody}>
             <Text style={styles.sidebarSectionLabel}>PARENT MENU</Text>
             {[
-              { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => navigateTo('profile') },
+              { key: 'profile', label: 'Edit Profile', icon: 'person-circle-outline', onPress: () => navigateTo('profile') },
               { key: 'children', label: 'Children', icon: 'people-outline', onPress: () => navigateTo('welcome') },
-              { key: 'settings', label: 'Settings', icon: 'settings-outline', onPress: () => navigateTo('settings') },
               { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupport },
               { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', `Version ${appVersion}\nA supportive reading companion for children and families.`) },
               { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
