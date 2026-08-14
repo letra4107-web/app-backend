@@ -259,7 +259,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
         illustration={require('../../assets/learn2.webp')}
       />
       <ScrollView contentContainerStyle={styles.pathBody}>
-        <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Modyul 1–5 ang kasalukuyang curriculum. May dagdag pang tunog at antas na darating.</Text></View>
+        <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Sundin ang iyong module path sa ibaba. May dagdag pang laman na darating.</Text></View>
         <Text style={styles.sectionTitle}>Ang Iyong Module Path</Text>
         {path?.modules.map((module, index) => {
           const meta = stateMeta[module.state];
