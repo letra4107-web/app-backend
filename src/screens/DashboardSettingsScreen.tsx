@@ -760,64 +760,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           </>
         )}
 
-        {isParent && (
-          <View
-            onLayout={(e) => {
-              profileSectionY.current = e.nativeEvent.layout.y;
-            }}
-          >
-            <Section title="Profile" icon="person">
-              <View style={styles.profileTop}>
-                <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrap} disabled={savingProfile}>
-                  {avatarSource ? (
-                    <Image source={avatarSource} style={styles.avatar} resizeMode="contain" />
-                  ) : (
-                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                      <Text style={styles.avatarInitial}>{initials}</Text>
-                    </View>
-                  )}
-                  <View style={styles.avatarEdit}>
-                    <MaterialIcons name="photo-camera" size={16} color="#fff" />
-                  </View>
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.profileName, dark && styles.textDark]}>{profile.full_name || 'Unnamed user'}</Text>
-                  <Text style={[styles.rowSubtitle, dark && styles.mutedDark]}>{profile.email}</Text>
-                </View>
-              </View>
-
-              <TextInput
-                style={[styles.input, dark && styles.inputDark]}
-                value={profile.full_name || ''}
-                onChangeText={(full_name) => setProfile((prev) => ({ ...prev, full_name }))}
-                placeholder="Full name"
-                placeholderTextColor="#94a3b8"
-              />
-              <TextInput
-                style={[styles.input, styles.readOnlyInput, dark && styles.inputDark]}
-                value={profile.email || ''}
-                editable={false}
-                placeholder="Email"
-                placeholderTextColor="#94a3b8"
-              />
-              <TextInput
-                style={[styles.input, dark && styles.inputDark]}
-                value={profile.phone_number || profile.phone || ''}
-                onChangeText={(phone_number) => setProfile((prev) => ({ ...prev, phone_number, phone: phone_number }))}
-                keyboardType="phone-pad"
-                placeholder="Phone number"
-                placeholderTextColor="#94a3b8"
-              />
-              <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={savingProfile}>
-                {savingProfile ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
-              </TouchableOpacity>
-            </Section>
-          </View>
-        )}
-
         {isParent ? (
           <View style={[styles.card, dark && styles.cardDark]}>
-            <Row icon="person" title="My Profile" subtitle="Manage your personal details" onPress={scrollToProfile} />
             <Row icon="support-agent" title="Help & Support" subtitle="Contact us for assistance" onPress={contactSupport} />
             <Row icon="info" title="About LinawLetra" subtitle={`Version ${appVersion}`} />
             <Row icon="gavel" title="Privacy & Safety" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />

@@ -14,12 +14,13 @@ import { fetchPronunciationSessions } from '../services/pronunciationSessionServ
 import { NotificationsView } from './ParentNotifications';
 import EnrollChildModal from './EnrollChildModal';
 import AddScheduledActivityModal from './AddScheduledActivityModal';
-import EditParentProfileModal from './EditParentProfileModal';
+import ParentProfileScreen from './ParentProfileScreen';
 import { StudentActivity } from '../services/activityService';
 import { fetchScheduledActivities, completeScheduledActivity, ScheduledActivity, subscribeToScheduledActivities } from '../services/scheduledActivityService';
 import { buildApiUrl, getJson } from '../config/api';
 import ErrorBoundary from '../components/ErrorBoundary';
 import DashboardBottomNav, { BottomNavItem } from '../components/DashboardBottomNav';
+import TabHeroHeader from '../components/TabHeroHeader';
 import {
   fetchDashboardSettings,
   updateDashboardSettings,
@@ -143,7 +144,7 @@ function TrendLineChart({
   );
 }
 
-type Section = 'welcome' | 'progress' | 'calendar' | 'notifications' | 'settings';
+type Section = 'welcome' | 'progress' | 'calendar' | 'notifications' | 'settings' | 'profile';
 type Level = 'Beginner' | 'Intermediate' | 'Advanced';
 
 type ChildProgress = {
@@ -331,7 +332,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   };
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [savingSettingKey, setSavingSettingKey] = useState<string | null>(null);
-  const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [emailModalVisible, setEmailModalVisible] = useState(false);
   const [newEmailInput, setNewEmailInput] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
@@ -862,19 +862,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (!selectedChild) {
       return (
         <>
-          <View style={styles.homeHeaderRow}>
-            {parentAvatarUrl ? (
-              <Image source={{ uri: parentAvatarUrl }} style={styles.homeAvatar} />
-            ) : (
-              <View style={styles.homeAvatar}>
-                <Text style={styles.homeAvatarText}>{initials}</Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Good Day, {parentName || 'Loading...'}!</Text>
-              <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Here&apos;s how your child is doing today.</Text>
-            </View>
-          </View>
+          <TabHeroHeader
+            onMenuPress={openSidebar}
+            title={`Good Day,\n${parentName || 'Loading...'}!`}
+            subtitle="Here's how your child is doing today."
+            illustration={require('../../assets/decorate.webp')}
+            notifDot={unreadNotifications > 0}
+            titleA11yStyle={heroTitleA11yStyle}
+            subtitleA11yStyle={heroSubtitleA11yStyle}
+          />
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>👨‍👩‍👧</Text>
             <Text style={styles.emptyText}>Wala pang naka-enroll na bata.</Text>
@@ -1010,20 +1006,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     return (
       <>
-        <View style={styles.homeHeaderRow}>
-          {parentAvatarUrl ? (
-            <Image source={{ uri: parentAvatarUrl }} style={styles.homeAvatar} />
-          ) : (
-            <View style={styles.homeAvatar}>
-              <Text style={styles.homeAvatarText}>{initials}</Text>
-            </View>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Good Day, {parentName || 'Loading...'}!</Text>
-            <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Here&apos;s how your child is doing today.</Text>
-          </View>
-          <Image source={require('../../assets/decorate.webp')} style={styles.homeGreetingDecor} resizeMode="contain" />
-        </View>
+        <TabHeroHeader
+          onMenuPress={openSidebar}
+          title={`Good Day,\n${parentName || 'Loading...'}!`}
+          subtitle="Here's how your child is doing today."
+          illustration={require('../../assets/decorate.webp')}
+          notifDot={unreadNotifications > 0}
+          titleA11yStyle={heroTitleA11yStyle}
+          subtitleA11yStyle={heroSubtitleA11yStyle}
+        />
 
         <View style={styles.childSummaryCard}>
           <View style={styles.childAvatarLg}>
@@ -1329,12 +1320,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const selectedChild = children.find((child) => child.id === selectedChildId) || children[0];
 
     const header = (
-      <View style={styles.homeHeaderRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Child Progress</Text>
-          <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Track your child&apos;s reading development.</Text>
-        </View>
-      </View>
+      <TabHeroHeader
+        onMenuPress={openSidebar}
+        title="Child Progress"
+        subtitle="Track your child's reading development."
+        notifDot={unreadNotifications > 0}
+        titleA11yStyle={heroTitleA11yStyle}
+        subtitleA11yStyle={heroSubtitleA11yStyle}
+      />
     );
 
     if (!selectedChild) {
@@ -1773,12 +1766,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (!selectedChild) {
       return (
         <>
-          <View style={styles.homeHeaderRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.homeGreeting, heroTitleA11yStyle]}>Calendar</Text>
-              <Text style={[styles.homeGreetingSub, heroSubtitleA11yStyle]}>Plan and follow your child&apos;s learning activities.</Text>
-            </View>
-          </View>
+          <TabHeroHeader
+            onMenuPress={openSidebar}
+            title="Calendar"
+            subtitle="Plan and follow your child's learning activities."
+            notifDot={unreadNotifications > 0}
+            titleA11yStyle={heroTitleA11yStyle}
+            subtitleA11yStyle={heroSubtitleA11yStyle}
+          />
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>👨‍👩‍👧</Text>
             <Text style={styles.emptyText}>Wala pang naka-enroll na bata.</Text>
@@ -1961,26 +1956,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     return (
       <>
-        <LinearGradient
-          colors={colors.heroGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroProgressCard}
-        >
-          <View style={styles.heroDecorCircleLg} />
-          <View style={styles.heroDecorCircleSm} />
-          <Image source={require('../../assets/calendar.webp')} style={styles.calendarHeroImage} resizeMode="contain" />
-          <View style={styles.heroProgressEyebrowRow}>
-            <View style={styles.heroProgressIconWrap}>
-              <Ionicons name="calendar" size={12} color="#fff" />
-            </View>
-            <Text style={styles.heroProgressEyebrow}>PLAN & TRACK</Text>
-          </View>
-          <Text style={[styles.heroProgressTitle, heroCardTitleA11yStyle]}>Calendar</Text>
-          <Text style={[styles.heroProgressMessage, { maxWidth: '72%', marginTop: 6, marginBottom: 0 }]}>
-            Plan and follow {selectedChild.name.split(' ')[0]}&apos;s learning activities.
-          </Text>
-        </LinearGradient>
+        <TabHeroHeader
+          onMenuPress={openSidebar}
+          title="Calendar"
+          subtitle={`Plan and follow ${selectedChild.name.split(' ')[0]}'s learning activities.`}
+          illustration={require('../../assets/calendar.webp')}
+          notifDot={unreadNotifications > 0}
+          titleA11yStyle={heroCardTitleA11yStyle}
+        />
 
         <View style={styles.childSummaryCard}>
           <View style={styles.childAvatarLg}>
@@ -2313,12 +2296,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
   const renderSettings = () => (
     <>
-      <View style={styles.sectionHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.sectionHeaderTitle, settingsHeaderTitleA11yStyle]}>Settings</Text>
-          <Text style={[styles.sectionHeaderSub, settingsHeaderSubA11yStyle]}>Manage your account and preferences.</Text>
-        </View>
-      </View>
+      <TabHeroHeader
+        onMenuPress={openSidebar}
+        title="Settings"
+        subtitle="Manage your account and preferences."
+        notifDot={unreadNotifications > 0}
+        titleA11yStyle={settingsHeaderTitleA11yStyle}
+        subtitleA11yStyle={settingsHeaderSubA11yStyle}
+      />
 
       {hasUnsavedParentSettingsChanges && (
         <View style={styles.unsavedSettingsBar}>
@@ -2367,7 +2352,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
           </View>
         </View>
-        <TouchableOpacity style={styles.editProfileButton} onPress={() => setEditProfileVisible(true)}>
+        <TouchableOpacity style={styles.editProfileButton} onPress={() => navigateTo('profile')}>
           <Text style={styles.editProfileButtonText}>Edit Profile</Text>
         </TouchableOpacity>
       </View>
@@ -2410,7 +2395,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
       <Text style={styles.settingsGroupTitle}>Account Settings</Text>
       <View style={styles.settingsListCard}>
-        <TouchableOpacity style={styles.settingsRow} onPress={() => setEditProfileVisible(true)}>
+        <TouchableOpacity style={styles.settingsRow} onPress={() => navigateTo('profile')}>
           <Ionicons name="person-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Personal Information</Text>
@@ -2517,6 +2502,22 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     </>
   );
 
+  const renderProfile = () => (
+    <ParentProfileScreen
+      onGoBack={() => navigateTo('welcome')}
+      parentId={parentId}
+      initialName={parentName}
+      initialEmail={parentEmail}
+      initialPhone={parentPhone}
+      initialAvatarUrl={parentAvatarUrl}
+      onProfileChanged={(profile) => {
+        setParentName(profile.full_name);
+        setParentPhone(profile.phone_number);
+        setParentAvatarUrl(profile.avatar_url);
+      }}
+    />
+  );
+
   const renderSection = () => {
     switch (section) {
       case 'welcome':
@@ -2527,17 +2528,27 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         return renderCalendar();
       case 'notifications':
         return (
-          <ErrorBoundary title="Notifications unavailable" message="Notifications could not load right now. The rest of the dashboard is still ready.">
-            <NotificationsView
-              userId={parentId}
-              childList={children.map((child) => ({ id: child.id, name: child.name }))}
-              onUnreadChange={setUnreadNotifications}
-              onNavigate={setSection}
+          <>
+            <TabHeroHeader
+              onMenuPress={openSidebar}
+              title="Notifications"
+              subtitle="Stay updated on your child's learning journey."
             />
-          </ErrorBoundary>
+            <ErrorBoundary title="Notifications unavailable" message="Notifications could not load right now. The rest of the dashboard is still ready.">
+              <NotificationsView
+                userId={parentId}
+                childList={children.map((child) => ({ id: child.id, name: child.name }))}
+                onUnreadChange={setUnreadNotifications}
+                onNavigate={setSection}
+                hideHeader
+              />
+            </ErrorBoundary>
+          </>
         );
       case 'settings':
         return renderSettings();
+      case 'profile':
+        return renderProfile();
       default:
         return renderWelcome();
     }
@@ -2551,33 +2562,31 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     );
   }
 
+  const sectionContent = renderSection();
+
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={openSidebar} style={styles.menuButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Ionicons name="menu-outline" size={26} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.appTitle}>LinawLetra</Text>
-        {/* Balances menuButton's width so appTitle stays centered now that
-            the bell (moved into the sidebar's Notifications nav item) is gone. */}
-        <View style={styles.topBarSpacer} />
-      </View>
-
       {!!error && (
         <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
           {error}
         </Text>
       )}
 
-      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {renderSection()}
-      </ScrollView>
+      {section === 'profile' ? (
+        sectionContent
+      ) : (
+        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {sectionContent}
+        </ScrollView>
+      )}
 
-      <DashboardBottomNav
-        items={PARENT_BOTTOM_ITEMS.map((item) => item.key === 'notifications' ? { ...item, badge: unreadNotifications } : item)}
-        activeKey={section}
-        onSelect={(key) => navigateTo(key as Section)}
-      />
+      {section !== 'profile' && (
+        <DashboardBottomNav
+          items={PARENT_BOTTOM_ITEMS.map((item) => item.key === 'notifications' ? { ...item, badge: unreadNotifications } : item)}
+          activeKey={section}
+          onSelect={(key) => navigateTo(key as Section)}
+        />
+      )}
 
       {sidebarOpen && (
         <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} onTouchEnd={closeSidebar} />
@@ -2586,9 +2595,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       {sidebarOpen && (
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: sidebarAnim }] }]}> 
         <ScrollView style={styles.sidebarScroll} contentContainerStyle={styles.sidebarScrollContent} showsVerticalScrollIndicator={false}>
-          <LinearGradient colors={['#F0E9FF', '#FCEAF4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sidebarHero}>
+          <LinearGradient colors={colors.heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sidebarHero}>
             <TouchableOpacity style={styles.sidebarCloseButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={closeSidebar}>
-              <Ionicons name="close" size={20} color={colors.primary} />
+              <Ionicons name="close" size={20} color="#fff" />
             </TouchableOpacity>
             <View style={styles.sidebarHeroRow}>
               {parentAvatarUrl ? (
@@ -2613,12 +2622,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </LinearGradient>
 
           <View style={styles.sidebarBody}>
-            <Text style={styles.sidebarSectionLabel}>Parent Menu</Text>
+            <Text style={styles.sidebarSectionLabel}>PARENT MENU</Text>
             {[
-              { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => { closeSidebar(); setEditProfileVisible(true); } },
+              { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => navigateTo('profile') },
               { key: 'children', label: 'Children', icon: 'people-outline', onPress: () => navigateTo('welcome') },
-              { key: 'account', label: 'Account', icon: 'person-circle-outline', onPress: () => navigateTo('settings') },
-              { key: 'preferences', label: 'App Preferences', icon: 'options-outline', onPress: () => navigateTo('settings') },
+              { key: 'settings', label: 'Settings', icon: 'settings-outline', onPress: () => navigateTo('settings') },
               { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupport },
               { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', `Version ${appVersion}\nA supportive reading companion for children and families.`) },
               { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
@@ -2628,11 +2636,11 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   <Ionicons name={item.icon as any} size={20} color={colors.lavenderDark} />
                 </View>
                 <Text style={styles.navLabel}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={18} color="#8B7DAE" />
+                <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
               </TouchableOpacity>
             ))}
 
-            <Text style={styles.sidebarSectionLabel}>Account</Text>
+            <Text style={styles.sidebarSectionLabel}>ACCOUNT</Text>
             <TouchableOpacity style={styles.sidebarLogout} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color={colors.danger} />
               <Text style={styles.sidebarLogoutText}>Logout</Text>
@@ -2667,21 +2675,6 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           setActivityModalVisible(false);
           setEditingScheduledActivity(null);
           await loadScheduledActivitiesForChildren(children);
-        }}
-      />
-
-      <EditParentProfileModal
-        visible={editProfileVisible}
-        parentId={parentId}
-        initialName={parentName}
-        initialPhone={parentPhone}
-        initialAvatarUrl={parentAvatarUrl}
-        onClose={() => setEditProfileVisible(false)}
-        onSaved={(profile) => {
-          setParentName(profile.full_name);
-          setParentPhone(profile.phone_number);
-          setParentAvatarUrl(profile.avatar_url);
-          setEditProfileVisible(false);
         }}
       />
 
@@ -2766,24 +2759,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BACKGROUND },
   center: { justifyContent: 'center', alignItems: 'center' },
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 48, paddingBottom: 12,
-    backgroundColor: SURFACE, borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  menuButton: { padding: 6 },
-  topBarSpacer: { width: 38 },
-  settingsButton: { padding: 6, marginRight: 6 },
-  appTitle: { fontSize: 20, fontWeight: '900', color: colors.primary, flex: 1, textAlign: 'center' },
   mainScroll: { flex: 1 },
   errorBanner: { color: colors.danger, marginHorizontal: 16, marginTop: 12, marginBottom: 8 },
   content: { padding: 16, paddingBottom: 40 },
   overlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000', zIndex: 99 },
   sidebar: {
     position: 'absolute', top: 0, bottom: 0, left: 0, width: SIDEBAR_WIDTH,
-    backgroundColor: '#F7F5FC', paddingTop: 0, zIndex: 100,
-    shadowColor: '#594B78', shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.14, shadowRadius: 24, elevation: 18,
+    backgroundColor: colors.cream, paddingTop: 0, zIndex: 100,
+    shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.25, shadowRadius: 24, elevation: 20,
   },
   sidebarScroll: { flex: 1 },
   sidebarScrollContent: { paddingBottom: 36 },
@@ -2795,68 +2779,47 @@ const styles = StyleSheet.create({
   sidebarHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingRight: 30 },
   sidebarHeroText: { flex: 1, minWidth: 0 },
   sidebarHeroFooter: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 12, paddingLeft: 4 },
-  sidebarHeroMeta: { color: '#75658F', fontSize: 12 },
-  sidebarHeroSub: { color: '#514466', fontSize: 12, marginTop: 4, fontWeight: '600' },
+  sidebarHeroMeta: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '700' },
+  sidebarHeroSub: { color: '#fff', fontSize: 12, marginTop: 4, fontWeight: '700' },
   sidebarHeroImage: { width: 76, height: 76 },
   sidebarBody: { paddingHorizontal: 20, paddingTop: 20 },
-  sidebarSectionLabel: { color: '#69598C', fontSize: 12, fontWeight: '800', letterSpacing: 0.8, marginBottom: 12 },
+  sidebarSectionLabel: {
+    color: colors.inkSoft, fontWeight: '900', fontSize: 11, letterSpacing: 0.8,
+    marginBottom: 12,
+  },
   avatar: {
     width: 70, height: 70, borderRadius: 35,
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 29, fontWeight: '900', color: colors.primary },
-  sidebarName: { fontSize: 18, lineHeight: 22, fontWeight: '900', color: '#30254D' },
-  sidebarEmail: { fontSize: 12, lineHeight: 17, color: '#756A87', marginTop: 4 },
+  avatarText: { fontSize: 29, fontWeight: '900', color: '#fff' },
+  sidebarName: { fontSize: 18, lineHeight: 22, fontWeight: '900', color: '#fff' },
+  sidebarEmail: { fontSize: 12, lineHeight: 17, color: 'rgba(255,255,255,0.85)', marginTop: 4 },
   navItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18,
-    marginBottom: 8, backgroundColor: '#FFFFFF',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14,
+    marginBottom: 6, backgroundColor: '#fff',
+    shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  navItemActive: { backgroundColor: '#E9E2FF' },
+  navItemActive: { backgroundColor: '#EFECFB' },
   navIconWrap: {
-    width: 36, height: 36, borderRadius: 14,
-    backgroundColor: '#F0ECFA', alignItems: 'center', justifyContent: 'center',
+    width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F5F3FC',
   },
-  navIconWrapActive: { backgroundColor: '#FFFFFF' },
-  navLabel: { fontSize: 14, fontWeight: '700', color: '#44375F', flex: 1 },
-  navLabelActive: { color: PRIMARY_TEXT },
+  navIconWrapActive: { backgroundColor: '#fff' },
+  navLabel: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
+  navLabelActive: { color: colors.lavenderDark, fontWeight: '900' },
   navBadge: {
     minWidth: 26, paddingHorizontal: 8, height: 24, borderRadius: 12,
     backgroundColor: colors.vivid.amber, alignItems: 'center', justifyContent: 'center',
   },
   navBadgeText: { color: '#1f2937', fontSize: 12, fontWeight: '800' },
-  quickAccessButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 14, borderRadius: 18, backgroundColor: '#FFFFFF', marginBottom: 10,
-  },
-  quickAccessIconWrap: {
-    width: 38, height: 38, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center', marginRight: 12,
-  },
-  quickAccessLabel: { flex: 1, fontSize: 14, fontWeight: '800', color: '#44375F' },
-  sidebarProgressCard: {
-    marginTop: 12, padding: 18, borderRadius: radius.lg,
-    backgroundColor: '#FFFFFF',
-  },
-  sidebarProgressTitle: { fontSize: 13, fontWeight: '700', color: '#69598C', marginBottom: 10 },
-  sidebarProgressValue: { fontSize: 28, fontWeight: '900', color: '#30254D', marginBottom: 12 },
-  sidebarProgressTrack: { height: 8, backgroundColor: '#E9E4F2', borderRadius: 999, overflow: 'hidden', marginBottom: 8 },
-  sidebarProgressFill: { height: '100%', backgroundColor: colors.vivid.teal, borderRadius: 999 },
-  sidebarProgressStatus: { fontSize: 12, color: '#756A87' },
-  sidebarAccessibilityCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 16, borderRadius: radius.lg, backgroundColor: '#FFFFFF', marginTop: 16,
-  },
-  sidebarAccessibilityText: { flex: 1, marginRight: 12 },
-  sidebarAccessibilityTitle: { fontSize: 13, fontWeight: '700', color: '#44375F', marginBottom: 4 },
-  sidebarAccessibilitySub: { fontSize: 12, color: '#756A87' },
   sidebarLogout: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginTop: 20, padding: 16, borderRadius: 18,
-    backgroundColor: '#FDEBEC',
+    marginTop: 20, padding: 15, borderRadius: 14,
+    backgroundColor: colors.danger,
   },
-  sidebarLogoutText: { color: colors.danger, fontWeight: '800', fontSize: 14 },
+  sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   childCard: {
     backgroundColor: SURFACE, borderRadius: 20, padding: 18,
     marginBottom: 14, borderWidth: 1, borderColor: colors.border,
@@ -2895,14 +2858,6 @@ const styles = StyleSheet.create({
   // Home tab redesign - shares the Student Dashboard's HOME_* palette for
   // visual identity, kept measured/adult in tone (no display font, minimal
   // emoji) compared to the more playful student-facing screens.
-  homeHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
-  homeAvatar: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: colors.lavender,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  homeAvatarText: { fontSize: 18, fontWeight: '900', color: '#fff' },
-  homeGreeting: { fontSize: 22, fontWeight: '900', color: colors.ink },
-  homeGreetingSub: { fontSize: 13, color: colors.inkSoft, marginTop: 2 },
   viewingSelector: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'flex-start',
     backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, gap: 6, marginBottom: 12,
@@ -2981,7 +2936,6 @@ const styles = StyleSheet.create({
 
   // Home tab redesign - decor, child card, hero, weekly chart, insight,
   // goal, recent feed, support banner
-  homeGreetingDecor: { width: 72, height: 48, marginLeft: 4 },
   childSummaryEyebrow: { fontSize: 11, fontWeight: '800', color: colors.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4 },
   switchChildButton: {
     flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFECFB',
@@ -3084,7 +3038,6 @@ const styles = StyleSheet.create({
   supportBannerImage: { width: 74, height: 98, opacity: 0.95 },
 
   // Calendar tab
-  calendarHeroImage: { width: 86, height: 58, position: 'absolute', right: 12, bottom: 12, opacity: 0.95 },
   weekSummaryCard: { backgroundColor: '#E9F1E2', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 10, ...shadows.card },
   weekSummaryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   weekSummaryStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },

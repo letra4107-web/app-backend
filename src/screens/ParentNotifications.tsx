@@ -58,11 +58,16 @@ export function NotificationsView({
   childList = [],
   onUnreadChange,
   onNavigate,
+  hideHeader = false,
 }: {
   userId: string;
   childList?: ChildOption[];
   onUnreadChange?: (count: number) => void;
   onNavigate?: (section: Section) => void;
+  // The Parent dashboard now renders its own TabHeroHeader above this
+  // component (matching every other tab) - this suppresses the component's
+  // own title/subtitle/mark-all-read row so the two don't stack.
+  hideHeader?: boolean;
 }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -273,13 +278,15 @@ export function NotificationsView({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.title, titleA11yStyle]}>Notifications</Text>
-          <Text style={[styles.subtitle, subtitleA11yStyle]}>Stay updated on your child&apos;s learning journey.</Text>
-        </View>
+        {!hideHeader && (
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, titleA11yStyle]}>Notifications</Text>
+            <Text style={[styles.subtitle, subtitleA11yStyle]}>Stay updated on your child&apos;s learning journey.</Text>
+          </View>
+        )}
         {!!unreadCount && (
           <TouchableOpacity
-            style={styles.markAllButton}
+            style={[styles.markAllButton, hideHeader && { marginLeft: 'auto' }]}
             onPress={markAllRead}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
