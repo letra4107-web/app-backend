@@ -339,6 +339,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showNewPasswordInput, setShowNewPasswordInput] = useState(false);
+  const [showConfirmPasswordInput, setShowConfirmPasswordInput] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordModalError, setPasswordModalError] = useState('');
 
@@ -866,7 +868,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             onMenuPress={openSidebar}
             title={`Good Day,\n${parentName || 'Loading...'}!`}
             subtitle="Here's how your child is doing today."
-            illustration={require('../../assets/decorate.webp')}
+            illustration={require('../../assets/parenthome.png')}
+            illustrationStyle={styles.heroIllustrationWide}
             notifDot={unreadNotifications > 0}
             titleA11yStyle={heroTitleA11yStyle}
             subtitleA11yStyle={heroSubtitleA11yStyle}
@@ -1012,7 +1015,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           onMenuPress={openSidebar}
           title={`Good Day,\n${parentName || 'Loading...'}!`}
           subtitle="Here's how your child is doing today."
-          illustration={require('../../assets/decorate.webp')}
+          illustration={require('../../assets/parenthome.png')}
+          illustrationStyle={styles.heroIllustrationWide}
           notifDot={unreadNotifications > 0}
           titleA11yStyle={heroTitleA11yStyle}
           subtitleA11yStyle={heroSubtitleA11yStyle}
@@ -1105,7 +1109,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <View style={styles.heroDecorCircleLg} />
           <View style={styles.heroDecorCircleSm} />
-          <Image source={require('../../assets/parentreading.webp')} style={styles.heroProgressImage} resizeMode="contain" />
+          <Image source={require('../../assets/parenthome.png')} style={styles.heroProgressImage} resizeMode="contain" />
 
           <View style={styles.heroProgressTopRow}>
             <View style={{ flex: 1, paddingRight: 8 }}>
@@ -1298,7 +1302,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.supportBannerButtonText}>View Child Progress →</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../../assets/parentreading.webp')} style={styles.supportBannerImage} resizeMode="contain" />
+          <Image source={require('../../assets/parenthome.png')} style={styles.supportBannerImage} resizeMode="contain" />
         </LinearGradient>
 
         <View style={styles.quickActions}>
@@ -1328,6 +1332,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         onMenuPress={openSidebar}
         title="Child Progress"
         subtitle="Track your child's reading development."
+        illustration={require('../../assets/parentprogress.png')}
+        illustrationStyle={styles.heroIllustrationWide}
         notifDot={unreadNotifications > 0}
         titleA11yStyle={heroTitleA11yStyle}
         subtitleA11yStyle={heroSubtitleA11yStyle}
@@ -1778,6 +1784,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             onMenuPress={openSidebar}
             title="Calendar"
             subtitle="Plan and follow your child's learning activities."
+            illustration={require('../../assets/parentcalendar.png')}
+            illustrationStyle={styles.heroIllustrationSquare}
             notifDot={unreadNotifications > 0}
             titleA11yStyle={heroTitleA11yStyle}
             subtitleA11yStyle={heroSubtitleA11yStyle}
@@ -1970,7 +1978,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           onMenuPress={openSidebar}
           title="Calendar"
           subtitle={`Plan and follow ${selectedChild.name.split(' ')[0]}'s learning activities.`}
-          illustration={require('../../assets/calendar.webp')}
+          illustration={require('../../assets/parentcalendar.png')}
+          illustrationStyle={styles.heroIllustrationSquare}
           notifDot={unreadNotifications > 0}
           titleA11yStyle={heroCardTitleA11yStyle}
         />
@@ -2270,7 +2279,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.insightSeeMore}>View Child Progress →</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../../assets/parentreading.webp')} style={styles.parentInsightImage} resizeMode="contain" />
+          <Image source={require('../../assets/parentcalendar.png')} style={styles.parentInsightImage} resizeMode="contain" />
         </View>
         </ScrollView>
       </>
@@ -2312,6 +2321,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         onMenuPress={openSidebar}
         title="Profile"
         subtitle="Manage your account and children."
+        illustration={require('../../assets/parentprofile.png')}
+        illustrationStyle={styles.heroIllustrationSquare}
         notifDot={unreadNotifications > 0}
         titleA11yStyle={settingsHeaderTitleA11yStyle}
         subtitleA11yStyle={settingsHeaderSubA11yStyle}
@@ -2424,6 +2435,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         onBackPress={() => navigateTo('welcome')}
         title="Settings"
         subtitle="Preferences and support."
+        illustration={require('../../assets/parentsettings.png')}
+        illustrationStyle={styles.heroIllustrationSquare}
         titleA11yStyle={settingsHeaderTitleA11yStyle}
         subtitleA11yStyle={settingsHeaderSubA11yStyle}
       />
@@ -2568,6 +2581,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               onMenuPress={openSidebar}
               title="Notifications"
               subtitle="Stay updated on your child's learning journey."
+              illustration={require('../../assets/parentnotif.png')}
+              illustrationStyle={styles.heroIllustrationSquare}
             />
             <ErrorBoundary title="Notifications unavailable" message="Notifications could not load right now. The rest of the dashboard is still ready.">
               <NotificationsView
@@ -2659,7 +2674,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 <Text style={styles.sidebarHeroMeta}>{enrolledChildrenText}</Text>
                 {selectedChild ? <Text style={styles.sidebarHeroSub}>Managing {selectedChild.name}</Text> : null}
               </View>
-              <Image source={require('../../assets/parentreading.webp')} style={styles.sidebarHeroImage} resizeMode="contain" />
+              <Image source={require('../../assets/parentprofile.png')} style={styles.sidebarHeroImage} resizeMode="contain" />
             </View>
           </LinearGradient>
 
@@ -2729,25 +2744,43 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </TouchableOpacity>
             </View>
             <Text style={styles.passwordModalHint}>Use at least 8 characters for your new password.</Text>
-            <TextInput
-              style={styles.emailModalInput}
-              value={newPasswordInput}
-              onChangeText={setNewPasswordInput}
-              autoCapitalize="none"
-              secureTextEntry
-              placeholder="New password"
-              placeholderTextColor={colors.inkSoft}
-            />
-            <TextInput
-              style={[styles.emailModalInput, styles.passwordConfirmInput]}
-              value={confirmPasswordInput}
-              onChangeText={setConfirmPasswordInput}
-              autoCapitalize="none"
-              secureTextEntry
-              placeholder="Confirm new password"
-              placeholderTextColor={colors.inkSoft}
-              onSubmitEditing={submitPasswordChange}
-            />
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                style={[styles.emailModalInput, styles.passwordInputField]}
+                value={newPasswordInput}
+                onChangeText={setNewPasswordInput}
+                autoCapitalize="none"
+                secureTextEntry={!showNewPasswordInput}
+                placeholder="New password"
+                placeholderTextColor={colors.inkSoft}
+              />
+              <TouchableOpacity
+                onPress={() => setShowNewPasswordInput((v) => !v)}
+                style={styles.passwordToggle}
+                accessibilityLabel={showNewPasswordInput ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons name={showNewPasswordInput ? 'eye-off' : 'eye'} size={20} color={colors.inkSoft} />
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.passwordInputWrap, styles.passwordConfirmInput]}>
+              <TextInput
+                style={[styles.emailModalInput, styles.passwordInputField]}
+                value={confirmPasswordInput}
+                onChangeText={setConfirmPasswordInput}
+                autoCapitalize="none"
+                secureTextEntry={!showConfirmPasswordInput}
+                placeholder="Confirm new password"
+                placeholderTextColor={colors.inkSoft}
+                onSubmitEditing={submitPasswordChange}
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPasswordInput((v) => !v)}
+                style={styles.passwordToggle}
+                accessibilityLabel={showConfirmPasswordInput ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons name={showConfirmPasswordInput ? 'eye-off' : 'eye'} size={20} color={colors.inkSoft} />
+              </TouchableOpacity>
+            </View>
             {!!passwordModalError && (
               <Text style={styles.emailModalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
                 {passwordModalError}
@@ -2802,6 +2835,13 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
   mainScroll: { flex: 1 },
   mainScrollWrap: { flex: 1 },
+  // TabHeroHeader's default illustration box (120x212) is sized for a tall
+  // portrait character. The new parent*.png set is either 3:2 landscape
+  // (home/progress) or 1:1 square (calendar/notif/profile/settings) - both
+  // need their own box so `contain` doesn't shrink them to float with a
+  // large empty gap inside the default tall box.
+  heroIllustrationWide: { position: 'absolute', right: -4, bottom: -6, width: 152, height: 101 },
+  heroIllustrationSquare: { position: 'absolute', right: -4, bottom: -10, width: 128, height: 128 },
   errorBanner: { color: colors.danger, marginHorizontal: 16, marginTop: 12, marginBottom: 8 },
   content: { padding: 16, paddingBottom: 40 },
   overlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000', zIndex: 99 },
@@ -3000,7 +3040,7 @@ const styles = StyleSheet.create({
   },
   // Peeks in from the bottom-right corner, below the ring's row and to the
   // right of the left-aligned button/message, so nothing sits on top of it.
-  heroProgressImage: { width: 94, height: 125, position: 'absolute', right: 2, bottom: -9, opacity: 0.95 },
+  heroProgressImage: { width: 118, height: 79, position: 'absolute', right: 2, bottom: 6, opacity: 0.95 },
   heroProgressTopRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
   heroProgressEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   heroProgressIconWrap: {
@@ -3077,7 +3117,7 @@ const styles = StyleSheet.create({
   supportBannerText: { fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '600', marginBottom: 10 },
   supportBannerButton: { backgroundColor: '#111827', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
   supportBannerButtonText: { fontSize: 12, fontWeight: '800', color: '#fff' },
-  supportBannerImage: { width: 74, height: 98, opacity: 0.95 },
+  supportBannerImage: { width: 96, height: 64, opacity: 0.95 },
 
   // Calendar tab
   weekSummaryCard: { backgroundColor: '#E9F1E2', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 10, ...shadows.card },
@@ -3099,7 +3139,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   parentInsightText: { fontSize: 12.5, color: colors.ink, fontWeight: '600', lineHeight: 17, marginTop: 6, marginBottom: 8 },
-  parentInsightImage: { width: 80, height: 107 },
+  parentInsightImage: { width: 84, height: 84 },
 
   // Child Progress tab
   trendLineLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
@@ -3120,7 +3160,7 @@ const styles = StyleSheet.create({
   },
   overallStatCell: { flex: 1, alignItems: 'center' },
   overallStatValue: { fontSize: 17, fontWeight: '900', color: colors.ink },
-  overallStatLabel: { fontSize: 10, color: colors.textSecondary, marginTop: 3, fontWeight: '700' },
+  overallStatLabel: { fontSize: 10, color: colors.textSecondary, marginTop: 3, fontWeight: '700', textAlign: 'center' },
   skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   skillGridCard: {
     width: '47%', backgroundColor: SURFACE, borderRadius: 16, padding: 14,
@@ -3336,6 +3376,9 @@ const styles = StyleSheet.create({
   passwordModalHint: { color: colors.inkSoft, fontSize: 12, lineHeight: 17, marginBottom: 12 },
   emailModalInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, color: colors.ink },
   passwordConfirmInput: { marginTop: 10 },
+  passwordInputWrap: { position: 'relative', justifyContent: 'center' },
+  passwordInputField: { paddingRight: 44 },
+  passwordToggle: { position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center' },
   emailModalError: { color: '#E0574C', marginTop: 10, fontWeight: '600' },
   emailModalSubmit: { backgroundColor: colors.lavenderDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   emailModalSubmitText: { color: '#fff', fontWeight: '800' },

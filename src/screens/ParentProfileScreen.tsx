@@ -103,7 +103,8 @@ export default function ParentProfileScreen({
         onBackPress={onGoBack}
         title="My Profile"
         subtitle="I-manage ang iyong personal na detalye."
-        illustration={require('../../assets/parentreading.webp')}
+        illustration={require('../../assets/parentprofile.png')}
+        illustrationStyle={styles.heroIllustrationSquare}
       />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         {!!message && <Text style={styles.successBanner}>{message}</Text>}
@@ -168,6 +169,7 @@ export default function ParentProfileScreen({
 }
 
 const styles = StyleSheet.create({
+  heroIllustrationSquare: { position: 'absolute', right: -4, bottom: -10, width: 128, height: 128 },
   content: { padding: 16, paddingBottom: 40 },
   successBanner: {
     color: '#166534', backgroundColor: 'rgba(34,197,94,0.10)', padding: 12, borderRadius: 14,
