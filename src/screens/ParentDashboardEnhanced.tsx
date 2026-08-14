@@ -871,13 +871,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             titleA11yStyle={heroTitleA11yStyle}
             subtitleA11yStyle={heroSubtitleA11yStyle}
           />
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>👨‍👩‍👧</Text>
-            <Text style={styles.emptyText}>Wala pang naka-enroll na bata.</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={() => setShowEnroll(true)}>
-              <Text style={styles.emptyButtonText}>+ I-enroll ang Iyong Unang Bata</Text>
-            </TouchableOpacity>
-          </View>
+          <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>👨‍👩‍👧</Text>
+              <Text style={styles.emptyText}>Wala pang naka-enroll na bata.</Text>
+              <TouchableOpacity style={styles.emptyButton} onPress={() => setShowEnroll(true)}>
+                <Text style={styles.emptyButtonText}>+ I-enroll ang Iyong Unang Bata</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </>
       );
     }
@@ -1016,6 +1018,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           subtitleA11yStyle={heroSubtitleA11yStyle}
         />
 
+        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.childSummaryCard}>
           <View style={styles.childAvatarLg}>
             <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
@@ -1312,6 +1315,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={styles.quickActionText}>Manage Profile</Text>
           </TouchableOpacity>
         </View>
+        </ScrollView>
       </>
     );
   };
@@ -1334,10 +1338,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       return (
         <>
           {header}
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>📝</Text>
-            <Text style={styles.emptyText}>Wala pang anak na may progress.</Text>
-          </View>
+          <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>📝</Text>
+              <Text style={styles.emptyText}>Wala pang anak na may progress.</Text>
+            </View>
+          </ScrollView>
         </>
       );
     }
@@ -1487,6 +1493,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <>
         {header}
 
+        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <TouchableOpacity
           style={styles.viewingSelector}
           onPress={() => children.length > 1 && setChildPickerOpen((open) => !open)}
@@ -1756,6 +1763,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <TouchableOpacity style={styles.detailedReportButton} onPress={() => setHistoryExpanded((v) => !v)}>
           <Text style={styles.detailedReportButtonText}>{historyExpanded ? 'Show Less' : 'View Detailed Report'}</Text>
         </TouchableOpacity>
+        </ScrollView>
       </>
     );
   };
@@ -1774,10 +1782,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             titleA11yStyle={heroTitleA11yStyle}
             subtitleA11yStyle={heroSubtitleA11yStyle}
           />
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>👨‍👩‍👧</Text>
-            <Text style={styles.emptyText}>Wala pang naka-enroll na bata.</Text>
-          </View>
+          <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>👨‍👩‍👧</Text>
+              <Text style={styles.emptyText}>Wala pang naka-enroll na bata.</Text>
+            </View>
+          </ScrollView>
         </>
       );
     }
@@ -1965,6 +1975,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           titleA11yStyle={heroCardTitleA11yStyle}
         />
 
+        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.childSummaryCard}>
           <View style={styles.childAvatarLg}>
             <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
@@ -2261,6 +2272,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <Image source={require('../../assets/parentreading.webp')} style={styles.parentInsightImage} resizeMode="contain" />
         </View>
+        </ScrollView>
       </>
     );
   };
@@ -2305,6 +2317,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         subtitleA11yStyle={settingsHeaderSubA11yStyle}
       />
 
+      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {hasUnsavedParentSettingsChanges && (
         <View style={styles.unsavedSettingsBar}>
           <Text style={[styles.unsavedSettingsBarText, saveDiscardBarTextA11yStyle]}>You have unsaved changes.</Text>
@@ -2499,6 +2512,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
         </View>
       </View>
+      </ScrollView>
     </>
   );
 
@@ -2575,9 +2589,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       {section === 'profile' ? (
         sectionContent
       ) : (
-        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        // Each section owns its own header + ScrollView (or, for Notifications,
+        // its own internal scroll) so the TabHeroHeader stays fixed while the
+        // body scrolls beneath it - matching Student's per-tab pattern. This
+        // wrapper must NOT add another ScrollView around sectionContent, or
+        // the header would scroll away with it again.
+        <View style={styles.mainScrollWrap}>
           {sectionContent}
-        </ScrollView>
+        </View>
       )}
 
       {section !== 'profile' && (
@@ -2760,6 +2779,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BACKGROUND },
   center: { justifyContent: 'center', alignItems: 'center' },
   mainScroll: { flex: 1 },
+  mainScrollWrap: { flex: 1 },
   errorBanner: { color: colors.danger, marginHorizontal: 16, marginTop: 12, marginBottom: 8 },
   content: { padding: 16, paddingBottom: 40 },
   overlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000', zIndex: 99 },
