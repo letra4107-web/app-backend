@@ -65,10 +65,22 @@ export const syllabifyWord = (input = ''): { syllables: string[]; display: strin
         break;
       }
 
-      // There is a following vowel. Consonants between nucleus and nextVowel are onset of next syllable.
+      // There is a following vowel. A genuine onset cluster (pr/tr/kl/gr/...)
+      // is only kept together at the very start of a word - that's already
+      // handled above by the initial onset slice, before any nucleus is
+      // found. Mid-word, at most one trailing consonant carries over as the
+      // next syllable's onset; any earlier consonant(s) in the run become
+      // this syllable's coda instead. Without this, "nagbasa" syllabified as
+      // na-gba-sa (wrong) instead of nag-ba-sa; "aklat" as a-klat instead of
+      // ak-lat.
+      const between = chars.slice(nucleus + 1, nextVowel);
+      if (between.length > 1) {
+        syll += between.slice(0, -1).join('');
+        i = nextVowel - 1;
+      } else {
+        i = nucleus + 1;
+      }
       syllables.push(syll);
-      // Move i to start of next syllable (the consonants before next vowel).
-      i = nucleus + 1;
     }
 
     // Capitalize display syllables similar to Title Case for readability.

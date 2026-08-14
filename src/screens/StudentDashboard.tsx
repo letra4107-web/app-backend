@@ -27,7 +27,7 @@ import {
 } from '../services/achievementService';
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
-import { speakWordCloud, speakSyllablesCloud, stopCloudSpeaking } from '../services/cloudTtsService';
+import { speakWordCloud, speakSyllablesCloud, stopCloudSpeaking, setCloudSpeechRate } from '../services/cloudTtsService';
 import SyllableKaraokeText from '../components/SyllableKaraokeText';
 import WordMeaningReveal from '../components/WordMeaningReveal';
 import { fetchDashboardSettings, DashboardSettings } from '../services/settingsService';
@@ -447,6 +447,7 @@ export default function StudentDashboard({ navigation }: any) {
       setAccessibilitySettings(accessibilityFromSettings(result));
       setTtsEnabled(result.tts_enabled);
       setSpeechRateSetting(result.speech_rate || 'normal');
+      setCloudSpeechRate(result.speech_rate || 'normal');
       return result;
     } catch (error: any) {
       console.warn('[StudentDashboard] settings load failed:', error?.message || error);
@@ -1154,13 +1155,19 @@ export default function StudentDashboard({ navigation }: any) {
   // disagree on ~52% of the 600-word curriculum, so this preference matters,
   // not just a stylistic choice.
   const getSyllableParts = (word: string, contentId?: string | null): string[] => {
+    // Split on both hyphens and whitespace, not just hyphens - phrase/sentence
+    // content (Intermediate/Advanced) has no syllable_hyphenation seeded, so it
+    // always falls back to syllabifyText(), whose output hyphenates within each
+    // word but only space-separates between words. Splitting on '-' alone fused
+    // the last syllable of one word with the first syllable of the next (e.g.
+    // "masayang bata" -> "Ma-sa-yang Ba-ta" produced a "yang Ba" chunk).
     if (contentId) {
       const match = readingContent.find((item) => item.id === contentId);
       if (match?.syllable_hyphenation) {
-        return match.syllable_hyphenation.split('-').filter(Boolean);
+        return match.syllable_hyphenation.split(/[-\s]+/).filter(Boolean);
       }
     }
-    return syllabifyText(word).split('-').filter(Boolean);
+    return syllabifyText(word).split(/[-\s]+/).filter(Boolean);
   };
 
   // Slow, syllable-by-syllable karaoke read-along, driven by real Google TTS
@@ -2028,6 +2035,10 @@ export default function StudentDashboard({ navigation }: any) {
     };
 
     if (selectedWord && child && practiceMode === 'listen') {
+      // Intermediate/Advanced content can be a whole phrase or sentence, not
+      // just a short word - the giant centered word display needs to shrink
+      // and left-align so it wraps naturally instead of overflowing.
+      const isLongSelectedContent = selectedWord.length > 20;
       const isKaraokeActive = karaokeLoading || karaokeSyllableIndex !== null;
       const isAnyPlaying = listenPlaying || isKaraokeActive;
       const listenBadgeColor = isAnyPlaying ? colors.vivid.teal : listenJustFinished ? colors.success : colors.lavender;
@@ -2092,7 +2103,11 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name={listenBadgeIcon as any} size={26} color="#fff" />
               </Animated.View>
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Pakinggan at Basahin</Text>
-              <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
+              <Text style={[
+                styles.practiceWordDisplay,
+                isLongSelectedContent && styles.practiceWordDisplayWide,
+                a11yText(isLongSelectedContent ? 20 : 32, 'bold'),
+              ]}>{selectedWord}</Text>
               <SyllableKaraokeText
                 syllables={getSyllableParts(selectedWord, selectedContentId)}
                 activeIndex={karaokeSyllableIndex}
@@ -2222,6 +2237,8 @@ export default function StudentDashboard({ navigation }: any) {
     );
 
     if (selectedWord && child) {
+      // Same long-content accommodation as the "listen" view above.
+      const isLongSelectedContent = selectedWord.length > 20;
       return (
         <View style={{ flex: 1 }}>
           <ConfettiOverlay visible={confettiVisible} />
@@ -2288,7 +2305,11 @@ export default function StudentDashboard({ navigation }: any) {
                 />
               </Animated.View>
               <Text style={[styles.practicePrompt, cardTitleA11y]}>Sabihin ang Salita</Text>
-              <Text style={[styles.practiceWordDisplay, a11yText(32, 'bold')]}>{selectedWord}</Text>
+              <Text style={[
+                styles.practiceWordDisplay,
+                isLongSelectedContent && styles.practiceWordDisplayWide,
+                a11yText(isLongSelectedContent ? 20 : 32, 'bold'),
+              ]}>{selectedWord}</Text>
               <SyllableKaraokeText
                 syllables={getSyllableParts(selectedWord, selectedContentId)}
                 activeIndex={null}
@@ -3962,7 +3983,7 @@ export default function StudentDashboard({ navigation }: any) {
       <>
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <TabHeroHeader
-          onMenuPress={openSidebar}
+          onBackPress={() => navigateTo('home')}
           notifDot={unreadNotifCount > 0}
           title="Notifications"
           subtitle="Stay updated on your reading journey."
@@ -4091,7 +4112,7 @@ export default function StudentDashboard({ navigation }: any) {
       navigation={navigation}
       embedded
       heroMode
-      onOpenSidebar={openSidebar}
+      onGoBack={() => navigateTo('home')}
       gradeLevel={child?.grade_level}
       readingLevel={progress?.level}
       onSaved={(saved) => {
@@ -4111,7 +4132,7 @@ export default function StudentDashboard({ navigation }: any) {
   const renderProfile = () => (
     <StudentProfileScreen
       navigation={navigation}
-      onOpenSidebar={openSidebar}
+      onGoBack={() => navigateTo('home')}
       gradeLevel={child?.grade_level}
       readingLevel={progress?.level}
       onProfileChanged={(updatedProfile) => {
@@ -4166,7 +4187,7 @@ export default function StudentDashboard({ navigation }: any) {
             onOpenSidebar={openSidebar}
             onPracticeItem={(item) => {
               setPracticeCategoryFilter(item.content_type as CurriculumPracticeType);
-              setPracticeMode('say');
+              setPracticeMode('listen');
               setSelectedWord(item.content_text);
               setSelectedContentId(item.content_id);
               setPracticeResult(null);
@@ -4217,11 +4238,13 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
       ) : null}
 
-      <DashboardBottomNav
-        items={studentBottomItems}
-        activeKey={section}
-        onSelect={(key) => navigateTo(key as Section)}
-      />
+      {section !== 'profile' && section !== 'settings' && section !== 'notifications' && (
+        <DashboardBottomNav
+          items={studentBottomItems}
+          activeKey={section}
+          onSelect={(key) => navigateTo(key as Section)}
+        />
+      )}
 
       {/* Sidebar overlay + animated sidebar */}
       {sidebarOpen && (
@@ -5217,6 +5240,9 @@ const styles = StyleSheet.create({
     fontSize: 52, color: colors.lavenderDark,
     letterSpacing: 0, textAlign: 'center', marginBottom: 6,
     fontFamily: typography.family.display,
+  },
+  practiceWordDisplayWide: {
+    textAlign: 'left', alignSelf: 'stretch', lineHeight: 28,
   },
   practiceSyllables: { color: colors.lavenderDark, fontSize: 16, fontWeight: '900', marginBottom: 14 },
   practiceWordLevel: {

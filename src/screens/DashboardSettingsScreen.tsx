@@ -37,6 +37,7 @@ import {
   updateDashboardSettings,
 } from '../services/settingsService';
 import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
+import { setCloudSpeechRate } from '../services/cloudTtsService';
 import { useAccessibility } from '../contexts/AccessibilityContext';
 import { colors, typography, radius, shadows } from '../theme';
 import TabHeroHeader from '../components/TabHeroHeader';
@@ -58,7 +59,7 @@ type Props = {
   // Home/Learn/Practice/Progress/Badges instead of the plain back-button
   // header. Parent settings (heroMode omitted) is untouched.
   heroMode?: boolean;
-  onOpenSidebar?: () => void;
+  onGoBack?: () => void;
   // Fired after a successful manual save, with the persisted settings - lets
   // an embedding screen (e.g. StudentDashboard) sync its own copy of
   // accessibility-relevant fields immediately, instead of only picking up
@@ -84,7 +85,7 @@ type ProfileState = {
 
 type AccountModal = 'password' | 'email' | null;
 
-export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onOpenSidebar, onSaved, onProfileChanged }: Props) {
+export default function DashboardSettingsScreen({ role, navigation, embedded = false, gradeLevel, readingLevel, heroMode = false, onGoBack, onSaved, onProfileChanged }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
   // `settings` is the DRAFT the user is currently editing (toggles update
@@ -192,6 +193,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
         setSavedSettings(settingsData);
         setTtsEnabled(settingsData.tts_enabled);
         setSpeechRateSetting(settingsData.speech_rate || 'normal');
+        setCloudSpeechRate(settingsData.speech_rate || 'normal');
         setNewEmail(user.email || '');
         Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
       } catch (e: any) {
@@ -295,7 +297,10 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     if (!settings) return;
     setSettings({ ...settings, [key]: value });
     if (key === 'tts_enabled') setTtsEnabled(!!value);
-    if (key === 'speech_rate') setSpeechRateSetting(value as SpeechRate);
+    if (key === 'speech_rate') {
+      setSpeechRateSetting(value as SpeechRate);
+      setCloudSpeechRate(value as SpeechRate);
+    }
   };
 
   const hasUnsavedSettingsChanges = !!settings && !!savedSettings && JSON.stringify(settings) !== JSON.stringify(savedSettings);
@@ -321,6 +326,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     setSettings(savedSettings);
     setTtsEnabled(!!savedSettings.tts_enabled);
     setSpeechRateSetting((savedSettings.speech_rate || 'normal') as SpeechRate);
+    setCloudSpeechRate((savedSettings.speech_rate || 'normal') as SpeechRate);
     setMessage('');
     setError('');
   };
@@ -500,7 +506,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           (heroMode omitted) keeps its header inside the ScrollView, unchanged. */}
       {heroMode && (
         <TabHeroHeader
-          onMenuPress={onOpenSidebar || (() => {})}
+          onBackPress={onGoBack || (() => {})}
           title="Settings"
           subtitle="Make LinawLetra work best for you."
           illustration={require('../../assets/gear.webp')}

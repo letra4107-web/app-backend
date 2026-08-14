@@ -199,6 +199,12 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
   if (detail) {
     const completed = detail.items.filter((item) => item.completed).length;
     const ready = completed === detail.items.length;
+    // Phrase/sentence content ("masayang bata", full sentences) is far too
+    // long for the two-column word grid the card layout was designed for -
+    // it needs a full-width row and left-aligned, smaller text so it lies
+    // out horizontally instead of wrapping into a tall, cramped column.
+    const isLongFormContent = detail.module.instructional_content_type === 'phrase'
+      || detail.module.instructional_content_type === 'sentence';
     return (
       <View style={styles.screen}>
         <LinearGradient colors={colors.heroGradient} style={styles.detailHero}>
@@ -216,11 +222,18 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
           </View>
           <Text style={styles.sectionTitle}>{contentTypeLabel(detail.module.instructional_content_type)}</Text>
           <View style={styles.contentGrid}>
-            {detail.items.map((item) => <View key={item.content_id} style={[styles.contentCard, item.completed && styles.contentCardDone]}>
+            {detail.items.map((item) => <View
+              key={item.content_id}
+              style={[
+                styles.contentCard,
+                isLongFormContent && styles.contentCardWide,
+                item.completed && styles.contentCardDone,
+              ]}
+            >
               <TouchableOpacity style={styles.soundButton} onPress={() => speakPhrase(item.content_text)}>
                 <Ionicons name="volume-medium" size={18} color={colors.lavenderDark} />
               </TouchableOpacity>
-              <Text style={styles.contentText}>{item.content_text}</Text>
+              <Text style={[styles.contentText, isLongFormContent && styles.contentTextWide]}>{item.content_text}</Text>
               {!!item.syllable_hyphenation && item.syllable_hyphenation !== item.content_text && <Text style={styles.syllableText}>{item.syllable_hyphenation}</Text>}
               {!!item.definition && <Text style={styles.definitionText} numberOfLines={3}>{item.definition}</Text>}
               {item.completed ? <View style={styles.donePill}><Ionicons name="checkmark" size={12} color="#fff" /><Text style={styles.doneText}>Tapos</Text></View>
@@ -311,9 +324,11 @@ const styles = StyleSheet.create({
   progressCount: { color: colors.lavenderDark, fontWeight: '900' },
   contentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 22 },
   contentCard: { width: '48%', minHeight: 142, backgroundColor: '#fff', borderRadius: radius.md, padding: 14, alignItems: 'center', justifyContent: 'center', ...shadows.card },
+  contentCardWide: { width: '100%', minHeight: 0, alignItems: 'flex-start', justifyContent: 'flex-start', paddingRight: 48 },
   contentCardDone: { backgroundColor: '#F0F7EC', borderWidth: 1, borderColor: '#CFE0C5' },
   soundButton: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16, backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
   contentText: { color: colors.ink, fontSize: 25, fontFamily: typography.family.display, textAlign: 'center' },
+  contentTextWide: { fontSize: 18, textAlign: 'left', lineHeight: 24, alignSelf: 'stretch' },
   syllableText: { color: colors.lavenderDark, fontSize: 12, fontWeight: '800', marginTop: 2 },
   definitionText: { color: colors.inkSoft, fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 6 },
   donePill: { flexDirection: 'row', gap: 3, alignItems: 'center', backgroundColor: colors.sage, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4, marginTop: 8 },

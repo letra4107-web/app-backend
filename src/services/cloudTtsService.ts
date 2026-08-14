@@ -1,8 +1,26 @@
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { buildApiUrl, postJson } from '../config/api';
 import { speakWord as onDeviceSpeakWord } from './ttsService';
+import type { SpeechRate } from './settingsService';
 
 export type CloudVoice = 'fil-PH-Wavenet-A' | 'fil-PH-Wavenet-C';
+
+// Mirrors the backend's DEFAULT_SPEECH_RATE (backend/routes/tts.js) - kept as
+// the fallback here too so a request sent before settings finish loading
+// still uses the slower default rather than an undefined rate silently
+// falling back to Google's own 1.0.
+const SPEECH_RATE_BY_PRESET: Record<SpeechRate, number> = { slow: 0.65, normal: 0.82, fast: 1.0 };
+let currentSpeechRate = SPEECH_RATE_BY_PRESET.normal;
+
+/**
+ * Settings' "Reading Speed" control calls this (alongside ttsService's own
+ * setSpeechRateSetting, which only affects the on-device fallback voice) so
+ * the primary cloud-TTS path - used for every normal word/sentence playback
+ * - actually respects the setting too.
+ */
+export function setCloudSpeechRate(preset: SpeechRate) {
+  currentSpeechRate = SPEECH_RATE_BY_PRESET[preset] ?? SPEECH_RATE_BY_PRESET.normal;
+}
 
 type SpeakResponse = {
   success: boolean;
@@ -81,7 +99,11 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
   try {
     await ensurePlaybackMode();
 
-    const response = await postJson<SpeakResponse>(buildApiUrl('/tts/speak'), { text, voice }, 15000);
+    const response = await postJson<SpeakResponse>(
+      buildApiUrl('/tts/speak'),
+      { text, voice, rate: currentSpeechRate },
+      15000,
+    );
 
     const source = response.url
       ? { uri: response.url }

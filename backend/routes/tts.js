@@ -28,11 +28,26 @@ const KARAOKE_CACHE_PREFIX = 'karaoke';
 const DEFAULT_KARAOKE_RATE = 0.5;
 const MIN_KARAOKE_RATE = 0.25;
 const MAX_KARAOKE_RATE = 1.0;
+// Normal-speech default was previously unset, which silently meant Google's
+// own default of 1.0 (full conversational speed) - too fast to follow for a
+// dyslexia-support app. 0.82 is ~18% slower. Floor stays well above the
+// karaoke floor since this is full-word/sentence speech, not a per-syllable
+// read-along - much slower than 0.5 here reads as unnaturally sluggish.
+const DEFAULT_SPEECH_RATE = 0.82;
+const MIN_SPEECH_RATE = 0.5;
+const MAX_SPEECH_RATE = 1.0;
 
 const postJson = (res, statusCode, payload) => res.status(statusCode).json(payload);
 
-const cacheKeyFor = (text, voice) =>
-  crypto.createHash('sha256').update(`${voice}::${text}`).digest('hex');
+// Rate is now part of the audio's identity, same reasoning as
+// karaokeCacheKeyFor below - a slower/faster synthesis of the same text is a
+// different file, so it must be a different cache key. This intentionally
+// no longer matches the pre-existing cacheKeyFor(text, voice) hash used by
+// any already-cached audio (which was synthesized at the implicit old
+// default of 1.0) - those entries simply age out unused rather than being
+// incorrectly served at the wrong rate.
+const cacheKeyFor = (text, voice, rate) =>
+  crypto.createHash('sha256').update(`${voice}::${rate}::${text}`).digest('hex');
 
 // Separate key space from cacheKeyFor: rate and per-syllable boundaries are
 // both part of the audio identity here (a slow, marked-up "ka-li-ka-san"
@@ -81,6 +96,10 @@ router.post('/speak', async (req, res) => {
     const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
     const requestedVoice = typeof req.body?.voice === 'string' ? req.body.voice.trim() : '';
     const voice = ALLOWED_VOICES.has(requestedVoice) ? requestedVoice : DEFAULT_VOICE;
+    const requestedRate = Number(req.body?.rate);
+    const rate = Number.isFinite(requestedRate)
+      ? Math.min(MAX_SPEECH_RATE, Math.max(MIN_SPEECH_RATE, requestedRate))
+      : DEFAULT_SPEECH_RATE;
 
     if (!text) {
       return postJson(res, 400, { success: false, message: 'Missing text to synthesize.' });
@@ -94,7 +113,7 @@ router.post('/speak', async (req, res) => {
 
     await ensureCacheBucket();
 
-    const cacheKey = cacheKeyFor(text, voice);
+    const cacheKey = cacheKeyFor(text, voice, rate);
     const cachePath = `${cacheKey}.mp3`;
     const { data: publicUrlData } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(cachePath);
     const publicUrl = publicUrlData?.publicUrl;
@@ -106,7 +125,7 @@ router.post('/speak', async (req, res) => {
       try {
         const headResponse = await fetch(publicUrl, { method: 'HEAD' });
         if (headResponse.ok) {
-          console.log('[TTS] cache hit', { voice, characters: text.length });
+          console.log('[TTS] cache hit', { voice, rate, characters: text.length });
           return postJson(res, 200, { success: true, url: publicUrl, cached: true });
         }
       } catch (headError) {
@@ -121,7 +140,7 @@ router.post('/speak', async (req, res) => {
       body: JSON.stringify({
         input: { text },
         voice: { languageCode: LANGUAGE_CODE, name: voice },
-        audioConfig: { audioEncoding: 'MP3' },
+        audioConfig: { audioEncoding: 'MP3', speakingRate: rate },
       }),
     });
 
@@ -138,7 +157,7 @@ router.post('/speak', async (req, res) => {
     // Usage tracking: character count per real (non-cached) API call, so
     // Railway logs can be grepped for "[TTS] usage" to tally spend against
     // the 1M free WaveNet characters/month.
-    console.log('[TTS] usage', { voice, characters: text.length, cached: false });
+    console.log('[TTS] usage', { voice, rate, characters: text.length, cached: false });
 
     const audioBuffer = Buffer.from(googlePayload.audioContent, 'base64');
 

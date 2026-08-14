@@ -13,7 +13,7 @@ import TabHeroHeader from '../components/TabHeroHeader';
 
 type Props = {
   navigation: any;
-  onOpenSidebar: () => void;
+  onGoBack: () => void;
   gradeLevel?: number;
   readingLevel?: string;
   onProfileChanged?: (profile: { full_name?: string; avatar_url?: string | null; avatar_key?: string | null }) => void;
@@ -27,7 +27,7 @@ type ProfileState = {
   achievements?: { id: string; unlockedAt?: string }[];
 };
 
-export default function StudentProfileScreen({ navigation, onOpenSidebar, gradeLevel, readingLevel, onProfileChanged }: Props) {
+export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel, readingLevel, onProfileChanged }: Props) {
   const [authUid, setAuthUid] = useState('');
   const [profile, setProfile] = useState<ProfileState>({});
   const [completedModules, setCompletedModules] = useState<ReadingModuleSummary[]>([]);
@@ -153,7 +153,7 @@ export default function StudentProfileScreen({ navigation, onOpenSidebar, gradeL
   return (
     <View style={{ flex: 1 }}>
       <TabHeroHeader
-        onMenuPress={onOpenSidebar}
+        onBackPress={onGoBack}
         title="My Profile"
         subtitle="Ipakita ang mga natapos mong parangal!"
         illustration={require('../../assets/trophy.webp')}
