@@ -20,6 +20,15 @@
         "buildType": "app-bundle"
       },
       "autoIncrement": true
+    },
+    "production-apk": {
+      "distribution": "internal",
+      "developmentClient": false,
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "autoIncrement": true
     }
   },
   "submit": {

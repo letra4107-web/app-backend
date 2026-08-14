@@ -532,8 +532,12 @@ export default function StudentDashboard({ navigation }: any) {
       // is genuinely finished - every other failure (network error, timeout,
       // 503 "temporarily unavailable") is transient and should offer a retry
       // instead of falsely telling the student they've completed the set.
+      // Note: ApiError's own .message is always the raw "<status> <statusText>"
+      // line (see ApiError in config/api.ts) - the backend's actual JSON message
+      // is on .data.message.
+      const backendMessage = error?.data?.message;
       setWordBankError(
-        error?.message === 'No personalized curriculum practice is available yet.' ? '' : (error?.message || 'Hindi ma-load ang susunod na practice item.'),
+        backendMessage === 'No personalized curriculum practice is available yet.' ? '' : (backendMessage || 'Hindi ma-load ang susunod na practice item.'),
       );
     } finally {
       setWordBankLoading(false);
@@ -2541,13 +2545,18 @@ export default function StudentDashboard({ navigation }: any) {
         )}
 
         {!recommendedItem && !wordBankLoading && !wordBankError && (
-          <View style={styles.completedTrackBanner}>
+          <TouchableOpacity
+            style={styles.completedTrackBanner}
+            onPress={() => setSection('learn')}
+            accessibilityRole="button"
+            accessibilityLabel="Go to Learn tab to take the module assessment"
+          >
             <Ionicons name="checkmark-circle" size={24} color={colors.success} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.completedTrackTitle, cardTitleA11y]}>Tapos na ang kasalukuyang curriculum set!</Text>
-              <Text style={[styles.completedTrackText, bodyA11y]}>Wala nang naka-lock na practice item sa antas na ito.</Text>
+              <Text style={[styles.completedTrackTitle, cardTitleA11y]}>Tapos na ang mga aralin sa modyul na ito!</Text>
+              <Text style={[styles.completedTrackText, bodyA11y]}>Puntahan ang Learn tab para kunin ang pagsusulit ng modyul.</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
 
         <TouchableOpacity
