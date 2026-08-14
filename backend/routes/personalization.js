@@ -82,6 +82,21 @@ const loadModuleScope = async (supabase, studentId, officialLevel = null) => {
     is_assessment: false,
     module_role: item.role,
   }));
+  const instructionalCount = curriculum.filter((item) => item.module_role !== 'assessment').length;
+  if (instructionalCount === 0) {
+    // The student's current unlocked module is a placeholder shell with no
+    // instructional content yet (e.g. an Advanced story module still
+    // awaiting its text) - report configured=false so the caller falls
+    // back to the legacy reading_content frontier instead of dead-ending
+    // on an empty module curriculum. Without this, any student unlocked
+    // into a content-less module (via normal progression or automatic
+    // grade placement) gets a 503 on Practice with no usable fallback,
+    // even when real legacy-frontier content exists at their level.
+    return {
+      data: { configured: false, currentModule, contentIds: [], curriculum: [] },
+      error: null,
+    };
+  }
   return {
     data: {
       configured: true,
