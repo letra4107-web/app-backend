@@ -2,6 +2,7 @@ const express = require('express');
 const { supabaseAdmin } = require('../config/supabase');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_ASSESSMENT_RESPONSES = 50;
 const bearerTokenFrom = (authorization = '') => {
   const match = String(authorization).match(/^Bearer\s+(.+)$/i);
   return match ? match[1].trim() : '';
@@ -79,12 +80,16 @@ const createModulesRouter = (supabase = supabaseAdmin) => {
     if (!UUID_PATTERN.test(req.params.attemptId)) {
       return res.status(400).json({ success: false, message: 'A valid attempt ID is required.' });
     }
+    // Question count is per-assessment (4 for Modules 1-16, 10 for Module 17's
+    // capstone) - submit_module_assessment itself is the source of truth on
+    // the correct count via reading_module_assessment_items, so this is just
+    // a well-formed-payload check, not a fixed-count one.
     const responses = Array.isArray(req.body?.responses) ? req.body.responses : null;
-    if (!responses || responses.length !== 4 || responses.some((response) => (
+    if (!responses || responses.length < 1 || responses.length > MAX_ASSESSMENT_RESPONSES || responses.some((response) => (
       !UUID_PATTERN.test(String(response?.assessmentItemId || ''))
       || !UUID_PATTERN.test(String(response?.contentAttemptId || ''))
     ))) {
-      return res.status(400).json({ success: false, message: 'Exactly four valid assessment responses are required.' });
+      return res.status(400).json({ success: false, message: 'At least one valid assessment response is required.' });
     }
     const { data, error } = await supabase.rpc('submit_module_assessment', {
       p_student_id: req.authenticatedStudentId,
