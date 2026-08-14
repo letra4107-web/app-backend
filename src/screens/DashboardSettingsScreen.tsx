@@ -107,6 +107,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   const [modal, setModal] = useState<AccountModal>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [micPermission, setMicPermission] = useState<MicPermissionState>('checking');
   const fade = useRef(new Animated.Value(0)).current;
@@ -790,24 +792,42 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             <Text style={[styles.modalTitle, dark && styles.textDark]}>{modal === 'password' ? 'Change Password' : 'Change Email'}</Text>
             {modal === 'password' ? (
               <>
-                <TextInput
-                  style={[styles.input, dark && styles.inputDark]}
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  placeholder="New password (at least 8 characters)"
-                  placeholderTextColor="#94a3b8"
-                />
-                <TextInput
-                  style={[styles.input, dark && styles.inputDark, { marginTop: 10 }]}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  placeholder="Confirm new password"
-                  placeholderTextColor="#94a3b8"
-                />
+                <View style={styles.passwordInputWrap}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput, dark && styles.inputDark]}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry={!showNewPassword}
+                    autoCapitalize="none"
+                    placeholder="New password (at least 8 characters)"
+                    placeholderTextColor="#94a3b8"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowNewPassword((v) => !v)}
+                    style={styles.passwordToggle}
+                    accessibilityLabel={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.passwordInputWrap}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput, dark && styles.inputDark]}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    placeholder="Confirm new password"
+                    placeholderTextColor="#94a3b8"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword((v) => !v)}
+                    style={styles.passwordToggle}
+                    accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
+                  </TouchableOpacity>
+                </View>
               </>
             ) : (
               <TextInput
@@ -947,6 +967,9 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   inputDark: { backgroundColor: '#111827', borderColor: '#334155', color: '#f8fafc' },
+  passwordInputWrap: { position: 'relative', justifyContent: 'center' },
+  passwordInput: { paddingRight: 44 },
+  passwordToggle: { position: 'absolute', right: 12, top: 10, bottom: 0, justifyContent: 'center' },
   readOnlyInput: { backgroundColor: '#F8F7FC' },
   primaryButton: { minHeight: 48, borderRadius: 999, marginTop: 12, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
   primaryButtonSmall: { minHeight: 44, borderRadius: 999, paddingHorizontal: 18, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center', flex: 1 },

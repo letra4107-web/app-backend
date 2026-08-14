@@ -3123,7 +3123,7 @@ export default function StudentDashboard({ navigation }: any) {
                   <Ionicons name="mic" size={16} color="#fff" />
                 </View>
                 <Text style={[styles.progressStatValue, { color: colors.vivid.orange }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>Pronunciation Accuracy</Text>
+                <Text style={[styles.progressStatLabel, statLabelA11y]}>{'Pronunciation\nAccuracy'}</Text>
               </View>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FFF3DC' }]}>
                 <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.amber }]}>
@@ -3140,13 +3140,20 @@ export default function StudentDashboard({ navigation }: any) {
               </View>
             </View>
           </View>
-          {avgAccuracy !== null ? (
+          {progress?.total_attempts ? (
             <View style={styles.progressHeroStatusPill}>
-              <Ionicons name="checkmark-circle" size={14} color={tierColor(avgAccuracy)} />
-              <Text style={[styles.progressHeroStatusText, { color: tierTextColor(avgAccuracy) }, bodyA11y]}>{tierMessage(avgAccuracy)}</Text>
+              <Ionicons name="checkmark-circle" size={14} color={tierColor(avgAccuracy ?? 0)} />
+              <Text style={[styles.progressHeroStatusText, { color: tierTextColor(avgAccuracy ?? 0) }, bodyA11y]}>{tierMessage(avgAccuracy ?? 0)}</Text>
             </View>
           ) : (
-            <Text style={[styles.progressHeroEmptyText, bodyA11y]}>Magsanay para makita ang iyong progress dito!</Text>
+            // Brand-new student (zero attempts, not just a low score) - a
+            // distinct fresh-start pill instead of reusing the "keep
+            // practicing" danger-tier message, which read as a discouraging
+            // judgment on someone who hasn't even started yet.
+            <View style={[styles.progressHeroStatusPill, { backgroundColor: '#E9F1E2' }]}>
+              <Ionicons name="sparkles" size={14} color={colors.sage} />
+              <Text style={[styles.progressHeroStatusText, { color: colors.sage }, bodyA11y]}>Bagong simula, magsimula na!</Text>
+            </View>
           )}
         </View>
 
@@ -4360,7 +4367,7 @@ const styles = StyleSheet.create({
   },
   progressStatIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   progressStatValue: { fontFamily: typography.family.displaySemi, fontSize: 20, marginTop: 2 },
-  progressStatLabel: { color: colors.inkSoft, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  progressStatLabel: { color: colors.inkSoft, fontSize: 11, fontWeight: '700', marginTop: 2, lineHeight: 14 },
   progressStreakBestPill: {
     flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, marginTop: 6,
@@ -4945,13 +4952,16 @@ const styles = StyleSheet.create({
   homeQuoteBanner: {
     position: 'relative', overflow: 'hidden',
     backgroundColor: '#FFF3DC', borderRadius: 20, paddingVertical: 18, paddingLeft: 18, paddingRight: 84,
-    marginTop: 4, marginBottom: 16, minHeight: 90, justifyContent: 'center',
+    marginTop: 4, marginBottom: 16, minHeight: 130, justifyContent: 'center',
   },
   homeQuoteText: { color: '#8A6416', fontWeight: '800', fontSize: 14, textAlign: 'left', lineHeight: 20, fontStyle: 'italic' },
-  // Same full-character, no-crop treatment as the hero's waving.png (1:2
-  // source ratio), just smaller - bleeds past the banner's bottom-right
-  // corner, clipped by the banner's own overflow:hidden.
-  homeQuoteImage: { position: 'absolute', right: -6, bottom: -12, width: 75, height: 150 },
+  // Full-character, no-crop treatment, bleeding past the banner's
+  // bottom-right corner (clipped by overflow:hidden there, by design). The
+  // banner's minHeight must stay >= this image's height + |bottom offset|
+  // (with a little headroom), or the character's head gets clipped by the
+  // banner's own top edge instead of a clean corner bleed - the bug this
+  // was fixing (image was 150 tall inside a 90-tall box).
+  homeQuoteImage: { position: 'absolute', right: -4, bottom: -12, width: 64, height: 128 },
   homeQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   homeQuickCard: {
     flex: 1, borderRadius: 20, paddingVertical: 16, alignItems: 'center', minHeight: 88, justifyContent: 'center',
