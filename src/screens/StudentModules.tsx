@@ -287,10 +287,23 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
       <ScrollView contentContainerStyle={styles.pathBody}>
         {topSection}
         <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={[styles.scopeText, bodyA11y]}>Sundin ang iyong module path sa ibaba. May dagdag pang laman na darating.</Text></View>
+        {!!path?.effective_level && (
+          <View style={styles.levelPill}>
+            <Ionicons name="ribbon" size={14} color={colors.lavenderDark} />
+            <Text style={[styles.levelPillText, bodyA11y]}>Kasalukuyang Antas: {path.effective_level}</Text>
+          </View>
+        )}
         <Text style={[styles.sectionTitle, sectionTitleA11y]}>Ang Iyong Landas ng Modyul</Text>
         {path?.modules.map((module, index) => {
           const meta = stateMeta[module.state];
           const pct = module.content_item_count ? Math.round((module.completed_content_item_count / module.content_item_count) * 100) : 0;
+          // Modules unlock in order, so the reason a locked module is locked
+          // is always "finish the nearest not-yet-completed module before
+          // it" - computed here from the already-fetched path rather than
+          // needing a new backend field.
+          const previousIncomplete = module.state === 'locked'
+            ? path?.modules.slice(0, index).reverse().find((m) => m.state !== 'completed')
+            : null;
           return <View key={module.id} style={styles.moduleRow}>
             <View style={styles.rail}><View style={[styles.moduleNumber, { backgroundColor: meta.color }]}>{module.state === 'completed' ? <Ionicons name="checkmark" size={20} color="#fff" /> : <Text style={styles.moduleNumberText}>{module.module_number}</Text>}</View>{index < (path?.modules.length || 0) - 1 && <View style={[styles.railLine, module.state === 'completed' && { backgroundColor: colors.sage }]} />}</View>
             <TouchableOpacity style={[styles.moduleCard, module.state === 'locked' && styles.moduleCardLocked]} disabled={module.state === 'locked'} onPress={() => void openModule(module)}>
@@ -303,6 +316,9 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
                 </View>
               </View>
               <Text style={[styles.moduleMeta, bodyA11y]}>{module.content_item_count} {contentTypeLabel(module.instructional_content_type).toLowerCase()} · Pasa: {module.assessment_pass_percentage}%</Text>
+              {previousIncomplete && (
+                <Text style={[styles.lockedReasonText, bodyA11y]}>Tapusin muna ang Modyul {previousIncomplete.module_number}</Text>
+              )}
               {module.state !== 'locked' && <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${module.state === 'completed' ? 100 : pct}%` }]} /></View>}
             </TouchableOpacity>
           </View>;
@@ -332,6 +348,12 @@ const styles = StyleSheet.create({
   scopeNote: { flexDirection: 'row', gap: 9, backgroundColor: '#EFECFB', padding: 13, borderRadius: radius.sm, marginBottom: 20 },
   scopeText: { flex: 1, color: colors.inkSoft, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   sectionTitle: { color: colors.ink, fontSize: 18, fontFamily: typography.family.display, marginBottom: 13 },
+  levelPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
+    backgroundColor: '#EFECFB', borderRadius: radius.pill, paddingHorizontal: 13, paddingVertical: 7, marginBottom: 16,
+  },
+  levelPillText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
+  lockedReasonText: { color: colors.inkSoft, fontSize: 11, fontWeight: '700', marginTop: 8 },
   moduleRow: { flexDirection: 'row', alignItems: 'stretch' },
   rail: { width: 42, alignItems: 'center' },
   moduleNumber: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
