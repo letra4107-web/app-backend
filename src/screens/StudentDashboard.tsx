@@ -202,7 +202,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [readingContent, setReadingContent] = useState<ReadingContentItem[]>([]);
   const [completedContentIds, setCompletedContentIds] = useState<Set<string>>(new Set());
   const [officialProgression, setOfficialProgression] = useState<OfficialReadingProgress | null>(null);
-  type Section = 'home' | 'learn' | 'practice' | 'progress' | 'achievements' | 'notifications' | 'settings' | 'profile';
+  type Section = 'home' | 'learn' | 'practice' | 'achievements' | 'notifications' | 'settings' | 'profile';
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -1025,7 +1025,7 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       await markLessonCompleted(child.id, lesson.id);
       void loadLessonProgress(child.id);
-      await notifyStudent('Lesson Completed!', `${child?.name || 'Student'} finished "${lesson.title}". Great work!`, 'lesson');
+      await notifyStudent('Tapos na ang Aralin!', `Natapos mo ang "${lesson.title}". Magaling!`, 'lesson');
     } catch {
       Alert.alert('May Problema', 'Hindi na-save ang progress. Subukan muli.');
     }
@@ -1625,12 +1625,6 @@ export default function StudentDashboard({ navigation }: any) {
     // day boundary tracked yet. A true calendar-day version (reset at real
     // midnight, independent of attempt count) is a separate future task -
     // this is the existing, real mechanic, not a placeholder to fix now.
-    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
-    const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
-
-    // Same all-time-average formula the Progress tab's accuracy ring uses.
-    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
-
     // Continue Learning: the same real in-progress-lesson lookup the Learn
     // tab uses - most-recently-opened lesson still marked in_progress.
     const inProgressRows = lessonProgress
@@ -1671,7 +1665,7 @@ export default function StudentDashboard({ navigation }: any) {
       key: `pron-${s.created_at}-${idx}`,
       kind: 'pronunciation' as const,
       title: s.word,
-      detail: `${Math.round(s.accuracy_percentage || 0)}% accuracy`,
+      detail: (s.accuracy_percentage || 0) >= 80 ? 'Magaling na bigkas' : 'Nagsanay ng bigkas',
       timestamp: s.created_at,
     }));
     const recentActivityItems = [...lessonActivityItems, ...pronunciationActivityItems]
@@ -1762,13 +1756,14 @@ export default function StudentDashboard({ navigation }: any) {
             )}
           </View>
 
-          {/* Today's Reading Progress — real daily-goal data (same mechanic as
-              the Practice tab's step-dots; resets every 5 attempts, not at
-              midnight, since there's no calendar-day tracking yet) */}
+          {/* Encouragement card — deliberately no exact numbers/percentages
+              here. Detailed progress/accuracy stats are parent-only now
+              (see Parent dashboard's Child Progress screen); the student
+              side keeps only non-numeric encouragement plus the practice CTA. */}
           <View style={styles.homeTodayCard}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.homeTodayTitle, cardTitleA11y]}>Progreso sa{'\n'}Pagbasa Ngayon</Text>
-              <Text style={[styles.homeTodayStatLine, bodyA11y]}>{goalDone} of {DAILY_GOAL} pagsasanay ngayon</Text>
+              <Text style={[styles.homeTodayTitle, cardTitleA11y]}>Handa ka na{'\n'}bang magsanay?</Text>
+              <Text style={[styles.homeTodayStatLine, bodyA11y]}>Bawat pagsasanay ay isang hakbang pasulong!</Text>
               <TouchableOpacity
                 style={styles.homeTodayButton}
                 onPress={() => goToPractice()}
@@ -1778,44 +1773,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={[styles.homeTodayButtonText, buttonA11y]}>Ipagpatuloy ang Pagsasanay</Text>
               </TouchableOpacity>
             </View>
-            <ProgressRing percent={goalPct} color={colors.lavender} trackColor="rgba(124,111,207,0.15)">
-              <Text style={[styles.homeTodayRingPct, statValueA11y]}>{goalPct}%</Text>
-              <Text style={[styles.homeTodayRingLabel, smallLabelA11y]}>Kumpleto</Text>
-            </ProgressRing>
-          </View>
-
-          {/* Quick Stats 2x2 grid — Words Practiced, Reading Accuracy,
-              Practice Sessions, Current Streak, all real fields */}
-          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Mabilisang Estadistika</Text>
-          <View style={styles.homeStatGrid}>
-            <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
-                <Ionicons name="book" size={18} color="#fff" />
-              </View>
-              <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{stats.completed}</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
-            </View>
-            <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
-                <Ionicons name="locate" size={18} color="#fff" />
-              </View>
-              <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Kawastuhan sa Pagbasa</Text>
-            </View>
-            <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.violet }]}>
-                <Ionicons name="bar-chart" size={18} color="#fff" />
-              </View>
-              <Text style={[styles.homeGridValue, { color: colors.vivid.violet }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Sesyon ng Pagsasanay</Text>
-            </View>
-            <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
-              <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
-                <Ionicons name="flame" size={18} color="#fff" />
-              </View>
-              <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.streak} Araw</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Kasalukuyang Sunod-sunod na Araw</Text>
-            </View>
+            <Image source={require('../../assets/thumbsup.webp')} style={{ width: 84, height: 84 }} resizeMode="contain" />
           </View>
 
           {/* Continue Learning — real in-progress lesson + inferred
@@ -1873,10 +1831,12 @@ export default function StudentDashboard({ navigation }: any) {
                 <View style={styles.homeHeroBadge}>
                   <Text style={[styles.homeHeroBadgeText, smallLabelA11y]}>📅 SALITA NGAYON</Text>
                 </View>
-                <View style={styles.homeHeroStreakPill}>
-                  <Ionicons name="flame" size={13} color="#fff" />
-                  <Text style={[styles.homeHeroStreakText, smallLabelA11y]}>{stats.streak} {stats.streak === 1 ? 'DAY' : 'DAYS'}</Text>
-                </View>
+                {stats.streak > 0 && (
+                  <View style={styles.homeHeroStreakPill}>
+                    <Ionicons name="flame" size={13} color="#fff" />
+                    <Text style={[styles.homeHeroStreakText, smallLabelA11y]}>SUNOD-SUNOD!</Text>
+                  </View>
+                )}
               </View>
               <Text style={[styles.homeHeroSub, bodyA11y]}>Bigkasin ang salitang ito nang tama!</Text>
               <ErrorBoundary
@@ -1928,7 +1888,7 @@ export default function StudentDashboard({ navigation }: any) {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.homeRecentActivityTitle, cardSubtitleA11y]}>{item.kind === 'lesson' ? 'Lesson Completed' : 'Pronunciation Practice'}</Text>
+                  <Text style={[styles.homeRecentActivityTitle, cardSubtitleA11y]}>{item.kind === 'lesson' ? 'Tapos na ang Aralin' : 'Pagsasanay sa Bigkas'}</Text>
                   <Text style={[styles.homeRecentActivityDetail, smallLabelA11y]}>{item.title} • {item.detail}</Text>
                 </View>
                 <Text style={[styles.homeRecentActivityTime, smallLabelA11y]}>{formatActivityTime(item.timestamp)}</Text>
@@ -1972,14 +1932,14 @@ export default function StudentDashboard({ navigation }: any) {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.homeQuickCard, { backgroundColor: '#E9F1E2' }]}
-              onPress={() => setSection('progress')}
+              onPress={() => setSection('achievements')}
               accessibilityRole="button"
-              accessibilityLabel="Go to Progress"
+              accessibilityLabel="Go to Badges"
             >
               <View style={[styles.homeQuickIconWrap, { backgroundColor: colors.sage }]}>
-                <Ionicons name="analytics-outline" size={20} color="#fff" />
+                <Ionicons name="ribbon-outline" size={20} color="#fff" />
               </View>
-              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Progreso</Text>
+              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Parangal</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -2011,10 +1971,6 @@ export default function StudentDashboard({ navigation }: any) {
     const recommendedItem = currentPracticeItem;
 
     const wordsPracticedToday = todaySessions.length;
-    const correctToday = todaySessions.filter((s) => s.is_correct).length;
-    const accuracyToday = todaySessions.length
-      ? Math.round(todaySessions.reduce((sum, s) => sum + (s.accuracy_percentage || 0), 0) / todaySessions.length)
-      : 0;
 
     const startWord = (word: string, mode: 'say' | 'listen', contentId?: string | null) => {
       setPracticeMode(mode);
@@ -2199,31 +2155,17 @@ export default function StudentDashboard({ navigation }: any) {
       startWord(recommendedItem.contentText, 'say', recommendedItem.id);
     };
 
+    // Deliberately non-numeric — exact word counts/accuracy percentages are
+    // parent-only now (see Parent dashboard's Child Progress screen).
     const renderSessionProgressCard = () => (
       <View style={styles.practiceStatsCard}>
-        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Progreso ng Sesyon</Text>
         <View style={styles.practiceStatsRow}>
-          <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.navy }]}>
-              <Ionicons name="bar-chart" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.practiceStatsValue, statValueA11y]}>{wordsPracticedToday}</Text>
-            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
+          <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.green }]}>
+            <Ionicons name="happy" size={22} color="#fff" />
           </View>
-          <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.green }]}>
-              <Ionicons name="checkmark-circle" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.practiceStatsValue, statValueA11y]}>{correctToday}</Text>
-            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Tamang Bigkas</Text>
-          </View>
-          <View style={styles.practiceStatsCol}>
-            <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.orange }]}>
-              <Ionicons name="locate" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.practiceStatsValue, statValueA11y]}>{accuracyToday}%</Text>
-            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Karaniwang Kawastuhan</Text>
-          </View>
+          <Text style={[styles.practiceSectionTitle, cardTitleA11y, { flex: 1 }]}>
+            {wordsPracticedToday > 0 ? 'Magaling! Ipagpatuloy mo ang pagsasanay!' : 'Handa ka na bang magsanay?'}
+          </Text>
         </View>
       </View>
     );
@@ -2439,7 +2381,6 @@ export default function StudentDashboard({ navigation }: any) {
     }
 
     const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
-    const goalPct = Math.round((goalDone / DAILY_GOAL) * 100);
 
     return (
       <View style={{ flex: 1 }}>
@@ -2456,14 +2397,6 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.goalCard}>
           <View style={styles.goalTopRow}>
             <Text style={[styles.goalTitle, cardTitleA11y]}>Pagsasanay Ngayon</Text>
-            {goalDone > 0 ? (
-              <Text style={[styles.goalCount, statLabelA11y]}>{goalDone}/{DAILY_GOAL}</Text>
-            ) : (
-              <Text style={[styles.goalCountEmpty, statLabelA11y]}>Bagong simula!</Text>
-            )}
-          </View>
-          <View style={styles.goalTrack}>
-            <View style={[styles.goalTrackFill, { width: `${Math.max(4, goalPct)}%` }]} />
           </View>
           <Text style={[styles.goalEmptyNote, bodyA11y]}>
             {goalDone === 0 ? 'Simulan ang unang pagsasanay ngayon! 🌱' : '✨ Ang galing! Ipagpatuloy mo!'}
@@ -2474,7 +2407,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name="star" size={13} color={colors.coral} />
               </View>
               <Text style={[styles.rewardText, { color: colors.coral }, smallLabelA11y]}>
-                {stats.xp > 0 ? `${stats.xp} XP` : 'Simulan ang XP mo!'}
+                {stats.xp > 0 ? 'Kumikita ng XP!' : 'Simulan ang XP mo!'}
               </Text>
             </View>
             <View style={[styles.rewardPill, { backgroundColor: '#FFF3DC' }]}>
@@ -2482,7 +2415,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name="flame" size={13} color={colors.sun} />
               </View>
               <Text style={[styles.rewardText, { color: colors.sun }, smallLabelA11y]}>
-                {stats.streak > 0 ? `${stats.streak} streak` : 'Simulan ang streak!'}
+                {stats.streak > 0 ? 'May-init ang streak mo!' : 'Simulan ang streak!'}
               </Text>
             </View>
             <View style={[styles.rewardPill, { backgroundColor: '#EFECFB' }]}>
@@ -2490,7 +2423,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name="ribbon" size={13} color={colors.lavenderDark} />
               </View>
               <Text style={[styles.rewardText, { color: colors.lavenderDark }, smallLabelA11y]}>
-                {(progress?.achievements?.length || 0) > 0 ? `${progress?.achievements?.length} badges` : 'Kumuha ng unang badge!'}
+                {(progress?.achievements?.length || 0) > 0 ? 'May mga parangal ka na!' : 'Kumuha ng unang parangal!'}
               </Text>
             </View>
           </View>
@@ -2960,464 +2893,6 @@ export default function StudentDashboard({ navigation }: any) {
     );
   };
 
-  const renderProgress = () => {
-    const avgAccuracy = progress ? Math.round(averageAccuracy(progress)) : null;
-    const tierColor = (pct: number) => (pct >= 80 ? colors.success : pct >= 60 ? colors.warning : colors.danger);
-    // Text-safe variant for the same tiers - used wherever the color paints
-    // Text rather than a background/icon/border.
-    const tierTextColor = (pct: number) => (pct >= 80 ? colors.success : pct >= 60 ? colors.warningText : colors.dangerText);
-    const tierMessage = (pct: number) =>
-      pct >= 80 ? 'Napakagaling ng progreso mo!' : pct >= 60 ? 'Sige lang, umaangat ka!' : 'Ipagpatuloy ang pagsasanay!';
-    const maxBarHeight = 90;
-    const completedWords = progress?.completed_words || [];
-    const lessonsCompletedCount = lessonProgress.filter((p) => p.status === 'completed').length;
-    // Personal-best streak (021_longest_streak.sql) - never lower than the
-    // live current streak, which itself can reset to 0. Falls back to the
-    // current streak if the column hasn't been migrated yet for this row.
-    const longestStreak = Math.max(progress?.longest_streak || 0, progress?.streak || 0);
-
-    const monthKey = new Date().toISOString().slice(0, 7);
-
-    // Weekly accuracy trend — real sessions grouped by calendar day (last 7 days)
-    const dayLabels = ['Lin', 'Lun', 'Mar', 'Miy', 'Huw', 'Biy', 'Sab'];
-    const last7Days = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - (6 - i));
-      return d;
-    });
-    const weeklyTrend = last7Days.map((day) => {
-      const dayKey = day.toISOString().slice(0, 10);
-      const daySessions = recentSessions.filter((s) => (s.created_at || '').slice(0, 10) === dayKey);
-      const avg = daySessions.length
-        ? Math.round(daySessions.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / daySessions.length)
-        : null;
-      return { label: dayLabels[day.getDay()], pct: avg };
-    });
-    const daysWithData = weeklyTrend.filter((d) => d.pct !== null);
-    const trendImproving = daysWithData.length >= 2 && (daysWithData[daysWithData.length - 1].pct || 0) >= (daysWithData[0].pct || 0);
-
-    // Weekly Reading Activity — real session COUNT per day (distinct from
-    // the accuracy trend above), same last7Days/dayLabels, same hand-built
-    // View-height-percentage bar technique - no charting library.
-    const weeklyActivity = last7Days.map((day) => {
-      const dayKey = day.toISOString().slice(0, 10);
-      const count = recentSessions.filter((s) => (s.created_at || '').slice(0, 10) === dayKey).length;
-      return { label: dayLabels[day.getDay()], count };
-    });
-    const sessionsThisWeek = weeklyActivity.reduce((sum, d) => sum + d.count, 0);
-    const maxWeeklyCount = Math.max(1, ...weeklyActivity.map((d) => d.count));
-
-    // My Reading Skills — real categories derived from actual word shape
-    // (see categorizeWord), scored from actual pronunciation session rows.
-    // Only 3 real rows exist (letters/syllables/words) - no "Sentence
-    // Reading" (nothing sentence-level is tracked anywhere) and no separate
-    // "Pronunciation" row (every row here already IS a pronunciation-scored
-    // measurement, so a 5th row would double-count the same data).
-    const skillGroups: Record<SkillCategory, { count: number; sum: number }> = {
-      letters: { count: 0, sum: 0 },
-      syllables: { count: 0, sum: 0 },
-      words: { count: 0, sum: 0 },
-    };
-    recentSessions.forEach((s) => {
-      const cat = categorizeWord(s.word);
-      skillGroups[cat].count += 1;
-      skillGroups[cat].sum += Number(s.accuracy_percentage) || 0;
-    });
-    const skillMeta: { key: SkillCategory; label: string; icon: string }[] = [
-      { key: 'letters', label: 'Pagkilala ng Letra', icon: 'text' },
-      { key: 'syllables', label: 'Pagbasa ng Pantig', icon: 'reader' },
-      { key: 'words', label: 'Pagbasa ng Salita', icon: 'book' },
-    ];
-    const skillTag = (avg: number | null) =>
-      avg === null
-        ? { label: 'Wala Pang Sinubukan', color: colors.inkSoft, textColor: colors.inkSoft }
-        : avg >= 80
-        ? { label: 'Malakas', color: colors.success, textColor: colors.success }
-        : avg >= 60
-        ? { label: 'Umuunlad', color: colors.warning, textColor: colors.warningText }
-        : { label: 'Ipagpatuloy ang Pagsasanay', color: colors.danger, textColor: colors.dangerText };
-
-    // This Month — real month-scoped aggregations, not lifetime totals.
-    const lessonsCompletedThisMonth = lessonProgress.filter(
-      (p) => p.status === 'completed' && !!p.completed_at && (p.completed_at as string).slice(0, 7) === monthKey
-    ).length;
-    const monthSessions = recentSessions.filter((s) => (s.created_at || '').slice(0, 7) === monthKey);
-    const wordsReadThisMonth = new Set(monthSessions.map((s) => s.word)).size;
-    const monthAvgAccuracy = monthSessions.length
-      ? Math.round(monthSessions.reduce((sum, s) => sum + (Number(s.accuracy_percentage) || 0), 0) / monthSessions.length)
-      : null;
-
-    // Recent Activity — merged real feed (same pattern as the Home tab):
-    // whatever mix of completed lessons and pronunciation sessions actually
-    // happened, sorted by real timestamp, not a fabricated fixed layout.
-    type RecentActivityItem = { key: string; kind: 'lesson' | 'pronunciation'; title: string; detail: string; timestamp: string };
-    const lessonActivityItems: RecentActivityItem[] = lessonProgress
-      .filter((p) => p.status === 'completed' && !!p.completed_at)
-      .map((p) => ({
-        key: `lesson-${p.id}`,
-        kind: 'lesson' as const,
-        title: lessons.find((l) => l.id === p.lesson_id)?.title || 'Aralin',
-        detail: 'Nakumpleto na',
-        timestamp: p.completed_at as string,
-      }));
-    const pronunciationActivityItems: RecentActivityItem[] = recentSessions.slice(0, 10).map((s, idx) => ({
-      key: `pron-${s.created_at}-${idx}`,
-      kind: 'pronunciation' as const,
-      title: s.word,
-      detail: `${Math.round(Number(s.accuracy_percentage) || 0)}% accuracy`,
-      timestamp: s.created_at,
-    }));
-    const recentActivityItems = [...lessonActivityItems, ...pronunciationActivityItems]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 4);
-    const formatActivityTime = (iso: string) => {
-      const date = new Date(iso);
-      const now = new Date();
-      const isToday = date.toDateString() === now.toDateString();
-      const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      return isToday ? `Today ${time}` : `${date.toLocaleDateString()} ${time}`;
-    };
-
-    return (
-      <>
-        {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
-        <TabHeroHeader
-          onMenuPress={openSidebar}
-          title={'Aking Progreso\nsa Pagbasa'}
-          subtitle="Tingnan kung gaano ka na umunlad sa iyong paglalakbay sa pagbasa."
-          illustration={require('../../assets/clipboard.webp')}
-          illustrationStyle={styles.progressHeroImage}
-          titleA11yStyle={heroTitleA11yStyle}
-          subtitleA11yStyle={heroSubtitleA11yStyle}
-        />
-
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-        <View style={styles.progressHeroCard}>
-          <Text style={[styles.progressHeroTitle, cardTitleA11y]}>Kabuuang Progreso sa Pagbasa</Text>
-          <View style={styles.progressOverallRow}>
-            <View style={styles.progressOverallCol}>
-              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#EFECFB' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.violet }]}>
-                  <Ionicons name="school" size={16} color="#fff" />
-                </View>
-                <Text style={[styles.progressStatValue, { color: colors.vivid.violet }, statValueA11y]}>{lessonsCompletedCount}</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>Mga Natapos na Aralin</Text>
-              </View>
-              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#E9F1E2' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.green }]}>
-                  <Ionicons name="book" size={16} color="#fff" />
-                </View>
-                <Text style={[styles.progressStatValue, { color: colors.vivid.green }, statValueA11y]}>{stats.completed}</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
-              </View>
-            </View>
-            <View style={styles.progressRingShadowWrap}>
-              <ProgressRing
-                percent={avgAccuracy ?? 0}
-                size={112}
-                strokeWidth={12}
-                color={colors.lavenderDark}
-                trackColor="rgba(124,111,207,0.12)"
-                gradientColors={[colors.heroGradient[1], colors.heroGradient[0]]}
-                gradientId="progressOverallRing"
-              >
-                <Text style={[styles.progressHeroRingPct, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-                <Text style={[styles.progressHeroRingLabel, smallLabelA11y]}>Kumpleto</Text>
-              </ProgressRing>
-            </View>
-            <View style={styles.progressOverallCol}>
-              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FBE7DF' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.orange }]}>
-                  <Ionicons name="mic" size={16} color="#fff" />
-                </View>
-                <Text style={[styles.progressStatValue, { color: colors.vivid.orange }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>{'Kawastuhan sa\nBigkas'}</Text>
-              </View>
-              <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FFF3DC' }]}>
-                <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.amber }]}>
-                  <Ionicons name="flame" size={16} color="#fff" />
-                </View>
-                <Text style={[styles.progressStatValue, { color: colors.vivid.amber }, statValueA11y]}>{progress?.streak || 0} Araw</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>Kasalukuyang Sunod-sunod na Araw</Text>
-                {longestStreak > 0 && (
-                  <View style={styles.progressStreakBestPill}>
-                    <Ionicons name="star" size={9} color={XP_GOLD} />
-                    <Text style={[styles.progressStreakBestText, smallLabelA11y]}>Pinakamahusay: {longestStreak}d</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-          {progress?.total_attempts ? (
-            <View style={styles.progressHeroStatusPill}>
-              <Ionicons name="checkmark-circle" size={14} color={tierColor(avgAccuracy ?? 0)} />
-              <Text style={[styles.progressHeroStatusText, { color: tierTextColor(avgAccuracy ?? 0) }, bodyA11y]}>{tierMessage(avgAccuracy ?? 0)}</Text>
-            </View>
-          ) : (
-            // Brand-new student (zero attempts, not just a low score) - a
-            // distinct fresh-start pill instead of reusing the "keep
-            // practicing" danger-tier message, which read as a discouraging
-            // judgment on someone who hasn't even started yet.
-            <View style={[styles.progressHeroStatusPill, { backgroundColor: '#E9F1E2' }]}>
-              <Ionicons name="sparkles" size={14} color={colors.sage} />
-              <Text style={[styles.progressHeroStatusText, { color: colors.sage }, bodyA11y]}>Bagong simula, magsimula na!</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.teal }]}>
-            <Ionicons name="ribbon" size={14} color="#fff" />
-          </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Kasanayan sa Pagbasa</Text>
-        </View>
-        <View style={styles.skillsCard}>
-          {skillMeta.map(({ key, label, icon }, idx) => {
-            const group = skillGroups[key];
-            const avg = group.count > 0 ? Math.round(group.sum / group.count) : null;
-            const tag = skillTag(avg);
-            return (
-              <View key={key} style={[styles.skillRow, idx === skillMeta.length - 1 && { marginBottom: 0 }]}>
-                <View style={[styles.skillIconWrap, { backgroundColor: tag.color }]}>
-                  <Ionicons name={icon as any} size={18} color="#fff" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.skillTopRow}>
-                    <Text style={[styles.skillLabel, cardSubtitleA11y]}>{label}</Text>
-                    <View style={[styles.skillTagPill, { backgroundColor: `${tag.color}22` }]}>
-                      <Text style={[styles.skillTagText, { color: tag.textColor }, smallLabelA11y]}>{tag.label}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.skillTrackRow}>
-                    <View style={styles.skillTrack}>
-                      <View style={[styles.skillTrackFill, { width: `${avg ? Math.max(4, avg) : 0}%`, backgroundColor: tag.color }]} />
-                    </View>
-                    <Text style={[styles.skillPct, smallLabelA11y]}>{avg !== null ? `${avg}%` : '—'}</Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Weekly Reading Activity — real session COUNT per day (separate
-            metric from the "Reading Accuracy" trend chart above) */}
-        <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.violet }]}>
-            <Ionicons name="bar-chart" size={14} color="#fff" />
-          </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Lingguhang Aktibidad sa Pagbasa</Text>
-        </View>
-        <View style={styles.progressChartCard}>
-          {sessionsThisWeek > 0 ? (
-            <View style={styles.progressChartBars}>
-              {weeklyActivity.map((day, i) => (
-                <View key={i} style={styles.progressChartBarCol}>
-                  {day.count > 0 && <Text style={[styles.progressChartBarValue, { color: colors.lavenderDark }, smallLabelA11y]}>{day.count}</Text>}
-                  <LinearGradient
-                    colors={[colors.lavender, colors.lavenderDark]}
-                    style={[
-                      styles.progressChartBar,
-                      { height: Math.max(6, Math.round((day.count / maxWeeklyCount) * maxBarHeight)) },
-                    ]}
-                    accessible
-                    accessibilityLabel={`${day.label}: ${day.count} session${day.count === 1 ? '' : 's'}`}
-                  />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.progressChartEmpty}>
-              <Ionicons name="bar-chart-outline" size={32} color={colors.lavender} />
-              <Text style={[styles.progressChartEmptyText, bodyA11y]}>Wala ka pang sesyon ng pagsasanay ngayong linggo.</Text>
-            </View>
-          )}
-          <View style={styles.progressChartDayRow}>
-            {weeklyActivity.map((day, i) => (
-              <Text key={i} style={[styles.progressChartDayLabel, smallLabelA11y]}>{day.label}</Text>
-            ))}
-          </View>
-          <View style={styles.progressTrendMsgRow}>
-            <Ionicons name="calendar" size={14} color={colors.lavenderDark} />
-            <Text style={styles.progressTrendMsgText}>{sessionsThisWeek} Pagsasanay Ngayong Linggo</Text>
-          </View>
-        </View>
-
-        {/* Weekly accuracy trend — real sessions grouped by day */}
-        <View style={styles.progressChartCard}>
-          <View style={styles.progressChartHeader}>
-            <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.coral }]}>
-              <Ionicons name="analytics" size={14} color="#fff" />
-            </View>
-            <Text style={[styles.progressChartTitle, cardTitleA11y]}>Kawastuhan sa Pagbasa</Text>
-          </View>
-          {daysWithData.length >= 2 ? (
-            <>
-              <View style={styles.progressChartBars}>
-                {weeklyTrend.map((day, i) => {
-                  const color = day.pct !== null ? tierColor(day.pct) : 'rgba(124,111,207,0.12)';
-                  const textColor = day.pct !== null ? tierTextColor(day.pct) : color;
-                  return (
-                    <View key={i} style={styles.progressChartBarCol}>
-                      {day.pct !== null && <Text style={[styles.progressChartBarValue, { color: textColor }, smallLabelA11y]}>{day.pct}%</Text>}
-                      <LinearGradient
-                        colors={day.pct !== null ? [`${color}99`, color] : [color, color]}
-                        style={[
-                          styles.progressChartBar,
-                          { height: day.pct !== null ? Math.max(6, Math.round((day.pct / 100) * maxBarHeight)) : 6 },
-                        ]}
-                        accessible
-                        accessibilityLabel={day.pct !== null ? `${day.label}: ${day.pct}%` : `${day.label}: walang datos`}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-              <View style={styles.progressChartDayRow}>
-                {weeklyTrend.map((day, i) => (
-                  <Text key={i} style={[styles.progressChartDayLabel, smallLabelA11y]}>{day.label}</Text>
-                ))}
-              </View>
-              <View style={styles.progressChartLegend}>
-                <View style={styles.progressLegendItem}>
-                  <View style={[styles.progressLegendDot, { backgroundColor: colors.success }]} />
-                  <Text style={[styles.progressLegendText, smallLabelA11y]}>Magaling (80%+)</Text>
-                </View>
-                <View style={styles.progressLegendItem}>
-                  <View style={[styles.progressLegendDot, { backgroundColor: colors.warning }]} />
-                  <Text style={[styles.progressLegendText, smallLabelA11y]}>Sige lang (60-79%)</Text>
-                </View>
-                <View style={styles.progressLegendItem}>
-                  <View style={[styles.progressLegendDot, { backgroundColor: colors.danger }]} />
-                  <Text style={[styles.progressLegendText, smallLabelA11y]}>Mas mababa sa 60%</Text>
-                </View>
-              </View>
-              <View style={styles.progressTrendMsgRow}>
-                <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                <Text style={[styles.progressTrendMsgText, bodyA11y]}>
-                  {trendImproving ? 'Umuunlad ang kawastuhan mo!' : 'Magpatuloy sa pagsasanay!'}
-                </Text>
-              </View>
-            </>
-          ) : (
-            <View style={styles.progressChartEmpty}>
-              <Ionicons name="analytics-outline" size={32} color={colors.lavender} />
-              <Text style={[styles.progressChartEmptyText, bodyA11y]}>
-                Magsanay pa ng ilang beses para makita ang iyong progress chart dito!
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* This Month — real month-scoped aggregations (lessonsCompletedThisMonth,
-            wordsReadThisMonth, monthAvgAccuracy) plus the real longestStreak
-            personal-best, not lifetime totals repeated */}
-        <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.navy }]}>
-            <Ionicons name="calendar" size={14} color="#fff" />
-          </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Ngayong Buwan</Text>
-        </View>
-        <View style={styles.progressMonthGrid}>
-          <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.violet }]}>
-              <Ionicons name="trophy" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.violet }, statValueA11y]}>{lessonsCompletedThisMonth}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Natapos na Aralin</Text>
-          </View>
-          <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
-              <Ionicons name="book" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{wordsReadThisMonth}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Salitang Nabasa</Text>
-          </View>
-          <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
-              <Ionicons name="locate" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{monthAvgAccuracy !== null ? `${monthAvgAccuracy}%` : '--'}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Karaniwang Kawastuhan</Text>
-          </View>
-          <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
-            {longestStreak > 0 && (
-              <View style={styles.progressPbBadge}>
-                <Ionicons name="star" size={9} color="#fff" />
-                <Text style={[styles.progressPbBadgeText, smallLabelA11y]}>PB</Text>
-              </View>
-            )}
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
-              <Ionicons name="flame" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{longestStreak} Day{longestStreak === 1 ? '' : 's'}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Pinakamahabang Sunod-sunod na Araw</Text>
-          </View>
-        </View>
-
-        <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.sage }]}>
-            <Ionicons name="time" size={14} color="#fff" />
-          </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Kamakailang Aktibidad</Text>
-        </View>
-        {recentActivityItems.length ? (
-          <View style={styles.learnCardList}>
-            {recentActivityItems.map((item) => (
-              <View key={item.key} style={styles.homeRecentActivityCard}>
-                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
-                  <Ionicons
-                    name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
-                    size={20}
-                    color={item.kind === 'lesson' ? colors.sage : colors.lavenderDark}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.homeRecentActivityTitle, cardSubtitleA11y]}>
-                    {item.kind === 'lesson' ? `Completed "${item.title}"` : 'Practice Pronunciation Accuracy'}
-                  </Text>
-                  <Text style={[styles.homeRecentActivityDetail, smallLabelA11y]}>
-                    {item.kind === 'lesson' ? item.detail : `${item.title} • ${item.detail}`}
-                  </Text>
-                </View>
-                <Text style={[styles.homeRecentActivityTime, smallLabelA11y]}>{formatActivityTime(item.timestamp)}</Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
-            <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala ka pang sesyon ng pagsasanay. Simulan na sa tab na Pagsasanay!</Text>
-          </View>
-        )}
-
-        <View style={styles.progressWordsCard}>
-          <View style={styles.progressSectionHeader}>
-            <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.lavenderDark }]}>
-              <Ionicons name="checkmark-done" size={14} color="#fff" />
-            </View>
-            <Text style={[styles.progressWordsTitle, styles.progressSectionTitleText, cardTitleA11y]}>Mga Salitang Natapos</Text>
-          </View>
-          {completedWords.length ? (
-            <View style={styles.progressWordsWrap}>
-              {completedWords.slice(0, 8).map((w) => (
-                <View key={w} style={styles.progressWordChip}>
-                  <Text style={[styles.progressWordChipText, smallLabelA11y]}>{w}</Text>
-                </View>
-              ))}
-              {completedWords.length > 8 && (
-                <Text style={[styles.progressWordsMore, smallLabelA11y]}>+{completedWords.length - 8} pa</Text>
-              )}
-            </View>
-          ) : (
-            <Text style={[styles.progressWordsEmpty, bodyA11y]}>Wala ka pang natatapos na salita. Simulan na sa Practice tab!</Text>
-          )}
-        </View>
-      </ScrollView>
-      </>
-    );
-  };
-
   const renderAchievements = () => {
     const unlockedIds = new Set((progress?.achievements || []).map((a) => a.id));
     const unlockedCount = unlockedIds.size;
@@ -3481,11 +2956,6 @@ export default function StudentDashboard({ navigation }: any) {
       .sort((a, b) => new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime());
     const mostRecent = unlockedRecords[0];
     const recentlyEarned = unlockedRecords.slice(0, 5);
-
-    // Learning Milestones — the exact same real fields/formula already
-    // established on the Progress tab, not recomputed differently.
-    const lessonsCompletedCount = lessonProgress.filter((p) => p.status === 'completed').length;
-    const overallAccuracyPct = progress ? Math.round(averageAccuracy(progress)) : null;
 
     const filterTabs: { key: 'all' | AchievementCategory; label: string }[] = [
       { key: 'all', label: 'Lahat' },
@@ -3697,43 +3167,6 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala ka pang nakukuhang badge. Magsanay para makakuha ng una mo!</Text>
           </View>
         )}
-
-        <View style={styles.progressSectionHeader}>
-          <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.navy }]}>
-            <Ionicons name="school" size={14} color="#fff" />
-          </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Mga Tagumpay sa Pag-aaral</Text>
-        </View>
-        <View style={styles.homeStatGrid}>
-          <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.navy }]}>
-              <Ionicons name="school" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.navy }, statValueA11y]}>{lessonsCompletedCount}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Natapos na Aralin</Text>
-          </View>
-          <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
-              <Ionicons name="mic" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Pagsasanay sa Boses</Text>
-          </View>
-          <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
-              <Ionicons name="book" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.completed}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
-          </View>
-          <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
-            <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
-              <Ionicons name="bar-chart" size={18} color="#fff" />
-            </View>
-            <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{overallAccuracyPct !== null ? `${overallAccuracyPct}%` : '--'}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Kabuuang Progreso</Text>
-          </View>
-        </View>
 
         <LinearGradient
           colors={colors.heroGradient}
@@ -4019,7 +3452,6 @@ export default function StudentDashboard({ navigation }: any) {
     { key: 'home', label: 'Simula', icon: 'home-outline' },
     { key: 'learn', label: 'Aralin', icon: 'library-outline' },
     { key: 'practice', label: 'Pagsasanay', icon: 'mic-outline' },
-    { key: 'progress', label: 'Progreso', icon: 'analytics-outline' },
     { key: 'achievements', label: 'Parangal', icon: 'ribbon-outline' },
   ];
   const studentSidebarItems = [
@@ -4077,12 +3509,6 @@ export default function StudentDashboard({ navigation }: any) {
         // (menu vs back button) - so this branch needs no header of its own.
         <View style={styles.homeBg}>
           {renderPractice()}
-        </View>
-      ) : section === 'progress' ? (
-        // Same reasoning again: renderProgress() now opens with its own
-        // hero banner (menu trigger + notification bell).
-        <View style={styles.homeBg}>
-          {renderProgress()}
         </View>
       ) : section === 'achievements' ? (
         // Same reasoning again: renderAchievements() now opens with its own

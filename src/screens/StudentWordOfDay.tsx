@@ -250,7 +250,7 @@ export default function StudentWordOfDay({
             <Text style={styles.subtitle}>Salitang Ngayon</Text>
           </View>
           <View style={styles.chip}>
-            <Text style={styles.chipText}>{attemptCount}/3 Subok</Text>
+            <Text style={styles.chipText}>{isDone ? 'Tapos na!' : attemptCount > 0 ? 'Ipagpatuloy!' : 'Subukan Na!'}</Text>
           </View>
         </View>
 
