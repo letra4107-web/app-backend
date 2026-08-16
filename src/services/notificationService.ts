@@ -36,7 +36,7 @@ export const fetchNotifications = async (userId: string) => {
     15000,
   );
   if (!response?.success) {
-    throw new Error(response?.message || 'Unable to load notifications.');
+    throw new Error(response?.message || 'Hindi ma-load ang mga abiso.');
   }
   return Array.isArray(response.notifications) ? response.notifications : [];
 };

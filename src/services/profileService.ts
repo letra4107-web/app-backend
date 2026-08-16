@@ -438,7 +438,7 @@ const MIME_TO_EXT: Record<string, string> = {
 };
 
 export async function uploadAvatar(userId: string, uri: string, mimeType?: string) {
-  if (!userId || !uri) throw new Error('Missing account or selected photo.');
+  if (!userId || !uri) throw new Error('Walang account o napiling larawan.');
 
   // React Native's fetch(file://...).blob() produces a Blob wrapper that
   // Supabase Storage cannot reliably upload. Expo FileSystem gives Storage
@@ -448,7 +448,7 @@ export async function uploadAvatar(userId: string, uri: string, mimeType?: strin
   let fileSize = 0;
   if (Platform.OS === 'web') {
     const response = await fetch(uri);
-    if (!response.ok) throw new Error('Could not read the selected photo.');
+    if (!response.ok) throw new Error('Hindi mabasa ang napiling larawan.');
     const blob = await response.blob();
     fileBody = blob;
     detectedMime = blob.type;
@@ -459,7 +459,7 @@ export async function uploadAvatar(userId: string, uri: string, mimeType?: strin
   }
 
   if (!fileSize) {
-    throw new Error('The selected photo is empty. Please choose another photo.');
+    throw new Error('Walang laman ang napiling larawan. Pumili ng ibang larawan.');
   }
 
   const resolvedMime = (mimeType || detectedMime || 'image/jpeg').toLowerCase();
@@ -473,7 +473,7 @@ export async function uploadAvatar(userId: string, uri: string, mimeType?: strin
   if (uploadError) throw uploadError;
 
   const { data: publicData } = supabase.storage.from('avatar').getPublicUrl(data.path);
-  if (!publicData?.publicUrl) throw new Error('The uploaded photo has no public URL.');
+  if (!publicData?.publicUrl) throw new Error('Walang public URL ang na-upload na larawan.');
 
   // The object path is deliberately stable, so add a version query to prevent
   // React Native's image cache from continuing to show the previous avatar.

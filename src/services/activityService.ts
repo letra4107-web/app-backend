@@ -32,7 +32,7 @@ export async function fetchStudentActivities(authUid: string, childId?: string) 
     );
 
     if (!response?.success) {
-      throw new Error(response?.message || 'Unable to load activities.');
+      throw new Error(response?.message || 'Hindi ma-load ang mga aktibidad.');
     }
 
     return (response.activities || []).map((row: any) => ({
@@ -42,7 +42,7 @@ export async function fetchStudentActivities(authUid: string, childId?: string) 
   } catch (error: any) {
     console.warn('[Activities] fetch failed:', error?.message || error);
     if (isRetryableNetworkError(error)) {
-      throw new Error('Hindi ma-load ang activities. Suriin ang internet connection at subukan muli.');
+      throw new Error('Hindi ma-load ang mga aktibidad. Suriin ang internet connection at subukan muli.');
     }
     throw new Error(error?.message || 'Hindi ma-load ang activities. Subukan muli mamaya.');
   }

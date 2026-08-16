@@ -24,16 +24,16 @@ export const fetchPublishedLessons = async (gradeLevel?: number | string | null)
     );
 
     if (!response?.success) {
-      throw new Error(response?.message || 'Unable to load lessons.');
+      throw new Error(response?.message || 'Hindi ma-load ang mga aralin.');
     }
 
     return response.lessons || [];
   } catch (error: any) {
     console.warn('[Lessons] fetch failed:', error?.message || error);
     if (isRetryableNetworkError(error)) {
-      throw new Error('Hindi ma-load ang lessons. Suriin ang internet connection at subukan muli.');
+      throw new Error('Hindi ma-load ang mga aralin. Suriin ang internet connection at subukan muli.');
     }
-    throw new Error(error?.message || 'Hindi ma-load ang lessons. Subukan muli mamaya.');
+    throw new Error(error?.message || 'Hindi ma-load ang mga aralin. Subukan muli mamaya.');
   }
 };
 

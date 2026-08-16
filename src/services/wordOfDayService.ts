@@ -146,7 +146,7 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
   // write was a no-op - the row exists, just fetch it.
   const row = await fetchWordOfDayRow(childId, date);
   if (row) return row;
-  throw new Error("Unable to load or create today's word.");
+  throw new Error('Hindi ma-load o magawa ang salita ngayong araw.');
 };
 
 export const updateWordOfDayLog = async (id: string, attempts: number, correct: boolean) => {

@@ -76,25 +76,25 @@ const getFriendlyErrorMessage = (error: any): string => {
   const message = String(error?.message || '').toLowerCase();
 
   if (message.includes('timeout') || message.includes('timed out')) {
-    return 'Request timed out, please try again.';
+    return 'Naabot ang time limit ng request, subukang muli.';
   }
   if (message.includes('network changed')) {
-    return 'Network changed. Please resend OTP.';
+    return 'Nagbago ang network. Ipadala muli ang OTP.';
   }
   if (message.includes('quic') || message.includes('protocol')) {
-    return 'Browser connection failed. Please resend OTP.';
+    return 'Nabigo ang koneksyon ng browser. Ipadala muli ang OTP.';
   }
   if (message.includes('failed to fetch')) {
-    return 'Network request failed. Please resend OTP.';
+    return 'Nabigo ang network request. Ipadala muli ang OTP.';
   }
   if (error?.status === 429) {
-    return 'Too many requests. Please wait before retrying.';
+    return 'Sobra na sa dami ng request. Maghintay bago subukang muli.';
   }
   if (error?.status >= 500) {
-    return 'Server error. Please try again later.';
+    return 'May problema sa server. Subukang muli mamaya.';
   }
 
-  return error?.message || 'Failed to process OTP request.';
+  return error?.message || 'Hindi naproseso ang OTP request.';
 };
 
 const postJsonWithRetry = async (

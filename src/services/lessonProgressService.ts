@@ -18,15 +18,15 @@ export const fetchLessonProgress = async (childId: string): Promise<LessonProgre
       15000,
     );
     if (!response?.success) {
-      throw new Error(response?.message || 'Unable to load lesson progress.');
+      throw new Error(response?.message || 'Hindi ma-load ang progreso sa aralin.');
     }
     return response.progress || [];
   } catch (error: any) {
     console.warn('[LessonProgress] fetch failed:', error?.message || error);
     if (isRetryableNetworkError(error)) {
-      throw new Error('Hindi ma-load ang lesson progress. Suriin ang internet connection.');
+      throw new Error('Hindi ma-load ang progreso sa aralin. Suriin ang internet connection.');
     }
-    throw new Error(error?.message || 'Hindi ma-load ang lesson progress.');
+    throw new Error(error?.message || 'Hindi ma-load ang progreso sa aralin.');
   }
 };
 

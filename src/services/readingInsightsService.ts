@@ -31,6 +31,6 @@ export const fetchReadingProfile = async (studentId?: string): Promise<ReadingPr
     buildApiUrl(`/personalization/profile${query}`),
     15000,
   );
-  if (!response.success || !response.profile) throw new Error(response.message || 'Unable to load reading insights.');
+  if (!response.success || !response.profile) throw new Error(response.message || 'Hindi ma-load ang kaalaman sa pagbasa.');
   return response.profile;
 };

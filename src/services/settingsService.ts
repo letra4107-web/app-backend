@@ -141,8 +141,8 @@ const sanitizePayload = (
 const requireAuthenticatedUser = async (authUid: string) => {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
-  if (!data.user) throw new Error('You must be signed in before saving settings.');
-  if (data.user.id !== authUid) throw new Error('Settings auth_uid does not match the signed-in user.');
+  if (!data.user) throw new Error('Kailangan mong naka-log in bago mag-save ng mga setting.');
+  if (data.user.id !== authUid) throw new Error('Hindi tumutugma ang auth_uid ng setting sa naka-log in na user.');
   return data.user;
 };
 

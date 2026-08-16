@@ -3578,7 +3578,7 @@ export default function StudentDashboard({ navigation }: any) {
                 {unlockedCount}<Text style={[styles.achievementSummaryCountTotal, statLabelA11y]}>/{totalCount}</Text>
               </Text>
               <Text style={[styles.achievementSummaryHint, bodyA11y]}>
-                {unlockedCount === totalCount ? 'Nakuha mo na ang lahat ng badge! 🎉' : 'Keep learning to unlock more achievements! ✨'}
+                {unlockedCount === totalCount ? 'Nakuha mo na ang lahat ng parangal! 🎉' : 'Magpatuloy sa pag-aaral para makakuha pa ng parangal! ✨'}
               </Text>
             </View>
             <View style={styles.progressRingShadowWrap}>

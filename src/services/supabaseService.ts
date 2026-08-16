@@ -262,7 +262,7 @@ export const signOutUser = async () => {
     const result = await Promise.race([
       supabase.auth.signOut({ scope: 'local' }),
       new Promise<{ error: Error }>((resolve) => {
-        setTimeout(() => resolve({ error: new Error('Logout request timed out.') }), 8000);
+        setTimeout(() => resolve({ error: new Error('Naabot ang time limit ng logout request.') }), 8000);
       }),
     ]);
     remoteError = result.error;
@@ -296,7 +296,7 @@ export const signInWithOAuthProvider = async (provider: OAuthProvider) => {
 
   if (error || !data?.url) {
     console.error('[Supabase] signInWithOAuth failed to get provider URL:', { provider, error: toPlainSupabaseError(error) });
-    return { data: null, error: error || new Error(`Unable to start ${provider} sign-in`) };
+    return { data: null, error: error || new Error(`Hindi masimulan ang pag-log in gamit ang ${provider}`) };
   }
 
   if (Platform.OS === 'web') {
@@ -311,25 +311,25 @@ export const signInWithOAuthProvider = async (provider: OAuthProvider) => {
   console.log('[Supabase] WebBrowser.openAuthSessionAsync result:', { provider, type: result.type });
 
   if (result.type === 'cancel' || result.type === 'dismiss') {
-    const cancelError: any = new Error(`User cancelled ${provider} sign-in`);
+    const cancelError: any = new Error(`Kinansela ang pag-log in gamit ang ${provider}`);
     cancelError.code = 'auth/oauth-cancelled';
     return { data: null, error: cancelError };
   }
 
   if (result.type !== 'success' || !result.url) {
-    return { data: null, error: new Error(`${provider} sign-in did not complete`) };
+    return { data: null, error: new Error(`Hindi natapos ang pag-log in gamit ang ${provider}`) };
   }
 
   const { params, errorCode } = QueryParams.getQueryParams(result.url);
   if (errorCode || !params.code) {
     console.error('[Supabase] OAuth redirect had no code:', { provider, errorCode, url: result.url });
-    return { data: null, error: new Error(errorCode || `${provider} sign-in did not return a code`) };
+    return { data: null, error: new Error(errorCode || `Walang natanggap na code mula sa ${provider}`) };
   }
 
   const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(params.code);
   if (sessionError || !sessionData?.session?.user) {
     console.error('[Supabase] exchangeCodeForSession failed:', { provider, error: toPlainSupabaseError(sessionError) });
-    return { data: null, error: sessionError || new Error('Unable to complete sign-in session') };
+    return { data: null, error: sessionError || new Error('Hindi natapos ang sign-in session') };
   }
 
   console.log('[Supabase] OAuth sign-in successful:', { provider, userId: sessionData.session.user.id });
@@ -512,7 +512,7 @@ export const resetPassword = async (email: string) => {
     const data = await postJson(buildApiUrl('/auth/request-password-reset'), { email }, 30000);
     return { data, error: null };
   } catch (error: any) {
-    const message = error?.data?.message || error?.message || 'Unable to send the reset email.';
+    const message = error?.data?.message || error?.message || 'Hindi naipadala ang reset email.';
     return {
       data: null,
       error: { message, status: error?.status, data: error?.data },

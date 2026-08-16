@@ -40,7 +40,7 @@ export const fetchWords = async (level: string, limit = 24): Promise<string[]> =
       15000,
     );
     if (!response?.success) {
-      throw new Error(response?.message || 'Unable to load words.');
+      throw new Error(response?.message || 'Hindi ma-load ang mga salita.');
     }
     return (response.words || []).map((w) => w.word);
   } catch (error: any) {

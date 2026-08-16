@@ -44,7 +44,7 @@ export type UpdateScheduledActivityInput = Partial<{
 
 const wrapError = (error: any, fallback: string): Error => {
   if (isRetryableNetworkError(error)) {
-    return new Error('Hindi ma-load ang calendar. Suriin ang internet connection.');
+    return new Error('Hindi ma-load ang kalendaryo. Suriin ang internet connection.');
   }
   return new Error(error?.message || fallback);
 };
@@ -64,12 +64,12 @@ export const fetchScheduledActivities = async (
       15000,
     );
     if (!response?.success) {
-      throw new Error(response?.message || 'Unable to load scheduled activities.');
+      throw new Error(response?.message || 'Hindi ma-load ang mga naka-iskedyul na aktibidad.');
     }
     return response.activities || [];
   } catch (error: any) {
     console.warn('[ScheduledActivities] fetch failed:', error?.message || error);
-    throw wrapError(error, 'Hindi ma-load ang calendar.');
+    throw wrapError(error, 'Hindi ma-load ang kalendaryo.');
   }
 };
 
@@ -81,12 +81,12 @@ export const createScheduledActivity = async (input: CreateScheduledActivityInpu
       15000,
     );
     if (!response?.success || !response.activity) {
-      throw new Error(response?.message || 'Unable to create the activity.');
+      throw new Error(response?.message || 'Hindi maidagdag ang aktibidad.');
     }
     return response.activity;
   } catch (error: any) {
     console.warn('[ScheduledActivities] create failed:', error?.message || error);
-    throw wrapError(error, 'Hindi ma-idagdag ang activity.');
+    throw wrapError(error, 'Hindi maidagdag ang aktibidad.');
   }
 };
 
@@ -101,12 +101,12 @@ export const updateScheduledActivity = async (
       15000,
     );
     if (!response?.success || !response.activity) {
-      throw new Error(response?.message || 'Unable to update the activity.');
+      throw new Error(response?.message || 'Hindi ma-update ang aktibidad.');
     }
     return response.activity;
   } catch (error: any) {
     console.warn('[ScheduledActivities] update failed:', error?.message || error);
-    throw wrapError(error, 'Hindi ma-update ang activity.');
+    throw wrapError(error, 'Hindi ma-update ang aktibidad.');
   }
 };
 
@@ -118,12 +118,12 @@ export const completeScheduledActivity = async (id: string): Promise<ScheduledAc
       15000,
     );
     if (!response?.success || !response.activity) {
-      throw new Error(response?.message || 'Unable to mark the activity complete.');
+      throw new Error(response?.message || 'Hindi mai-tsek na tapos na ang aktibidad.');
     }
     return response.activity;
   } catch (error: any) {
     console.warn('[ScheduledActivities] complete failed:', error?.message || error);
-    throw wrapError(error, 'Hindi ma-mark as complete ang activity.');
+    throw wrapError(error, 'Hindi mai-tsek na tapos na ang aktibidad.');
   }
 };
 
@@ -134,11 +134,11 @@ export const deleteScheduledActivity = async (id: string): Promise<void> => {
       15000,
     );
     if (!response?.success) {
-      throw new Error(response?.message || 'Unable to delete the activity.');
+      throw new Error(response?.message || 'Hindi mabura ang aktibidad.');
     }
   } catch (error: any) {
     console.warn('[ScheduledActivities] delete failed:', error?.message || error);
-    throw wrapError(error, 'Hindi ma-delete ang activity.');
+    throw wrapError(error, 'Hindi mabura ang aktibidad.');
   }
 };
 

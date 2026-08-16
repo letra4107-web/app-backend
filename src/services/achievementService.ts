@@ -102,7 +102,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'unang_hakbang',
     title: 'Unang Hakbang',
-    description: 'Tapusin ang unang lesson',
+    description: 'Tapusin ang unang aralin',
     image: require('../../assets/badges/unang_hakbang.png'),
     category: 'reading',
     xpReward: 20,
@@ -111,7 +111,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'batang_mambabasa',
     title: 'Batang Mambabasa',
-    description: 'Tapusin ang 5 lessons',
+    description: 'Tapusin ang 5 aralin',
     image: require('../../assets/badges/batang_mambabasa.png'),
     category: 'reading',
     xpReward: 30,
@@ -120,7 +120,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'masigasig_na_mambabasa',
     title: 'Masigasig na Mambabasa',
-    description: 'Tapusin ang 10 lessons',
+    description: 'Tapusin ang 10 aralin',
     image: require('../../assets/badges/masigasig_na_mambabasa.png'),
     category: 'reading',
     xpReward: 40,
@@ -129,7 +129,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'kampeon_sa_pagbasa',
     title: 'Kampeon sa Pagbasa',
-    description: 'Tapusin ang 25 lessons',
+    description: 'Tapusin ang 25 aralin',
     image: require('../../assets/badges/kampeon_sa_pagbasa.png'),
     category: 'reading',
     xpReward: 60,
@@ -138,7 +138,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'dalubhasa_sa_pagbasa',
     title: 'Dalubhasa sa Pagbasa',
-    description: 'Tapusin ang 50 lessons',
+    description: 'Tapusin ang 50 aralin',
     image: require('../../assets/badges/dalubhasa_sa_pagbasa.png'),
     category: 'reading',
     xpReward: 80,
@@ -156,7 +156,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'malinaw_magsalita',
     title: 'Malinaw Magsalita',
-    description: 'Makakuha ng 90%+ accuracy sa isang pagsasanay',
+    description: 'Makakuha ng 90%+ na kawastuhan sa isang pagsasanay',
     image: require('../../assets/badges/malinaw_magsalita.png'),
     category: 'practice',
     xpReward: 30,
@@ -165,7 +165,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'tamang_bigkas',
     title: 'Tamang Bigkas',
-    description: 'Makakuha ng 100% accuracy sa 5 salita',
+    description: 'Makakuha ng 100% na kawastuhan sa 5 salita',
     image: require('../../assets/badges/tamang_bigkas.png'),
     category: 'practice',
     xpReward: 40,
@@ -182,8 +182,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   },
   {
     id: 'bigkas_champion',
-    title: 'Bigkas Champion',
-    description: 'Makamit ang 90%+ average accuracy',
+    title: 'Bihasa sa Bigkas',
+    description: 'Makamit ang 90%+ na karaniwang kawastuhan',
     image: require('../../assets/badges/bigkas_champion.png'),
     category: 'practice',
     xpReward: 60,
@@ -201,7 +201,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'tuloy_tuloy',
     title: 'Tuloy-Tuloy!',
-    description: 'Mag-practice ng 3 araw nang sunud-sunod',
+    description: 'Magsanay ng 3 araw nang sunud-sunod',
     image: require('../../assets/badges/tuloy_tuloy.png'),
     category: 'consistency',
     xpReward: 30,
@@ -210,7 +210,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'lingguhang_bayani',
     title: 'Lingguhang Bayani',
-    description: 'Mag-practice ng 7 araw nang sunud-sunod',
+    description: 'Magsanay ng 7 araw nang sunud-sunod',
     image: require('../../assets/badges/lingguhang_bayani.png'),
     category: 'consistency',
     xpReward: 40,
@@ -219,7 +219,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'buwan_ng_pagsisikap',
     title: 'Buwan ng Pagsisikap',
-    description: 'Mag-practice ng 30 araw nang sunud-sunod',
+    description: 'Magsanay ng 30 araw nang sunud-sunod',
     image: require('../../assets/badges/buwan_ng_pagsisikap.png'),
     category: 'consistency',
     xpReward: 60,
@@ -246,7 +246,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'matalinong_mag_aaral',
     title: 'Matalinong Mag-aaral',
-    description: 'Pagbutihin ang accuracy nang 20 points',
+    description: 'Pagbutihin ang kawastuhan nang 20 puntos',
     image: require('../../assets/badges/matalinong_mag_aaral.png'),
     category: 'progress',
     xpReward: 40,
@@ -259,7 +259,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'patuloy_na_umuunlad',
     title: 'Patuloy na Umuunlad',
-    description: 'Umakyat sa susunod na reading level',
+    description: 'Umakyat sa susunod na antas ng pagbasa',
     image: require('../../assets/badges/patuloy_na_umuunlad.png'),
     category: 'progress',
     xpReward: 60,
@@ -268,7 +268,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'aking_unang_tagumpay',
     title: 'Aking Unang Tagumpay',
-    description: 'Awtomatikong makukuha kapag nakuha mo ang una mong badge',
+    description: 'Awtomatikong makukuha kapag nakuha mo ang una mong parangal',
     image: require('../../assets/badges/aking_unang_tagumpay.png'),
     category: 'meta',
     xpReward: 25,
@@ -277,7 +277,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'alamat_ng_pagbasa',
     title: 'Alamat ng Pagbasa',
-    description: 'I-unlock ang lahat ng 19 na badge',
+    description: 'Buksan ang lahat ng 19 na parangal',
     image: require('../../assets/badges/alamat_ng_pagbasa.png'),
     category: 'meta',
     xpReward: 200,
@@ -342,7 +342,7 @@ export const unlockAchievements = async (
   };
 
   const first = newlyUnlocked[0];
-  speakPhrase(`Binabati kita! Nakuha mo ang badge na ${first.title}!`);
+  speakPhrase(`Binabati kita! Nakuha mo ang parangal na ${first.title}!`);
 
   return { progress: updatedProgress, newlyUnlocked };
 };
