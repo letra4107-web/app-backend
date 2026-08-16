@@ -493,8 +493,8 @@ export default function StudentDashboard({ navigation }: any) {
   const handleStudentFullSignOut = () => {
     if (signingOutFully) return;
     Alert.alert(
-      'Mag-sign out nang tuluyan?',
-      'Hindi ka na maaaring mag-tap na lang para bumalik dito - kakailanganin mo nang muli ang buong email at password.',
+      'Sigurado ka ba?',
+      'Kakailanganin mo ng email at password sa susunod mong pag-login.',
       [
         { text: 'Kanselahin', style: 'cancel' },
         {
@@ -3687,13 +3687,9 @@ export default function StudentDashboard({ navigation }: any) {
             onPress={handleStudentFullSignOut}
             disabled={signingOutFully}
           >
-            <Ionicons name="person-remove-outline" size={16} color={colors.inkSoft} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sidebarFullSignOutText}>
-                {signingOutFully ? 'Nag-sisign out...' : 'Mag-sign out nang tuluyan'}
-              </Text>
-              <Text style={styles.sidebarFullSignOutHint}>Para ibang bata ang gagamit ng device na ito</Text>
-            </View>
+            <Text style={styles.sidebarFullSignOutText}>
+              {signingOutFully ? 'Nag-sisign out...' : 'Ibang bata ang gagamit nito?'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>
@@ -4138,15 +4134,6 @@ const styles = StyleSheet.create({
   learnFilterChipActive: { backgroundColor: colors.sage },
   learnFilterChipText: { color: colors.inkSoft, fontWeight: '800', fontSize: 13 },
   learnFilterChipTextActive: { color: '#fff' },
-  learnJourneyCard: {
-    backgroundColor: '#F5F3FC', borderRadius: radius.xl, padding: 18, marginTop: 8, marginBottom: 8,
-    ...shadows.card,
-  },
-  learnJourneyTitle: { color: colors.ink, fontWeight: '900', fontSize: 15, marginBottom: 6 },
-  learnJourneyLevel: { fontFamily: typography.family.display, color: colors.lavenderDark, fontSize: 20, marginBottom: 10 },
-  learnJourneyTrack: { height: 10, borderRadius: 5, backgroundColor: 'rgba(124,111,207,0.15)', overflow: 'hidden', marginBottom: 8 },
-  learnJourneyFill: { height: '100%', borderRadius: 5, backgroundColor: colors.lavender },
-  learnJourneyMsg: { color: colors.inkSoft, fontWeight: '600', fontSize: 13 },
   learnHeroImage: { position: 'absolute', right: -2, bottom: -10, width: 132, height: 233 },
   // 1184x2096 in the source art (same ratio group as learn.png/book.png) -
   // sized to that real aspect ratio, not the 1120x2240 group's heroImage box.
@@ -4357,11 +4344,10 @@ const styles = StyleSheet.create({
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   sidebarFullSignOut: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 10, paddingHorizontal: 12, marginTop: 8,
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, marginTop: 18,
   },
-  sidebarFullSignOutText: { color: colors.inkSoft, fontWeight: '700', fontSize: 12.5 },
-  sidebarFullSignOutHint: { color: colors.inkSoft, fontSize: 10.5, marginTop: 1, opacity: 0.85 },
+  sidebarFullSignOutText: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, textDecorationLine: 'underline' },
   // --- Home tab ---
   homeBg: { flex: 1, width: '100%', backgroundColor: '#EEF0FA' },
   homeContent: { padding: 18, paddingBottom: 48 },
