@@ -31,14 +31,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const validateIdentifier = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) {
-      setIdentifierError('Please enter your email or username');
+      setIdentifierError('Ilagay ang iyong email o username');
       return false;
     }
 
     if (trimmed.includes('@')) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(trimmed)) {
-        setIdentifierError('Please enter a valid email address');
+        setIdentifierError('Maglagay ng wastong email address');
         return false;
       }
     }
@@ -49,7 +49,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   const validatePassword = (value: string) => {
     if (!value) {
-      setPasswordError('Please enter your password');
+      setPasswordError('Ilagay ang iyong password');
       return false;
     }
     setPasswordError('');
@@ -78,26 +78,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const mapAuthError = (error: string) => {
     switch (error) {
       case 'auth/user-not-found':
-        return 'No account found with this email or username';
+        return 'Walang nahanap na account sa email o username na ito';
       case 'auth/wrong-password':
-        return 'Incorrect password';
+        return 'Maling password';
       case 'auth/too-many-requests':
-        return 'Too many login attempts. Please try again later.';
+        return 'Sobra na sa dami ng pagsubok mag-login. Subukang muli mamaya.';
       case 'auth/user-disabled':
-        return 'This account has been disabled';
+        return 'Ang account na ito ay na-disable';
       case 'auth/invalid-email':
-        return 'Please enter a valid email address';
+        return 'Maglagay ng wastong email address';
       case 'auth/invalid-credential':
-        return 'Invalid credentials. Please verify your email and password.';
+        return 'Hindi wastong kredensyal. Suriin ang iyong email at password.';
       case 'auth/email-not-confirmed':
-        return 'Please verify your email before logging in.';
+        return 'I-verify muna ang iyong email bago mag-log in.';
       default:
-        return 'Invalid email or username or password';
+        return 'Hindi wasto ang email o username o password';
     }
   };
 
   const throwSupabaseLoginError = (error: any) => {
-    const authError: any = new Error(error?.message || 'Invalid login credentials');
+    const authError: any = new Error(error?.message || 'Hindi wastong login credentials');
     authError.code = mapSupabaseAuthErrorCode(error);
     authError.status = error?.status;
     authError.supabaseError = error;
@@ -113,7 +113,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     const identifierValid = validateIdentifier(identifier);
     const passwordValid = validatePassword(password);
     if (!identifierValid || !passwordValid) {
-      setGlobalError('Please fix the errors below');
+      setGlobalError('Itama ang mga error sa ibaba');
       if (!identifierValid) identifierInputRef.current?.focus();
       else passwordInputRef.current?.focus();
       return;

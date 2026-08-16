@@ -33,9 +33,9 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
     setEmail(value);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!value.trim()) {
-      setEmailError('Please enter your email');
+      setEmailError('Ilagay ang iyong email');
     } else if (!emailRegex.test(value.trim())) {
-      setEmailError('Please enter a valid email');
+      setEmailError('Maglagay ng wastong email');
     } else {
       setEmailError('');
     }
@@ -81,19 +81,19 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
         });
 
         if (status === 429 || message.includes('rate limit') || message.includes('too many')) {
-          setGeneralError('Too many requests. Please wait a few minutes and try again.');
+          setGeneralError('Sobra na sa dami ng request. Maghintay ng ilang minuto at subukang muli.');
           return;
         }
         if (message.includes('invalid email') || message.includes('unable to validate email')) {
-          setGeneralError('Please enter a valid email address.');
+          setGeneralError('Maglagay ng wastong email address.');
           return;
         }
         if (message.includes('network') || message.includes('fetch failed') || message.includes('timed out')) {
-          setGeneralError('Network error. Please check your connection and try again.');
+          setGeneralError('May problema sa network. Tingnan ang iyong koneksyon at subukang muli.');
           return;
         }
         if (status >= 500 || message.includes('could not send') || message.includes('unable to send')) {
-          setGeneralError('We could not send the reset email right now. Please try again in a moment.');
+          setGeneralError('Hindi namin naipadala ang reset email ngayon. Subukang muli sandali.');
           return;
         }
         // Deliberately no other branches — anything else (including account
@@ -104,7 +104,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
       navigation.navigate('ResetPassword', { mode: 'otp', email: normalizedEmail });
     } catch (error: any) {
       console.error('[ForgotPassword] Reset error:', error);
-      setGeneralError('Something went wrong. Please try again.');
+      setGeneralError('May naganap na problema. Pakisubukang muli.');
     } finally {
       setLoading(false);
     }

@@ -107,39 +107,39 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
     switch (field) {
       case 'firstName':
-        if (!value || value.trim().length < 2) error = 'Please enter your first name';
+        if (!value || value.trim().length < 2) error = 'Ilagay ang iyong unang pangalan';
         else isValid = true;
         break;
       case 'lastName':
-        if (!value || value.trim().length < 2) error = 'Please enter your last name';
+        if (!value || value.trim().length < 2) error = 'Ilagay ang iyong apelyido';
         else isValid = true;
         break;
       case 'middleInitial':
         // Genuinely optional — empty is valid. Only complain if somehow more
         // than one character got in (the input itself already caps at 1).
-        if (value.trim().length > 1) error = 'Please use only one letter';
+        if (value.trim().length > 1) error = 'Isang letra lamang ang gamitin';
         else isValid = true;
         break;
       case 'email':
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!value) error = 'Please enter your email';
-        else if (!emailRegex.test(value)) error = 'Please enter a valid email';
+        if (!value) error = 'Ilagay ang iyong email';
+        else if (!emailRegex.test(value)) error = 'Maglagay ng wastong email';
         else isValid = true;
         break;
       case 'password':
-        if (!value) error = 'Please enter your password';
-        else if (value.length < 8) error = 'Password needs at least 8 characters';
-        else if (!/[A-Z]/.test(value)) error = 'Add one uppercase letter';
-        else if (!/\d/.test(value)) error = 'Add one number';
+        if (!value) error = 'Ilagay ang iyong password';
+        else if (value.length < 8) error = 'Kailangan ng hindi bababa sa 8 character ang password';
+        else if (!/[A-Z]/.test(value)) error = 'Magdagdag ng isang malaking titik';
+        else if (!/\d/.test(value)) error = 'Magdagdag ng isang numero';
         else isValid = true;
         break;
       case 'confirmPassword':
-        if (!value) error = 'Please confirm your password';
-        else if (value !== password) error = 'Passwords do not match';
+        if (!value) error = 'Kumpirmahin ang iyong password';
+        else if (value !== password) error = 'Hindi magkatugma ang password';
         else isValid = true;
         break;
       case 'terms':
-        if (!value) error = 'Please accept the terms to continue';
+        if (!value) error = 'Tanggapin ang mga tuntunin para magpatuloy';
         else isValid = true;
         break;
     }
@@ -247,7 +247,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     validateField('terms', termsAccepted);
 
     if (!isFormValid()) {
-      setErrors((prev) => ({ ...prev, general: 'Please fix all errors before submitting' }));
+      setErrors((prev) => ({ ...prev, general: 'Itama ang lahat ng error bago mag-submit' }));
       return; // no setLoading here — loading was never set to true yet
     }
 
@@ -273,7 +273,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
       if (signUpError || !signUpData?.user) {
         const status = signUpError?.status;
-        const rawMessage = signUpError?.message || JSON.stringify(signUpError) || 'Unable to create account. Please try again.';
+        const rawMessage = signUpError?.message || JSON.stringify(signUpError) || 'Hindi magawa ang account. Subukang muli.';
 
         console.error('[Signup] signUp returned error:', {
           ms: Date.now() - startAt,
@@ -285,11 +285,11 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         let errorMsg = rawMessage;
         const lower = String(rawMessage).toLowerCase();
         if (status === 504 || lower.includes('504') || lower.includes('gateway timeout')) {
-          errorMsg = 'Supabase signup gateway timed out (504). This usually means your Supabase project is unable to send the verification email. Verify your SMTP/email auth settings in the Supabase dashboard.';
+          errorMsg = 'Naabot ang time limit ng signup (504). Karaniwang nangangahulugan ito na hindi maipadala ang verification email. Subukang muli mamaya.';
         } else if (lower.includes('already')) {
-          errorMsg = 'This email is already registered. Please log in or use another email.';
+          errorMsg = 'Rehistrado na ang email na ito. Mag-log in o gumamit ng ibang email.';
         } else if (lower.includes('invalid')) {
-          errorMsg = 'Invalid signup details. Please check your email and password.';
+          errorMsg = 'Hindi wasto ang detalye ng signup. Suriin ang iyong email at password.';
         }
 
         setErrors((prev) => ({ ...prev, general: errorMsg }));
@@ -331,7 +331,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         setErrors((prev) => ({
           ...prev,
           general:
-            'We could not finish creating your account due to a connection issue. Please try signing up again.',
+            'Hindi namin natapos gawin ang iyong account dahil sa isyu sa koneksyon. Subukang mag-sign up muli.',
         }));
         return;
       }
@@ -352,8 +352,8 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       const otpResult = await sendEmailOTP(normalizedEmail, userId);
       console.log('[Signup] Completed successfully:', { ms: Date.now() - startAt });
 
-      setSuccessMessage('✅ Signup successful!');
-      setSuccessInfo('Enter the verification code sent to your email, or resend if needed.');
+      setSuccessMessage('✅ Matagumpay ang pagpaparehistro!');
+      setSuccessInfo('Ilagay ang verification code na ipinadala sa iyong email, o ipadala muli kung kailangan.');
       navigation.replace('EmailVerification', {
         email: normalizedEmail,
         userId,
@@ -363,7 +363,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         message: 'Naipadala na ang OTP sa iyong email.',
       });
     } catch (error: any) {
-      const rawMessage = error?.message || 'An error occurred during signup.';
+      const rawMessage = error?.message || 'May naganap na problema sa pagpaparehistro.';
       console.error('[Signup] signup flow threw:', {
         ms: Date.now() - startAt,
         status: error?.status,
@@ -371,21 +371,21 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         message: rawMessage,
       });
 
-      let errorMessage = 'An error occurred during signup.';
+      let errorMessage = 'May naganap na problema sa pagpaparehistro.';
       const lower = String(rawMessage).toLowerCase();
 
       if (lower.includes('timed out') || lower.includes('timeout')) {
         errorMessage =
-          'Signup timed out. Please check your internet connection — if you\'re on mobile data, ' +
-          'try moving to a stronger signal or switching to Wi-Fi, then try again.';
+          'Naabot ang time limit sa pagpaparehistro. Tingnan ang iyong internet connection — kung gumagamit ka ng mobile data, ' +
+          'subukang lumipat sa mas malakas na signal o sa Wi-Fi, at subukang muli.';
       } else if (error?.status === 504 || lower.includes('504') || lower.includes('gateway timeout')) {
-        errorMessage = 'Signup timed out (server timeout). Please verify your Supabase email verification settings and try again.';
+        errorMessage = 'Naabot ang time limit sa pagpaparehistro (server timeout). Suriin ang iyong Supabase email verification settings at subukang muli.';
       } else if (lower.includes('already exists') || lower.includes('already') || error?.status === 400) {
-        errorMessage = 'This email is already registered. Please log in or use another email.';
+        errorMessage = 'Rehistrado na ang email na ito. Mag-log in o gumamit ng ibang email.';
       } else if (lower.includes('invalid email') || lower.includes('invalid')) {
-        errorMessage = 'Invalid email format.';
+        errorMessage = 'Hindi wastong format ng email.';
       } else if (lower.includes('password')) {
-        errorMessage = 'Password is too weak. Use 8+ characters, uppercase, and numbers.';
+        errorMessage = 'Masyadong mahina ang password. Gumamit ng 8+ na character, malaking titik, at numero.';
       } else if (rawMessage) {
         errorMessage = rawMessage;
       }

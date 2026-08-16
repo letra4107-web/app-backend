@@ -71,7 +71,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
           ),
         );
       } catch (e: any) {
-        if (mounted) setError(e?.message || 'Could not load profile. Please check your connection.');
+        if (mounted) setError(e?.message || 'Hindi na-load ang profile. Tingnan ang iyong koneksyon.');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -112,9 +112,9 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
       const updatedProfile = { ...profile, avatar_key: avatarKey, avatar_url: null };
       setProfile(updatedProfile);
       onProfileChanged?.(updatedProfile);
-      showSuccess('Avatar updated.');
+      showSuccess('Na-update ang avatar.');
     } catch (e: any) {
-      showError(e?.message || 'Could not save avatar.');
+      showError(e?.message || 'Hindi na-save ang avatar.');
     } finally {
       setSaving(false);
     }
@@ -123,7 +123,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
   const saveProfile = async () => {
     if (!authUid) return;
     if (!profile.full_name?.trim()) {
-      showError('Full name is required.');
+      showError('Kailangan ang buong pangalan.');
       return;
     }
     setSaving(true);
@@ -134,9 +134,9 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
         phone_number: profile.phone_number,
       });
       onProfileChanged?.({ ...profile, full_name: profile.full_name.trim() });
-      showSuccess('Profile saved.');
+      showSuccess('Na-save ang profile.');
     } catch (e: any) {
-      showError(e?.message || 'Could not save profile.');
+      showError(e?.message || 'Hindi na-save ang profile.');
     } finally {
       setSaving(false);
     }

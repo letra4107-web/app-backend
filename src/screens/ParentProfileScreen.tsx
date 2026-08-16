@@ -67,7 +67,7 @@ export default function ParentProfileScreen({
       const publicUrl = await uploadAvatar(parentId, uri, mimeType);
       setAvatarUrl(publicUrl);
       onProfileChanged({ full_name: name, phone_number: phone, avatar_url: publicUrl });
-      showSuccess('Avatar updated.');
+      showSuccess('Na-update ang avatar.');
     } catch (e: any) {
       showError(e?.message || 'Hindi na-upload ang photo.');
     } finally {
@@ -89,7 +89,7 @@ export default function ParentProfileScreen({
         avatar_url: avatarUrl,
       });
       onProfileChanged({ full_name: name.trim(), phone_number: phone.trim(), avatar_url: avatarUrl });
-      showSuccess('Profile saved.');
+      showSuccess('Na-save ang profile.');
     } catch (e: any) {
       showError(e?.message || 'Hindi ma-save ang profile.');
     } finally {

@@ -128,7 +128,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
 
       // If OTP was already sent from signup, just show the UI state
       if (otpSentFlag) {
-        setSuccessMessage('OTP sent! Please check your email.');
+        setSuccessMessage('Naipadala ang OTP! Tingnan ang iyong email.');
         setResendCooldown(RESEND_COOLDOWN_SECONDS);
         setOtpQueued(true);
         markAutoSendStarted(autoSendKey);
@@ -156,16 +156,16 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         }
 
         applyOtpQueuedState(
-          result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'OTP sent! Please check your email.',
+          result.emailStatus === 'queued' ? 'Naka-queue ang OTP para ipadala. Tingnan ang iyong email sa ilang sandali.' : 'Naipadala ang OTP! Tingnan ang iyong email.',
           result.expiresAt,
           result.expiresInSeconds,
         );
         markAutoSendStarted(autoSendKey);
       } catch (error: any) {
         console.error('[EmailVerification] Auto-send OTP error:', error);
-        const message = error?.message || 'Failed to send verification code. Please try again.';
+        const message = error?.message || 'Hindi naipadala ang verification code. Subukang muli.';
         const isTimeout = /timed out|timeout/i.test(message);
-        setErrorMessage(isTimeout ? 'Request timed out, please try again.' : message);
+        setErrorMessage(isTimeout ? 'Naabot ang time limit ng request, subukang muli.' : message);
       } finally {
         autoSendInFlightRef.current = false;
         setLoading(false);
@@ -220,12 +220,12 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
     // Validation
     const emailValidation = validateEmail(email);
     if (!emailValidation.isValid) {
-      setErrorMessage(emailValidation.error || 'Please enter a valid email address.');
+      setErrorMessage(emailValidation.error || 'Maglagay ng wastong email address.');
       return;
     }
     const shouldResend = otpQueued;
     if (shouldResend && resendAttempts >= MAX_RESEND_ATTEMPTS) {
-      setErrorMessage('Too many resend attempts. Wait one minute before trying again.');
+      setErrorMessage('Sobra na sa dami ng resend. Maghintay ng isang minuto bago subukang muli.');
       return;
     }
 
@@ -250,7 +250,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       }
 
       applyOtpQueuedState(
-        result.emailStatus === 'queued' ? 'OTP queued for delivery. Please check your email shortly.' : 'A new code has been sent! Please check your email.',
+        result.emailStatus === 'queued' ? 'Naka-queue ang OTP para ipadala. Tingnan ang iyong email sa ilang sandali.' : 'May bagong code na naipadala! Tingnan ang iyong email.',
         result.expiresAt,
         result.expiresInSeconds,
       );
@@ -259,9 +259,9 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       }
     } catch (error: any) {
       console.error('[EmailVerification] Send OTP error:', error);
-      const message = error?.message || 'Failed to send verification code. Please try again later.';
+      const message = error?.message || 'Hindi naipadala ang verification code. Subukang muli mamaya.';
       const isTimeout = /timed out|timeout/i.test(message);
-      setErrorMessage(isTimeout ? 'Request timed out, please try again.' : message);
+      setErrorMessage(isTimeout ? 'Naabot ang time limit ng request, subukang muli.' : message);
     } finally {
       sendInFlightRef.current = false;
       setLoading(false);
@@ -314,8 +314,8 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
         });
       }
 
-      setSuccessMessage('✅ Email verified successfully!');
-      setInfoMessage('Setting up your account...');
+      setSuccessMessage('✅ Matagumpay na na-verify ang email!');
+      setInfoMessage('Inihahanda ang iyong account...');
 
       // Determine user role and navigate to appropriate dashboard
       const delay = setTimeout(async () => {
@@ -351,7 +351,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
       return () => clearTimeout(delay);
     } catch (error: any) {
       console.error('[EmailVerification] Verify OTP error:', error);
-      setErrorMessage(error.message || 'Invalid code. Please try again.');
+      setErrorMessage(error.message || 'Hindi wastong code. Subukang muli.');
     } finally {
       setVerifying(false);
     }

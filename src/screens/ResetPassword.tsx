@@ -89,14 +89,14 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
         } else {
           const { data, error: sessionError } = await supabase.auth.getSession();
           if (sessionError) throw sessionError;
-          if (!data.session) throw new Error('No recovery session was found.');
+          if (!data.session) throw new Error('Walang nahanap na recovery session.');
         }
 
         if (active) setStage('form');
       } catch (e: any) {
         console.error('[ResetPassword] recovery session failed:', e?.message || e);
         if (active) {
-          setError('For your security, reset links expire and can only be used once. Request a new link below.');
+          setError('Para sa iyong kaligtasan, nag-e-expire ang mga reset link at isang beses lang magagamit. Humiling ng bagong link sa ibaba.');
           setStage('invalid');
         }
       }
@@ -111,12 +111,12 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
 
   const passwordError = (() => {
     if (!password) return '';
-    if (password.length < 8) return 'Password needs at least 8 characters';
-    if (!/[A-Z]/.test(password)) return 'Add one uppercase letter';
-    if (!/\d/.test(password)) return 'Add one number';
+    if (password.length < 8) return 'Kailangan ng hindi bababa sa 8 character ang password';
+    if (!/[A-Z]/.test(password)) return 'Magdagdag ng isang malaking titik';
+    if (!/\d/.test(password)) return 'Magdagdag ng isang numero';
     return '';
   })();
-  const confirmError = confirmPassword && confirmPassword !== password ? 'Passwords do not match' : '';
+  const confirmError = confirmPassword && confirmPassword !== password ? 'Hindi magkatugma ang password' : '';
   const isValid = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && confirmPassword === password
     && (!isOtpMode || /^\d{6}$/.test(resetCode));
 
@@ -164,21 +164,21 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
       if (resendError) {
         const status = resendError.status;
         if (status === 429) {
-          setError('Please wait one minute before requesting another reset code.');
+          setError('Maghintay ng isang minuto bago humiling ng panibagong reset code.');
           setResendCooldown(60);
         } else if (status >= 500) {
-          setError('We could not resend the code right now. Please try again in a moment.');
+          setError('Hindi namin naipadala muli ang code ngayon. Subukang muli sandali.');
         } else {
-          setError(resendError.message || 'We could not resend the code. Please try again.');
+          setError(resendError.message || 'Hindi namin naipadala muli ang code. Subukang muli.');
         }
         return;
       }
 
       setResetCode('');
       setResendCooldown(60);
-      setResendMessage('A new six-digit code was sent. Check your inbox and spam folder.');
+      setResendMessage('May bagong anim-na-digit na code na naipadala. Tingnan ang inyong inbox at spam folder.');
     } catch (resendError: any) {
-      setError(resendError?.message || 'We could not resend the code. Please try again.');
+      setError(resendError?.message || 'Hindi namin naipadala muli ang code. Subukang muli.');
     } finally {
       setResending(false);
     }

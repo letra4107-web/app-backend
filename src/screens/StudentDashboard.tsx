@@ -519,7 +519,7 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       const [ranked] = await fetchPersonalizedContent(1, contentType);
       setCurrentPracticeItem(ranked || null);
-      setCurrentPracticeReason(ranked?.recommendationReason || 'Current unlocked curriculum frontier.');
+      setCurrentPracticeReason(ranked?.recommendationReason || 'Susunod na bukas na bahagi ng kurikulum.');
       setWordBankError('');
       void fetchReadingProfile().then(setReadingProfile).catch((profileError) => {
         console.warn('[StudentDashboard] reading profile unavailable:', profileError?.message || profileError);
@@ -916,7 +916,7 @@ export default function StudentDashboard({ navigation }: any) {
 
   const relativeBadgeDate = (iso: string) => {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-    if (days <= 0) return 'Today';
+    if (days <= 0) return 'Ngayon';
     if (days === 1) return 'Kahapon';
     if (days < 7) return `${days} araw na ang nakalipas`;
     return new Date(iso).toLocaleDateString();
@@ -941,8 +941,8 @@ export default function StudentDashboard({ navigation }: any) {
   const getStatusLabel = (status: string) => {
     if (status === 'completed') return 'Naisumite';
     if (status === 'completed_late') return 'Naisumite (Huli)';
-    if (status === 'overdue') return 'Overdue';
-    return 'Pending';
+    if (status === 'overdue') return 'Lampas na sa Deadline';
+    return 'Nakabinbin';
   };
 
   const iconForUpload = (contentType = '') => {
@@ -1112,8 +1112,8 @@ export default function StudentDashboard({ navigation }: any) {
       await saveProgress(next);
       setProgress(next);
       await notifyParent(
-        'Word of the Day',
-        `${child?.name || 'Student'} ${correct ? 'completed' : 'tried'} the word "${wordOfDay?.word || ''}" and earned ${addXp} XP.`,
+        'Salita ng Araw',
+        `${correct ? 'Natapos' : 'Sinubukan'} ni ${child?.name || 'Mag-aaral'} ang salitang "${wordOfDay?.word || ''}" at nakakuha ng ${addXp} XP.`,
         'word',
       );
       if (correct && completion?.streak != null) {
@@ -1813,7 +1813,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
                 <Ionicons name="flame" size={18} color="#fff" />
               </View>
-              <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
+              <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.streak} Araw</Text>
               <Text style={[styles.homeGridLabel, statLabelA11y]}>Kasalukuyang Sunod-sunod na Araw</Text>
             </View>
           </View>
@@ -2257,7 +2257,7 @@ export default function StudentDashboard({ navigation }: any) {
               setPracticeTranscript('');
               setPracticeProcessing(false);
             }}
-            title={'Voice Reading\nPractice'}
+            title={'Pagsasanay sa\nPagbigkas'}
             subtitle="Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo."
             illustration={require('../../assets/singing.webp')}
             titleA11yStyle={heroTitleA11yStyle}
@@ -2514,7 +2514,7 @@ export default function StudentDashboard({ navigation }: any) {
                   </View>
                 </View>
                 <Text style={[styles.aiRecommendationReason, bodyA11y]}>
-                  {currentPracticeReason || 'Current unlocked curriculum frontier.'}
+                  {currentPracticeReason || 'Susunod na bukas na bahagi ng kurikulum.'}
                 </Text>
               </View>
               {readingProfile && (
@@ -2768,7 +2768,7 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           </View>
           <Text style={[styles.learnProgressMsg, bodyA11y]}>
-            {completedLessonsCount === 0 ? 'Simulan ang unang aralin mo!' : 'Keep going! Umaangat ka nang umaangat.'}
+            {completedLessonsCount === 0 ? 'Simulan ang unang aralin mo!' : 'Ipagpatuloy mo! Umaangat ka nang umaangat.'}
           </Text>
         </View>
       ) : (
@@ -2847,7 +2847,7 @@ export default function StudentDashboard({ navigation }: any) {
                         style={[styles.lessonStepMeta, state === 'in_progress' && styles.lessonStepMetaLight, smallLabelA11y]}
                         numberOfLines={1}
                       >
-                        {lesson.subject || 'Lesson'} • {lessonStateLabel(state)}
+                        {lesson.subject || 'Aralin'} • {lessonStateLabel(state)}
                       </Text>
                     </View>
                     {state === 'completed' ? (
@@ -2967,7 +2967,7 @@ export default function StudentDashboard({ navigation }: any) {
     // Text rather than a background/icon/border.
     const tierTextColor = (pct: number) => (pct >= 80 ? colors.success : pct >= 60 ? colors.warningText : colors.dangerText);
     const tierMessage = (pct: number) =>
-      pct >= 80 ? "You're making great progress!" : pct >= 60 ? 'Sige lang, umaangat ka!' : 'Ipagpatuloy ang pagsasanay!';
+      pct >= 80 ? 'Napakagaling ng progreso mo!' : pct >= 60 ? 'Sige lang, umaangat ka!' : 'Ipagpatuloy ang pagsasanay!';
     const maxBarHeight = 90;
     const completedWords = progress?.completed_words || [];
     const lessonsCompletedCount = lessonProgress.filter((p) => p.status === 'completed').length;
@@ -3033,10 +3033,10 @@ export default function StudentDashboard({ navigation }: any) {
       avg === null
         ? { label: 'Wala Pang Sinubukan', color: colors.inkSoft, textColor: colors.inkSoft }
         : avg >= 80
-        ? { label: 'Strong', color: colors.success, textColor: colors.success }
+        ? { label: 'Malakas', color: colors.success, textColor: colors.success }
         : avg >= 60
-        ? { label: 'Improving', color: colors.warning, textColor: colors.warningText }
-        : { label: 'Keep Practicing', color: colors.danger, textColor: colors.dangerText };
+        ? { label: 'Umuunlad', color: colors.warning, textColor: colors.warningText }
+        : { label: 'Ipagpatuloy ang Pagsasanay', color: colors.danger, textColor: colors.dangerText };
 
     // This Month — real month-scoped aggregations, not lifetime totals.
     const lessonsCompletedThisMonth = lessonProgress.filter(
@@ -3084,8 +3084,8 @@ export default function StudentDashboard({ navigation }: any) {
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <TabHeroHeader
           onMenuPress={openSidebar}
-          title={'My Reading\nProgress'}
-          subtitle="See how much you've improved on your reading journey."
+          title={'Aking Progreso\nsa Pagbasa'}
+          subtitle="Tingnan kung gaano ka na umunlad sa iyong paglalakbay sa pagbasa."
           illustration={require('../../assets/clipboard.webp')}
           illustrationStyle={styles.progressHeroImage}
           titleA11yStyle={heroTitleA11yStyle}
@@ -3132,13 +3132,13 @@ export default function StudentDashboard({ navigation }: any) {
                   <Ionicons name="mic" size={16} color="#fff" />
                 </View>
                 <Text style={[styles.progressStatValue, { color: colors.vivid.orange }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>{'Pronunciation\nAccuracy'}</Text>
+                <Text style={[styles.progressStatLabel, statLabelA11y]}>{'Kawastuhan sa\nBigkas'}</Text>
               </View>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#FFF3DC' }]}>
                 <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.amber }]}>
                   <Ionicons name="flame" size={16} color="#fff" />
                 </View>
-                <Text style={[styles.progressStatValue, { color: colors.vivid.amber }, statValueA11y]}>{progress?.streak || 0} Days</Text>
+                <Text style={[styles.progressStatValue, { color: colors.vivid.amber }, statValueA11y]}>{progress?.streak || 0} Araw</Text>
                 <Text style={[styles.progressStatLabel, statLabelA11y]}>Kasalukuyang Sunod-sunod na Araw</Text>
                 {longestStreak > 0 && (
                   <View style={styles.progressStreakBestPill}>
@@ -3240,7 +3240,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
           <View style={styles.progressTrendMsgRow}>
             <Ionicons name="calendar" size={14} color={colors.lavenderDark} />
-            <Text style={styles.progressTrendMsgText}>{sessionsThisWeek} Practice Session{sessionsThisWeek === 1 ? '' : 's'} This Week</Text>
+            <Text style={styles.progressTrendMsgText}>{sessionsThisWeek} Pagsasanay Ngayong Linggo</Text>
           </View>
         </View>
 
@@ -3296,7 +3296,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={styles.progressTrendMsgRow}>
                 <Ionicons name="checkmark-circle" size={14} color={colors.success} />
                 <Text style={[styles.progressTrendMsgText, bodyA11y]}>
-                  {trendImproving ? 'Your accuracy is improving!' : 'Magpatuloy sa pagsasanay!'}
+                  {trendImproving ? 'Umuunlad ang kawastuhan mo!' : 'Magpatuloy sa pagsasanay!'}
                 </Text>
               </View>
             </>
@@ -3488,11 +3488,11 @@ export default function StudentDashboard({ navigation }: any) {
     const overallAccuracyPct = progress ? Math.round(averageAccuracy(progress)) : null;
 
     const filterTabs: { key: 'all' | AchievementCategory; label: string }[] = [
-      { key: 'all', label: 'All' },
-      { key: 'reading', label: 'Reading' },
-      { key: 'practice', label: 'Practice' },
-      { key: 'progress', label: 'Progress' },
-      { key: 'consistency', label: 'Consistency' },
+      { key: 'all', label: 'Lahat' },
+      { key: 'reading', label: 'Pagbasa' },
+      { key: 'practice', label: 'Pagsasanay' },
+      { key: 'progress', label: 'Progreso' },
+      { key: 'consistency', label: 'Katatagan' },
     ];
 
     const renderBadgeCard = (badge: AchievementDefinition) => {
@@ -3560,8 +3560,8 @@ export default function StudentDashboard({ navigation }: any) {
         {/* Rendered outside the ScrollView below so it stays pinned while content scrolls underneath it. */}
         <TabHeroHeader
           onMenuPress={openSidebar}
-          title={'My Learning\nBadges'}
-          subtitle="Celebrate every reading milestone you achieve!"
+          title={'Aking mga\nParangal'}
+          subtitle="Ipagdiwang ang bawat tagumpay mo sa pagbasa!"
           illustration={require('../../assets/trophy.webp')}
           illustrationStyle={styles.badgesHeroImage}
           titleA11yStyle={heroTitleA11yStyle}
@@ -3752,12 +3752,12 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={[styles.badgesNextLabel, smallLabelA11y]}>Susunod na Parangal na Mabubuksan</Text>
                 <Text style={[styles.badgesNextTitle, cardSubtitleA11y]}>{spotlight.badge.title}</Text>
                 <Text style={[styles.badgesNextDetail, smallLabelA11y]}>
-                  {Math.max(0, (spotlight.progress.target || 0) - (spotlight.progress.current || 0))} more to go
+                  {Math.max(0, (spotlight.progress.target || 0) - (spotlight.progress.current || 0))} na lang
                 </Text>
               </>
             ) : (
               <Text style={[styles.badgesNextTitle, cardSubtitleA11y]}>
-                {unlockedCount === totalCount ? 'All badges unlocked!' : 'Keep practicing to make progress!'}
+                {unlockedCount === totalCount ? 'Nabuksan na ang lahat ng parangal!' : 'Magpatuloy sa pagsasanay para umunlad!'}
               </Text>
             )}
           </View>
@@ -3796,14 +3796,14 @@ export default function StudentDashboard({ navigation }: any) {
     const groupLabel = (iso: string) => {
       const date = new Date(iso);
       const now = new Date();
-      if (date.toDateString() === now.toDateString()) return 'Today';
+      if (date.toDateString() === now.toDateString()) return 'Ngayon';
       const yesterday = new Date(now);
       yesterday.setDate(yesterday.getDate() - 1);
-      if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+      if (date.toDateString() === yesterday.toDateString()) return 'Kahapon';
       const daysAgo = Math.floor((now.getTime() - date.getTime()) / 86400000);
-      return daysAgo < 7 ? 'Earlier This Week' : 'Earlier';
+      return daysAgo < 7 ? 'Mas Naunang Linggo' : 'Mas Naunang Petsa';
     };
-    const groupOrder = ['Today', 'Yesterday', 'Earlier This Week', 'Earlier'];
+    const groupOrder = ['Ngayon', 'Kahapon', 'Mas Naunang Linggo', 'Mas Naunang Petsa'];
     const groups: { label: string; items: NotificationItem[] }[] = [];
     filteredNotifs.forEach((item) => {
       const label = groupLabel(item.created_at);
@@ -3819,11 +3819,11 @@ export default function StudentDashboard({ navigation }: any) {
     const typeMeta = (type?: string | null) => {
       switch (type) {
         case 'lesson':
-          return { icon: 'book', color: colors.sage, actionLabel: 'View Lesson', actionSection: 'learn' };
+          return { icon: 'book', color: colors.sage, actionLabel: 'Tingnan ang Aralin', actionSection: 'learn' };
         case 'achievement':
-          return { icon: 'trophy', color: XP_GOLD, actionLabel: 'View Badge', actionSection: 'achievements' };
+          return { icon: 'trophy', color: XP_GOLD, actionLabel: 'Tingnan ang Parangal', actionSection: 'achievements' };
         case 'streak':
-          return { icon: 'flame', color: colors.sun, actionLabel: 'Practice Now', actionSection: 'practice' };
+          return { icon: 'flame', color: colors.sun, actionLabel: 'Magsanay Na', actionSection: 'practice' };
         default:
           return { icon: 'notifications', color: colors.lavenderDark, actionLabel: null as string | null, actionSection: null as string | null };
       }
@@ -3837,11 +3837,11 @@ export default function StudentDashboard({ navigation }: any) {
     };
 
     const filterTabs: { key: typeof notifFilter; label: string }[] = [
-      { key: 'all', label: 'All' },
-      { key: 'unread', label: 'Unread' },
-      { key: 'lesson', label: 'Lessons' },
-      { key: 'practice', label: 'Practice' },
-      { key: 'achievement', label: 'Achievements' },
+      { key: 'all', label: 'Lahat' },
+      { key: 'unread', label: 'Hindi Pa Nabasa' },
+      { key: 'lesson', label: 'Mga Aralin' },
+      { key: 'practice', label: 'Pagsasanay' },
+      { key: 'achievement', label: 'Mga Parangal' },
     ];
 
     return (

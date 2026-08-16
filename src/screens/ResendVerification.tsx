@@ -84,10 +84,10 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
     try {
       const result = await sendEmailOTP(email);
       if (!result.success) {
-        throw new Error(result.message || 'Failed to send verification code.');
+        throw new Error(result.message || 'Hindi naipadala ang verification code.');
       }
 
-      setSuccessMessage('Verification code sent! Check your email. Returning to login...');
+      setSuccessMessage('Naipadala ang verification code! Tingnan ang iyong email. Babalik sa login...');
       setResendAttempts((prev) => prev + 1);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
 
@@ -98,7 +98,7 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
       }, 1800);
     } catch (error: any) {
       console.error('[ResendVerification] Error:', error);
-      setErrorMessage(error.message || 'Failed to resend verification code.');
+      setErrorMessage(error.message || 'Hindi naipadala muli ang verification code.');
     } finally {
       setLoading(false);
     }
@@ -162,7 +162,7 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
               <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Email address"
+                placeholder="Ilagay ang email"
                 placeholderTextColor={colors.inkSoft}
                 value={email}
                 onChangeText={setEmail}

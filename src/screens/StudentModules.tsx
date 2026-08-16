@@ -172,7 +172,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
           <TouchableOpacity style={styles.primaryButton} onPress={() => {
             setResult(null); setDetail(null); setAssessment(null); void loadPath();
           }}>
-            <Text style={[styles.primaryButtonText, buttonA11y]}>{result.passed ? 'Tingnan ang Susunod' : 'Bumalik sa Module'}</Text>
+            <Text style={[styles.primaryButtonText, buttonA11y]}>{result.passed ? 'Tingnan ang Susunod' : 'Bumalik sa Modyul'}</Text>
           </TouchableOpacity>
           {!result.passed && <TouchableOpacity style={styles.secondaryButton} onPress={() => { setResult(null); void beginAssessment(); }}>
             <Text style={[styles.secondaryButtonText, buttonA11y]}>Ulitin ang Pagsusulit</Text>

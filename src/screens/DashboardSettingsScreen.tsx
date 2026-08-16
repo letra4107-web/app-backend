@@ -199,7 +199,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
         setNewEmail(user.email || '');
         Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
       } catch (e: any) {
-        if (mounted) setError(e?.message || 'Could not load settings. Please check your connection.');
+        if (mounted) setError(e?.message || 'Hindi na-load ang mga setting. Tingnan ang iyong koneksyon.');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -234,7 +234,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   const saveProfile = async () => {
     if (!authUid) return;
     if (!profile.full_name?.trim()) {
-      showError('Full name is required.');
+      showError('Kailangan ang buong pangalan.');
       return;
     }
     setSavingProfile(true);
@@ -252,9 +252,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
         avatar_key: profile.avatar_key,
       });
       onProfileChanged?.({ ...profile, full_name: profile.full_name.trim() });
-      showSuccess('Profile saved.');
+      showSuccess('Na-save ang profile.');
     } catch (e: any) {
-      showError(e?.message || 'Could not save profile.');
+      showError(e?.message || 'Hindi na-save ang profile.');
     } finally {
       setSavingProfile(false);
     }
@@ -265,7 +265,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        showError('Photo library permission is required.');
+        showError('Kailangan ng permiso sa photo library.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -283,9 +283,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       const updatedProfile = { ...profile, avatar_url: publicUrl };
       setProfile(updatedProfile);
       onProfileChanged?.(updatedProfile);
-      showSuccess('Profile photo updated.');
+      showSuccess('Na-update ang profile photo.');
     } catch (e: any) {
-      showError(e?.message || 'Could not upload profile photo.');
+      showError(e?.message || 'Hindi na-upload ang profile photo.');
     } finally {
       setSavingProfile(false);
     }
@@ -315,9 +315,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       setSettings(saved);
       setSavedSettings(saved);
       onSaved?.(saved);
-      showSuccess('Settings saved.');
+      showSuccess('Na-save ang mga setting.');
     } catch (e: any) {
-      showError(e?.message || 'Could not save settings. Your changes are still here - try again.');
+      showError(e?.message || 'Hindi na-save ang mga setting. Nandito pa rin ang mga pagbabago mo - subukang muli.');
     } finally {
       setSavingSettings(false);
     }
@@ -335,11 +335,11 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
 
   const submitPassword = async () => {
     if (newPassword.length < 8) {
-      showError('Password must be at least 8 characters.');
+      showError('Kailangan ng hindi bababa sa 8 character ang password.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      showError('Passwords do not match.');
+      showError('Hindi magkatugma ang password.');
       return;
     }
     setSavingKey('password');
@@ -348,9 +348,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       setNewPassword('');
       setConfirmPassword('');
       setModal(null);
-      showSuccess('Password updated.');
+      showSuccess('Na-update ang password.');
     } catch (e: any) {
-      showError(e?.message || 'Could not update password.');
+      showError(e?.message || 'Hindi na-update ang password.');
     } finally {
       setSavingKey(null);
     }
@@ -359,7 +359,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
   const submitEmail = async () => {
     const trimmed = newEmail.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      showError('Enter a valid email address.');
+      showError('Maglagay ng wastong email address.');
       return;
     }
     setSavingKey('email');
@@ -367,9 +367,9 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       await changeEmail(trimmed);
       setProfile((prev) => ({ ...prev, email: trimmed }));
       setModal(null);
-      showSuccess('Check your inbox to confirm the new email.');
+      showSuccess('Tingnan ang inyong inbox para kumpirmahin ang bagong email.');
     } catch (e: any) {
-      showError(e?.message || 'Could not update email.');
+      showError(e?.message || 'Hindi na-update ang email.');
     } finally {
       setSavingKey(null);
     }
@@ -380,7 +380,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       await signOut();
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (e: any) {
-      showError(e?.message || 'Could not log out.');
+      showError(e?.message || 'Hindi maka-logout.');
     }
   };
 
@@ -528,7 +528,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
               </TouchableOpacity>
             )}
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Parent Settings' : 'Settings'}</Text>
+              <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Mga Setting ng Magulang' : 'Mga Setting'}</Text>
               <Text style={[styles.subtitle, dark && styles.mutedDark]}>Iangkop ang LinawLetra para sa iyo.</Text>
             </View>
             <TouchableOpacity onPress={scrollToProfile}>

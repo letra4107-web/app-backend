@@ -473,7 +473,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       currentLessonResult.value.data
     ) {
       const row = currentLessonResult.value.data as any;
-      setChildCurrentLesson({ title: row.lessons?.title || 'Lesson', status: row.status, openedAt: row.opened_at || null });
+      setChildCurrentLesson({ title: row.lessons?.title || 'Aralin', status: row.status, openedAt: row.opened_at || null });
     } else {
       // lesson_progress may not be available yet (pending migration) or the
       // child hasn't opened a lesson - omit the card rather than fabricate one.
@@ -780,10 +780,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     };
   }, [selectedChild, childSessions]);
   const enrolledChildrenText = children.length === 0
-    ? 'No enrolled child yet'
+    ? 'Wala pang naka-enroll na anak'
     : children.length === 1
-      ? '1 child enrolled'
-      : `${children.length} children enrolled`;
+      ? '1 anak ang naka-enroll'
+      : `${children.length} na anak ang naka-enroll`;
 
   const openSidebar = () => {
     setSidebarOpen(true);
@@ -875,8 +875,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <>
           <TabHeroHeader
             onMenuPress={openSidebar}
-            title={`Good Day,\n${parentName || 'Loading...'}!`}
-            subtitle="Here's how your child is doing today."
+            title={`Magandang Araw,\n${parentName || 'Kinakarga...'}!`}
+            subtitle="Narito kung paano ang progreso ng iyong anak ngayon."
             illustration={require('../../assets/parenthome.png')}
             illustrationStyle={styles.heroIllustrationWide}
             notifDot={unreadNotifications > 0}
@@ -981,12 +981,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     ];
     const skillStatus = (avg: number | null) =>
       avg === null
-        ? { label: 'Not enough data', color: colors.inkSoft }
+        ? { label: 'Kulang Pa ang Datos', color: colors.inkSoft }
         : avg >= 80
-        ? { label: 'Excellent', color: colors.success }
+        ? { label: 'Napakahusay', color: colors.success }
         : avg >= 60
-        ? { label: 'Good Progress', color: colors.warning }
-        : { label: 'Needs More Practice', color: colors.danger };
+        ? { label: 'Magandang Progreso', color: colors.warning }
+        : { label: 'Kailangan Pang Magsanay', color: colors.danger };
 
     // Recent activity - same merged real lesson+pronunciation feed pattern
     // as the Student Dashboard's Home/Progress tabs, scoped to this child.
@@ -996,8 +996,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       .map((p) => ({
         key: `lesson-${p.id}`,
         kind: 'lesson' as const,
-        title: childLessonsList.find((l) => l.id === p.lesson_id)?.title || 'Lesson',
-        detail: 'Completed',
+        title: childLessonsList.find((l) => l.id === p.lesson_id)?.title || 'Aralin',
+        detail: 'Tapos na',
         timestamp: p.completed_at as string,
       }));
     const pronunciationActivityItems: RecentActivityItem[] = childSessions.slice(0, 10).map((s, idx) => ({
@@ -1015,15 +1015,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       const now = new Date();
       const isToday = date.toDateString() === now.toDateString();
       const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      return isToday ? `Today ${time}` : `${date.toLocaleDateString()} ${time}`;
+      return isToday ? `Ngayon ${time}` : `${date.toLocaleDateString()} ${time}`;
     };
 
     return (
       <>
         <TabHeroHeader
           onMenuPress={openSidebar}
-          title={`Good Day,\n${parentName || 'Loading...'}!`}
-          subtitle="Here's how your child is doing today."
+          title={`Magandang Araw,\n${parentName || 'Kinakarga...'}!`}
+          subtitle="Narito kung paano ang progreso ng iyong anak ngayon."
           illustration={require('../../assets/parenthome.png')}
           illustrationStyle={styles.heroIllustrationWide}
           notifDot={unreadNotifications > 0}
@@ -1049,7 +1049,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </View>
             <View style={styles.statusRow}>
               <View style={[styles.statusDotLg, { backgroundColor: isActivelyLearning ? colors.success : colors.inkSoft }]} />
-              <Text style={styles.statusRowText}>{isActivelyLearning ? 'Active Today' : 'No activity today'}</Text>
+              <Text style={styles.statusRowText}>{isActivelyLearning ? 'Aktibo Ngayon' : 'Walang aktibidad ngayon'}</Text>
             </View>
           </View>
           {children.length > 1 && (
@@ -1092,7 +1092,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={styles.latestReadingHeader}>
             <View>
               <Text style={styles.latestReadingEyebrow}>PINAKABAGONG RESULTA SA PAGBASA</Text>
-              <Text style={styles.latestReadingWord}>{latestReading?.word || 'No reading yet'}</Text>
+              <Text style={styles.latestReadingWord}>{latestReading?.word || 'Wala pang pagbasa'}</Text>
             </View>
             <Ionicons name={latestReading?.is_correct ? 'checkmark-circle' : 'book-outline'} size={26} color={latestReading?.is_correct ? colors.success : colors.lavenderDark} />
           </View>
@@ -1218,7 +1218,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <View style={styles.skillOverviewRow}>
                 <Ionicons name="book" size={18} color={colors.lavenderDark} />
                 <Text style={styles.currentLessonTitle}>
-                  {childCurrentLesson.status === 'completed' ? 'Completed Lesson: ' : 'Currently on: '}
+                  {childCurrentLesson.status === 'completed' ? 'Tapos na Aralin: ' : 'Kasalukuyang Ginagawa: '}
                   {childCurrentLesson.title}
                 </Text>
               </View>
@@ -1368,13 +1368,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const isActivelyLearning = !!progress?.last_practice_date && progress.last_practice_date.slice(0, 10) === new Date().toISOString().slice(0, 10);
 
     const PERIOD_LABELS: { key: typeof progressPeriod; label: string }[] = [
-      { key: '7d', label: '7 Days' },
-      { key: '30d', label: '30 Days' },
-      { key: '90d', label: '3 Months' },
-      { key: 'all', label: 'All Time' },
+      { key: '7d', label: '7 Araw' },
+      { key: '30d', label: '30 Araw' },
+      { key: '90d', label: '3 Buwan' },
+      { key: 'all', label: 'Lahat ng Oras' },
     ];
     const periodDays = progressPeriod === '7d' ? 7 : progressPeriod === '30d' ? 30 : progressPeriod === '90d' ? 90 : null;
-    const periodRingLabel = PERIOD_LABELS.find((p) => p.key === progressPeriod)?.label || 'All Time';
+    const periodRingLabel = PERIOD_LABELS.find((p) => p.key === progressPeriod)?.label || 'Lahat ng Oras';
     const nowMs = Date.now();
     const dayMs = 86400000;
 
@@ -1470,16 +1470,16 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       { key: 'letters', label: 'Pagkilala ng Letra', icon: 'text', avg: skillGroups.letters.count ? Math.round(skillGroups.letters.sum / skillGroups.letters.count) : null },
       { key: 'syllables', label: 'Pagbasa ng Pantig', icon: 'reader', avg: skillGroups.syllables.count ? Math.round(skillGroups.syllables.sum / skillGroups.syllables.count) : null },
       { key: 'words', label: 'Pagbasa ng Salita', icon: 'book', avg: skillGroups.words.count ? Math.round(skillGroups.words.sum / skillGroups.words.count) : null },
-      { key: 'fluency', label: 'Reading Fluency (approx.)', icon: 'speedometer', avg: fluencyScore, approximate: true },
+      { key: 'fluency', label: 'Katatasan sa Pagbasa (tantiya)', icon: 'speedometer', avg: fluencyScore, approximate: true },
     ];
     const skillStatus = (avg: number | null) =>
       avg === null
-        ? { label: 'Not enough data', color: colors.inkSoft }
+        ? { label: 'Kulang Pa ang Datos', color: colors.inkSoft }
         : avg >= 80
-        ? { label: 'Strong', color: colors.success }
+        ? { label: 'Malakas', color: colors.success }
         : avg >= 60
-        ? { label: 'Improving', color: colors.warning }
-        : { label: 'Needs More Practice', color: colors.danger };
+        ? { label: 'Umuunlad', color: colors.warning }
+        : { label: 'Kailangan Pang Magsanay', color: colors.danger };
 
     const scoredSkills = skillMeta.filter((s) => s.avg !== null) as (typeof skillMeta[number] & { avg: number })[];
     const weakestSkill = scoredSkills.length ? scoredSkills.reduce((a, b) => (a.avg <= b.avg ? a : b)) : null;
@@ -1776,7 +1776,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
 
         <TouchableOpacity style={styles.detailedReportButton} onPress={() => setHistoryExpanded((v) => !v)}>
-          <Text style={styles.detailedReportButtonText}>{historyExpanded ? 'Show Less' : 'View Detailed Report'}</Text>
+          <Text style={styles.detailedReportButtonText}>{historyExpanded ? 'Ipakita ang Kaunti' : 'Tingnan ang Detalyadong Ulat'}</Text>
         </TouchableOpacity>
         </ScrollView>
       </>
@@ -1910,18 +1910,18 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const dayEntries: DayEntry[] = [];
 
     dayLessonRows.forEach((p) => {
-      const title = childLessonsList.find((l) => l.id === p.lesson_id)?.title || 'Lesson';
+      const title = childLessonsList.find((l) => l.id === p.lesson_id)?.title || 'Aralin';
       const timeSource = p.completed_at || p.opened_at;
       const time = timeSource ? new Date(timeSource).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
       dayEntries.push({
         key: `lp-${p.id}`,
         sortKey: timeSource || dateKey,
-        pillLabel: 'Lesson',
+        pillLabel: 'Aralin',
         pillColor: colors.lavenderDark,
         icon: 'book',
         title,
-        meta: `${time ? `${time} • ` : ''}${p.status === 'completed' ? 'Completed' : 'In Progress'}`,
-        actionLabel: 'View Lesson',
+        meta: `${time ? `${time} • ` : ''}${p.status === 'completed' ? 'Tapos na' : 'Isinasagawa'}`,
+        actionLabel: 'Tingnan ang Aralin',
         onPress: () => setSection('progress'),
       });
     });
@@ -1930,12 +1930,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       dayEntries.push({
         key: `act-${a.id}`,
         sortKey: a.deadline,
-        pillLabel: 'Lesson',
+        pillLabel: 'Aralin',
         pillColor: colors.lavenderDark,
         icon: 'clipboard',
         title: a.title,
-        meta: `${new Date(a.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ${a.status}`,
-        actionLabel: 'View Details',
+        meta: `${new Date(a.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ${a.status === 'completed' || a.status === 'completed_late' ? 'Tapos na' : a.status === 'overdue' ? 'Lampas na sa Deadline' : 'Naka-iskedyul'}`,
+        actionLabel: 'Tingnan ang Detalye',
         onPress: () => setSection('progress'),
       });
     });
@@ -1949,32 +1949,32 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       dayEntries.push({
         key: 'practice-agg',
         sortKey: firstTime || dateKey,
-        pillLabel: 'Practice',
+        pillLabel: 'Pagsasanay',
         pillColor: CALENDAR_PRACTICE_BLUE,
         icon: 'mic',
-        title: `Pronunciation Practice • ${daySessions.length} word${daySessions.length === 1 ? '' : 's'}`,
-        meta: `${firstTime ? `${new Date(firstTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ` : ''}Completed • ${avgDayAccuracy}% Accuracy`,
-        actionLabel: 'View Details',
+        title: `Pagsasanay sa Bigkas • ${daySessions.length} salita`,
+        meta: `${firstTime ? `${new Date(firstTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ` : ''}Tapos na • ${avgDayAccuracy}% Kawastuhan`,
+        actionLabel: 'Tingnan ang Detalye',
         onPress: () => setSection('progress'),
       });
     }
 
     dayScheduledItems.forEach((item) => {
       const pillLabel =
-        item.activity_type === 'reading_lesson' ? 'Lesson' :
-        item.activity_type === 'practice' ? 'Practice' :
-        item.activity_type === 'appointment' ? 'Appointment' : 'Reminder';
+        item.activity_type === 'reading_lesson' ? 'Aralin' :
+        item.activity_type === 'practice' ? 'Pagsasanay' :
+        item.activity_type === 'appointment' ? 'Pagpupulong' : 'Paalala';
       const pillColor =
         item.activity_type === 'reading_lesson' ? colors.lavenderDark :
         item.activity_type === 'practice' ? CALENDAR_PRACTICE_BLUE : colors.warning;
       dayEntries.push({
         key: `sched-${item.id}`,
         sortKey: item.start_time ? `${item.scheduled_date}T${item.start_time}` : item.scheduled_date,
-        pillLabel: item.created_by === 'teacher' ? 'Teacher Activity' : pillLabel,
+        pillLabel: item.created_by === 'teacher' ? 'Gawain ng Guro' : pillLabel,
         pillColor,
         icon: SCHEDULED_TYPE_ICON[item.activity_type],
         title: item.title,
-        meta: `${item.start_time ? `${item.start_time.slice(0, 5)} • ` : ''}${item.status === 'completed' ? 'Completed' : item.status === 'missed' ? 'Missed' : 'Planned'}${item.created_by === 'teacher' ? ' • From teacher' : ''}`,
+        meta: `${item.start_time ? `${item.start_time.slice(0, 5)} • ` : ''}${item.status === 'completed' ? 'Tapos na' : item.status === 'missed' ? 'Nalampasan' : 'Naka-iskedyul'}${item.created_by === 'teacher' ? ' • Mula sa guro' : ''}`,
         scheduledItem: item,
       });
     });
@@ -2487,10 +2487,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
         ) : (
           <>
-            {renderToggleRow('book-outline', 'Lesson Updates', 'When your child opens a lesson', 'lesson_notifications', parentSettings.lesson_notifications)}
-            {renderToggleRow('stats-chart-outline', 'Progress Updates', "Get notified about your child's reading progress", 'progress_notifications', parentSettings.progress_notifications)}
-            {renderToggleRow('ribbon-outline', 'Achievement Updates', 'Celebrate milestones and achievements', 'milestone_alerts', parentSettings.milestone_alerts)}
-            {renderToggleRow('calendar-outline', 'Weekly Progress Reports', "Weekly summary of your child's reading", 'weekly_progress_reports', parentSettings.weekly_progress_reports, true)}
+            {renderToggleRow('book-outline', 'Update sa Aralin', 'Kapag binuksan ng iyong anak ang isang aralin', 'lesson_notifications', parentSettings.lesson_notifications)}
+            {renderToggleRow('stats-chart-outline', 'Update sa Progreso', 'Maabisuhan tungkol sa progreso ng iyong anak sa pagbasa', 'progress_notifications', parentSettings.progress_notifications)}
+            {renderToggleRow('ribbon-outline', 'Update sa Parangal', 'Ipagdiwang ang mga tagumpay at parangal', 'milestone_alerts', parentSettings.milestone_alerts)}
+            {renderToggleRow('calendar-outline', 'Lingguhang Ulat ng Progreso', 'Lingguhang buod ng pagbasa ng iyong anak', 'weekly_progress_reports', parentSettings.weekly_progress_reports, true)}
           </>
         )}
       </View>
@@ -2501,8 +2501,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
         ) : (
           <>
-            {renderToggleRow('text-outline', 'Dyslexia-Friendly Font', 'Use a font designed to improve readability', 'dyslexia_font', parentSettings.dyslexia_font)}
-            {renderToggleRow('volume-high-outline', 'Text-to-Speech', 'Listen to text read aloud in the app', 'tts_enabled', parentSettings.tts_enabled)}
+            {renderToggleRow('text-outline', 'Font na Madaling Basahin', 'Gumamit ng font na dinisenyo para sa mas madaling pagbasa', 'dyslexia_font', parentSettings.dyslexia_font)}
+            {renderToggleRow('volume-high-outline', 'Text-to-Speech', 'Pakinggan ang teksto na binabasa sa app', 'tts_enabled', parentSettings.tts_enabled)}
             <View style={[styles.settingsToggleRow, { borderBottomWidth: 0 }]}>
               <Ionicons name="speedometer-outline" size={20} color={colors.lavenderDark} />
               <View style={{ flex: 1 }}>

@@ -33,7 +33,7 @@ const TYPE_OPTIONS: { key: ScheduledActivityType; label: string; icon: keyof typ
   { key: 'reading_lesson', label: 'Aralin sa Pagbasa', icon: 'book-outline' },
   { key: 'practice', label: 'Pagsasanay', icon: 'mic-outline' },
   { key: 'reminder', label: 'Paalala', icon: 'alarm-outline' },
-  { key: 'appointment', label: 'Appointment', icon: 'medical-outline' },
+  { key: 'appointment', label: 'Pagpupulong', icon: 'medical-outline' },
 ];
 
 const TIME_OPTIONS: { key: string; label: string; value: string | null }[] = [

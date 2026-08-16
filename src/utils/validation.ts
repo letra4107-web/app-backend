@@ -16,12 +16,12 @@ export const validateEmail = (email: string): ValidationResult => {
   const trimmed = email.trim();
 
   if (!trimmed) {
-    return { isValid: false, error: 'Email address is required' };
+    return { isValid: false, error: 'Kailangan ang email address' };
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(trimmed)) {
-    return { isValid: false, error: 'Invalid email format (e.g., user@example.com)' };
+    return { isValid: false, error: 'Hindi wastong format ng email (hal., user@example.com)' };
   }
 
   return { isValid: true, error: null };
@@ -34,15 +34,15 @@ export const validatePhoneNumber = (phoneNumber: string): ValidationResult => {
   const cleaned = phoneNumber.replace(/\D/g, '');
 
   if (!cleaned) {
-    return { isValid: false, error: 'Phone number is required' };
+    return { isValid: false, error: 'Kailangan ang numero ng telepono' };
   }
 
   if (cleaned.length < 10) {
-    return { isValid: false, error: 'Phone number too short (minimum 10 digits)' };
+    return { isValid: false, error: 'Masyadong maikli ang numero ng telepono (minimum 10 digit)' };
   }
 
   if (cleaned.length > 15) {
-    return { isValid: false, error: 'Phone number too long (maximum 15 digits)' };
+    return { isValid: false, error: 'Masyadong mahaba ang numero ng telepono (maximum 15 digit)' };
   }
 
   return { isValid: true, error: null };
@@ -53,11 +53,11 @@ export const validatePhoneNumber = (phoneNumber: string): ValidationResult => {
  */
 export const validateOTP = (otp: string): ValidationResult => {
   if (!otp) {
-    return { isValid: false, error: 'OTP is required' };
+    return { isValid: false, error: 'Kailangan ang OTP' };
   }
 
   if (!/^\d{6}$/.test(otp)) {
-    return { isValid: false, error: 'OTP must be exactly 6 digits' };
+    return { isValid: false, error: 'Dapat eksaktong 6 na digit ang OTP' };
   }
 
   return { isValid: true, error: null };
@@ -72,19 +72,19 @@ export const validateOTP = (otp: string): ValidationResult => {
  */
 export const validatePassword = (password: string): ValidationResult => {
   if (!password) {
-    return { isValid: false, error: 'Password is required' };
+    return { isValid: false, error: 'Kailangan ang password' };
   }
 
   if (password.length < 8) {
-    return { isValid: false, error: 'Minimum 8 characters required' };
+    return { isValid: false, error: 'Kailangan ng hindi bababa sa 8 character' };
   }
 
   if (!/[A-Z]/.test(password)) {
-    return { isValid: false, error: 'Must contain at least one uppercase letter (A-Z)' };
+    return { isValid: false, error: 'Dapat may hindi bababa sa isang malaking titik (A-Z)' };
   }
 
   if (!/\d/.test(password)) {
-    return { isValid: false, error: 'Must contain at least one number (0-9)' };
+    return { isValid: false, error: 'Dapat may hindi bababa sa isang numero (0-9)' };
   }
 
   return { isValid: true, error: null };
@@ -95,11 +95,11 @@ export const validatePassword = (password: string): ValidationResult => {
  */
 export const validateConfirmPassword = (password: string, confirmPassword: string): ValidationResult => {
   if (!confirmPassword) {
-    return { isValid: false, error: 'Please confirm your password' };
+    return { isValid: false, error: 'Kumpirmahin ang iyong password' };
   }
 
   if (confirmPassword !== password) {
-    return { isValid: false, error: 'Passwords do not match' };
+    return { isValid: false, error: 'Hindi magkatugma ang password' };
   }
 
   return { isValid: true, error: null };
@@ -112,20 +112,20 @@ export const validateName = (name: string, minLength: number = 2): ValidationRes
   const trimmed = name.trim();
 
   if (!trimmed) {
-    return { isValid: false, error: 'Name is required' };
+    return { isValid: false, error: 'Kailangan ang pangalan' };
   }
 
   if (trimmed.length < minLength) {
     return {
       isValid: false,
-      error: `Minimum ${minLength} characters required`,
+      error: `Kailangan ng hindi bababa sa ${minLength} character`,
     };
   }
 
   if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) {
     return {
       isValid: false,
-      error: 'Name can only contain letters, spaces, hyphens, and apostrophes',
+      error: 'Letra, espasyo, gitling, at kudlit lamang ang pwede sa pangalan',
     };
   }
 

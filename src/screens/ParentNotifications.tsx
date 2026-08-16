@@ -29,25 +29,25 @@ const LEARNING_TYPES = ['lesson', 'assignment', 'word'];
 const PROGRESS_TYPES = ['xp', 'streak', 'achievement', 'practice'];
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'unread', label: 'Unread' },
-  { key: 'learning', label: 'Learning' },
-  { key: 'progress', label: 'Progress' },
+  { key: 'all', label: 'Lahat' },
+  { key: 'unread', label: 'Hindi Pa Nabasa' },
+  { key: 'learning', label: 'Pag-aaral' },
+  { key: 'progress', label: 'Progreso' },
 ];
 
 const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; actionLabel: string; section: Section }> = {
-  lesson: { icon: 'book-outline', color: colors.lavenderDark, actionLabel: 'View Progress', section: 'progress' },
-  assignment: { icon: 'clipboard-outline', color: colors.sun, actionLabel: 'View Calendar', section: 'calendar' },
-  word: { icon: 'text-outline', color: colors.coral, actionLabel: 'View Progress', section: 'progress' },
-  xp: { icon: 'flash-outline', color: colors.sun, actionLabel: 'View Progress', section: 'progress' },
-  streak: { icon: 'flame-outline', color: colors.coral, actionLabel: 'View Progress', section: 'progress' },
-  achievement: { icon: 'ribbon-outline', color: colors.sage, actionLabel: 'View Progress', section: 'progress' },
-  practice: { icon: 'mic-outline', color: colors.lavenderDark, actionLabel: 'View Progress', section: 'progress' },
+  lesson: { icon: 'book-outline', color: colors.lavenderDark, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
+  assignment: { icon: 'clipboard-outline', color: colors.sun, actionLabel: 'Tingnan ang Kalendaryo', section: 'calendar' },
+  word: { icon: 'text-outline', color: colors.coral, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
+  xp: { icon: 'flash-outline', color: colors.sun, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
+  streak: { icon: 'flame-outline', color: colors.coral, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
+  achievement: { icon: 'ribbon-outline', color: colors.sage, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
+  practice: { icon: 'mic-outline', color: colors.lavenderDark, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
 };
 const DEFAULT_META = {
   icon: 'notifications-outline' as keyof typeof Ionicons.glyphMap,
   color: colors.lavenderDark,
-  actionLabel: 'View Progress',
+  actionLabel: 'Tingnan ang Progreso',
   section: 'progress' as Section,
 };
 
