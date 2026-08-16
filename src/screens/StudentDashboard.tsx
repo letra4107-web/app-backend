@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import ReanimatedView, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import ReanimatedView, { runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
@@ -904,6 +905,33 @@ export default function StudentDashboard({ navigation }: any) {
       if (finished) setSidebarOpen(false);
     });
   };
+
+  // Panel item 3: swipe-right-from-the-left-edge also opens the sidebar, not
+  // just tapping the hamburger icon. Restricted to a strip at the physical
+  // left edge (hitSlop) so it can't be triggered by a swipe that starts
+  // anywhere else on screen, and requires enough rightward travel before
+  // activating so it doesn't fire on stray touches or fight the vertical
+  // ScrollViews used throughout every tab. Calls the exact same openSidebar()
+  // used by the hamburger button - no separate animation path, so the
+  // rapid-tap race-condition fix already in closeSidebar() (the `finished`
+  // guard above) covers this entry point too.
+  //
+  // Width verified against a real Android device with gesture navigation
+  // enabled: Android reserves roughly its own ~16-20dp at the true edge for
+  // the system back gesture - touches starting inside that reserved strip
+  // never reach the app at all (confirmed via on-device testing: swipes at
+  // 15-40px on a 1080px-wide/~3x-density screen backed out to the home
+  // screen instead of reaching this handler). 40dp leaves real catchable
+  // room past that OS zone instead of being swallowed entirely by it.
+  const edgeSwipeGesture = Gesture.Pan()
+    .activeOffsetX(15)
+    .failOffsetY([-20, 20])
+    .hitSlop({ left: 0, width: 40 })
+    .onEnd((e) => {
+      if (e.translationX > 40) {
+        runOnJS(openSidebar)();
+      }
+    });
 
   const navigateTo = (s: any) => {
     if (s !== 'practice') setPracticeCategoryFilter(null);
@@ -3474,6 +3502,7 @@ export default function StudentDashboard({ navigation }: any) {
   ];
 
   return (
+    <GestureDetector gesture={edgeSwipeGesture}>
     <View style={styles.container}>
       {selectedWord ? (
         // A word is being actively practiced (say/listen focused view) -
@@ -3627,6 +3656,7 @@ export default function StudentDashboard({ navigation }: any) {
         onClose={() => setAchievement(null)}
       />
     </View>
+    </GestureDetector>
   );
 }
 

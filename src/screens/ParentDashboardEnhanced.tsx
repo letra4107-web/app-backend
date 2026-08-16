@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Image, Linking, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
@@ -808,6 +810,30 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       if (finished) setSidebarOpen(false);
     });
   };
+
+  // Panel item 3: swipe-right-from-the-left-edge also opens the sidebar, not
+  // just tapping the hamburger icon - same treatment as the Student side
+  // (StudentDashboard.tsx). Restricted to a strip at the physical left edge
+  // (hitSlop) so it can't be triggered by a swipe starting anywhere else on
+  // screen, and calls the exact same openSidebar() the hamburger button uses,
+  // so the rapid-tap race-condition fix already in closeSidebar() above
+  // covers this entry point too.
+  //
+  // Width verified against a real Android device with gesture navigation
+  // enabled: Android reserves roughly its own ~16-20dp at the true edge for
+  // the system back gesture - touches starting inside that reserved strip
+  // never reach the app at all (confirmed via on-device testing on the
+  // Student side, same OS behavior applies here). 40dp leaves real catchable
+  // room past that OS zone instead of being swallowed entirely by it.
+  const edgeSwipeGesture = Gesture.Pan()
+    .activeOffsetX(15)
+    .failOffsetY([-20, 20])
+    .hitSlop({ left: 0, width: 40 })
+    .onEnd((e) => {
+      if (e.translationX > 40) {
+        runOnJS(openSidebar)();
+      }
+    });
 
   const navigateTo = (nextSection: Section) => {
     setSection(nextSection);
@@ -2626,6 +2652,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const sectionContent = renderSection();
 
   return (
+    <GestureDetector gesture={edgeSwipeGesture}>
     <View style={styles.container}>
       {!!error && (
         <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
@@ -2836,6 +2863,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
       </Modal>
     </View>
+    </GestureDetector>
   );
 }
 
