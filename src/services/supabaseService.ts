@@ -237,6 +237,23 @@ export const signInUser = async (email: string, password: string) => {
   return response;
 };
 
+// One-tap re-login (panel item 1): exchanges a saved refresh token for a
+// fresh session. Supabase rotates refresh tokens on every use (the old one
+// is invalidated the moment this succeeds), so the caller MUST persist
+// `data.session.refresh_token` from the response back into the saved-profile
+// store (see authProfileStore.updateSavedProfileToken) or the saved profile
+// will only ever work once.
+export const relogin = async (refreshToken: string) => {
+  const response = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+  console.log('[Supabase] refreshSession (one-tap relogin) response:', {
+    hasUser: !!response.data?.user,
+    hasSession: !!response.data?.session,
+    userId: response.data?.user?.id,
+    error: toPlainSupabaseError(response.error),
+  });
+  return response;
+};
+
 const clearPersistedSupabaseSession = async () => {
   if (Platform.OS === 'web') {
     if (typeof localStorage === 'undefined') return;
@@ -401,6 +418,13 @@ export const completeAuthSession = async (
   isEmail: boolean,
   navigation: any,
   onUnknownRole?: (message: string) => void,
+  // One-tap re-login (panel item 1): fired right before each successful
+  // dashboard navigation, once the role/display-name/avatar are fully
+  // resolved - lets LoginScreen save/refresh a SecureStore profile ticket
+  // without duplicating this function's role-resolution logic. Never fires
+  // on the unverified-email or unknown-role branches, since those aren't a
+  // "successfully logged in" state worth offering one-tap relogin for.
+  onResolved?: (info: { role: string; displayName: string; avatarUrl: string | null }) => void,
 ) => {
   const loginIsUsername = !isEmail;
   let profileData: any = null;
@@ -470,12 +494,15 @@ export const completeAuthSession = async (
 
   if (profileRole === 'parent') {
     console.log('[Auth] → ParentDashboard');
+    onResolved?.({ role: profileRole, displayName: profileData?.name || profileData?.full_name || user.email || 'Parent', avatarUrl: profileData?.avatar_url || null });
     navigation.replace('ParentDashboard');
   } else if (profileRole === 'student') {
     console.log('[Auth] → StudentDashboard');
+    onResolved?.({ role: profileRole, displayName: profileData?.name || 'Mag-aaral', avatarUrl: profileData?.avatar_url || null });
     navigation.replace('StudentDashboard');
   } else if (profileRole === 'teacher') {
     console.log('[Auth] → ParentDashboard (teacher placeholder)');
+    onResolved?.({ role: profileRole, displayName: profileData?.name || profileData?.full_name || user.email || 'Guro', avatarUrl: profileData?.avatar_url || null });
     navigation.replace('ParentDashboard');
   } else if (isEmail) {
     // Reaching here means: real Supabase Auth user, no `users` row, and no
@@ -493,6 +520,7 @@ export const completeAuthSession = async (
       await upsertUserProfile({ id: user.id, name: displayName, email: user.email, role: 'parent', email_verified: emailVerified });
       await ensureParentProfile({ id: user.id, auth_uid: user.id, full_name: displayName, name: displayName, email: user.email });
       console.log('[Auth] Self-heal succeeded → ParentDashboard');
+      onResolved?.({ role: 'parent', displayName, avatarUrl: null });
       navigation.replace('ParentDashboard');
     } catch (healError: any) {
       console.error('[Auth] Self-heal failed:', healError?.message || healError);

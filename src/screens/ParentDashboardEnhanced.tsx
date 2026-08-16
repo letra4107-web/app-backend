@@ -8,6 +8,7 @@ import Constants from 'expo-constants';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Polyline, Stop } from 'react-native-svg';
 import { supabase } from '../config/supabase';
 import { getUserProfileById, onAuthStateChanged, signOutUser } from '../services/supabaseService';
+import { updateSavedProfileToken } from '../services/authProfileStore';
 import { fetchParentProfile } from '../services/profileService';
 import { fetchNotifications, subscribeToParentNotifications } from '../services/notificationService';
 import { fetchPublishedLessons, Lesson } from '../services/lessonService';
@@ -695,7 +696,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   };
 
   useEffect(() => {
-    const { data } = onAuthStateChanged((_event, session) => {
+    const { data } = onAuthStateChanged((event, session) => {
+      // One-tap re-login (panel item 1): Supabase's autoRefreshToken rotates
+      // the refresh token silently during normal use, well before logout -
+      // without this, a saved SecureStore profile could go stale mid-session
+      // and "tap to log back in" would fail even though the account is fine.
+      if (event === 'TOKEN_REFRESHED' && session?.user?.id && session?.refresh_token) {
+        void updateSavedProfileToken(session.user.id, session.refresh_token).catch(() => {});
+      }
       const user = session?.user;
       if (!user) {
         loadedParentRef.current = null;

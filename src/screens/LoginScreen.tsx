@@ -1,11 +1,13 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ScrollView, Keyboard } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ScrollView, Keyboard, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl, postJson } from '../config/api';
 import {
   signInUser, getChildByUsername, mapSupabaseAuthErrorCode,
-  signInWithOAuthProvider, ensureUserProfileForOAuthUser, completeAuthSession, OAuthProvider,
+  signInWithOAuthProvider, ensureUserProfileForOAuthUser, completeAuthSession, relogin, getCurrentSession, OAuthProvider,
 } from '../services/supabaseService';
+import { getSavedProfiles, saveAuthProfile, removeSavedProfile, updateSavedProfileToken, SavedAuthProfile } from '../services/authProfileStore';
+import { requireLocalAuth } from '../services/localAuthService';
 import { colors, typography } from '../theme';
 
 interface LoginScreenProps {
@@ -27,6 +29,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [touchedIdentifier, setTouchedIdentifier] = useState(false);
   const [touchedPassword, setTouchedPassword] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  // One-tap re-login (panel item 1).
+  const [savedProfiles, setSavedProfiles] = useState<SavedAuthProfile[]>([]);
+  const [profilesChecked, setProfilesChecked] = useState(false);
+  const [showFullForm, setShowFullForm] = useState(false);
+  const [reloginBusyId, setReloginBusyId] = useState<string | null>(null);
+  const [reloginError, setReloginError] = useState('');
+
+  useEffect(() => {
+    void (async () => {
+      const profiles = await getSavedProfiles();
+      setSavedProfiles(profiles);
+      setProfilesChecked(true);
+    })();
+  }, []);
 
   const validateIdentifier = (value: string) => {
     const trimmed = value.trim();
@@ -130,6 +147,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       const passwordValue = password.trim();
       const isEmail = identifierValue.includes('@');
       let user: any;
+      let refreshToken: string | null = null;
 
       if (isEmail) {
         const loginEmail = identifierValue.toLowerCase();
@@ -138,6 +156,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           throwSupabaseLoginError(error);
         }
         user = data.user;
+        refreshToken = data.session?.refresh_token || null;
       } else {
         console.log('Attempting login for username:', identifierValue.toLowerCase());
         const childResult = await getChildByUsername(identifierValue.toLowerCase());
@@ -159,15 +178,30 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               throw new Error('Unable to sign in after creating student account.');
             }
             user = createResult.data.user;
+            refreshToken = createResult.data.session?.refresh_token || null;
           } else {
             throwSupabaseLoginError(error);
           }
         } else {
           user = data.user;
+          refreshToken = data.session?.refresh_token || null;
         }
       }
 
-      await completeAuthSession(user, isEmail, navigation, (message) => setGlobalError(message));
+      await completeAuthSession(user, isEmail, navigation, (message) => setGlobalError(message), (info) => {
+        // Best-effort: a saved-profile write failing should never block an
+        // otherwise-successful login.
+        if (refreshToken) {
+          void saveAuthProfile({
+            userId: user.id,
+            role: info.role as SavedAuthProfile['role'],
+            isEmail,
+            displayName: info.displayName,
+            avatarUrl: info.avatarUrl,
+            refreshToken,
+          }).catch((saveError) => console.warn('[Login] failed to save relogin profile:', saveError));
+        }
+      });
     } catch (error: any) {
       const expectedAuthCodes = new Set([
         'auth/user-not-found',
@@ -218,7 +252,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       }
       if (!data?.user) return; // web: full-page redirect already in flight
       await ensureUserProfileForOAuthUser(data.user);
-      await completeAuthSession(data.user, true, navigation, (message) => setGlobalError(message));
+      const currentSession = await getCurrentSession().catch(() => null);
+      const refreshToken = currentSession?.refresh_token || null;
+      await completeAuthSession(data.user, true, navigation, (message) => setGlobalError(message), (info) => {
+        if (refreshToken) {
+          void saveAuthProfile({
+            userId: data.user.id,
+            role: info.role as SavedAuthProfile['role'],
+            isEmail: true,
+            displayName: info.displayName,
+            avatarUrl: info.avatarUrl,
+            refreshToken,
+          }).catch((saveError) => console.warn('[Login] failed to save relogin profile:', saveError));
+        }
+      });
     } catch (error: any) {
       console.error('[Login] OAuth login error:', { provider, message: error?.message, code: error?.code });
       const providerLabel = provider === 'google' ? 'Google' : 'Facebook';
@@ -226,6 +273,63 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     } finally {
       setOauthLoading(null);
     }
+  };
+
+  // One-tap re-login (panel item 1): gated behind the device's own lock
+  // (fingerprint/face/PIN) so tapping a saved avatar isn't a bare bypass of
+  // the password on a shared family device - see localAuthService.ts. On an
+  // expired/revoked token, the profile is dropped and the full form is shown
+  // with a friendly explanation rather than a dead end.
+  const handleTapProfile = async (profile: SavedAuthProfile) => {
+    setReloginError('');
+    setReloginBusyId(profile.userId);
+    try {
+      const passedGate = await requireLocalAuth(`Kumpirmahin na ikaw si ${profile.displayName}`);
+      if (!passedGate) {
+        setReloginBusyId(null);
+        return;
+      }
+
+      const { data, error } = await relogin(profile.refreshToken);
+      if (error || !data?.session || !data?.user) {
+        console.warn('[Login] saved profile relogin failed, dropping it:', error?.message || error);
+        await removeSavedProfile(profile.userId);
+        setSavedProfiles((prev) => prev.filter((p) => p.userId !== profile.userId));
+        setReloginError('Nag-expire na ang naka-save na session. Mag-log in muli.');
+        setReloginBusyId(null);
+        return;
+      }
+
+      // Supabase rotates refresh tokens on every use - the token just spent
+      // above is now invalid, so the new one must replace it immediately or
+      // this saved profile would only ever work this one time.
+      await updateSavedProfileToken(profile.userId, data.session.refresh_token);
+
+      await completeAuthSession(data.user, profile.isEmail, navigation, (message) => setGlobalError(message));
+    } catch (error: any) {
+      console.error('[Login] one-tap relogin error:', error?.message || error);
+      setReloginError('Hindi maka-log in. Subukang muli o gamitin ang buong form.');
+    } finally {
+      setReloginBusyId(null);
+    }
+  };
+
+  const handleRemoveProfile = (profile: SavedAuthProfile) => {
+    Alert.alert(
+      'Alisin ang Naka-save na Profile',
+      `Aalisin ang "${profile.displayName}" sa listahan ng mabilisang log in sa device na ito.`,
+      [
+        { text: 'Kanselahin', style: 'cancel' },
+        {
+          text: 'Alisin',
+          style: 'destructive',
+          onPress: () => {
+            void removeSavedProfile(profile.userId);
+            setSavedProfiles((prev) => prev.filter((p) => p.userId !== profile.userId));
+          },
+        },
+      ],
+    );
   };
 
   const isBusy = loading || !!oauthLoading;
@@ -254,12 +358,80 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           <Text style={styles.subtitle}>Mag-login para ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
         </View>
 
+        {/* One-tap re-login (panel item 1): shown instead of the full form
+            when there are saved profiles on this device and the user hasn't
+            asked for "Gumamit ng Ibang Account". Each tile requires the
+            device's own lock (fingerprint/face/PIN) before it's used - see
+            handleTapProfile - so this isn't a bare bypass of the password on
+            a shared family device. */}
+        {profilesChecked && savedProfiles.length > 0 && !showFullForm && (
+          <View style={styles.card}>
+            {reloginError ? (
+              <Text style={styles.globalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                {reloginError}
+              </Text>
+            ) : null}
+            <Text style={styles.profilePickerTitle}>Sino ang mag-lo-log in?</Text>
+            {savedProfiles.map((profile) => (
+              <TouchableOpacity
+                key={profile.userId}
+                style={styles.profileTile}
+                onPress={() => void handleTapProfile(profile)}
+                onLongPress={() => handleRemoveProfile(profile)}
+                disabled={!!reloginBusyId}
+                accessibilityRole="button"
+                accessibilityLabel={`Log in as ${profile.displayName}`}
+                accessibilityHint="Double tap to log in, long-press to remove this saved profile"
+              >
+                {profile.avatarUrl ? (
+                  <Image source={{ uri: profile.avatarUrl }} style={styles.profileTileAvatar} />
+                ) : (
+                  <View style={styles.profileTileAvatarFallback}>
+                    <Text style={styles.profileTileAvatarInitial}>{profile.displayName.trim().charAt(0).toUpperCase() || '?'}</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.profileTileName}>{profile.displayName}</Text>
+                  <Text style={styles.profileTileRole}>{profile.role === 'student' ? 'Mag-aaral' : profile.role === 'teacher' ? 'Guro' : 'Magulang'}</Text>
+                </View>
+                {reloginBusyId === profile.userId ? (
+                  <ActivityIndicator color={colors.lavenderDark} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={colors.inkSoft} />
+                )}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setShowFullForm(true)}
+              style={styles.useOtherAccountRow}
+              accessibilityRole="button"
+              accessibilityLabel="Use a different account"
+            >
+              <Ionicons name="person-add-outline" size={18} color={colors.lavenderDark} />
+              <Text style={styles.link}>Gumamit ng Ibang Account</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {(showFullForm || savedProfiles.length === 0 || !profilesChecked) && (
         <View style={styles.card}>
           {globalError ? (
             <Text style={styles.globalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
               {globalError}
             </Text>
           ) : null}
+
+          {profilesChecked && savedProfiles.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setShowFullForm(false)}
+              style={styles.backToProfilesRow}
+              accessibilityRole="button"
+              accessibilityLabel="Back to saved profiles"
+            >
+              <Ionicons name="arrow-back" size={16} color={colors.lavenderDark} />
+              <Text style={styles.link}>Bumalik sa mga Naka-save na Profile</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
@@ -389,6 +561,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         </View>
+        )}
 
         <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.signUpRow}>
           <Text style={styles.signUpLink}>Wala ka pang account? <Text style={styles.signUpLinkBold}>Mag-sign Up</Text></Text>
@@ -412,6 +585,71 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  profilePickerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.ink,
+    fontFamily: typography.family.displaySemi,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  profileTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FAF8F3',
+    borderWidth: 1,
+    borderColor: 'rgba(124,111,207,0.2)',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    minHeight: 64,
+  },
+  profileTileAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EFECFB',
+  },
+  profileTileAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.lavenderDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileTileAvatarInitial: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  profileTileName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.ink,
+    fontFamily: Platform.OS === 'ios' ? 'Lexend' : 'sans-serif',
+  },
+  profileTileRole: {
+    fontSize: 12,
+    color: colors.inkSoft,
+    marginTop: 2,
+  },
+  useOtherAccountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 6,
+    minHeight: 44,
+  },
+  backToProfilesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+    minHeight: 32,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.cream,

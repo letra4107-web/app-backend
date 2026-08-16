@@ -10,7 +10,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Kinakailangan ang mikropono para sa voice practice at pagkilala ng boses."
+        "NSMicrophoneUsageDescription": "Kinakailangan ang mikropono para sa voice practice at pagkilala ng boses.",
+        "NSFaceIDUsageDescription": "Ginagamit ang Face ID para kumpirmahin na ikaw ang gumagamit bago mag-log in gamit ang naka-save na profile."
       }
     },
     "android": {
@@ -31,6 +32,7 @@
     ],
     "plugins": [
       "expo-secure-store",
+      "expo-local-authentication",
       [
         "expo-splash-screen",
         {

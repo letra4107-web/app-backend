@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
 import { buildApiUrl, getJson } from '../config/api';
 import { onAuthStateChanged, signOutUser } from '../services/supabaseService';
+import { updateSavedProfileToken } from '../services/authProfileStore';
 import StudentWordOfDay from './StudentWordOfDay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ConfettiOverlay from '../components/ConfettiOverlay';
@@ -751,8 +752,15 @@ export default function StudentDashboard({ navigation }: any) {
 
     loadDashboard();
 
-    const authListener = onAuthStateChanged((_event, session) => {
+    const authListener = onAuthStateChanged((event, session) => {
       if (!active) return;
+      // One-tap re-login (panel item 1): Supabase's autoRefreshToken rotates
+      // the refresh token silently during normal use, well before logout -
+      // without this, a saved SecureStore profile could go stale mid-session
+      // and "tap to log back in" would fail even though the account is fine.
+      if (event === 'TOKEN_REFRESHED' && session?.user?.id && session?.refresh_token) {
+        void updateSavedProfileToken(session.user.id, session.refresh_token).catch(() => {});
+      }
       const user = session?.user;
       if (!user) {
         setAuthUserId(null);
