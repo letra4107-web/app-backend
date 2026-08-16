@@ -8,7 +8,13 @@ import * as SecureStore from 'expo-secure-store';
 // logout - which only wipes the live session - does not touch this list.
 // Profiles expire after PROFILE_TTL_DAYS of disuse regardless of whether the
 // refresh token itself is still technically valid, bounding how long a lost
-// device stays "tap to log back in" ready.
+// device stays "tap to log back in" ready. Student profiles get a shorter
+// window than parent/teacher ones (7 vs 30 days) - this is a shared-device,
+// child-safety app, and a student account left logged-in-adjacent on a
+// family tablet is a bigger exposure than a parent's own phone. See the
+// "switch profile" logout trade-off note in supabaseService.ts for the full
+// write-up of the compensating controls (this TTL, plus the mandatory
+// biometric/PIN gate in localAuthService.ts and LoginScreen.tsx).
 
 export type SavedAuthProfile = {
   userId: string;
@@ -22,7 +28,10 @@ export type SavedAuthProfile = {
 
 const STORE_KEY = 'linawletra.savedProfiles.v1';
 const MAX_PROFILES = 5;
-const PROFILE_TTL_DAYS = 30;
+const STUDENT_PROFILE_TTL_DAYS = 7;
+const DEFAULT_PROFILE_TTL_DAYS = 30;
+const ttlDaysFor = (role: SavedAuthProfile['role']) =>
+  role === 'student' ? STUDENT_PROFILE_TTL_DAYS : DEFAULT_PROFILE_TTL_DAYS;
 
 const readAll = async (): Promise<SavedAuthProfile[]> => {
   try {
@@ -40,11 +49,11 @@ const writeAll = async (profiles: SavedAuthProfile[]): Promise<void> => {
   await SecureStore.setItemAsync(STORE_KEY, JSON.stringify(profiles));
 };
 
-/** Returns saved profiles, pruning (and persisting the prune of) any past PROFILE_TTL_DAYS of disuse. */
+/** Returns saved profiles, pruning (and persisting the prune of) any past their role's TTL of disuse. */
 export const getSavedProfiles = async (): Promise<SavedAuthProfile[]> => {
   const all = await readAll();
-  const cutoff = Date.now() - PROFILE_TTL_DAYS * 24 * 60 * 60 * 1000;
-  const fresh = all.filter((p) => new Date(p.savedAt).getTime() >= cutoff);
+  const now = Date.now();
+  const fresh = all.filter((p) => now - new Date(p.savedAt).getTime() < ttlDaysFor(p.role) * 24 * 60 * 60 * 1000);
   if (fresh.length !== all.length) await writeAll(fresh);
   return fresh;
 };

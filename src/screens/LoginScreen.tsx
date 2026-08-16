@@ -5,9 +5,10 @@ import { buildApiUrl, postJson } from '../config/api';
 import {
   signInUser, getChildByUsername, mapSupabaseAuthErrorCode,
   signInWithOAuthProvider, ensureUserProfileForOAuthUser, completeAuthSession, relogin, getCurrentSession, OAuthProvider,
+  signOutUserFully,
 } from '../services/supabaseService';
 import { getSavedProfiles, saveAuthProfile, removeSavedProfile, updateSavedProfileToken, SavedAuthProfile } from '../services/authProfileStore';
-import { requireLocalAuth } from '../services/localAuthService';
+import { requireLocalAuth, canUseLocalAuth } from '../services/localAuthService';
 import { colors, typography } from '../theme';
 
 interface LoginScreenProps {
@@ -30,20 +31,30 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [touchedPassword, setTouchedPassword] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  // One-tap re-login (panel item 1).
+  // One-tap re-login (panel item 1). The biometric/PIN gate is mandatory -
+  // it's the security boundary that replaced immediate server-side token
+  // revocation on logout (see the trade-off note on signOutUser in
+  // supabaseService.ts). So the picker only ever renders when the device
+  // actually has a lock enrolled; otherwise saved profiles are still pruned
+  // by TTL in the background, but the UI silently falls through to the full
+  // credential form instead of offering a bare tap-to-login.
   const [savedProfiles, setSavedProfiles] = useState<SavedAuthProfile[]>([]);
   const [profilesChecked, setProfilesChecked] = useState(false);
+  const [localAuthAvailable, setLocalAuthAvailable] = useState(false);
   const [showFullForm, setShowFullForm] = useState(false);
   const [reloginBusyId, setReloginBusyId] = useState<string | null>(null);
   const [reloginError, setReloginError] = useState('');
 
   useEffect(() => {
     void (async () => {
-      const profiles = await getSavedProfiles();
+      const [profiles, gateAvailable] = await Promise.all([getSavedProfiles(), canUseLocalAuth()]);
       setSavedProfiles(profiles);
+      setLocalAuthAvailable(gateAvailable);
       setProfilesChecked(true);
     })();
   }, []);
+
+  const canOfferOneTapLogin = profilesChecked && localAuthAvailable && savedProfiles.length > 0;
 
   const validateIdentifier = (value: string) => {
     const trimmed = value.trim();
@@ -275,15 +286,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  // One-tap re-login (panel item 1): gated behind the device's own lock
-  // (fingerprint/face/PIN) so tapping a saved avatar isn't a bare bypass of
-  // the password on a shared family device - see localAuthService.ts. On an
-  // expired/revoked token, the profile is dropped and the full form is shown
-  // with a friendly explanation rather than a dead end.
+  // One-tap re-login (panel item 1): MANDATORY gate behind the device's own
+  // lock (fingerprint/face/PIN) - this replaced immediate server-side token
+  // revocation as the security boundary (see supabaseService.ts's
+  // signOutUser trade-off note), so it is never skipped. The picker is only
+  // ever shown when canOfferOneTapLogin already confirmed a lock is
+  // enrolled, but the device's lock state can change between screens (e.g.
+  // someone removes their PIN in Settings mid-session), so this re-checks
+  // and refuses to proceed - falling back to the full credential form -
+  // rather than silently letting the tap through unguarded.
   const handleTapProfile = async (profile: SavedAuthProfile) => {
     setReloginError('');
     setReloginBusyId(profile.userId);
     try {
+      const stillAvailable = await canUseLocalAuth();
+      if (!stillAvailable) {
+        setReloginBusyId(null);
+        setLocalAuthAvailable(false);
+        setShowFullForm(true);
+        Alert.alert(
+          'Kailangan ng Lock Screen',
+          'Wala nang naka-set na fingerprint/face/PIN sa device na ito, kaya kailangan mong mag-log in gamit ang buong email at password.',
+        );
+        return;
+      }
+
       const passedGate = await requireLocalAuth(`Kumpirmahin na ikaw si ${profile.displayName}`);
       if (!passedGate) {
         setReloginBusyId(null);
@@ -314,18 +341,32 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
+  // A REAL sign-out of a saved-but-not-currently-active profile: exchanges
+  // its refresh token for a live session just long enough to revoke it
+  // server-side (signOutUserFully), then drops it from the picker either
+  // way. This is the "Hindi ikaw ito?" affordance - deliberately a visible
+  // button on every tile (see the JSX below) rather than a hidden
+  // long-press, so it's easy to find when handing a shared device to a
+  // different student.
   const handleRemoveProfile = (profile: SavedAuthProfile) => {
     Alert.alert(
-      'Alisin ang Naka-save na Profile',
-      `Aalisin ang "${profile.displayName}" sa listahan ng mabilisang log in sa device na ito.`,
+      'Mag-sign Out nang Tuluyan?',
+      `Tatanggalin ang "${profile.displayName}" sa listahan ng mabilisang log in, at hindi na ito magagamit para mag-log in muli nang walang buong password.`,
       [
         { text: 'Kanselahin', style: 'cancel' },
         {
-          text: 'Alisin',
+          text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
-            void removeSavedProfile(profile.userId);
-            setSavedProfiles((prev) => prev.filter((p) => p.userId !== profile.userId));
+          onPress: async () => {
+            try {
+              const { data } = await relogin(profile.refreshToken);
+              if (data?.session) await signOutUserFully();
+            } catch (error) {
+              console.warn('[Login] revoke-on-remove failed (token may already be dead):', error);
+            } finally {
+              await removeSavedProfile(profile.userId);
+              setSavedProfiles((prev) => prev.filter((p) => p.userId !== profile.userId));
+            }
           },
         },
       ],
@@ -359,12 +400,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         </View>
 
         {/* One-tap re-login (panel item 1): shown instead of the full form
-            when there are saved profiles on this device and the user hasn't
-            asked for "Gumamit ng Ibang Account". Each tile requires the
-            device's own lock (fingerprint/face/PIN) before it's used - see
-            handleTapProfile - so this isn't a bare bypass of the password on
-            a shared family device. */}
-        {profilesChecked && savedProfiles.length > 0 && !showFullForm && (
+            only when there are saved profiles AND the device has a
+            fingerprint/face/PIN enrolled to gate them with (canOfferOneTapLogin),
+            and the user hasn't asked for "Gumamit ng Ibang Account". Each tile
+            requires that device lock before it's used - see handleTapProfile -
+            so this isn't a bare bypass of the password on a shared family
+            device. The "Hindi ikaw ito?" icon on each tile is a real,
+            fully-revoking sign-out of that saved profile (see
+            handleRemoveProfile) - deliberately a visible button, not a
+            hidden long-press, so a parent/teacher switching the device to a
+            different student can find it without knowing a gesture. */}
+        {canOfferOneTapLogin && !showFullForm && (
           <View style={styles.card}>
             {reloginError ? (
               <Text style={styles.globalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
@@ -373,33 +419,43 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             ) : null}
             <Text style={styles.profilePickerTitle}>Sino ang mag-lo-log in?</Text>
             {savedProfiles.map((profile) => (
-              <TouchableOpacity
-                key={profile.userId}
-                style={styles.profileTile}
-                onPress={() => void handleTapProfile(profile)}
-                onLongPress={() => handleRemoveProfile(profile)}
-                disabled={!!reloginBusyId}
-                accessibilityRole="button"
-                accessibilityLabel={`Log in as ${profile.displayName}`}
-                accessibilityHint="Double tap to log in, long-press to remove this saved profile"
-              >
-                {profile.avatarUrl ? (
-                  <Image source={{ uri: profile.avatarUrl }} style={styles.profileTileAvatar} />
-                ) : (
-                  <View style={styles.profileTileAvatarFallback}>
-                    <Text style={styles.profileTileAvatarInitial}>{profile.displayName.trim().charAt(0).toUpperCase() || '?'}</Text>
+              <View key={profile.userId} style={styles.profileTile}>
+                <TouchableOpacity
+                  style={styles.profileTileTapArea}
+                  onPress={() => void handleTapProfile(profile)}
+                  disabled={!!reloginBusyId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Log in as ${profile.displayName}`}
+                  accessibilityHint="Confirms with fingerprint, face, or PIN before logging in"
+                >
+                  {profile.avatarUrl ? (
+                    <Image source={{ uri: profile.avatarUrl }} style={styles.profileTileAvatar} />
+                  ) : (
+                    <View style={styles.profileTileAvatarFallback}>
+                      <Text style={styles.profileTileAvatarInitial}>{profile.displayName.trim().charAt(0).toUpperCase() || '?'}</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.profileTileName}>{profile.displayName}</Text>
+                    <Text style={styles.profileTileRole}>{profile.role === 'student' ? 'Mag-aaral' : profile.role === 'teacher' ? 'Guro' : 'Magulang'}</Text>
                   </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.profileTileName}>{profile.displayName}</Text>
-                  <Text style={styles.profileTileRole}>{profile.role === 'student' ? 'Mag-aaral' : profile.role === 'teacher' ? 'Guro' : 'Magulang'}</Text>
-                </View>
-                {reloginBusyId === profile.userId ? (
-                  <ActivityIndicator color={colors.lavenderDark} />
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color={colors.inkSoft} />
-                )}
-              </TouchableOpacity>
+                  {reloginBusyId === profile.userId ? (
+                    <ActivityIndicator color={colors.lavenderDark} />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={20} color={colors.inkSoft} />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.profileTileRemove}
+                  onPress={() => handleRemoveProfile(profile)}
+                  disabled={!!reloginBusyId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Not ${profile.displayName}? Sign out completely`}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color={colors.inkSoft} />
+                  <Text style={styles.profileTileRemoveText}>Hindi ikaw ito?</Text>
+                </TouchableOpacity>
+              </View>
             ))}
             <TouchableOpacity
               onPress={() => setShowFullForm(true)}
@@ -413,7 +469,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           </View>
         )}
 
-        {(showFullForm || savedProfiles.length === 0 || !profilesChecked) && (
+        {(showFullForm || !canOfferOneTapLogin) && (
         <View style={styles.card}>
           {globalError ? (
             <Text style={styles.globalError} accessibilityRole="alert" accessibilityLiveRegion="polite">
@@ -421,7 +477,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             </Text>
           ) : null}
 
-          {profilesChecked && savedProfiles.length > 0 && (
+          {canOfferOneTapLogin && (
             <TouchableOpacity
               onPress={() => setShowFullForm(false)}
               style={styles.backToProfilesRow}
@@ -594,16 +650,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   profileTile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     backgroundColor: '#FAF8F3',
     borderWidth: 1,
     borderColor: 'rgba(124,111,207,0.2)',
     borderRadius: 16,
     padding: 12,
     marginBottom: 12,
-    minHeight: 64,
+  },
+  profileTileTapArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 56,
+  },
+  profileTileRemove: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    minHeight: 28,
+  },
+  profileTileRemoveText: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    fontWeight: '700',
   },
   profileTileAvatar: {
     width: 44,

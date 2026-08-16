@@ -7,8 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Polyline, Stop } from 'react-native-svg';
 import { supabase } from '../config/supabase';
-import { getUserProfileById, onAuthStateChanged, signOutUser } from '../services/supabaseService';
-import { updateSavedProfileToken } from '../services/authProfileStore';
+import { getUserProfileById, onAuthStateChanged, signOutUser, signOutUserFully } from '../services/supabaseService';
+import { updateSavedProfileToken, removeSavedProfile } from '../services/authProfileStore';
 import { fetchParentProfile } from '../services/profileService';
 import { fetchNotifications, subscribeToParentNotifications } from '../services/notificationService';
 import { fetchPublishedLessons, Lesson } from '../services/lessonService';
@@ -851,6 +851,37 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   const handleLogout = async () => {
     await signOutUser();
     navigation.replace('Login');
+  };
+
+  const [signingOutFully, setSigningOutFully] = useState(false);
+
+  // "Mag-sign out nang tuluyan" - the discoverable, REAL sign-out (see the
+  // switch-profile trade-off note on signOutUser in supabaseService.ts). Use
+  // this when handing the device to a different parent/guardian.
+  const handleFullSignOut = () => {
+    if (signingOutFully) return;
+    Alert.alert(
+      'Mag-sign out nang tuluyan?',
+      'Hindi ka na maaaring mag-tap na lang para bumalik dito - kakailanganin mo nang muli ang buong email at password.',
+      [
+        { text: 'Kanselahin', style: 'cancel' },
+        {
+          text: 'Mag-sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            setSigningOutFully(true);
+            try {
+              await signOutUserFully();
+              if (parentId) await removeSavedProfile(parentId);
+              navigation.replace('Login');
+            } catch (fullSignOutError: any) {
+              setSigningOutFully(false);
+              Alert.alert('Hindi Maka-sign Out', fullSignOutError?.message || 'Subukan muli.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const contactSupport = async () => {
@@ -2745,6 +2776,19 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Ionicons name="log-out-outline" size={20} color={colors.danger} />
               <Text style={styles.sidebarLogoutText}>Mag-log out</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sidebarFullSignOut, signingOutFully && { opacity: 0.65 }]}
+              onPress={handleFullSignOut}
+              disabled={signingOutFully}
+            >
+              <Ionicons name="person-remove-outline" size={16} color={colors.inkSoft} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sidebarFullSignOutText}>
+                  {signingOutFully ? 'Nag-sisign out...' : 'Mag-sign out nang tuluyan'}
+                </Text>
+                <Text style={styles.sidebarFullSignOutHint}>Para ibang magulang ang gagamit ng device na ito</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </Animated.View>
@@ -2947,6 +2991,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger,
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  sidebarFullSignOut: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, paddingHorizontal: 12, marginTop: 8,
+  },
+  sidebarFullSignOutText: { color: colors.inkSoft, fontWeight: '700', fontSize: 12.5 },
+  sidebarFullSignOutHint: { color: colors.inkSoft, fontSize: 10.5, marginTop: 1, opacity: 0.85 },
   childCard: {
     backgroundColor: SURFACE, borderRadius: 20, padding: 18,
     marginBottom: 14, borderWidth: 1, borderColor: colors.border,

@@ -273,7 +273,54 @@ const clearPersistedSupabaseSession = async () => {
   if (authKeys.length) await storage.multiRemove(authKeys);
 };
 
+// "Switch profile" logout (panel item 1, approved trade-off): the everyday
+// "Mag-log out" button in every dashboard calls THIS, not a network-revoking
+// sign-out. It clears only the local session, deliberately leaving the
+// refresh token saved in authProfileStore (see the one-tap re-login flow in
+// LoginScreen.tsx) valid server-side, so tapping the saved profile later can
+// exchange it for a fresh session.
+//
+// Why this is safe enough to ship: Supabase's public signOut() has no
+// "local-only, don't revoke" mode - even `{ scope: 'local' }` still calls the
+// server admin.signOut endpoint and revokes the current session's refresh
+// token (see @supabase/auth-js GoTrueClient.ts _signOut; `scope` there only
+// controls WHICH sessions get revoked, never whether). So this reaches into
+// the client's private _removeSession() to clear stored tokens and fire the
+// SIGNED_OUT event without any network call, with a full-revoke fallback if
+// that private method is ever renamed/removed by a future SDK upgrade.
+//
+// The security boundary this trades away (immediate server-side revocation
+// on every logout) is compensated by: a mandatory biometric/PIN gate on every
+// one-tap relogin attempt (see localAuthService.ts - it's skipped only if no
+// lock is enrolled, and in that case LoginScreen refuses to offer one-tap
+// login at all, not silently bypass the gate), a short saved-profile TTL
+// (7 days for students, 30 for parents/teachers - see authProfileStore.ts),
+// and a separate, clearly-labeled "Mag-sign out nang tuluyan" action (see
+// signOutUserFully below) that DOES revoke immediately, for whenever someone
+// actually wants a real sign-out - e.g. handing a shared device to a
+// different child.
 export const signOutUser = async () => {
+  try {
+    await (supabase.auth as any)._removeSession();
+  } catch (error) {
+    console.warn('[Auth] local-only sign-out unavailable, falling back to a full sign-out:', error);
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (fallbackError) {
+      console.warn('[Auth] fallback sign-out also failed:', fallbackError);
+    }
+  }
+  await clearPersistedSupabaseSession();
+  return { error: null };
+};
+
+// A REAL sign-out: revokes the current session's refresh token server-side,
+// so it can no longer be used for one-tap re-login even if the device is
+// shared or lost. Pair this with authProfileStore.removeSavedProfile(userId)
+// at the call site so the now-dead saved profile also disappears from the
+// picker - see the "Mag-sign out nang tuluyan" action in the dashboard
+// sidebars and the visible remove option in LoginScreen's profile picker.
+export const signOutUserFully = async () => {
   let remoteError: any = null;
   try {
     const result = await Promise.race([
@@ -287,8 +334,8 @@ export const signOutUser = async () => {
     remoteError = error;
   }
 
-  // Always clear the persisted token. This is intentionally local-first:
-  // users must be able to leave their account even without a network signal.
+  // Always clear the persisted token locally too, even if the remote revoke
+  // failed (e.g. offline) - users must still be able to leave the account.
   await clearPersistedSupabaseSession();
   if (remoteError) console.warn('[Auth] remote sign-out failed; local session was cleared:', remoteError?.message || remoteError);
   return { error: null };

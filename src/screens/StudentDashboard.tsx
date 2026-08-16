@@ -15,8 +15,8 @@ import { syllabifyText } from '../utils/tagalogSyllabification';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
 import { buildApiUrl, getJson } from '../config/api';
-import { onAuthStateChanged, signOutUser } from '../services/supabaseService';
-import { updateSavedProfileToken } from '../services/authProfileStore';
+import { onAuthStateChanged, signOutUser, signOutUserFully } from '../services/supabaseService';
+import { updateSavedProfileToken, removeSavedProfile } from '../services/authProfileStore';
 import StudentWordOfDay from './StudentWordOfDay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ConfettiOverlay from '../components/ConfettiOverlay';
@@ -208,6 +208,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [section, setSection] = useState<Section>('home');
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [signingOutFully, setSigningOutFully] = useState(false);
   const [error, setError] = useState('');
   const [achievement, setAchievement] = useState<{ image: any; title: string; category?: AchievementCategory; xp?: number } | null>(null);
   const [expandedBadgeId, setExpandedBadgeId] = useState<string | null>(null);
@@ -484,6 +485,35 @@ export default function StudentDashboard({ navigation }: any) {
       setLoggingOut(false);
       Alert.alert('Hindi Maka-logout', logoutError?.message || 'Subukan muli.');
     }
+  };
+
+  // "Mag-sign out nang tuluyan" - the discoverable, REAL sign-out (see the
+  // switch-profile trade-off note on signOutUser in supabaseService.ts). Use
+  // this when handing the device to a different student.
+  const handleStudentFullSignOut = () => {
+    if (signingOutFully) return;
+    Alert.alert(
+      'Mag-sign out nang tuluyan?',
+      'Hindi ka na maaaring mag-tap na lang para bumalik dito - kakailanganin mo nang muli ang buong email at password.',
+      [
+        { text: 'Kanselahin', style: 'cancel' },
+        {
+          text: 'Mag-sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            setSigningOutFully(true);
+            try {
+              await signOutUserFully();
+              if (child?.auth_uid) await removeSavedProfile(child.auth_uid);
+              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+            } catch (fullSignOutError: any) {
+              setSigningOutFully(false);
+              Alert.alert('Hindi Maka-sign Out', fullSignOutError?.message || 'Subukan muli.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const loadPronunciationStats = async (childId?: string) => {
@@ -3652,6 +3682,19 @@ export default function StudentDashboard({ navigation }: any) {
             {loggingOut ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="log-out-outline" size={20} color="#fff" />}
             <Text style={styles.sidebarLogoutText}>{loggingOut ? 'Nag-lo-log out...' : 'Mag-log out'}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sidebarFullSignOut, signingOutFully && { opacity: 0.65 }]}
+            onPress={handleStudentFullSignOut}
+            disabled={signingOutFully}
+          >
+            <Ionicons name="person-remove-outline" size={16} color={colors.inkSoft} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sidebarFullSignOutText}>
+                {signingOutFully ? 'Nag-sisign out...' : 'Mag-sign out nang tuluyan'}
+              </Text>
+              <Text style={styles.sidebarFullSignOutHint}>Para ibang bata ang gagamit ng device na ito</Text>
+            </View>
+          </TouchableOpacity>
         </ScrollView>
       </Animated.View>
 
@@ -4313,6 +4356,12 @@ const styles = StyleSheet.create({
     padding: 15, borderRadius: 14, backgroundColor: colors.danger,
   },
   sidebarLogoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  sidebarFullSignOut: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, paddingHorizontal: 12, marginTop: 8,
+  },
+  sidebarFullSignOutText: { color: colors.inkSoft, fontWeight: '700', fontSize: 12.5 },
+  sidebarFullSignOutHint: { color: colors.inkSoft, fontSize: 10.5, marginTop: 1, opacity: 0.85 },
   // --- Home tab ---
   homeBg: { flex: 1, width: '100%', backgroundColor: '#EEF0FA' },
   homeContent: { padding: 18, paddingBottom: 48 },
