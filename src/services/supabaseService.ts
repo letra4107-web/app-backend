@@ -341,9 +341,9 @@ export const signOutUserFully = async () => {
   return { error: null };
 };
 
-export type OAuthProvider = 'google' | 'facebook';
+export type OAuthProvider = 'google';
 
-// Google/Facebook login: Supabase does the actual OAuth dance with the
+// Google login: Supabase does the actual OAuth dance with the
 // provider server-side — this just opens that URL in a native browser tab
 // (WebBrowser.openAuthSessionAsync) and waits for it to redirect back into
 // the app via the custom "linawletra://" scheme (registered in app.json),
@@ -400,10 +400,10 @@ export const signInWithOAuthProvider = async (provider: OAuthProvider) => {
   return { data: { user: sessionData.session.user }, error: null };
 };
 
-// New Google/Facebook sign-ins never went through SignUpScreen, so there's no
-// `users` row yet. Mirrors SignUpScreen's exact profile shape (role: 'parent'
-// — the only self-serve signup path this app has) so an OAuth user reaches
-// the dashboard the same way an email/password signup would. Idempotent: a
+// New Google sign-ins never went through SignUpScreen, so there's no `users`
+// row yet. Mirrors SignUpScreen's exact profile shape (role: 'parent' — the
+// only self-serve signup path this app has) so an OAuth user reaches the
+// dashboard the same way an email/password signup would. Idempotent: a
 // returning OAuth user already has both rows, so both calls are no-ops.
 export const ensureUserProfileForOAuthUser = async (user: any) => {
   const existing = await getUserProfileById(user.id);
@@ -417,7 +417,7 @@ export const ensureUserProfileForOAuthUser = async (user: any) => {
     name: fullName,
     email: user.email,
     role: 'parent',
-    // Google/Facebook already verified this address on their end.
+    // Google already verified this address on their end.
     email_verified: true,
   });
   if (userProfileError) throw userProfileError;
@@ -456,7 +456,7 @@ const determineUserRole = (loginIsUsername: boolean, profileRole?: string, email
 };
 
 // Shared by every login entry point — email/password (LoginScreen), student
-// username (LoginScreen), and Google/Facebook (LoginScreen + SignUpScreen) —
+// username (LoginScreen), and Google (LoginScreen + SignUpScreen) —
 // so role resolution and dashboard routing behave identically no matter how
 // the user authenticated. `navigation` is a React Navigation prop passed in
 // by whichever screen calls this.

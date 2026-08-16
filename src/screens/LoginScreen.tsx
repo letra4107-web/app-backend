@@ -279,8 +279,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       });
     } catch (error: any) {
       console.error('[Login] OAuth login error:', { provider, message: error?.message, code: error?.code });
-      const providerLabel = provider === 'google' ? 'Google' : 'Facebook';
-      setGlobalError(`Hindi ma-login gamit ang ${providerLabel}. Pakisubukang muli.`);
+      setGlobalError('Hindi ma-login gamit ang Google. Pakisubukang muli.');
     } finally {
       setOauthLoading(null);
     }
@@ -596,24 +595,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={[styles.oauthButton, (isBusy) && styles.oauthButtonDisabled]}
+            style={[styles.oauthButton, { marginBottom: 0 }, (isBusy) && styles.oauthButtonDisabled]}
             onPress={() => handleOAuthLogin('google')}
             disabled={isBusy}
           >
             <Ionicons name="logo-google" size={20} color="#DB4437" />
             <Text style={styles.oauthButtonText}>
               {oauthLoading === 'google' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Google'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.oauthButton, { marginBottom: 0 }, (isBusy) && styles.oauthButtonDisabled]}
-            onPress={() => handleOAuthLogin('facebook')}
-            disabled={isBusy}
-          >
-            <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-            <Text style={styles.oauthButtonText}>
-              {oauthLoading === 'facebook' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Facebook'}
             </Text>
           </TouchableOpacity>
         </View>

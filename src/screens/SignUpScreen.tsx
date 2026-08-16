@@ -398,8 +398,8 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
   };
 
   // Same signInWithOAuth flow as the Login screen — Supabase creates the
-  // account automatically on first OAuth sign-in, and Google/Facebook already
-  // verify the email on their end (user.email_confirmed_at comes back true),
+  // account automatically on first OAuth sign-in, and Google already
+  // verifies the email on its end (user.email_confirmed_at comes back true),
   // so completeAuthSession routes straight to the dashboard and never
   // involves the OTP screen at all. ensureUserProfileForOAuthUser is the same
   // idempotent helper the Login screen uses — not duplicated here.
@@ -417,8 +417,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       await completeAuthSession(data.user, true, navigation, (message) => setErrors((prev) => ({ ...prev, general: message })));
     } catch (error: any) {
       console.error('[Signup] OAuth signup error:', { provider, message: error?.message, code: error?.code });
-      const providerLabel = provider === 'google' ? 'Google' : 'Facebook';
-      setErrors((prev) => ({ ...prev, general: `Hindi ma-signup gamit ang ${providerLabel}. Pakisubukang muli.` }));
+      setErrors((prev) => ({ ...prev, general: 'Hindi ma-signup gamit ang Google. Pakisubukang muli.' }));
     } finally {
       setOauthLoading(null);
     }
@@ -774,24 +773,13 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={[styles.oauthButton, isBusy && styles.oauthButtonDisabled]}
+            style={[styles.oauthButton, { marginBottom: 0 }, isBusy && styles.oauthButtonDisabled]}
             onPress={() => handleOAuthSignUp('google')}
             disabled={isBusy}
           >
             <Ionicons name="logo-google" size={20} color="#DB4437" />
             <Text style={styles.oauthButtonText}>
               {oauthLoading === 'google' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Google'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.oauthButton, { marginBottom: 0 }, isBusy && styles.oauthButtonDisabled]}
-            onPress={() => handleOAuthSignUp('facebook')}
-            disabled={isBusy}
-          >
-            <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-            <Text style={styles.oauthButtonText}>
-              {oauthLoading === 'facebook' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Facebook'}
             </Text>
           </TouchableOpacity>
         </View>
