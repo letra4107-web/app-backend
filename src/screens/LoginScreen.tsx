@@ -250,8 +250,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
         <View style={styles.topHeader}>
           <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.title}>Welcome back!</Text>
-          <Text style={styles.subtitle}>Login to continue your reading journey.</Text>
+          <Text style={styles.title}>Maligayang pagbabalik!</Text>
+          <Text style={styles.subtitle}>Mag-login para ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
         </View>
 
         <View style={styles.card}>
@@ -262,7 +262,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           ) : null}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
+            <Text style={styles.label}>Email</Text>
             <View style={[
               styles.inputWrapper,
               (touchedIdentifier || submitAttempted) && identifierError && styles.inputError,
@@ -272,7 +272,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <TextInput
                 ref={identifierInputRef}
                 style={styles.input}
-                placeholder="Enter your email"
+                placeholder="Ilagay ang iyong email"
                 placeholderTextColor={colors.inkSoft}
                 value={identifier}
                 onChangeText={(text) => {
@@ -308,7 +308,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <TextInput
                 ref={passwordInputRef}
                 style={styles.input}
-                placeholder="Enter your password"
+                placeholder="Ilagay ang iyong password"
                 placeholderTextColor={colors.inkSoft}
                 value={password}
                 onChangeText={(text) => {
@@ -337,7 +337,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           </View>
 
           <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotPasswordRow}>
-            <Text style={styles.link}>Forgot Password?</Text>
+            <Text style={styles.link}>Nakalimutan ang Password?</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -348,7 +348,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             accessibilityLabel="Log In"
             accessibilityState={{ disabled: isButtonDisabled, busy: loading }}
           >
-            <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Log In'}</Text>
+            <Text style={styles.buttonText}>{loading ? 'Nag-lo-log in...' : 'Mag-log In'}</Text>
           </TouchableOpacity>
 
           {/* Only after a login attempt failed specifically because the email
@@ -357,13 +357,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               resend flow, which the user is redirected to automatically. */}
           {lastErrorCode === 'auth/email-not-confirmed' && (
             <TouchableOpacity onPress={() => navigation.navigate('EmailVerification', { email: identifier })} style={styles.resendRow}>
-              <Text style={styles.resendLink}>Resend Verification Code</Text>
+              <Text style={styles.resendLink}>Ipadala Muli ang Verification Code</Text>
             </TouchableOpacity>
           )}
 
           <View style={styles.oauthDivider}>
             <View style={styles.oauthDividerLine} />
-            <Text style={styles.oauthDividerText}>OR</Text>
+            <Text style={styles.oauthDividerText}>O</Text>
             <View style={styles.oauthDividerLine} />
           </View>
 
@@ -374,7 +374,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           >
             <Ionicons name="logo-google" size={20} color="#DB4437" />
             <Text style={styles.oauthButtonText}>
-              {oauthLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
+              {oauthLoading === 'google' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Google'}
             </Text>
           </TouchableOpacity>
 
@@ -385,13 +385,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           >
             <Ionicons name="logo-facebook" size={20} color="#1877F2" />
             <Text style={styles.oauthButtonText}>
-              {oauthLoading === 'facebook' ? 'Connecting...' : 'Continue with Facebook'}
+              {oauthLoading === 'facebook' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Facebook'}
             </Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.signUpRow}>
-          <Text style={styles.signUpLink}>Don&apos;t have an account? <Text style={styles.signUpLinkBold}>Sign Up</Text></Text>
+          <Text style={styles.signUpLink}>Wala ka pang account? <Text style={styles.signUpLinkBold}>Mag-sign Up</Text></Text>
         </TouchableOpacity>
 
         {/* Standalone re-entry point for a user who signed up, closed the app
@@ -399,7 +399,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             resume from — distinct from the resendRow above, which only
             appears right after a failed login tells us the email exists. */}
         <TouchableOpacity onPress={() => navigation.navigate('ResendVerification')} style={styles.signUpRow}>
-          <Text style={styles.signUpLink}>Need to verify your email? <Text style={styles.signUpLinkBold}>Resend Code</Text></Text>
+          <Text style={styles.signUpLink}>Kailangan i-verify ang email mo? <Text style={styles.signUpLinkBold}>Ipadala Muli</Text></Text>
         </TouchableOpacity>
 
         <View style={styles.trustNote}>

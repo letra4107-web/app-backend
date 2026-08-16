@@ -399,8 +399,8 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
           </View>
         </View>
 
-        <Text style={styles.title}>Enter Verification Code</Text>
-        <Text style={styles.subtitle}>We sent a 6-digit code to your email</Text>
+        <Text style={styles.title}>Ilagay ang Verification Code</Text>
+        <Text style={styles.subtitle}>Nagpadala kami ng 6-digit na code sa iyong email</Text>
 
         {routeEmail ? (
           <Text style={styles.emailHighlight}>{email}</Text>
@@ -410,20 +410,20 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
               <Ionicons name="mail-outline" size={18} color={colors.lavenderDark} style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.emailInput}
-                placeholder="Enter your email"
+                placeholder="Ilagay ang iyong email"
                 placeholderTextColor={colors.inkSoft}
                 value={email}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 onChangeText={setEmail}
                 editable={!loading && !verifying}
-                accessibilityLabel="Email input"
+                accessibilityLabel="Field ng email"
               />
             </View>
           </View>
         )}
 
-        <Text style={styles.supportingText}>Please check your inbox and enter the code below.</Text>
+        <Text style={styles.supportingText}>Pakitingnan ang iyong inbox at ilagay ang code sa ibaba.</Text>
 
         {errorMessage ? (
           <View style={[styles.banner, styles.errorBanner]} accessibilityRole="alert" accessibilityLiveRegion="polite">
@@ -459,7 +459,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
                 onKeyPress={(event) => handleOtpKeyPress(event, index)}
                 editable={!verifying && !isCodeExpired}
                 selectionColor={colors.lavenderDark}
-                accessibilityLabel={`Verification code digit ${index + 1} of 6`}
+                accessibilityLabel={`Digit ${index + 1} ng 6 sa verification code`}
                 ref={(ref) => {
                   otpRefs.current[index] = ref;
                 }}
@@ -469,12 +469,12 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
 
           {secondsRemaining !== null && !isCodeExpired && (
             <Text style={styles.countdownText} accessibilityLiveRegion="polite">
-              Code expires in <Text style={[styles.countdownValue, secondsRemaining <= 30 && { color: colors.coral }]}>{formatCountdown(secondsRemaining)}</Text>
+              Mag-eexpire ang code sa <Text style={[styles.countdownValue, secondsRemaining <= 30 && { color: colors.coral }]}>{formatCountdown(secondsRemaining)}</Text>
             </Text>
           )}
           {isCodeExpired && (
             <Text style={[styles.countdownText, { color: colors.coral, fontWeight: '700' }]} accessibilityLiveRegion="polite">
-              This code has expired. Please resend to get a new one.
+              Nag-expire na ang code na ito. Pakipadala muli para makakuha ng bago.
             </Text>
           )}
 
@@ -486,34 +486,34 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ navigation, route
             {verifying ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Verify Code</Text>
+              <Text style={styles.buttonText}>I-verify ang Code</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.resendRow}>
-            <Text style={styles.resendPrompt}>Didn&apos;t receive the code? </Text>
+            <Text style={styles.resendPrompt}>Hindi natanggap ang code? </Text>
             <TouchableOpacity
               onPress={handleSendOTP}
               disabled={loading || resendCooldown > 0}
             >
               <Text style={[styles.resendLink, (loading || resendCooldown > 0) && styles.resendLinkDisabled]}>
-                {loading ? 'Sending...' : 'Resend Code'}
+                {loading ? 'Ipinapadala...' : 'Ipadala Muli'}
               </Text>
             </TouchableOpacity>
           </View>
           {resendCooldown > 0 && (
-            <Text style={styles.resendCooldownText}>Resend available in {resendCooldown}s</Text>
+            <Text style={styles.resendCooldownText}>Puwede nang ipadala muli sa {resendCooldown}s</Text>
           )}
         </View>
 
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.replace('Login')}>
           <Ionicons name="arrow-back" size={16} color={colors.lavenderDark} />
-          <Text style={styles.backLinkText}>Back to Login</Text>
+          <Text style={styles.backLinkText}>Bumalik sa Login</Text>
         </TouchableOpacity>
 
         <View style={styles.trustNote}>
           <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
-          <Text style={styles.trustNoteText}>Your information is protected and securely handled.</Text>
+          <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

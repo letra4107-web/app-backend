@@ -197,9 +197,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
     if (/\d/.test(password)) score++;
     if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score++;
 
-    if (score <= 2) return { label: 'Weak', color: '#d32f2f', width: 0.33 };
-    if (score <= 3) return { label: 'Medium', color: '#f57c00', width: 0.66 };
-    return { label: 'Strong', color: '#388e3c', width: 1 };
+    if (score <= 2) return { label: 'mahina', color: '#d32f2f', width: 0.33 };
+    if (score <= 3) return { label: 'katamtaman', color: '#f57c00', width: 0.66 };
+    return { label: 'malakas', color: '#388e3c', width: 1 };
   };
 
   const isFormValid = () => {
@@ -447,9 +447,9 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
         <View style={styles.topHeader}>
           <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.title}>Create Your Account</Text>
-          <Text style={styles.subtitle}>Let&apos;s get started with LinawLetra.</Text>
-          <Text style={styles.supportingText}>Create a parent account to support your child&apos;s reading journey.</Text>
+          <Text style={styles.title}>Gumawa ng Account</Text>
+          <Text style={styles.subtitle}>Magsimula na tayo sa LinawLetra.</Text>
+          <Text style={styles.supportingText}>Gumawa ng account bilang magulang para suportahan ang paglalakbay sa pagbasa ng iyong anak.</Text>
         </View>
 
         <View style={styles.card}>
@@ -476,21 +476,21 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
 
           <View style={styles.nameRow}>
             <View style={[styles.inputGroup, styles.nameField]}>
-              <Text style={styles.label}>First Name</Text>
+              <Text style={styles.label}>Pangalan</Text>
               <View style={[
                 styles.inputWrapper,
                 (touchedFirstName || submitAttempted) && errors.firstName ? styles.inputWrapperError : null,
               ]}>
                 <TextInput
                   style={styles.input}
-                  placeholder="First Name"
+                  placeholder="Pangalan"
                   placeholderTextColor={colors.inkSoft}
                   value={firstName}
                   onChangeText={(text) => setFirstName(sanitizeName(text))}
                   onBlur={() => setTouchedFirstName(true)}
                   editable={!isBusy}
                   autoCapitalize="words"
-                  accessibilityLabel="First name input"
+                  accessibilityLabel="Field ng pangalan"
                 />
                 {valid.firstName && !errors.firstName && (
                   <Ionicons name="checkmark-circle" size={18} color={colors.success} />
@@ -505,21 +505,21 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             </View>
 
             <View style={[styles.inputGroup, styles.nameField]}>
-              <Text style={styles.label}>Last Name</Text>
+              <Text style={styles.label}>Apelyido</Text>
               <View style={[
                 styles.inputWrapper,
                 (touchedLastName || submitAttempted) && errors.lastName ? styles.inputWrapperError : null,
               ]}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Last Name"
+                  placeholder="Apelyido"
                   placeholderTextColor={colors.inkSoft}
                   value={lastName}
                   onChangeText={(text) => setLastName(sanitizeName(text))}
                   onBlur={() => setTouchedLastName(true)}
                   editable={!isBusy}
                   autoCapitalize="words"
-                  accessibilityLabel="Last name input"
+                  accessibilityLabel="Field ng apelyido"
                 />
                 {valid.lastName && !errors.lastName && (
                   <Ionicons name="checkmark-circle" size={18} color={colors.success} />
@@ -538,21 +538,21 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               neither requires it. Label reflects that instead of showing a
               required asterisk. */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Middle Initial — Optional</Text>
+            <Text style={styles.label}>Gitnang Inisyal — Opsyonal</Text>
             <View style={[
               styles.inputWrapper,
               (touchedMiddleInitial || submitAttempted) && errors.middleInitial ? styles.inputWrapperError : null,
             ]}>
               <TextInput
                 style={styles.input}
-                placeholder="M.I. - Optional"
+                placeholder="M.I. - Opsyonal"
                 placeholderTextColor={colors.inkSoft}
                 value={middleInitial}
                 onChangeText={(text) => setMiddleInitial(text.toUpperCase().slice(0, 1))}
                 onBlur={() => setTouchedMiddleInitial(true)}
                 maxLength={1}
                 editable={!isBusy}
-                accessibilityLabel="Middle initial input, optional"
+                accessibilityLabel="Field ng gitnang inisyal, opsyonal"
               />
               {middleInitial.length > 0 && valid.middleInitial && !errors.middleInitial && (
                 <Ionicons name="checkmark-circle" size={18} color={colors.success} />
@@ -567,7 +567,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
+            <Text style={styles.label}>Email</Text>
             <View style={[
               styles.inputWrapper,
               (touchedEmail || submitAttempted) && errors.email ? styles.inputWrapperError : null,
@@ -575,7 +575,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Enter your email address"
+                placeholder="Ilagay ang iyong email address"
                 placeholderTextColor={colors.inkSoft}
                 value={email}
                 onChangeText={(text) => setEmail(sanitizeEmail(text))}
@@ -583,7 +583,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isBusy}
-                accessibilityLabel="Email input"
+                accessibilityLabel="Field ng email"
               />
               {valid.email && !errors.email && (
                 <Ionicons name="checkmark-circle" size={18} color={colors.success} />
@@ -606,7 +606,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Create a password"
+                placeholder="Gumawa ng password"
                 placeholderTextColor={colors.inkSoft}
                 value={password}
                 onChangeText={setPassword}
@@ -614,14 +614,14 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 editable={!isBusy}
-                accessibilityLabel="Password input"
-                accessibilityHint="Create a password. Password is hidden by default"
+                accessibilityLabel="Field ng password"
+                accessibilityHint="Gumawa ng password. Nakatago ang password bilang default"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeButton}
                 accessibilityRole="button"
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                accessibilityLabel={showPassword ? 'Itago ang password' : 'Ipakita ang password'}
               >
                 <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
               </TouchableOpacity>
@@ -638,7 +638,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                   />
                 </View>
                 <Text style={[styles.strengthText, { color: getPasswordStrength().color }]}>
-                  {getPasswordStrength().label} password
+                  Password na {getPasswordStrength().label}
                 </Text>
               </View>
             ) : null}
@@ -656,7 +656,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                     color={password.length >= 8 ? colors.success : colors.inkSoft}
                   />
                   <Text style={[styles.requirementText, password.length >= 8 && styles.requirementMet]}>
-                    At least 8 characters
+                    Hindi bababa sa 8 karakter
                   </Text>
                 </View>
                 <View style={styles.requirementItem}>
@@ -666,7 +666,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                     color={/[A-Z]/.test(password) ? colors.success : colors.inkSoft}
                   />
                   <Text style={[styles.requirementText, /[A-Z]/.test(password) && styles.requirementMet]}>
-                    One uppercase letter (A-Z)
+                    May malaking titik (A-Z)
                   </Text>
                 </View>
                 <View style={styles.requirementItem}>
@@ -676,7 +676,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                     color={/\d/.test(password) ? colors.success : colors.inkSoft}
                   />
                   <Text style={[styles.requirementText, /\d/.test(password) && styles.requirementMet]}>
-                    One number (0-9)
+                    May numero (0-9)
                   </Text>
                 </View>
               </View>
@@ -691,7 +691,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password</Text>
+            <Text style={styles.label}>Kumpirmahin ang Password</Text>
             <View style={[
               styles.inputWrapper,
               (touchedConfirmPassword || submitAttempted) && errors.confirmPassword ? styles.inputWrapperError : null,
@@ -699,7 +699,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Re-enter your password"
+                placeholder="Ilagay muli ang iyong password"
                 placeholderTextColor={colors.inkSoft}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -707,14 +707,14 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
                 editable={!isBusy}
-                accessibilityLabel="Confirm password input"
-                accessibilityHint="Re-enter your password. Password is hidden by default"
+                accessibilityLabel="Field ng kumpirmasyon ng password"
+                accessibilityHint="Ilagay muli ang iyong password. Nakatago ang password bilang default"
               />
               <TouchableOpacity
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 style={styles.eyeButton}
                 accessibilityRole="button"
-                accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                accessibilityLabel={showConfirmPassword ? 'Itago ang password' : 'Ipakita ang password'}
               >
                 <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
               </TouchableOpacity>
@@ -732,7 +732,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               onPress={() => setTermsAccepted(!termsAccepted)}
               style={styles.checkbox}
               accessibilityRole="checkbox"
-              accessibilityLabel="I agree to the Terms of Use and Privacy Policy"
+              accessibilityLabel="Sumasang-ayon ako sa Mga Tuntunin ng Paggamit at Patakaran sa Pagkapribado"
               accessibilityState={{ checked: termsAccepted }}
             >
               <Ionicons
@@ -742,10 +742,10 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               />
             </TouchableOpacity>
             <Text style={styles.termsText}>
-              I agree to the{' '}
-              <Text style={styles.link} onPress={showTerms}>Terms of Use</Text>
-              {' '}and{' '}
-              <Text style={styles.link} onPress={showPrivacy}>Privacy Policy</Text>
+              Sumasang-ayon ako sa{' '}
+              <Text style={styles.link} onPress={showTerms}>Mga Tuntunin ng Paggamit</Text>
+              {' '}at{' '}
+              <Text style={styles.link} onPress={showPrivacy}>Patakaran sa Pagkapribado</Text>
             </Text>
           </View>
           {(submitAttempted && errors.terms) ? (
@@ -763,13 +763,13 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.signUpButtonText}>Create Account</Text>
+              <Text style={styles.signUpButtonText}>Gumawa ng Account</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.oauthDivider}>
             <View style={styles.oauthDividerLine} />
-            <Text style={styles.oauthDividerText}>OR</Text>
+            <Text style={styles.oauthDividerText}>O</Text>
             <View style={styles.oauthDividerLine} />
           </View>
 
@@ -780,7 +780,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           >
             <Ionicons name="logo-google" size={20} color="#DB4437" />
             <Text style={styles.oauthButtonText}>
-              {oauthLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
+              {oauthLoading === 'google' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Google'}
             </Text>
           </TouchableOpacity>
 
@@ -791,13 +791,13 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
           >
             <Ionicons name="logo-facebook" size={20} color="#1877F2" />
             <Text style={styles.oauthButtonText}>
-              {oauthLoading === 'facebook' ? 'Connecting...' : 'Continue with Facebook'}
+              {oauthLoading === 'facebook' ? 'Kumokonekta...' : 'Magpatuloy gamit ang Facebook'}
             </Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.signInRow}>
-          <Text style={styles.signInText}>Already have an account? <Text style={styles.signInLinkBold}>Log In</Text></Text>
+          <Text style={styles.signInText}>May account ka na? <Text style={styles.signInLinkBold}>Mag-log In</Text></Text>
         </TouchableOpacity>
 
         <View style={styles.trustNote}>

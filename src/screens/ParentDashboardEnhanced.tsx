@@ -176,11 +176,11 @@ const SURFACE = '#ffffff';
 const BACKGROUND = '#f5f3ff';
 
 const PARENT_BOTTOM_ITEMS: BottomNavItem[] = [
-  { key: 'welcome', label: 'Home', icon: 'home-outline' },
-  { key: 'progress', label: 'Progress', icon: 'bar-chart-outline' },
-  { key: 'calendar', label: 'Calendar', icon: 'calendar-outline' },
-  { key: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
-  { key: 'settings', label: 'Profile', icon: 'person-outline' },
+  { key: 'welcome', label: 'Simula', icon: 'home-outline' },
+  { key: 'progress', label: 'Progreso', icon: 'bar-chart-outline' },
+  { key: 'calendar', label: 'Kalendaryo', icon: 'calendar-outline' },
+  { key: 'notifications', label: 'Mga Abiso', icon: 'notifications-outline' },
+  { key: 'settings', label: 'Aking Detalye', icon: 'person-outline' },
 ];
 
 const LEVEL_COLORS: Record<Level, string> = {
@@ -966,9 +966,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       skillGroups[cat].sum += Number(s.accuracy_percentage) || 0;
     });
     const skillMeta: { key: SkillCategory; label: string; icon: string }[] = [
-      { key: 'letters', label: 'Letter Recognition', icon: 'text' },
-      { key: 'syllables', label: 'Syllable Reading', icon: 'reader' },
-      { key: 'words', label: 'Word Reading', icon: 'book' },
+      { key: 'letters', label: 'Pagkilala ng Letra', icon: 'text' },
+      { key: 'syllables', label: 'Pagbasa ng Pantig', icon: 'reader' },
+      { key: 'words', label: 'Pagbasa ng Salita', icon: 'book' },
     ];
     const skillStatus = (avg: number | null) =>
       avg === null
@@ -1032,7 +1032,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
+                <Text style={styles.gradeBadgeText}>Baitang {selectedChild.grade_level}</Text>
               </View>
               <View style={[styles.levelBadgeOutline, { borderColor: getLevelColor(level) }]}>
                 <Text style={[styles.levelBadgeOutlineText, { color: getLevelColor(level) }]}>{level}</Text>
@@ -1458,9 +1458,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       : Math.round(Math.max(0, Math.min(100, (1 - (avgDuration - FLUENCY_FAST_SECONDS) / (FLUENCY_SLOW_SECONDS - FLUENCY_FAST_SECONDS)) * 100)));
 
     const skillMeta: { key: string; label: string; icon: string; avg: number | null; approximate?: boolean }[] = [
-      { key: 'letters', label: 'Letter Recognition', icon: 'text', avg: skillGroups.letters.count ? Math.round(skillGroups.letters.sum / skillGroups.letters.count) : null },
-      { key: 'syllables', label: 'Syllable Reading', icon: 'reader', avg: skillGroups.syllables.count ? Math.round(skillGroups.syllables.sum / skillGroups.syllables.count) : null },
-      { key: 'words', label: 'Word Reading', icon: 'book', avg: skillGroups.words.count ? Math.round(skillGroups.words.sum / skillGroups.words.count) : null },
+      { key: 'letters', label: 'Pagkilala ng Letra', icon: 'text', avg: skillGroups.letters.count ? Math.round(skillGroups.letters.sum / skillGroups.letters.count) : null },
+      { key: 'syllables', label: 'Pagbasa ng Pantig', icon: 'reader', avg: skillGroups.syllables.count ? Math.round(skillGroups.syllables.sum / skillGroups.syllables.count) : null },
+      { key: 'words', label: 'Pagbasa ng Salita', icon: 'book', avg: skillGroups.words.count ? Math.round(skillGroups.words.sum / skillGroups.words.count) : null },
       { key: 'fluency', label: 'Reading Fluency (approx.)', icon: 'speedometer', avg: fluencyScore, approximate: true },
     ];
     const skillStatus = (avg: number | null) =>
@@ -1542,7 +1542,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
+                <Text style={styles.gradeBadgeText}>Baitang {selectedChild.grade_level}</Text>
               </View>
               <View style={[styles.levelBadgeOutline, { borderColor: getLevelColor(level) }]}>
                 <Text style={[styles.levelBadgeOutlineText, { color: getLevelColor(level) }]}>{level}</Text>
@@ -1994,7 +1994,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade {selectedChild.grade_level}</Text>
+                <Text style={styles.gradeBadgeText}>Baitang {selectedChild.grade_level}</Text>
               </View>
               <View style={[styles.levelBadgeOutline, { borderColor: getLevelColor(level) }]}>
                 <Text style={[styles.levelBadgeOutlineText, { color: getLevelColor(level) }]}>{level} Reader</Text>
@@ -2415,7 +2415,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Email Address</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Email</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentEmail}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
@@ -2672,20 +2672,20 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <View style={styles.sidebarHeroFooter}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sidebarHeroMeta}>{enrolledChildrenText}</Text>
-                {selectedChild ? <Text style={styles.sidebarHeroSub}>Managing {selectedChild.name}</Text> : null}
+                {selectedChild ? <Text style={styles.sidebarHeroSub}>Pinamamahalaan si {selectedChild.name}</Text> : null}
               </View>
               <Image source={require('../../assets/parentprofile.png')} style={styles.sidebarHeroImage} resizeMode="contain" />
             </View>
           </LinearGradient>
 
           <View style={styles.sidebarBody}>
-            <Text style={styles.sidebarSectionLabel}>PARENT MENU</Text>
+            <Text style={styles.sidebarSectionLabel}>MENU NG MAGULANG</Text>
             {[
-              { key: 'children', label: 'Children', icon: 'people-outline', onPress: () => navigateTo('welcome') },
-              { key: 'settings', label: 'Settings', icon: 'settings-outline', onPress: () => navigateTo('appSettings') },
-              { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupport },
-              { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', `Version ${appVersion}\nA supportive reading companion for children and families.`) },
-              { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
+              { key: 'children', label: 'Mga Anak', icon: 'people-outline', onPress: () => navigateTo('welcome') },
+              { key: 'settings', label: 'Mga Setting', icon: 'settings-outline', onPress: () => navigateTo('appSettings') },
+              { key: 'help', label: 'Tulong', icon: 'help-circle-outline', onPress: contactSupport },
+              { key: 'about', label: 'Tungkol Dito', icon: 'information-circle-outline', onPress: () => Alert.alert('Tungkol sa LinawLetra', `Bersyon ${appVersion}\nIsang kasama sa pagbasa para sa mga bata at pamilya.`) },
+              { key: 'privacy', label: 'Pagkapribado', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Hindi Mabuksan', 'Hindi mabuksan ang Patakaran sa Pagkapribado.')) },
             ].map((item) => (
               <TouchableOpacity key={item.key} style={styles.navItem} onPress={item.onPress} activeOpacity={0.78}>
                 <View style={styles.navIconWrap}>
@@ -2696,10 +2696,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </TouchableOpacity>
             ))}
 
-            <Text style={styles.sidebarSectionLabel}>ACCOUNT</Text>
+            <Text style={styles.sidebarSectionLabel}>AKAWNT</Text>
             <TouchableOpacity style={styles.sidebarLogout} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-              <Text style={styles.sidebarLogoutText}>Logout</Text>
+              <Text style={styles.sidebarLogoutText}>Mag-log out</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

@@ -175,7 +175,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
               <Text style={styles.profileName}>{profile.full_name || 'Unnamed student'}</Text>
               <View style={styles.summaryBadgeRow}>
                 {!!gradeLevel && (
-                  <View style={styles.gradeBadge}><Text style={styles.gradeBadgeText}>Grade {gradeLevel}</Text></View>
+                  <View style={styles.gradeBadge}><Text style={styles.gradeBadgeText}>Baitang {gradeLevel}</Text></View>
                 )}
                 {!!readingLevel && (
                   <View style={styles.levelBadge}><Text style={styles.levelBadgeText}>{readingLevel}</Text></View>

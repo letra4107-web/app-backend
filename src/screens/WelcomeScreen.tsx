@@ -86,22 +86,22 @@ const WelcomeScreen: React.FC = () => {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
         <Text style={styles.greeting}>👋 Kumusta, {studentName}!</Text>
-        <Text style={styles.subtitle}>Welcome back to LinawLetra.</Text>
-        <Text style={styles.body}>Ready to practice today’s word?</Text>
+        <Text style={styles.subtitle}>Maligayang pagbabalik sa LinawLetra.</Text>
+        <Text style={styles.body}>Handa ka na bang magsanay ng salita ngayon?</Text>
 
         <View style={styles.welcomeCard}>
-          <Text style={styles.wordLabel}>Word of the Day</Text>
+          <Text style={styles.wordLabel}>Salita Ngayon</Text>
           <Text style={styles.wordText}>{wordOfTheDay?.word}</Text>
-          <Text style={styles.wordNote}>{wordOfTheDay?.tagalog || 'Practice this word with your voice.'}</Text>
+          <Text style={styles.wordNote}>{wordOfTheDay?.tagalog || 'Bigkasin ang salitang ito.'}</Text>
           <TouchableOpacity style={styles.replayButton} onPress={handleReplayWord}>
             <Ionicons name="volume-high" size={18} color="#1B5E20" />
-            <Text style={styles.replayText}>Replay</Text>
+            <Text style={styles.replayText}>Ulitin</Text>
           </TouchableOpacity>
           {!!audioError && <Text style={styles.audioErrorText}>{audioError}</Text>}
         </View>
 
         <TouchableOpacity style={styles.startButton} onPress={handleStartPractice}>
-          <Text style={styles.startButtonText}>Start Practice</Text>
+          <Text style={styles.startButtonText}>Simulan ang Pagsasanay</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

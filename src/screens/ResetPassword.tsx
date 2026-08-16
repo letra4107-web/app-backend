@@ -209,9 +209,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
 
         {stage === 'invalid' && (
           <View style={styles.card}>
-            <Text style={styles.title}>Link Invalid or Expired</Text>
+            <Text style={styles.title}>Hindi Wasto o Expired na ang Link</Text>
             <Text style={styles.subtitle}>
-              This password reset link is no longer valid. Please request a new one.
+              Hindi na wasto ang link na ito para sa pag-reset ng password. Humiling ng bago.
             </Text>
             {error ? (
               <Text style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
@@ -219,16 +219,16 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
               </Text>
             ) : null}
             <TouchableOpacity style={styles.button} onPress={() => navigation.replace('ForgotPassword')}>
-              <Text style={styles.buttonText}>Request New Link</Text>
+              <Text style={styles.buttonText}>Humiling ng Bagong Link</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {stage === 'form' && (
           <View style={styles.card}>
-            <Text style={styles.title}>Set New Password</Text>
+            <Text style={styles.title}>Magtakda ng Bagong Password</Text>
             <Text style={styles.subtitle}>
-              {isOtpMode ? `Enter the six-digit code sent to ${resetEmail}, then choose a new password.` : 'Choose a new password for your account.'}
+              {isOtpMode ? `Ilagay ang anim na-digit na code na ipinadala sa ${resetEmail}, pagkatapos ay pumili ng bagong password.` : 'Pumili ng bagong password para sa iyong account.'}
             </Text>
 
             {error ? (
@@ -250,14 +250,14 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
                   <Ionicons name="keypad-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter six-digit code"
+                    placeholder="Ilagay ang anim na-digit na code"
                     placeholderTextColor={colors.inkSoft}
                     value={resetCode}
                     onChangeText={(value) => setResetCode(value.replace(/\D/g, '').slice(0, 6))}
                     keyboardType="number-pad"
                     maxLength={6}
                     editable={!loading}
-                    accessibilityLabel="Password reset code"
+                    accessibilityLabel="Code para sa pag-reset ng password"
                   />
                 </View>
                 <TouchableOpacity
@@ -265,13 +265,13 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
                   disabled={resending || resendCooldown > 0}
                   style={styles.resendButton}
                   accessibilityRole="button"
-                  accessibilityLabel={resendCooldown > 0 ? `Resend code in ${resendCooldown} seconds` : 'Resend reset code'}
+                  accessibilityLabel={resendCooldown > 0 ? `Ipadala muli ang code sa ${resendCooldown} segundo` : 'Ipadala muli ang reset code'}
                 >
                   {resending ? (
                     <ActivityIndicator size="small" color={colors.lavenderDark} />
                   ) : (
                     <Text style={[styles.resendText, resendCooldown > 0 && styles.resendTextDisabled]}>
-                      {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Didn\'t receive it? Resend code'}
+                      {resendCooldown > 0 ? `Ipadala muli sa ${resendCooldown}s` : 'Hindi natanggap? Ipadala muli'}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -279,26 +279,26 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
             ) : null}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>New Password</Text>
+              <Text style={styles.label}>Bagong Password</Text>
               <View style={[styles.inputWrapper, passwordError && styles.inputWrapperError]}>
                 <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="At least 8 characters"
+                  placeholder="Hindi bababa sa 8 karakter"
                   placeholderTextColor={colors.inkSoft}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   editable={!loading}
-                  accessibilityLabel="New password input"
-                  accessibilityHint="Enter your new password. Password is hidden by default"
+                  accessibilityLabel="Field ng bagong password"
+                  accessibilityHint="Ilagay ang iyong bagong password. Nakatago ang password bilang default"
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeButton}
                   accessibilityRole="button"
-                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  accessibilityLabel={showPassword ? 'Itago ang password' : 'Ipakita ang password'}
                 >
                   <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
                 </TouchableOpacity>
@@ -307,26 +307,26 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm New Password</Text>
+              <Text style={styles.label}>Kumpirmahin ang Bagong Password</Text>
               <View style={[styles.inputWrapper, confirmError && styles.inputWrapperError]}>
                 <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Re-enter your new password"
+                  placeholder="Ilagay muli ang iyong bagong password"
                   placeholderTextColor={colors.inkSoft}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                   editable={!loading}
-                  accessibilityLabel="Confirm new password input"
-                  accessibilityHint="Re-enter your new password. Password is hidden by default"
+                  accessibilityLabel="Field ng kumpirmasyon ng bagong password"
+                  accessibilityHint="Ilagay muli ang iyong bagong password. Nakatago ang password bilang default"
                 />
                 <TouchableOpacity
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={styles.eyeButton}
                   accessibilityRole="button"
-                  accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  accessibilityLabel={showConfirmPassword ? 'Itago ang password' : 'Ipakita ang password'}
                 >
                   <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
                 </TouchableOpacity>
@@ -339,7 +339,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
               onPress={handleSubmit}
               disabled={!isValid || loading}
             >
-              {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.buttonText}>Update Password</Text>}
+              {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.buttonText}>I-update ang Password</Text>}
             </TouchableOpacity>
           </View>
         )}
@@ -347,8 +347,8 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ navigation, route }) => {
         {stage === 'success' && (
           <View style={styles.card}>
             <Ionicons name="checkmark-circle" size={40} color={colors.success} style={{ alignSelf: 'center', marginBottom: 12 }} />
-            <Text style={styles.title}>Password Updated!</Text>
-            <Text style={styles.subtitle}>{isOtpMode ? 'Returning you to Login...' : 'Redirecting you to your dashboard...'}</Text>
+            <Text style={styles.title}>Na-update ang Password!</Text>
+            <Text style={styles.subtitle}>{isOtpMode ? 'Ibinabalik ka sa Login...' : 'Dinadala ka sa iyong dashboard...'}</Text>
             <ActivityIndicator size="small" color={colors.lavenderDark} style={{ marginTop: 12 }} />
           </View>
         )}

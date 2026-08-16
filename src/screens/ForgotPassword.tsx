@@ -19,7 +19,7 @@ interface ForgotPasswordProps {
   navigation: any;
 }
 
-const REASSURANCE_TEXT = "If an account exists with this email, you'll receive a six-digit reset code shortly. Check your inbox and spam folder.";
+const REASSURANCE_TEXT = "Kung may account na gumagamit ng email na ito, makakatanggap ka ng anim na-digit na reset code sa ilang sandali. Tingnan ang iyong inbox at spam folder.";
 
 const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -128,15 +128,15 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
 
         <View style={styles.topHeader}>
           <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.tagline}>Clearer Reading. Brighter Learning.</Text>
+          <Text style={styles.tagline}>Linaw na Pagbasa. Higit na Pag-unlad.</Text>
         </View>
 
         <View style={styles.iconBadge}>
           <Ionicons name="lock-closed" size={32} color="#fff" />
         </View>
 
-        <Text style={styles.title}>Forgot Your Password?</Text>
-        <Text style={styles.subtitle}>No worries. Enter your email and we&apos;ll send you a six-digit code to reset your password.</Text>
+        <Text style={styles.title}>Nakalimutan ang Password?</Text>
+        <Text style={styles.subtitle}>Huwag mag-alala. Ilagay ang iyong email at padadalhan ka namin ng anim na-digit na code para i-reset ang iyong password.</Text>
 
         <View style={styles.card}>
           {generalError ? (
@@ -153,7 +153,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
           ) : (
             <>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email Address</Text>
+                <Text style={styles.label}>Email</Text>
                 <View style={[
                   styles.inputWrapper,
                   touched && emailError ? styles.inputWrapperError : null,
@@ -161,7 +161,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
                   <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter your registered email address"
+                    placeholder="Ilagay ang iyong nakarehistrong email address"
                     placeholderTextColor={colors.inkSoft}
                     value={email}
                     onChangeText={validateEmail}
@@ -169,7 +169,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     editable={!loading}
-                    accessibilityLabel="Email input"
+                    accessibilityLabel="Field ng email"
                   />
                 </View>
                 {touched && emailError ? (
@@ -188,7 +188,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.buttonText}>Send Reset Code</Text>
+                  <Text style={styles.buttonText}>Ipadala ang Reset Code</Text>
                 )}
               </TouchableOpacity>
 
@@ -199,12 +199,12 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ navigation }) => {
 
         <TouchableOpacity onPress={handleBackToLogin} style={styles.backRow}>
           <Ionicons name="chevron-back" size={18} color={colors.lavenderDark} />
-          <Text style={styles.backText}>Back to Login</Text>
+          <Text style={styles.backText}>Bumalik sa Login</Text>
         </TouchableOpacity>
 
         <View style={styles.trustNote}>
           <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
-          <Text style={styles.trustNoteText}>Your information is protected and securely handled.</Text>
+          <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

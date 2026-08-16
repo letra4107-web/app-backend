@@ -97,7 +97,7 @@ export default function EnrollChildModal({ visible, onClose, onEnrolled }: Props
           />
           {!!errors.name && <Text style={styles.error}>{errors.name}</Text>}
 
-          <Text style={styles.label}>Grade Level</Text>
+          <Text style={styles.label}>Antas ng Baitang</Text>
           <View style={styles.gradeGrid}>
             {GRADES.map((grade) => {
               const selected = gradeLevel === grade;
@@ -109,7 +109,7 @@ export default function EnrollChildModal({ visible, onClose, onEnrolled }: Props
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                 >
-                  <Text style={[styles.gradeText, selected && styles.gradeTextActive]}>Grade {grade}</Text>
+                  <Text style={[styles.gradeText, selected && styles.gradeTextActive]}>Baitang {grade}</Text>
                 </TouchableOpacity>
               );
             })}

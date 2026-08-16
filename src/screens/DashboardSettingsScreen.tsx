@@ -556,7 +556,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                 <View style={styles.summaryBadgeRow}>
                   {!!gradeLevel && (
                     <View style={styles.gradeBadge}>
-                      <Text style={styles.gradeBadgeText}>Grade {gradeLevel}</Text>
+                      <Text style={styles.gradeBadgeText}>Baitang {gradeLevel}</Text>
                     </View>
                   )}
                   {!!readingLevel && (

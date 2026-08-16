@@ -987,7 +987,7 @@ export default function StudentDashboard({ navigation }: any) {
       Alert.alert('Hindi Mabuksan', 'Hindi ma-open ang file. Subukan muli mamaya.');
     } catch (err: any) {
       console.error('[Uploads] openUpload failed:', err?.message || err);
-      Alert.alert('Error', 'Hindi ma-open ang file. Siguraduhing may internet connection.');
+      Alert.alert('May Problema', 'Hindi ma-open ang file. Siguraduhing may internet connection.');
     }
   };
 
@@ -1011,7 +1011,7 @@ export default function StudentDashboard({ navigation }: any) {
       }
     } catch (err: any) {
       console.error('[Lessons] openLesson failed:', err?.message || err);
-      Alert.alert('Error', 'Hindi ma-open ang lesson. Siguraduhing may internet connection.');
+      Alert.alert('May Problema', 'Hindi ma-open ang lesson. Siguraduhing may internet connection.');
     }
   };
 
@@ -1027,7 +1027,7 @@ export default function StudentDashboard({ navigation }: any) {
       void loadLessonProgress(child.id);
       await notifyStudent('Lesson Completed!', `${child?.name || 'Student'} finished "${lesson.title}". Great work!`, 'lesson');
     } catch {
-      Alert.alert('Error', 'Hindi na-save ang progress. Subukan muli.');
+      Alert.alert('May Problema', 'Hindi na-save ang progress. Subukan muli.');
     }
   };
 
@@ -3025,9 +3025,9 @@ export default function StudentDashboard({ navigation }: any) {
       skillGroups[cat].sum += Number(s.accuracy_percentage) || 0;
     });
     const skillMeta: { key: SkillCategory; label: string; icon: string }[] = [
-      { key: 'letters', label: 'Letter Recognition', icon: 'text' },
-      { key: 'syllables', label: 'Syllable Reading', icon: 'reader' },
-      { key: 'words', label: 'Word Reading', icon: 'book' },
+      { key: 'letters', label: 'Pagkilala ng Letra', icon: 'text' },
+      { key: 'syllables', label: 'Pagbasa ng Pantig', icon: 'reader' },
+      { key: 'words', label: 'Pagbasa ng Salita', icon: 'book' },
     ];
     const skillTag = (avg: number | null) =>
       avg === null
@@ -4016,19 +4016,19 @@ export default function StudentDashboard({ navigation }: any) {
   // Same accuracy_sum/total_attempts formula as the Progress tab's "Overall
   // Reading Progress" ring - not a separately-computed version.
   const studentBottomItems: BottomNavItem[] = [
-    { key: 'home', label: 'Home', icon: 'home-outline' },
-    { key: 'learn', label: 'Learn', icon: 'library-outline' },
-    { key: 'practice', label: 'Practice', icon: 'mic-outline' },
-    { key: 'progress', label: 'Progress', icon: 'analytics-outline' },
-    { key: 'achievements', label: 'Badges', icon: 'ribbon-outline' },
+    { key: 'home', label: 'Simula', icon: 'home-outline' },
+    { key: 'learn', label: 'Aralin', icon: 'library-outline' },
+    { key: 'practice', label: 'Pagsasanay', icon: 'mic-outline' },
+    { key: 'progress', label: 'Progreso', icon: 'analytics-outline' },
+    { key: 'achievements', label: 'Parangal', icon: 'ribbon-outline' },
   ];
   const studentSidebarItems = [
-    { key: 'profile', label: 'Profile', icon: 'person-outline', onPress: () => navigateTo('profile') },
-    { key: 'notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadNotifCount, onPress: () => navigateTo('notifications') },
-    { key: 'settings', label: 'Settings', icon: 'settings-outline', onPress: () => navigateTo('settings') },
-    { key: 'help', label: 'Help', icon: 'help-circle-outline', onPress: contactSupportFromSidebar },
-    { key: 'about', label: 'About', icon: 'information-circle-outline', onPress: () => Alert.alert('About LinawLetra', 'A supportive reading companion designed to help every learner grow with confidence.') },
-    { key: 'privacy', label: 'Privacy', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Unable to open Privacy Policy')) },
+    { key: 'profile', label: 'Aking Detalye', icon: 'person-outline', onPress: () => navigateTo('profile') },
+    { key: 'notifications', label: 'Mga Abiso', icon: 'notifications-outline', badge: unreadNotifCount, onPress: () => navigateTo('notifications') },
+    { key: 'settings', label: 'Mga Setting', icon: 'settings-outline', onPress: () => navigateTo('settings') },
+    { key: 'help', label: 'Tulong', icon: 'help-circle-outline', onPress: contactSupportFromSidebar },
+    { key: 'about', label: 'Tungkol Dito', icon: 'information-circle-outline', onPress: () => Alert.alert('Tungkol sa LinawLetra', 'Isang kasama sa pagbasa na dinisenyo upang tulungan ang bawat mag-aaral na umunlad nang may tiwala.') },
+    { key: 'privacy', label: 'Pagkapribado', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Hindi Mabuksan', 'Hindi mabuksan ang Patakaran sa Pagkapribado.')) },
   ];
 
   return (
@@ -4146,15 +4146,15 @@ export default function StudentDashboard({ navigation }: any) {
               )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.sidebarProfileName} numberOfLines={1}>{child?.name || 'Estudyante'}</Text>
-                <Text style={styles.sidebarProfileGrade}>Grade {child?.grade_level || '-'} Student</Text>
+                <Text style={styles.sidebarProfileGrade}>Mag-aaral sa Baitang {child?.grade_level || '-'}</Text>
                 <TouchableOpacity onPress={() => navigateTo('profile')}>
-                  <Text style={styles.sidebarProfileLink}>View Profile ›</Text>
+                  <Text style={styles.sidebarProfileLink}>Tingnan ang Profile ›</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </LinearGradient>
 
-          <Text style={styles.sidebarSectionLabel}>STUDENT MENU</Text>
+          <Text style={styles.sidebarSectionLabel}>MENU NG ESTUDYANTE</Text>
           {studentSidebarItems.map((item) => (
             <TouchableOpacity key={item.key} style={styles.navItem} onPress={item.onPress} activeOpacity={0.78}>
               <View style={styles.navIconWrap}>
@@ -4170,10 +4170,10 @@ export default function StudentDashboard({ navigation }: any) {
             </TouchableOpacity>
           ))}
 
-          <Text style={styles.sidebarSectionLabel}>ACCOUNT</Text>
+          <Text style={styles.sidebarSectionLabel}>AKAWNT</Text>
           <TouchableOpacity style={[styles.sidebarLogout, loggingOut && { opacity: 0.65 }]} onPress={handleStudentLogout} disabled={loggingOut}>
             {loggingOut ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="log-out-outline" size={20} color="#fff" />}
-            <Text style={styles.sidebarLogoutText}>{loggingOut ? 'Logging out...' : 'Logout'}</Text>
+            <Text style={styles.sidebarLogoutText}>{loggingOut ? 'Nag-lo-log out...' : 'Mag-log out'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>

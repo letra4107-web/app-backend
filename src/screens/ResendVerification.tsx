@@ -116,25 +116,25 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
 
         <View style={styles.topHeader}>
           <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.tagline}>Clearer Reading. Brighter Learning.</Text>
+          <Text style={styles.tagline}>Linaw na Pagbasa. Higit na Pag-unlad.</Text>
         </View>
 
         <View style={styles.iconBadge}>
           <Ionicons name="mail" size={32} color="#fff" />
         </View>
 
-        <Text style={styles.title}>Resend Verification</Text>
-        <Text style={styles.subtitle}>Enter your email to resend the verification code.</Text>
+        <Text style={styles.title}>Ipadala Muli ang Verification</Text>
+        <Text style={styles.subtitle}>Ilagay ang iyong email para ipadala muli ang verification code.</Text>
 
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel="Bumalik"
           >
             <Ionicons name="chevron-back" size={20} color={colors.lavenderDark} />
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>Bumalik</Text>
           </TouchableOpacity>
 
           {errorMessage ? (
@@ -157,7 +157,7 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
           ) : null}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
+            <Text style={styles.label}>Email</Text>
             <View style={styles.inputWrapper}>
               <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} style={styles.inputLeadingIcon} />
               <TextInput
@@ -169,8 +169,8 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!loading}
-                accessibilityLabel="Email input"
-                accessibilityHint="Enter your email address to resend the verification code"
+                accessibilityLabel="Field ng email"
+                accessibilityHint="Ilagay ang iyong email address para ipadala muli ang verification code"
               />
             </View>
           </View>
@@ -180,32 +180,32 @@ const ResendVerification: React.FC<ResendVerificationProps> = ({ navigation }) =
             onPress={handleResend}
             disabled={isButtonDisabled}
             accessibilityRole="button"
-            accessibilityLabel="Resend verification code"
+            accessibilityLabel="Ipadala muli ang verification code"
           >
             {loading ? (
               <>
                 <ActivityIndicator color="#fff" size="small" style={{ marginRight: 8 }} />
-                <Text style={styles.buttonText}>Sending...</Text>
+                <Text style={styles.buttonText}>Ipinapadala...</Text>
               </>
             ) : resendCooldown > 0 ? (
-              <Text style={styles.buttonText}>Wait {resendCooldown}s</Text>
+              <Text style={styles.buttonText}>Maghintay ng {resendCooldown}s</Text>
             ) : resendAttempts >= MAX_RESEND_ATTEMPTS ? (
-              <Text style={styles.buttonText}>Limit Reached</Text>
+              <Text style={styles.buttonText}>Naabot na ang Limitasyon</Text>
             ) : (
-              <Text style={styles.buttonText}>Resend Code</Text>
+              <Text style={styles.buttonText}>Ipadala Muli ang Code</Text>
             )}
           </TouchableOpacity>
 
           {resendAttempts > 0 && (
             <Text style={styles.attemptsText}>
-              Attempts: {resendAttempts}/{MAX_RESEND_ATTEMPTS}
+              Beses na sinubukan: {resendAttempts}/{MAX_RESEND_ATTEMPTS}
             </Text>
           )}
         </View>
 
         <View style={styles.trustNote}>
           <Ionicons name="shield-checkmark-outline" size={14} color={colors.inkSoft} />
-          <Text style={styles.trustNoteText}>Your information is protected and securely handled.</Text>
+          <Text style={styles.trustNoteText}>Ligtas at pribado ang iyong impormasyon.</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
