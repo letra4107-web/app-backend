@@ -34,7 +34,7 @@ import { fetchDashboardSettings, DashboardSettings } from '../services/settingsS
 import { fetchPublishedLessons, Lesson, subscribeToPublishedLessons } from '../services/lessonService';
 import { fetchLessonProgress, markLessonCompleted, markLessonOpened, LessonProgressRow } from '../services/lessonProgressService';
 import { PRACTICE_PASSING_SCORE, scorePronunciation, scoreMessage } from '../utils/scorePronunciation';
-import { fetchPersonalizedContent, RankedContentEntry } from '../services/wordsService';
+import { fetchPersonalizedContent, fetchRandomWordEntry, RankedContentEntry, WordLevel } from '../services/wordsService';
 import { fetchPronunciationSessions } from '../services/pronunciationSessionService';
 import { createNotification, createParentNotification, fetchNotifications, markNotificationRead, NotificationItem, subscribeToStudentNotifications } from '../services/notificationService';
 import { loadWordDefinitions, normalizeWordKey, WordDefinition } from '../services/wordDefinitionsService';
@@ -275,7 +275,7 @@ export default function StudentDashboard({ navigation }: any) {
   const UPLOADS_BUCKET = 'teacher-uploads'; // Update if your Supabase bucket name differs
 
   useSpeechRecognitionEvent('start', () => {
-    if (section !== 'practice') return;
+    if (!selectedWord) return;
     setPracticeListening(true);
     setPracticeProcessing(false);
     setPracticeStatus('Nakikinig… Basahin nang malinaw.');
@@ -284,7 +284,7 @@ export default function StudentDashboard({ navigation }: any) {
   });
 
   useSpeechRecognitionEvent('end', () => {
-    if (section !== 'practice') return;
+    if (!selectedWord) return;
     setPracticeListening(false);
     setPracticeStatus('Tapos na ang pakikinig.');
     // Let the session finalize if it hasn't already submitted.
@@ -302,7 +302,7 @@ export default function StudentDashboard({ navigation }: any) {
   });
 
   useSpeechRecognitionEvent('result', (event) => {
-    if (section !== 'practice') return;
+    if (!selectedWord) return;
     const transcript = event.results?.[0]?.transcript?.trim() || '';
     if (!transcript) return;
     latestInterimTranscriptRef.current = transcript;
@@ -313,7 +313,7 @@ export default function StudentDashboard({ navigation }: any) {
   });
 
   useSpeechRecognitionEvent('error', (event) => {
-    if (section !== 'practice') return;
+    if (!selectedWord) return;
     setPracticeListening(false);
     setPracticeProcessing(false);
     setPracticeStatus(
@@ -517,7 +517,16 @@ export default function StudentDashboard({ navigation }: any) {
   const loadCurrentPracticeItem = async (contentType?: CurriculumPracticeType) => {
     setWordBankLoading(true);
     try {
-      const [ranked] = await fetchPersonalizedContent(1, contentType);
+      // Module-specific practice (a category filter is set, e.g. tapping a
+      // particular module's practice item from Learn) keeps using the
+      // sequence-frontier ranker - it still needs real curriculum-sequencing
+      // and completion-tracking. The general/default recommendation shown on
+      // Home (no filter) now pulls a genuinely random word from the
+      // student's level-filtered word bank instead (panel item 2).
+      const currentLevel = (officialProgression?.effective_level || progress?.level || 'Beginner').toLowerCase() as WordLevel;
+      const ranked = contentType
+        ? (await fetchPersonalizedContent(1, contentType))[0]
+        : await fetchRandomWordEntry(currentLevel);
       setCurrentPracticeItem(ranked || null);
       setCurrentPracticeReason(ranked?.recommendationReason || 'Susunod na bukas na bahagi ng kurikulum.');
       setWordBankError('');
@@ -907,9 +916,12 @@ export default function StudentDashboard({ navigation }: any) {
   // sidebar, etc.) clear it back to "show everything" via the default
   // argument, while the Learn tab's official curriculum cards are the
   // only callers that pass a real category.
+  // Practice is merged into Home now (panel item 2) - there's no separate
+  // Practice tab to navigate to, so this just clears/sets the category
+  // filter and makes sure Home (where the practice card now lives) is shown.
   const goToPractice = (category: CurriculumPracticeType | null = null) => {
     setPracticeCategoryFilter(category);
-    setSection('practice');
+    setSection('home');
   };
 
   const getFirstName = (full = '') => (full ? String(full).split(' ')[0] : 'Ka');
@@ -1620,11 +1632,75 @@ export default function StudentDashboard({ navigation }: any) {
     </View>
   );
 
+  // Hoisted out of renderPractice() (component-level, not function-local) so
+  // that both renderWordOfDay() (the Home tab, which now embeds the practice
+  // entry point directly - see panel item 2) and renderPractice()'s own
+  // focused say/listen views can share the same startWord/label/card helpers
+  // instead of duplicating them.
+  const practiceTypeLabels: Record<RankedContentEntry['contentType'], string> = {
+    word: 'Salita', phonetic: 'Ponetiko', phrase: 'Parirala', sentence: 'Pangungusap', story: 'Kwento',
+  };
+
+  const startWord = (word: string, mode: 'say' | 'listen', contentId?: string | null) => {
+    setPracticeMode(mode);
+    setSelectedWord(word);
+    setSelectedContentId(contentId || null);
+    setPracticeResult(null);
+    setPracticeAttempts(0);
+    setPracticeTranscript('');
+    setPracticeProcessing(false);
+    setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
+    setListenPlaying(false);
+    setListenJustFinished(false);
+    setKaraokeSyllableIndex(null);
+    setKaraokeLoading(false);
+    // "Listen & Read" always speaks - that's the mode's whole purpose.
+    // "Say the Word" only auto-speaks on select if Auto Read Words is on.
+    if (mode === 'listen') {
+      playListenWord(word);
+    } else if (dashboardSettings?.auto_read_words !== false) {
+      speakPracticeWord(word);
+    }
+  };
+
+  const wordsPracticedToday = todaySessions.length;
+
+  const renderSessionProgressCard = () => (
+    <View style={styles.practiceStatsCard}>
+      <View style={styles.practiceStatsRow}>
+        <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.green }]}>
+          <Ionicons name="happy" size={22} color="#fff" />
+        </View>
+        <Text style={[styles.practiceSectionTitle, cardTitleA11y, { flex: 1 }]}>
+          {wordsPracticedToday > 0 ? 'Magaling! Ipagpatuloy mo ang pagsasanay!' : 'Handa ka na bang magsanay?'}
+        </Text>
+      </View>
+    </View>
+  );
+
+  const renderReadingTipCard = () => (
+    <View style={styles.practiceTipCard}>
+      <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.amber, marginBottom: 0 }]}>
+        <Ionicons name="bulb" size={20} color="#fff" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.practiceTipCardTitle, cardTitleA11y]}>Tip sa Pagbasa</Text>
+        <Text style={[styles.practiceTipCardText, bodyA11y]}>Basahin ang bawat pantig nang dahan-dahan bago sabihin ang buong salita.</Text>
+      </View>
+    </View>
+  );
+
   const renderWordOfDay = () => {
     // Resets every 5 attempts, not at actual midnight - there's no calendar-
     // day boundary tracked yet. A true calendar-day version (reset at real
     // midnight, independent of attempt count) is a separate future task -
     // this is the existing, real mechanic, not a placeholder to fix now.
+    // Panel item 2: Practice is merged directly into Home (no separate tab),
+    // so the recommended-practice-item lookup and daily-goal state that used
+    // to live only in renderPractice() are needed here too.
+    const recommendedItem = currentPracticeItem;
+    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
+
     // Continue Learning: the same real in-progress-lesson lookup the Learn
     // tab uses - most-recently-opened lesson still marked in_progress.
     const inProgressRows = lessonProgress
@@ -1942,6 +2018,182 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Parangal</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Practice — merged directly into Home per panel item 2, so it's
+              immediately accessible on opening the app instead of requiring
+              a separate tab tap. */}
+          <View style={styles.goalCard}>
+            <View style={styles.goalTopRow}>
+              <Text style={[styles.goalTitle, cardTitleA11y]}>Pagsasanay Ngayon</Text>
+            </View>
+            <Text style={[styles.goalEmptyNote, bodyA11y]}>
+              {goalDone === 0 ? 'Simulan ang unang pagsasanay ngayon! 🌱' : '✨ Ang galing! Ipagpatuloy mo!'}
+            </Text>
+            <View style={styles.rewardRow}>
+              <View style={[styles.rewardPill, { backgroundColor: '#FBE7DF' }]}>
+                <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
+                  <Ionicons name="star" size={13} color={colors.coral} />
+                </View>
+                <Text style={[styles.rewardText, { color: colors.coral }, smallLabelA11y]}>
+                  {stats.xp > 0 ? 'Kumikita ng XP!' : 'Simulan ang XP mo!'}
+                </Text>
+              </View>
+              <View style={[styles.rewardPill, { backgroundColor: '#FFF3DC' }]}>
+                <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
+                  <Ionicons name="flame" size={13} color={colors.sun} />
+                </View>
+                <Text style={[styles.rewardText, { color: colors.sun }, smallLabelA11y]}>
+                  {stats.streak > 0 ? 'May-init ang streak mo!' : 'Simulan ang streak!'}
+                </Text>
+              </View>
+              <View style={[styles.rewardPill, { backgroundColor: '#EFECFB' }]}>
+                <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
+                  <Ionicons name="ribbon" size={13} color={colors.lavenderDark} />
+                </View>
+                <Text style={[styles.rewardText, { color: colors.lavenderDark }, smallLabelA11y]}>
+                  {(progress?.achievements?.length || 0) > 0 ? 'May mga parangal ka na!' : 'Kumuha ng unang parangal!'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>🤖 Inirekomendang Pagsasanay sa Pagbasa</Text>
+
+          {recommendedItem && (
+            <View style={styles.aiRecommendationCard}>
+              <View style={styles.aiRecommendationTopRow}>
+                <View style={styles.aiRecommendationIcon}>
+                  <Ionicons name="sparkles" size={18} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.aiRecommendationWordRow}>
+                    <Text style={[styles.aiRecommendationWord, cardTitleA11y]}>{recommendedItem.contentText}</Text>
+                    <View style={styles.trackPill}>
+                      <Text style={[styles.trackPillText, smallLabelA11y]}>
+                        {practiceTypeLabels[recommendedItem.contentType]}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.aiRecommendationReason, bodyA11y]}>
+                    {currentPracticeReason || 'Susunod na bukas na bahagi ng kurikulum.'}
+                  </Text>
+                </View>
+                {readingProfile && (
+                  <View style={styles.aiConfidencePill}>
+                    <Text style={styles.aiConfidenceValue}>{readingProfile.confidenceScore}%</Text>
+                    <Text style={styles.aiConfidenceLabel}>Kumpiyansa</Text>
+                  </View>
+                )}
+              </View>
+              {!!readingProfile?.recommendedFocus && (
+                <Text style={[styles.aiRecommendationFocus, bodyA11y]}>Pokus: {readingProfile.recommendedFocus}</Text>
+              )}
+            </View>
+          )}
+
+          {!recommendedItem && !wordBankLoading && !!wordBankError && (
+            <View style={styles.errorBlock}>
+              <Text style={[styles.error, bodyA11y]}>{wordBankError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => void loadCurrentPracticeItem(practiceCategoryFilter || undefined)}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading practice item"
+              >
+                <Text style={[styles.retryButtonText, buttonA11y]}>Subukan muli</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!recommendedItem && !wordBankLoading && !wordBankError && (
+            <TouchableOpacity
+              style={styles.completedTrackBanner}
+              onPress={() => setSection('learn')}
+              accessibilityRole="button"
+              accessibilityLabel="Go to Learn tab to take the module assessment"
+            >
+              <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.completedTrackTitle, cardTitleA11y]}>Tapos na ang mga aralin sa modyul na ito!</Text>
+                <Text style={[styles.completedTrackText, bodyA11y]}>Puntahan ang tab na Aralin para kunin ang pagsusulit ng modyul.</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
+            disabled={!recommendedItem}
+            onPress={() => recommendedItem && startWord(recommendedItem.contentText, 'say', recommendedItem.id)}
+            accessibilityRole="button"
+            accessibilityLabel="Start Say the Word practice mode"
+          >
+            <View style={[styles.practiceModeIconWrap, { backgroundColor: '#EFECFB' }]}>
+              <Ionicons name="mic" size={24} color={colors.lavenderDark} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Sabihin ang Salita</Text>
+              <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita, pagkatapos sabihin ito nang malakas.</Text>
+              <View style={[styles.practiceModeTag, { backgroundColor: '#EFECFB' }]}>
+                <Text style={[styles.practiceModeTagText, { color: colors.lavenderDark }, smallLabelA11y]}>AI na Pagsasanay sa Bigkas</Text>
+              </View>
+            </View>
+            <View style={styles.practiceModeStartPill}>
+              <Text style={[styles.practiceModeStartText, buttonA11y]}>Simulan</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
+            disabled={!recommendedItem}
+            onPress={() => recommendedItem && startWord(recommendedItem.contentText, 'listen', recommendedItem.id)}
+            accessibilityRole="button"
+            accessibilityLabel="Start Listen and Read practice mode"
+          >
+            <View style={[styles.practiceModeIconWrap, { backgroundColor: '#E9F1E2' }]}>
+              <Ionicons name="volume-high" size={24} color={colors.sage} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Pakinggan at Basahin</Text>
+              <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita at sundan ito habang binabasa.</Text>
+              <View style={[styles.practiceModeTag, { backgroundColor: '#E9F1E2' }]}>
+                <Text style={[styles.practiceModeTagText, { color: colors.sage }, smallLabelA11y]}>Suporta sa Text-to-Speech</Text>
+              </View>
+            </View>
+            <View style={[styles.practiceModeStartPill, { backgroundColor: colors.sage }]}>
+              <Text style={[styles.practiceModeStartText, buttonA11y]}>Simulan</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={[styles.practiceModeCard, styles.practiceModeCardDisabled]}>
+            <View style={[styles.practiceModeIconWrap, { backgroundColor: '#FFF3DC' }]}>
+              <Ionicons name="book" size={24} color={colors.sun} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Basahin nang Malakas</Text>
+              <Text style={[styles.practiceModeSub, bodyA11y]}>Magsanay bumasa ng mga pangungusap nang malakas.</Text>
+              <View style={[styles.practiceModeTag, { backgroundColor: '#FFF3DC' }]}>
+                <Text style={[styles.practiceModeTagText, { color: colors.sun }, smallLabelA11y]}>Sa Madaling Panahon</Text>
+              </View>
+            </View>
+          </View>
+
+          {!!practiceCategoryFilter && (
+            <View style={styles.categoryFilterBar}>
+              <Text style={[styles.categoryFilterBarText, bodyA11y]}>
+                Ipinapakita: {practiceTypeLabels[practiceCategoryFilter]}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setPracticeCategoryFilter(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Clear category filter, show all"
+              >
+                <Text style={[styles.categoryFilterBarReset, buttonA11y]}>Ipakita Lahat</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {renderSessionProgressCard()}
+          {renderReadingTipCard()}
         </ScrollView>
       </>
     );
@@ -1949,9 +2201,6 @@ export default function StudentDashboard({ navigation }: any) {
 
   const renderPractice = () => {
     const currentLevel = officialProgression?.effective_level || progress?.level || 'Beginner';
-    const practiceTypeLabels: Record<RankedContentEntry['contentType'], string> = {
-      word: 'Words', phonetic: 'Phonetics', phrase: 'Phrases', sentence: 'Sentences', story: 'Stories',
-    };
     const companionType: CurriculumPracticeType = currentLevel === 'Beginner'
       ? 'phonetic'
       : currentLevel === 'Intermediate' ? 'phrase' : 'sentence';
@@ -1969,30 +2218,6 @@ export default function StudentDashboard({ navigation }: any) {
     const remainingWords = Math.max(0, wordTotal - wordsDoneCount);
 
     const recommendedItem = currentPracticeItem;
-
-    const wordsPracticedToday = todaySessions.length;
-
-    const startWord = (word: string, mode: 'say' | 'listen', contentId?: string | null) => {
-      setPracticeMode(mode);
-      setSelectedWord(word);
-      setSelectedContentId(contentId || null);
-      setPracticeResult(null);
-      setPracticeAttempts(0);
-      setPracticeTranscript('');
-      setPracticeProcessing(false);
-      setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
-      setListenPlaying(false);
-      setListenJustFinished(false);
-      setKaraokeSyllableIndex(null);
-      setKaraokeLoading(false);
-      // "Listen & Read" always speaks - that's the mode's whole purpose.
-      // "Say the Word" only auto-speaks on select if Auto Read Words is on.
-      if (mode === 'listen') {
-        playListenWord(word);
-      } else if (dashboardSettings?.auto_read_words !== false) {
-        speakPracticeWord(word);
-      }
-    };
 
     if (selectedWord && child && practiceMode === 'listen') {
       // Intermediate/Advanced content can be a whole phrase or sentence, not
@@ -2154,33 +2379,6 @@ export default function StudentDashboard({ navigation }: any) {
       }
       startWord(recommendedItem.contentText, 'say', recommendedItem.id);
     };
-
-    // Deliberately non-numeric — exact word counts/accuracy percentages are
-    // parent-only now (see Parent dashboard's Child Progress screen).
-    const renderSessionProgressCard = () => (
-      <View style={styles.practiceStatsCard}>
-        <View style={styles.practiceStatsRow}>
-          <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.green }]}>
-            <Ionicons name="happy" size={22} color="#fff" />
-          </View>
-          <Text style={[styles.practiceSectionTitle, cardTitleA11y, { flex: 1 }]}>
-            {wordsPracticedToday > 0 ? 'Magaling! Ipagpatuloy mo ang pagsasanay!' : 'Handa ka na bang magsanay?'}
-          </Text>
-        </View>
-      </View>
-    );
-
-    const renderReadingTipCard = () => (
-      <View style={styles.practiceTipCard}>
-        <View style={[styles.categoryIconWrap, { backgroundColor: colors.vivid.amber, marginBottom: 0 }]}>
-          <Ionicons name="bulb" size={20} color="#fff" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.practiceTipCardTitle, cardTitleA11y]}>Tip sa Pagbasa</Text>
-          <Text style={[styles.practiceTipCardText, bodyA11y]}>Basahin ang bawat pantig nang dahan-dahan bago sabihin ang buong salita.</Text>
-        </View>
-      </View>
-    );
 
     if (selectedWord && child) {
       // Same long-content accommodation as the "listen" view above.
@@ -2380,195 +2578,7 @@ export default function StudentDashboard({ navigation }: any) {
       );
     }
 
-    const goalDone = Math.min((progress?.total_attempts || 0) % DAILY_GOAL, DAILY_GOAL);
-
-    return (
-      <View style={{ flex: 1 }}>
-        <TabHeroHeader
-          onMenuPress={openSidebar}
-          notifDot={unreadNotifCount > 0}
-          title="Pagsasanay"
-          subtitle="Magsanay tayong magbasa nang magkasama!"
-          illustration={require('../../assets/singing.webp')}
-          titleA11yStyle={heroTitleA11yStyle}
-          subtitleA11yStyle={heroSubtitleA11yStyle}
-        />
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-        <View style={styles.goalCard}>
-          <View style={styles.goalTopRow}>
-            <Text style={[styles.goalTitle, cardTitleA11y]}>Pagsasanay Ngayon</Text>
-          </View>
-          <Text style={[styles.goalEmptyNote, bodyA11y]}>
-            {goalDone === 0 ? 'Simulan ang unang pagsasanay ngayon! 🌱' : '✨ Ang galing! Ipagpatuloy mo!'}
-          </Text>
-          <View style={styles.rewardRow}>
-            <View style={[styles.rewardPill, { backgroundColor: '#FBE7DF' }]}>
-              <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
-                <Ionicons name="star" size={13} color={colors.coral} />
-              </View>
-              <Text style={[styles.rewardText, { color: colors.coral }, smallLabelA11y]}>
-                {stats.xp > 0 ? 'Kumikita ng XP!' : 'Simulan ang XP mo!'}
-              </Text>
-            </View>
-            <View style={[styles.rewardPill, { backgroundColor: '#FFF3DC' }]}>
-              <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
-                <Ionicons name="flame" size={13} color={colors.sun} />
-              </View>
-              <Text style={[styles.rewardText, { color: colors.sun }, smallLabelA11y]}>
-                {stats.streak > 0 ? 'May-init ang streak mo!' : 'Simulan ang streak!'}
-              </Text>
-            </View>
-            <View style={[styles.rewardPill, { backgroundColor: '#EFECFB' }]}>
-              <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
-                <Ionicons name="ribbon" size={13} color={colors.lavenderDark} />
-              </View>
-              <Text style={[styles.rewardText, { color: colors.lavenderDark }, smallLabelA11y]}>
-                {(progress?.achievements?.length || 0) > 0 ? 'May mga parangal ka na!' : 'Kumuha ng unang parangal!'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>🤖 Inirekomendang Pagsasanay sa Pagbasa</Text>
-
-        {recommendedItem && (
-          <View style={styles.aiRecommendationCard}>
-            <View style={styles.aiRecommendationTopRow}>
-              <View style={styles.aiRecommendationIcon}>
-                <Ionicons name="sparkles" size={18} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={styles.aiRecommendationWordRow}>
-                  <Text style={[styles.aiRecommendationWord, cardTitleA11y]}>{recommendedItem.contentText}</Text>
-                  <View style={styles.trackPill}>
-                    <Text style={[styles.trackPillText, smallLabelA11y]}>
-                      {practiceTypeLabels[recommendedItem.contentType]}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={[styles.aiRecommendationReason, bodyA11y]}>
-                  {currentPracticeReason || 'Susunod na bukas na bahagi ng kurikulum.'}
-                </Text>
-              </View>
-              {readingProfile && (
-                <View style={styles.aiConfidencePill}>
-                  <Text style={styles.aiConfidenceValue}>{readingProfile.confidenceScore}%</Text>
-                  <Text style={styles.aiConfidenceLabel}>Kumpiyansa</Text>
-                </View>
-              )}
-            </View>
-            {!!readingProfile?.recommendedFocus && (
-              <Text style={[styles.aiRecommendationFocus, bodyA11y]}>Pokus: {readingProfile.recommendedFocus}</Text>
-            )}
-          </View>
-        )}
-
-        {!recommendedItem && !wordBankLoading && !!wordBankError && (
-          <View style={styles.errorBlock}>
-            <Text style={[styles.error, bodyA11y]}>{wordBankError}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => void loadCurrentPracticeItem(practiceCategoryFilter || undefined)}
-              accessibilityRole="button"
-              accessibilityLabel="Retry loading practice item"
-            >
-              <Text style={[styles.retryButtonText, buttonA11y]}>Subukan muli</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {!recommendedItem && !wordBankLoading && !wordBankError && (
-          <TouchableOpacity
-            style={styles.completedTrackBanner}
-            onPress={() => setSection('learn')}
-            accessibilityRole="button"
-            accessibilityLabel="Go to Learn tab to take the module assessment"
-          >
-            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.completedTrackTitle, cardTitleA11y]}>Tapos na ang mga aralin sa modyul na ito!</Text>
-              <Text style={[styles.completedTrackText, bodyA11y]}>Puntahan ang tab na Aralin para kunin ang pagsusulit ng modyul.</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
-          disabled={!recommendedItem}
-          onPress={() => recommendedItem && startWord(recommendedItem.contentText, 'say', recommendedItem.id)}
-          accessibilityRole="button"
-          accessibilityLabel="Start Say the Word practice mode"
-        >
-          <View style={[styles.practiceModeIconWrap, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="mic" size={24} color={colors.lavenderDark} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Sabihin ang Salita</Text>
-            <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita, pagkatapos sabihin ito nang malakas.</Text>
-            <View style={[styles.practiceModeTag, { backgroundColor: '#EFECFB' }]}>
-              <Text style={[styles.practiceModeTagText, { color: colors.lavenderDark }, smallLabelA11y]}>AI na Pagsasanay sa Bigkas</Text>
-            </View>
-          </View>
-          <View style={styles.practiceModeStartPill}>
-            <Text style={[styles.practiceModeStartText, buttonA11y]}>Simulan</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.practiceModeCard, !recommendedItem && styles.practiceModeCardDisabled]}
-          disabled={!recommendedItem}
-          onPress={() => recommendedItem && startWord(recommendedItem.contentText, 'listen', recommendedItem.id)}
-          accessibilityRole="button"
-          accessibilityLabel="Start Listen and Read practice mode"
-        >
-          <View style={[styles.practiceModeIconWrap, { backgroundColor: '#E9F1E2' }]}>
-            <Ionicons name="volume-high" size={24} color={colors.sage} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Pakinggan at Basahin</Text>
-            <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita at sundan ito habang binabasa.</Text>
-            <View style={[styles.practiceModeTag, { backgroundColor: '#E9F1E2' }]}>
-              <Text style={[styles.practiceModeTagText, { color: colors.sage }, smallLabelA11y]}>Suporta sa Text-to-Speech</Text>
-            </View>
-          </View>
-          <View style={[styles.practiceModeStartPill, { backgroundColor: colors.sage }]}>
-            <Text style={[styles.practiceModeStartText, buttonA11y]}>Simulan</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={[styles.practiceModeCard, styles.practiceModeCardDisabled]}>
-          <View style={[styles.practiceModeIconWrap, { backgroundColor: '#FFF3DC' }]}>
-            <Ionicons name="book" size={24} color={colors.sun} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Basahin nang Malakas</Text>
-            <Text style={[styles.practiceModeSub, bodyA11y]}>Magsanay bumasa ng mga pangungusap nang malakas.</Text>
-            <View style={[styles.practiceModeTag, { backgroundColor: '#FFF3DC' }]}>
-              <Text style={[styles.practiceModeTagText, { color: colors.sun }, smallLabelA11y]}>Sa Madaling Panahon</Text>
-            </View>
-          </View>
-        </View>
-
-        {!!practiceCategoryFilter && (
-          <View style={styles.categoryFilterBar}>
-            <Text style={[styles.categoryFilterBarText, bodyA11y]}>
-              Showing: {practiceTypeLabels[practiceCategoryFilter]}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setPracticeCategoryFilter(null)}
-              accessibilityRole="button"
-              accessibilityLabel="Clear category filter, show all"
-            >
-              <Text style={[styles.categoryFilterBarReset, buttonA11y]}>Ipakita Lahat</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {renderSessionProgressCard()}
-        {renderReadingTipCard()}
-      </ScrollView>
-      </View>
-    );
+    return null;
   };
 
   // Restored 2026-08-14: this used to be folded into a full-screen
@@ -3256,7 +3266,7 @@ export default function StudentDashboard({ navigation }: any) {
         case 'achievement':
           return { icon: 'trophy', color: XP_GOLD, actionLabel: 'Tingnan ang Parangal', actionSection: 'achievements' };
         case 'streak':
-          return { icon: 'flame', color: colors.sun, actionLabel: 'Magsanay Na', actionSection: 'practice' };
+          return { icon: 'flame', color: colors.sun, actionLabel: 'Magsanay Na', actionSection: 'home' };
         default:
           return { icon: 'notifications', color: colors.lavenderDark, actionLabel: null as string | null, actionSection: null as string | null };
       }
@@ -3446,12 +3456,12 @@ export default function StudentDashboard({ navigation }: any) {
   // Same unread-notification count that used to live in the header bell on
   // every tab - now surfaced only via the "Notifications" row in the sidebar.
   const unreadNotifCount = notifications.filter((n) => !(n.is_read ?? n.read)).length;
-  // Same accuracy_sum/total_attempts formula as the Progress tab's "Overall
-  // Reading Progress" ring - not a separately-computed version.
+  // Home / Learn / Badges only (panel item 2) - Practice is merged directly
+  // into Home (no separate tab) and Settings was already sidebar-only, never
+  // a bottom tab, so it needed no change here.
   const studentBottomItems: BottomNavItem[] = [
     { key: 'home', label: 'Simula', icon: 'home-outline' },
     { key: 'learn', label: 'Aralin', icon: 'library-outline' },
-    { key: 'practice', label: 'Pagsasanay', icon: 'mic-outline' },
     { key: 'achievements', label: 'Parangal', icon: 'ribbon-outline' },
   ];
   const studentSidebarItems = [
@@ -3465,11 +3475,22 @@ export default function StudentDashboard({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      {section === 'home' ? (
+      {selectedWord ? (
+        // A word is being actively practiced (say/listen focused view) -
+        // this takes priority over whatever `section` is nominally set to,
+        // since practice is now entered directly from Home (panel item 2)
+        // rather than through its own bottom tab. renderPractice() renders
+        // its own TabHeroHeader with a back button in this state.
+        <View style={styles.homeBg}>
+          {renderPractice()}
+        </View>
+      ) : section === 'home' ? (
         // No topHeaderNode here - the hero banner inside renderWordOfDay()
         // already covers branding (logo lockup) and a notification bell;
         // stacking the old hamburger/title bar on top of it duplicated that
         // chrome and pushed the rest of the tab down unnecessarily.
+        // renderWordOfDay() now also embeds the practice entry point
+        // directly (panel item 2), so there's no separate Practice tab.
         <View style={styles.homeBg}>
           {renderWordOfDay()}
         </View>
@@ -3499,16 +3520,9 @@ export default function StudentDashboard({ navigation }: any) {
               setPracticeAttempts(0);
               setPracticeTranscript('');
               setPracticeStatus('Pindutin ang mikropono kapag handa ka na.');
-              setSection('practice');
+              setSection('home');
             }}
           />
-        </View>
-      ) : section === 'practice' ? (
-        // renderPractice() now renders its own TabHeroHeader in every one of
-        // its states (grid, "say", "listen") - each with the right variant
-        // (menu vs back button) - so this branch needs no header of its own.
-        <View style={styles.homeBg}>
-          {renderPractice()}
         </View>
       ) : section === 'achievements' ? (
         // Same reasoning again: renderAchievements() now opens with its own

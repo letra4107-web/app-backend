@@ -49,6 +49,36 @@ export const fetchWords = async (level: string, limit = 24): Promise<string[]> =
   }
 };
 
+// Panel item 2 (content-sourcing reconciliation): Word of the Day and the
+// default Practice recommendation now pick a genuinely random word from the
+// student's level-filtered word bank (the `words` table, already random via
+// server-side Fisher-Yates shuffle) instead of the sequence-frontier
+// personalization ranker - the ranker is left untouched for module-specific
+// practice (which still needs its curriculum-sequencing/completion-tracking
+// behavior intact). Wrapped into the same RankedContentEntry shape so the
+// rest of the UI (which was built against the ranker's response) needs no
+// changes.
+export const fetchRandomWordEntry = async (level: WordLevel): Promise<RankedContentEntry | null> => {
+  const words = await fetchWords(level, 24);
+  if (!words.length) return null;
+  const word = words[Math.floor(Math.random() * words.length)];
+  return {
+    id: `word-bank-${word}`,
+    contentId: word,
+    wordId: null,
+    contentText: word,
+    contentType: 'word',
+    word,
+    level,
+    rank: 1,
+    rankingScore: 0,
+    componentScores: { weakness_match: 0, mastery_gap: 0, recency_need: 0, structural_fit: 0 },
+    reasonCodes: [],
+    matchedConfusionPairs: [],
+    recommendationReason: 'Random na salita mula sa iyong antas.',
+  };
+};
+
 export const fetchPersonalizedWords = async (limit = 24): Promise<string[]> => {
   const ranked = await fetchPersonalizedContent(limit);
   return ranked.map((entry) => entry.contentText || entry.word);
