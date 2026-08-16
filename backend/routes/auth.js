@@ -1226,6 +1226,81 @@ router.post('/set-role', async (req, res) => {
   }
 });
 
+const TAGALOG_WEEKDAYS = ['Linggo', 'Lunes', 'Martes', 'Miyerkules', 'Huwebes', 'Biyernes', 'Sabado'];
+
+// Formats "now" in Asia/Manila as a Tagalog day name + 12-hour time, without
+// depending on Node's ICU locale data (small-icu builds don't ship a 'fil'
+// locale, so Intl.DateTimeFormat('fil-PH', ...) would silently fall back to
+// English) - manual weekday map + 'en-US' numeric parts instead.
+const manilaLoginTimestamp = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila', weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+  }).formatToParts(date);
+  const partVal = (type) => parts.find((p) => p.type === type)?.value || '';
+  const weekdayIndex = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' })).getDay();
+  const dayName = TAGALOG_WEEKDAYS[weekdayIndex] || partVal('weekday');
+  const timeStr = `${partVal('hour')}:${partVal('minute')} ${partVal('dayPeriod')}`;
+  return `${dayName}, ${timeStr}`;
+};
+
+// Panel item: notify the parent every time their student logs in (full login
+// OR one-tap relogin - both call this, see LoginScreen.tsx's handleLogin,
+// handleOAuthLogin, and handleTapProfile). Deliberately NOT called on
+// background TOKEN_REFRESHED events (a separate code path), which would
+// otherwise fire roughly hourly while the app just sits open and spam the
+// parent. This can't fully stop a modified client from skipping the call,
+// but the notification's content (student name, timestamp) is derived
+// entirely server-side from the verified access token, not from anything the
+// client sends, so it can't be spoofed - only silently omitted.
+router.post('/notify-login', async (req, res) => {
+  try {
+    const token = bearerTokenFrom(req.headers.authorization);
+    if (!token) return res.status(401).json({ success: false, message: 'Authentication is required.' });
+
+    const { data: authenticated, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authenticated?.user?.id) {
+      return res.status(401).json({ success: false, message: 'Your sign-in session is invalid or expired.' });
+    }
+
+    const { data: child, error: childError } = await supabaseAdmin
+      .from('children')
+      .select('id, name, parent_id')
+      .eq('auth_uid', authenticated.user.id)
+      .maybeSingle();
+    if (childError) throw childError;
+
+    // Not a student account (parent/teacher, or a student not yet linked to
+    // a parent) - nothing to notify, but still a success from the caller's
+    // point of view since there's no error condition here.
+    if (!child?.parent_id) {
+      return res.json({ success: true, notified: false });
+    }
+
+    const studentName = child.name || 'Mag-aaral';
+    const message = `Nag-login si ${studentName} — ${manilaLoginTimestamp()}`;
+
+    const { error: insertError } = await supabaseAdmin.from('notifications').insert({
+      user_id: child.parent_id,
+      parent_id: child.parent_id,
+      student_id: child.id,
+      title: 'Nag-login ang Mag-aaral',
+      body: message,
+      message,
+      type: 'student_login',
+      is_read: false,
+      read: false,
+    });
+    if (insertError) throw insertError;
+
+    return res.json({ success: true, notified: true });
+  } catch (error) {
+    console.error('[Auth] notify-login failed:', error.message || error);
+    // Never treat this as fatal to the caller - a missed notification should
+    // never look like a failed login to the student.
+    return res.status(200).json({ success: false, notified: false });
+  }
+});
+
 module.exports = router;
 
 // TEMPORARY DEBUG ROUTE: /api/auth/debug/child/:authUid

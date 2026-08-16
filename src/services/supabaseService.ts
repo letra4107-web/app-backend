@@ -455,6 +455,24 @@ const determineUserRole = (loginIsUsername: boolean, profileRole?: string, email
   return null;
 };
 
+// Panel item: notify the linked parent every time the student logs in
+// (full login OR one-tap relogin, both funnel through completeAuthSession's
+// student branch below). Fire-and-forget by design - a notification failure
+// must never block or delay the student's own login. Server-side (see
+// backend/routes/auth.js POST /auth/notify-login) derives the student name
+// and Asia/Manila timestamp itself from the verified access token postJson
+// already attaches, so the notification's content can't be spoofed by the
+// client - it can only be skipped outright by a modified client, which is
+// the accepted residual risk for this design (documented trade-off, same
+// spirit as the one-tap relogin security notes).
+const notifyParentOfLogin = async () => {
+  try {
+    await postJson(buildApiUrl('/auth/notify-login'), {});
+  } catch (error) {
+    console.warn('[Auth] notify-login call failed (non-fatal):', error);
+  }
+};
+
 // Shared by every login entry point — email/password (LoginScreen), student
 // username (LoginScreen), and Google (LoginScreen + SignUpScreen) —
 // so role resolution and dashboard routing behave identically no matter how
@@ -546,6 +564,7 @@ export const completeAuthSession = async (
   } else if (profileRole === 'student') {
     console.log('[Auth] → StudentDashboard');
     onResolved?.({ role: profileRole, displayName: profileData?.name || 'Mag-aaral', avatarUrl: profileData?.avatar_url || null });
+    void notifyParentOfLogin();
     navigation.replace('StudentDashboard');
   } else if (profileRole === 'teacher') {
     console.log('[Auth] → ParentDashboard (teacher placeholder)');
