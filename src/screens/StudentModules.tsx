@@ -167,7 +167,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
       <View style={styles.screen}>
         <LinearGradient colors={colors.heroGradient} style={styles.detailHero}>
           <TouchableOpacity style={styles.backButton} onPress={() => { setAssessment(null); stopSpeaking(); }}>
-            <Ionicons name="arrow-back" size={20} color="#fff" /><Text style={styles.backText}>Module</Text>
+            <Ionicons name="arrow-back" size={20} color="#fff" /><Text style={styles.backText}>Modyul</Text>
           </TouchableOpacity>
           <Text style={styles.assessmentEyebrow}>PAGSUSULIT</Text>
           <Text style={styles.detailTitle}>Tanong {questionIndex + 1} sa {assessment.items.length}</Text>
@@ -210,7 +210,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
       <View style={styles.screen}>
         <LinearGradient colors={colors.heroGradient} style={styles.detailHero}>
           <TouchableOpacity style={styles.backButton} onPress={() => { setDetail(null); setError(''); void loadPath(); }}>
-            <Ionicons name="arrow-back" size={20} color="#fff" /><Text style={styles.backText}>Mga Module</Text>
+            <Ionicons name="arrow-back" size={20} color="#fff" /><Text style={styles.backText}>Mga Modyul</Text>
           </TouchableOpacity>
           <Text style={[styles.assessmentEyebrow, styles.detailHeroTextCol]}>MODYUL {detail.module.module_number} · {contentTypeLabel(detail.module.instructional_content_type).toUpperCase()}</Text>
           <Text style={[styles.detailTitle, styles.detailHeroTextCol]}>{detail.module.title}</Text>
@@ -221,7 +221,7 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
         </LinearGradient>
         <ScrollView contentContainerStyle={styles.detailBody}>
           <View style={styles.progressCard}>
-            <View style={styles.rowBetween}><Text style={styles.progressTitle}>Module Progress</Text><Text style={styles.progressCount}>{completed}/{detail.items.length}</Text></View>
+            <View style={styles.rowBetween}><Text style={styles.progressTitle}>Progreso ng Modyul</Text><Text style={styles.progressCount}>{completed}/{detail.items.length}</Text></View>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${detail.items.length ? (completed / detail.items.length) * 100 : 0}%` }]} /></View>
           </View>
           <Text style={styles.sectionTitle}>{contentTypeLabel(detail.module.instructional_content_type)}</Text>
@@ -259,13 +259,13 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
       <TabHeroHeader
         onMenuPress={onOpenSidebar}
         title={`Tuloy ang pagkatuto,\n${firstName}!`}
-        subtitle="Tapusin ang bawat module at pagsusulit upang mabuksan ang susunod."
+        subtitle="Tapusin ang bawat modyul at pagsusulit upang mabuksan ang susunod."
         illustration={require('../../assets/learn2.webp')}
       />
       <ScrollView contentContainerStyle={styles.pathBody}>
         {topSection}
         <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Sundin ang iyong module path sa ibaba. May dagdag pang laman na darating.</Text></View>
-        <Text style={styles.sectionTitle}>Ang Iyong Module Path</Text>
+        <Text style={styles.sectionTitle}>Ang Iyong Landas ng Modyul</Text>
         {path?.modules.map((module, index) => {
           const meta = stateMeta[module.state];
           const pct = module.content_item_count ? Math.round((module.completed_content_item_count / module.content_item_count) * 100) : 0;

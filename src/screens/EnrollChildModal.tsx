@@ -120,7 +120,7 @@ export default function EnrollChildModal({ visible, onClose, onEnrolled }: Props
             <View style={styles.levelCard}>
               <Ionicons name="sparkles" size={20} color={colors.lavenderDark} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.levelLabel}>Awtomatikong reading level</Text>
+                <Text style={styles.levelLabel}>Awtomatikong antas ng pagbasa</Text>
                 <Text style={styles.levelValue}>{difficulty}</Text>
               </View>
             </View>
@@ -129,7 +129,7 @@ export default function EnrollChildModal({ visible, onClose, onEnrolled }: Props
           <TouchableOpacity style={[styles.submit, saving && styles.disabled]} onPress={submit} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>I-enroll ang Bata</Text>}
           </TouchableOpacity>
-          <Text style={styles.hint}>Awtomatikong gagawin at ipapadala sa email ang student login credentials.</Text>
+          <Text style={styles.hint}>Awtomatikong gagawin at ipapadala sa email ang login ng estudyante.</Text>
         </View>
       </View>
     </Modal>

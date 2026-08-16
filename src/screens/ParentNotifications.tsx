@@ -280,8 +280,8 @@ export function NotificationsView({
       <View style={styles.headerRow}>
         {!hideHeader && (
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, titleA11yStyle]}>Notifications</Text>
-            <Text style={[styles.subtitle, subtitleA11yStyle]}>Stay updated on your child&apos;s learning journey.</Text>
+            <Text style={[styles.title, titleA11yStyle]}>Mga Abiso</Text>
+            <Text style={[styles.subtitle, subtitleA11yStyle]}>Manatiling updated sa paglalakbay ng iyong anak sa pag-aaral.</Text>
           </View>
         )}
         {!!unreadCount && (
@@ -292,7 +292,7 @@ export function NotificationsView({
             accessibilityRole="button"
             accessibilityLabel={`Mark all ${unreadCount} notification${unreadCount === 1 ? '' : 's'} as read`}
           >
-            <Text style={styles.markAllText}>Mark all as read</Text>
+            <Text style={styles.markAllText}>Markahan lahat bilang nabasa</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -306,7 +306,7 @@ export function NotificationsView({
             <Text style={styles.summaryTitle}>
               You have {unreadCount} new notification{unreadCount === 1 ? '' : 's'}
             </Text>
-            <Text style={styles.summarySub}>Here are the latest updates about your child&apos;s learning progress.</Text>
+            <Text style={styles.summarySub}>Narito ang pinakabagong update tungkol sa progreso ng iyong anak sa pag-aaral.</Text>
           </View>
         </View>
       )}
@@ -337,13 +337,13 @@ export function NotificationsView({
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {!!grouped.todayItems.length && (
           <>
-            <Text style={styles.groupLabel}>Today</Text>
+            <Text style={styles.groupLabel}>Ngayon</Text>
             {grouped.todayItems.map(renderCard)}
           </>
         )}
         {!!grouped.earlierItems.length && (
           <>
-            <Text style={styles.groupLabel}>Earlier</Text>
+            <Text style={styles.groupLabel}>Kanina</Text>
             {grouped.earlierItems.map(renderCard)}
           </>
         )}
@@ -363,9 +363,9 @@ export function NotificationsView({
         {showSpotlight && (
           <View style={styles.spotlightCard}>
             <View style={styles.spotlightBadge}>
-              <Text style={styles.spotlightBadgeText}>THIS WEEK</Text>
+              <Text style={styles.spotlightBadgeText}>NGAYONG LINGGO</Text>
             </View>
-            <Text style={[styles.spotlightTitle, spotlightTitleA11yStyle]}>Weekly Progress</Text>
+            <Text style={[styles.spotlightTitle, spotlightTitleA11yStyle]}>Lingguhang Progreso</Text>
             <Text style={[styles.spotlightSub, spotlightSubA11yStyle]}>
               {weeklyStats!.sessionsLast7} practice session{weeklyStats!.sessionsLast7 === 1 ? '' : 's'} in the last 7
               days.
@@ -373,12 +373,12 @@ export function NotificationsView({
             <View style={styles.spotlightStatsRow}>
               {weeklyStats!.avgPrior7 !== null && (
                 <View style={styles.spotlightStatCell}>
-                  <Text style={[styles.spotlightStatLabel, spotlightSubA11yStyle]}>Previous accuracy</Text>
+                  <Text style={[styles.spotlightStatLabel, spotlightSubA11yStyle]}>Dating kawastuhan</Text>
                   <Text style={[styles.spotlightStatValue, spotlightStatValueA11yStyle]}>{Math.round(weeklyStats!.avgPrior7)}%</Text>
                 </View>
               )}
               <View style={styles.spotlightStatCell}>
-                <Text style={[styles.spotlightStatLabel, spotlightSubA11yStyle]}>Current accuracy</Text>
+                <Text style={[styles.spotlightStatLabel, spotlightSubA11yStyle]}>Kasalukuyang kawastuhan</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[styles.spotlightStatValue, spotlightStatValueA11yStyle]}>{Math.round(weeklyStats!.avgLast7!)}%</Text>
                   {delta !== null && (
@@ -397,7 +397,7 @@ export function NotificationsView({
                 accessibilityRole="button"
                 accessibilityLabel="View full progress"
               >
-                <Text style={styles.spotlightButtonText}>View Full Progress</Text>
+                <Text style={styles.spotlightButtonText}>Tingnan ang Buong Progreso</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -412,7 +412,7 @@ export default function ParentNotifications({ visible, userId, onClose }: { visi
     <Modal visible={visible} animationType="slide">
       <View style={styles.modalWrapper}>
         <View style={styles.modalHeader}>
-          <Text style={styles.title}>Notifications</Text>
+          <Text style={styles.title}>Mga Abiso</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.ink} />
           </TouchableOpacity>

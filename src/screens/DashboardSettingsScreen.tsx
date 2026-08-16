@@ -398,19 +398,19 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       void logout();
       return;
     }
-    Alert.alert('Log out?', 'You will need to sign in again.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: logout },
+    Alert.alert('Mag-log out?', 'Kailangan mo pang mag-log in muli.', [
+      { text: 'Kanselahin', style: 'cancel' },
+      { text: 'Mag-log out', style: 'destructive', onPress: logout },
     ]);
   };
 
   const confirmDelete = () => {
     Alert.alert(
-      'Delete account',
-      'Account deletion needs a secure server-side admin endpoint. Contact support to request deletion.',
+      'Burahin ang account',
+      'Kailangan ng ligtas na server-side admin endpoint para sa pagbura ng account. Kontakin ang suporta para humiling ng pagbura.',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Contact support', onPress: contactSupport },
+        { text: 'Kanselahin', style: 'cancel' },
+        { text: 'Kontakin ang suporta', onPress: contactSupport },
       ],
     );
   };
@@ -424,6 +424,11 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     />
   );
 
+  const SEGMENT_LABELS: Record<string, string> = {
+    small: 'Maliit', medium: 'Katamtaman', large: 'Malaki',
+    slow: 'Mabagal', normal: 'Normal', fast: 'Mabilis',
+  };
+
   const renderSegment = <T extends string>(key: keyof DashboardSettings, value: T, options: T[]) => (
     <View style={styles.segment}>
       {options.map((item) => {
@@ -434,7 +439,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             style={[styles.segmentButton, active && styles.segmentButtonActive]}
             onPress={() => updateSetting(key, item as any)}
           >
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{item}</Text>
+            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{SEGMENT_LABELS[item] || item}</Text>
           </TouchableOpacity>
         );
       })}
@@ -496,7 +501,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
     return (
       <View style={[styles.center, dark && styles.containerDark]}>
         <ActivityIndicator size="large" color={colors.lavender} />
-        <Text style={styles.loadingText}>Loading settings...</Text>
+        <Text style={styles.loadingText}>Naglo-load ng mga setting...</Text>
       </View>
     );
   }
@@ -509,8 +514,8 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
       {heroMode && (
         <TabHeroHeader
           onBackPress={onGoBack || (() => {})}
-          title="Settings"
-          subtitle="Make LinawLetra work best for you."
+          title="Mga Setting"
+          subtitle="Iangkop ang LinawLetra para sa iyo."
           illustration={require('../../assets/gear.webp')}
         />
       )}
@@ -524,7 +529,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             )}
             <View style={{ flex: 1 }}>
               <Text style={[styles.title, dark && styles.textDark]}>{isParent ? 'Parent Settings' : 'Settings'}</Text>
-              <Text style={[styles.subtitle, dark && styles.mutedDark]}>Make LinawLetra work best for you.</Text>
+              <Text style={[styles.subtitle, dark && styles.mutedDark]}>Iangkop ang LinawLetra para sa iyo.</Text>
             </View>
             <TouchableOpacity onPress={scrollToProfile}>
               {avatarSource ? (
@@ -568,20 +573,20 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
               </View>
             </View>
             <TouchableOpacity style={styles.viewProfileButton} onPress={scrollToProfile}>
-              <Text style={styles.viewProfileButtonText}>View Profile</Text>
+              <Text style={styles.viewProfileButtonText}>Tingnan ang Profile</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {hasUnsavedSettingsChanges && (
           <View style={[styles.unsavedBar, dark && styles.unsavedBarDark]}>
-            <Text style={[styles.unsavedBarText, dark && styles.textDark]}>You have unsaved changes.</Text>
+            <Text style={[styles.unsavedBarText, dark && styles.textDark]}>May mga hindi pa na-save na pagbabago.</Text>
             <View style={styles.unsavedBarButtons}>
               <TouchableOpacity style={styles.discardButton} onPress={discardDraftSettings} disabled={savingSettings}>
-                <Text style={styles.discardButtonText}>Discard</Text>
+                <Text style={styles.discardButtonText}>Huwag I-save</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveChangesButton} onPress={saveDraftSettings} disabled={savingSettings}>
-                {savingSettings ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveChangesButtonText}>Save Changes</Text>}
+                {savingSettings ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveChangesButtonText}>I-save ang mga Pagbabago</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -589,20 +594,20 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
 
         {isParent ? (
           <>
-            <Section title="Notifications" icon="notifications-active">
-              <Row icon="notifications" title="Notifications enabled" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
-              <Row icon="assignment" title="Assignment notifications" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
-              <Row icon="cloud-upload" title="Lesson notifications" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
-              <Row icon="insert-chart" title="Progress notifications" right={renderSwitch('progress_notifications', settings.progress_notifications)} />
-              <Row icon="notifications" title="Push notifications" right={renderSwitch('push_notifications', settings.push_notifications)} />
+            <Section title="Mga Abiso" icon="notifications-active">
+              <Row icon="notifications" title="Mga abiso" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
+              <Row icon="assignment" title="Abiso sa takdang-aralin" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
+              <Row icon="cloud-upload" title="Abiso sa aralin" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
+              <Row icon="insert-chart" title="Abiso sa progreso" right={renderSwitch('progress_notifications', settings.progress_notifications)} />
+              <Row icon="notifications" title="Abiso sa push" right={renderSwitch('push_notifications', settings.push_notifications)} />
             </Section>
 
-            <Section title="Appearance" icon="brightness-6">
+            <Section title="Itsura" icon="brightness-6">
               <View style={styles.themeRow}>
                 {(['light', 'system', 'dark'] as ReadingTheme[]).map((opt) => {
                   const active = theme === opt;
                   const iconName = opt === 'light' ? 'wb-sunny' : opt === 'dark' ? 'nightlight-round' : 'smartphone';
-                  const label = opt === 'light' ? 'Light' : opt === 'dark' ? 'Dark' : 'System';
+                  const label = opt === 'light' ? 'Maliwanag' : opt === 'dark' ? 'Madilim' : 'Sistema';
                   return (
                     <TouchableOpacity
                       key={opt}
@@ -620,25 +625,25 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                   );
                 })}
               </View>
-              <Text style={[styles.themeNote, dark && styles.mutedDark]}>* Light mode is recommended for comfortable reading.</Text>
+              <Text style={[styles.themeNote, dark && styles.mutedDark]}>* Inirerekomenda ang light mode para sa komportableng pagbasa.</Text>
             </Section>
 
             <Section title="Account" icon="manage-accounts">
-              <Row icon="lock" title="Change password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
-              <Row icon="email" title="Change email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
-              <Row icon="delete-outline" title="Delete account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
+              <Row icon="lock" title="Palitan ang password" subtitle="I-update ang password ng iyong Supabase Auth" onPress={() => setModal('password')} />
+              <Row icon="email" title="Palitan ang email" subtitle="Kailangan ng kumpirmasyon sa email" onPress={() => setModal('email')} />
+              <Row icon="delete-outline" title="Burahin ang account" subtitle="Kailangan ng ligtas na kumpirmasyon" onPress={confirmDelete} danger />
             </Section>
 
-            <Section title="Security" icon="verified-user">
-              <Row icon="devices" title="Active sessions" subtitle="Current device session managed by Supabase Auth" />
-              <Row icon="security" title="Two-factor authentication" subtitle="Preference saved for future verification flow" right={renderSwitch('two_factor_enabled', settings.two_factor_enabled)} />
+            <Section title="Seguridad" icon="verified-user">
+              <Row icon="devices" title="Aktibong sesyon" subtitle="Kasalukuyang sesyon ng device, pinamamahalaan ng Supabase Auth" />
+              <Row icon="security" title="Two-factor authentication (2FA)" subtitle="Kagustuhang naka-save para sa susunod na verification flow" right={renderSwitch('two_factor_enabled', settings.two_factor_enabled)} />
             </Section>
 
-            <Section title="Child Monitoring" icon="supervisor-account">
-              <Row icon="calendar-month" title="Weekly progress reports" right={renderSwitch('weekly_progress_reports', settings.weekly_progress_reports)} />
-              <Row icon="summarize" title="Daily activity summary" right={renderSwitch('daily_activity_summary', settings.daily_activity_summary)} />
-              <Row icon="campaign" title="Teacher updates" right={renderSwitch('teacher_updates', settings.teacher_updates)} />
-              <Row icon="emoji-events" title="Learning milestone alerts" right={renderSwitch('milestone_alerts', settings.milestone_alerts)} />
+            <Section title="Pagsubaybay sa Anak" icon="supervisor-account">
+              <Row icon="calendar-month" title="Lingguhang ulat ng progreso" right={renderSwitch('weekly_progress_reports', settings.weekly_progress_reports)} />
+              <Row icon="summarize" title="Araw-araw na buod ng aktibidad" right={renderSwitch('daily_activity_summary', settings.daily_activity_summary)} />
+              <Row icon="campaign" title="Update mula sa guro" right={renderSwitch('teacher_updates', settings.teacher_updates)} />
+              <Row icon="emoji-events" title="Abiso sa milestone ng pag-aaral" right={renderSwitch('milestone_alerts', settings.milestone_alerts)} />
             </Section>
           </>
         ) : (
@@ -655,35 +660,35 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                 consumer, same as reading_theme (Dark Mode) below.
                 "Increased Line Spacing" and a plain contrast/2FA-style fake
                 toggle were deliberately left out rather than fabricated. */}
-            <Section title="Accessibility" icon="accessibility-new">
+            <Section title="Accessibility (Pagiging Madaling Gamitin)" icon="accessibility-new">
               <Row
                 icon="text-fields"
-                title="Dyslexia-Friendly Font"
-                subtitle="Use an easier-to-read font"
+                title="Font na Madaling Basahin (Dyslexia-Friendly)"
+                subtitle="Gumamit ng font na mas madaling basahin"
                 right={renderSwitch('dyslexia_font', settings.dyslexia_font)}
                 titleA11yStyle={rowTitleA11y}
                 subtitleA11yStyle={rowSubtitleA11y}
               />
               <Row
                 icon="format-size"
-                title="Text Size"
-                subtitle={settings.font_size}
+                title="Sukat ng Teksto"
+                subtitle={SEGMENT_LABELS[settings.font_size] || settings.font_size}
                 right={renderSegment<FontSize>('font_size', settings.font_size, ['small', 'medium', 'large'])}
                 titleA11yStyle={rowTitleA11y}
                 subtitleA11yStyle={rowSubtitleA11y}
               />
               <Row
                 icon="contrast"
-                title="High Contrast"
+                title="Mataas na Contrast"
                 right={renderSwitch('high_contrast', settings.high_contrast)}
                 titleA11yStyle={rowTitleA11y}
               />
-              <Row icon="view-day" title="Reading Guide Overlay" subtitle="Highlight the current line while reading" right={renderSwitch('reading_guide', settings.reading_guide)} />
+              <Row icon="view-day" title="Reading Guide Overlay" subtitle="I-highlight ang kasalukuyang linya habang nagbabasa" right={renderSwitch('reading_guide', settings.reading_guide)} />
               <View style={styles.themeRow}>
                 {(['light', 'system', 'dark'] as ReadingTheme[]).map((opt) => {
                   const active = theme === opt;
                   const iconName = opt === 'light' ? 'wb-sunny' : opt === 'dark' ? 'nightlight-round' : 'smartphone';
-                  const label = opt === 'light' ? 'Light' : opt === 'dark' ? 'Dark' : 'System';
+                  const label = opt === 'light' ? 'Maliwanag' : opt === 'dark' ? 'Madilim' : 'Sistema';
                   return (
                     <TouchableOpacity
                       key={opt}
@@ -706,26 +711,26 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
             {/* Audio & Voice - Voice Volume was left out on purpose: there is
                 no app-level volume control anywhere (TTS plays at system
                 volume), so a slider here would control nothing. */}
-            <Section title="Audio & Voice" icon="volume-up">
-              <Row icon="record-voice-over" title="Text-to-Speech" subtitle="Listen to words and lessons being read aloud" right={renderSwitch('tts_enabled', settings.tts_enabled)} />
-              <Row icon="pie-chart" title="Pronunciation Feedback" subtitle="Show a score after each practice attempt" right={renderSwitch('show_accuracy_score', settings.show_accuracy_score)} />
-              <Row icon="speed" title="Reading Speed" subtitle={settings.speech_rate || 'normal'} right={renderSegment<SpeechRate>('speech_rate', settings.speech_rate || 'normal', ['slow', 'normal', 'fast'])} />
-              <Row icon="repeat" title="Auto-Read Words" subtitle="Automatically speak a word when selected" right={renderSwitch('auto_read_words', settings.auto_read_words)} />
+            <Section title="Audio at Boses" icon="volume-up">
+              <Row icon="record-voice-over" title="Text-to-Speech" subtitle="Pakinggan ang mga salita at aralin na binabasa" right={renderSwitch('tts_enabled', settings.tts_enabled)} />
+              <Row icon="pie-chart" title="Feedback sa Bigkas" subtitle="Magpakita ng score pagkatapos ng bawat pagsasanay" right={renderSwitch('show_accuracy_score', settings.show_accuracy_score)} />
+              <Row icon="speed" title="Bilis ng Pagbasa" subtitle={SEGMENT_LABELS[settings.speech_rate || 'normal'] || 'Normal'} right={renderSegment<SpeechRate>('speech_rate', settings.speech_rate || 'normal', ['slow', 'normal', 'fast'])} />
+              <Row icon="repeat" title="Awtomatikong Basahin ang Salita" subtitle="Awtomatikong bigkasin ang salitang napili" right={renderSwitch('auto_read_words', settings.auto_read_words)} />
               <Row
                 icon="mic"
-                title="Microphone Access"
-                subtitle={micPermission === 'granted' ? 'Enabled for speech practice' : micPermission === 'checking' ? 'Checking...' : 'Not yet allowed'}
+                title="Access sa Mikropono"
+                subtitle={micPermission === 'granted' ? 'Naka-enable para sa pagsasanay' : micPermission === 'checking' ? 'Sinusuri...' : 'Hindi pa pinapayagan'}
                 right={
                   micPermission === 'granted' ? (
                     <View style={styles.grantedPill}>
                       <MaterialIcons name="check-circle" size={13} color={colors.success} />
-                      <Text style={styles.grantedPillText}>Enabled</Text>
+                      <Text style={styles.grantedPillText}>Naka-enable</Text>
                     </View>
                   ) : micPermission === 'checking' ? (
                     <ActivityIndicator size="small" color={colors.lavender} />
                   ) : (
                     <TouchableOpacity style={styles.permissionButton} onPress={requestMicPermission}>
-                      <Text style={styles.permissionButtonText}>Allow</Text>
+                      <Text style={styles.permissionButtonText}>Payagan</Text>
                     </TouchableOpacity>
                   )
                 }
@@ -737,37 +742,37 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                 infrastructure exists in this app (no expo-notifications, no
                 digest/cron job) and no student-scoped field backs them, so a
                 toggle here would save a value nothing ever acts on. */}
-            <Section title="Notifications" icon="notifications-active">
-              <Row icon="notifications" title="Notifications Enabled" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
-              <Row icon="cloud-upload" title="New Lesson Alerts" subtitle="A new lesson was published" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
-              <Row icon="assignment" title="Assignment Notifications" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
-              <Row icon="event" title="Deadline Reminders" right={renderSwitch('deadline_notifications', settings.deadline_notifications)} />
+            <Section title="Mga Abiso" icon="notifications-active">
+              <Row icon="notifications" title="Naka-enable ang mga Abiso" right={renderSwitch('notifications_enabled', settings.notifications_enabled)} />
+              <Row icon="cloud-upload" title="Abiso sa Bagong Aralin" subtitle="May bagong aralin na inilathala" right={renderSwitch('lesson_notifications', settings.lesson_notifications)} />
+              <Row icon="assignment" title="Abiso sa Takdang-Aralin" right={renderSwitch('assignment_notifications', settings.assignment_notifications)} />
+              <Row icon="event" title="Paalala sa Deadline" right={renderSwitch('deadline_notifications', settings.deadline_notifications)} />
             </Section>
 
             {/* App Info - Storage Used and Last Sync were left out: both need
                 native device storage/sync APIs this app doesn't integrate with,
                 unlike App Version which is a trivially real, static value. */}
-            <Section title="App Info" icon="info-outline">
-              <Row icon="info" title="App Version" subtitle={appVersion} />
+            <Section title="Impormasyon ng App" icon="info-outline">
+              <Row icon="info" title="Bersyon ng App" subtitle={appVersion} />
             </Section>
 
             <Section title="Account" icon="manage-accounts">
-              <Row icon="lock" title="Change Password" subtitle="Update your Supabase Auth password" onPress={() => setModal('password')} />
-              <Row icon="email" title="Update Email" subtitle="Requires email confirmation" onPress={() => setModal('email')} />
-              <Row icon="gavel" title="Privacy & Security" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
-              <Row icon="support-agent" title="Help & Support" subtitle="Contact us for assistance" onPress={contactSupport} />
-              <Row icon="logout" title="Log Out" onPress={confirmLogout} danger />
-              <Row icon="delete-outline" title="Delete Account" subtitle="Requires secure confirmation" onPress={confirmDelete} danger />
+              <Row icon="lock" title="Palitan ang Password" subtitle="I-update ang password ng iyong Supabase Auth" onPress={() => setModal('password')} />
+              <Row icon="email" title="I-update ang Email" subtitle="Kailangan ng kumpirmasyon sa email" onPress={() => setModal('email')} />
+              <Row icon="gavel" title="Pagkapribado at Seguridad" subtitle="Tingnan ang mga patakaran ng LinawLetra" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Hindi mabuksan ang link.'))} />
+              <Row icon="support-agent" title="Tulong at Suporta" subtitle="Kontakin kami para sa tulong" onPress={contactSupport} />
+              <Row icon="logout" title="Mag-log Out" onPress={confirmLogout} danger />
+              <Row icon="delete-outline" title="Burahin ang Account" subtitle="Kailangan ng ligtas na kumpirmasyon" onPress={confirmDelete} danger />
             </Section>
           </>
         )}
 
         {isParent ? (
           <View style={[styles.card, dark && styles.cardDark]}>
-            <Row icon="support-agent" title="Help & Support" subtitle="Contact us for assistance" onPress={contactSupport} />
-            <Row icon="info" title="About LinawLetra" subtitle={`Version ${appVersion}`} />
-            <Row icon="gavel" title="Privacy & Safety" subtitle="View LinawLetra policies" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Could not open link.'))} />
-            <Row icon="logout" title="Log Out" onPress={confirmLogout} danger />
+            <Row icon="support-agent" title="Tulong at Suporta" subtitle="Kontakin kami para sa tulong" onPress={contactSupport} />
+            <Row icon="info" title="Tungkol sa LinawLetra" subtitle={`Bersyon ${appVersion}`} />
+            <Row icon="gavel" title="Pagkapribado at Kaligtasan" subtitle="Tingnan ang mga patakaran ng LinawLetra" onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => showError('Hindi mabuksan ang link.'))} />
+            <Row icon="logout" title="Mag-log Out" onPress={confirmLogout} danger />
           </View>
         ) : (
           <View style={styles.tipCard}>
@@ -775,7 +780,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
               <MaterialIcons name="lightbulb" size={20} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.tipCardTitle, dark && styles.textDark]}>Reading Tip</Text>
+              <Text style={[styles.tipCardTitle, dark && styles.textDark]}>Tip sa Pagbasa</Text>
               <Text style={[styles.tipCardText, dark && styles.mutedDark]}>
                 Subukang i-on ang Dyslexia-Friendly Font at palakihin ang Text Size para mas komportable ang pagbasa.
               </Text>
@@ -783,13 +788,13 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
           </View>
         )}
 
-        <Text style={[styles.versionFooter, dark && styles.mutedDark]}>LinawLetra Version {appVersion}</Text>
+        <Text style={[styles.versionFooter, dark && styles.mutedDark]}>Bersyon ng LinawLetra {appVersion}</Text>
       </ScrollView>
 
       <Modal visible={!!modal} transparent animationType="fade" onRequestClose={() => setModal(null)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, dark && styles.cardDark]}>
-            <Text style={[styles.modalTitle, dark && styles.textDark]}>{modal === 'password' ? 'Change Password' : 'Change Email'}</Text>
+            <Text style={[styles.modalTitle, dark && styles.textDark]}>{modal === 'password' ? 'Palitan ang Password' : 'Palitan ang Email'}</Text>
             {modal === 'password' ? (
               <>
                 <View style={styles.passwordInputWrap}>
@@ -799,13 +804,13 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                     onChangeText={setNewPassword}
                     secureTextEntry={!showNewPassword}
                     autoCapitalize="none"
-                    placeholder="New password (at least 8 characters)"
+                    placeholder="Bagong password (hindi bababa sa 8 karakter)"
                     placeholderTextColor="#94a3b8"
                   />
                   <TouchableOpacity
                     onPress={() => setShowNewPassword((v) => !v)}
                     style={styles.passwordToggle}
-                    accessibilityLabel={showNewPassword ? 'Hide password' : 'Show password'}
+                    accessibilityLabel={showNewPassword ? 'Itago ang password' : 'Ipakita ang password'}
                   >
                     <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
                   </TouchableOpacity>
@@ -817,13 +822,13 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!showConfirmPassword}
                     autoCapitalize="none"
-                    placeholder="Confirm new password"
+                    placeholder="Kumpirmahin ang bagong password"
                     placeholderTextColor="#94a3b8"
                   />
                   <TouchableOpacity
                     onPress={() => setShowConfirmPassword((v) => !v)}
                     style={styles.passwordToggle}
-                    accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    accessibilityLabel={showConfirmPassword ? 'Itago ang password' : 'Ipakita ang password'}
                   >
                     <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.lavenderDark} />
                   </TouchableOpacity>
@@ -836,7 +841,7 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                 onChangeText={setNewEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                placeholder="New email"
+                placeholder="Bagong email"
                 placeholderTextColor="#94a3b8"
               />
             )}
@@ -846,14 +851,14 @@ export default function DashboardSettingsScreen({ role, navigation, embedded = f
                 setNewPassword('');
                 setConfirmPassword('');
               }}>
-                <Text style={styles.secondaryButtonText}>Cancel</Text>
+                <Text style={styles.secondaryButtonText}>Kanselahin</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.primaryButtonSmall}
                 onPress={modal === 'password' ? submitPassword : submitEmail}
                 disabled={savingKey === 'password' || savingKey === 'email'}
               >
-                <Text style={styles.primaryButtonText}>Save</Text>
+                <Text style={styles.primaryButtonText}>I-save</Text>
               </TouchableOpacity>
             </View>
           </View>

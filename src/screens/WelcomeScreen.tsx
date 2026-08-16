@@ -18,7 +18,7 @@ const WelcomeScreen: React.FC = () => {
   const [audioError, setAudioError] = useState('');
 
   const speakWelcome = (name: string, word: string) => {
-    const message = `Kumusta, ${name}! Welcome back to LinawLetra. Ready to practice today\'s word? Ang salita ng araw ay ${word}.`;
+    const message = `Kumusta, ${name}! Maligayang pagbabalik sa LinawLetra. Handa ka na bang magsanay ng salita? Ang salita ng araw ay ${word}.`;
     speakPhrase(message, { onError: setAudioError });
   };
 
@@ -77,7 +77,7 @@ const WelcomeScreen: React.FC = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Inaayos ang welcome page...</Text>
+        <Text style={styles.loadingText}>Inaayos ang pahina...</Text>
       </View>
     );
   }

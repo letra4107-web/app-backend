@@ -273,7 +273,7 @@ export default function StudentWordOfDay({
               <Ionicons name="checkmark-circle" size={22} color={colors.success} />
               <Text style={styles.completedTodayText}>Tapos mo na itong basahin!</Text>
             </View>
-            <Text style={styles.completedTodaySubtext}>Come back tomorrow para sa bagong salita.</Text>
+            <Text style={styles.completedTodaySubtext}>Bumalik bukas para sa bagong salita.</Text>
           </View>
         ) : (
           <>
@@ -318,7 +318,7 @@ export default function StudentWordOfDay({
 
             {!!analysis && (
               <View style={styles.analysisCard}>
-                <Text style={styles.analysisTitle}>Pronunciation Analysis</Text>
+                <Text style={styles.analysisTitle}>Pagsusuri ng Bigkas</Text>
                 <Text style={styles.analysisScore}>{analysis.accuracy}% Tama</Text>
                 <Text style={styles.analysisFeedback}>{analysis.feedback}</Text>
                 <Text style={styles.analysisReward}>{analysis.accuracy >= 80 ? '+50 XP' : 'Practice recorded • Walang XP'}</Text>

@@ -101,7 +101,7 @@ export default function ParentProfileScreen({
     <View style={{ flex: 1 }}>
       <TabHeroHeader
         onBackPress={onGoBack}
-        title="My Profile"
+        title="Aking Profile"
         subtitle="I-manage ang iyong personal na detalye."
         illustration={require('../../assets/parentprofile.png')}
         illustrationStyle={styles.heroIllustrationSquare}
@@ -160,7 +160,7 @@ export default function ParentProfileScreen({
             placeholderTextColor="#94a3b8"
           />
           <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
+            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>I-save ang Profile</Text>}
           </TouchableOpacity>
         </View>
       </ScrollView>

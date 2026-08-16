@@ -30,24 +30,24 @@ type Props = {
 };
 
 const TYPE_OPTIONS: { key: ScheduledActivityType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'reading_lesson', label: 'Reading Lesson', icon: 'book-outline' },
-  { key: 'practice', label: 'Practice', icon: 'mic-outline' },
-  { key: 'reminder', label: 'Reminder', icon: 'alarm-outline' },
+  { key: 'reading_lesson', label: 'Aralin sa Pagbasa', icon: 'book-outline' },
+  { key: 'practice', label: 'Pagsasanay', icon: 'mic-outline' },
+  { key: 'reminder', label: 'Paalala', icon: 'alarm-outline' },
   { key: 'appointment', label: 'Appointment', icon: 'medical-outline' },
 ];
 
 const TIME_OPTIONS: { key: string; label: string; value: string | null }[] = [
-  { key: 'anytime', label: 'Anytime', value: null },
+  { key: 'anytime', label: 'Kahit anong oras', value: null },
   { key: 'morning', label: 'Umaga', value: '08:00' },
   { key: 'afternoon', label: 'Tanghali', value: '13:00' },
   { key: 'evening', label: 'Gabi', value: '18:00' },
 ];
 
 const STATUS_OPTIONS: { key: ScheduledActivityStatus; label: string }[] = [
-  { key: 'scheduled', label: 'Scheduled' },
-  { key: 'in_progress', label: 'In Progress' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'missed', label: 'Missed' },
+  { key: 'scheduled', label: 'Naka-iskedyul' },
+  { key: 'in_progress', label: 'Ginagawa' },
+  { key: 'completed', label: 'Nakumpleto' },
+  { key: 'missed', label: 'Nalampasan' },
 ];
 
 const timeValueToKey = (value: string | null | undefined) => {
@@ -115,7 +115,7 @@ export default function AddScheduledActivityModal({
       return;
     }
     if (title.trim().length < 2) {
-      setError('Ilagay ang pamagat ng activity.');
+      setError('Ilagay ang pamagat ng aktibidad.');
       return;
     }
     setError('');
@@ -143,7 +143,7 @@ export default function AddScheduledActivityModal({
       }
       onSaved();
     } catch (err: any) {
-      setError(err?.message || 'Hindi ma-save ang activity.');
+      setError(err?.message || 'Hindi ma-save ang aktibidad.');
     } finally {
       setSaving(false);
     }
@@ -157,7 +157,7 @@ export default function AddScheduledActivityModal({
       await deleteScheduledActivity(editing.id);
       onSaved();
     } catch (err: any) {
-      setError(err?.message || 'Hindi ma-delete ang activity.');
+      setError(err?.message || 'Hindi ma-alis ang aktibidad.');
     } finally {
       setDeleting(false);
     }
@@ -168,7 +168,7 @@ export default function AddScheduledActivityModal({
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>{editing ? 'I-edit ang Activity' : 'Magdagdag ng Activity'}</Text>
+            <Text style={styles.title}>{editing ? 'I-edit ang Aktibidad' : 'Magdagdag ng Aktibidad'}</Text>
             <TouchableOpacity onPress={onClose} disabled={busy}>
               <Ionicons name="close" size={24} color={colors.ink} />
             </TouchableOpacity>
@@ -253,7 +253,7 @@ export default function AddScheduledActivityModal({
 
             {!!editing && (
               <>
-                <Text style={styles.label}>Status</Text>
+                <Text style={styles.label}>Katayuan</Text>
                 <View style={styles.chipRow}>
                   {STATUS_OPTIONS.map((option) => (
                     <TouchableOpacity

@@ -154,7 +154,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
     <View style={{ flex: 1 }}>
       <TabHeroHeader
         onBackPress={onGoBack}
-        title="My Profile"
+        title="Aking Profile"
         subtitle="Ipakita ang mga natapos mong parangal!"
         illustration={require('../../assets/trophy.webp')}
       />
@@ -184,7 +184,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
             </View>
           </View>
 
-          <Text style={styles.sectionLabel}>Choose an icon</Text>
+          <Text style={styles.sectionLabel}>Pumili ng icon</Text>
           <View style={styles.avatarGrid}>
             {DEFAULT_STUDENT_AVATARS.map((item) => {
               const selected = profile.avatar_key === item.key;
@@ -225,8 +225,8 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Mga Natapos na Module</Text>
-          <Text style={styles.cardHint}>Ipinapakita dito ang lahat ng module na natapos mo.</Text>
+          <Text style={styles.cardTitle}>Mga Natapos na Modyul</Text>
+          <Text style={styles.cardHint}>Ipinapakita dito ang lahat ng modyul na natapos mo.</Text>
           {completedModules.length ? (
             <View style={styles.showcaseGrid}>
               {completedModules.map((module) => (
@@ -239,7 +239,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
               ))}
             </View>
           ) : (
-            <Text style={styles.emptyText}>Wala ka pang natapos na module. Simulan sa Learn tab!</Text>
+            <Text style={styles.emptyText}>Wala ka pang natapos na modyul. Simulan sa tab na Aralin!</Text>
           )}
         </View>
 
@@ -249,7 +249,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
             style={styles.input}
             value={profile.full_name || ''}
             onChangeText={(full_name) => setProfile((prev) => ({ ...prev, full_name }))}
-            placeholder="Full name"
+            placeholder="Buong pangalan"
             placeholderTextColor="#94a3b8"
           />
           <TextInput
@@ -257,11 +257,11 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
             value={profile.phone_number || ''}
             onChangeText={(phone_number) => setProfile((prev) => ({ ...prev, phone_number }))}
             keyboardType="phone-pad"
-            placeholder="Phone number"
+            placeholder="Numero ng telepono"
             placeholderTextColor="#94a3b8"
           />
           <TouchableOpacity style={styles.primaryButton} onPress={saveProfile} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
+            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>I-save ang Profile</Text>}
           </TouchableOpacity>
         </View>
       </ScrollView>

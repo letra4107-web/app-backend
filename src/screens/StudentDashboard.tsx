@@ -1546,8 +1546,8 @@ export default function StudentDashboard({ navigation }: any) {
       if (!available) {
         setPracticeStatus('Hindi available ang speech recognition sa device na ito.');
         Alert.alert(
-          'Speech Recognition',
-          'Kailangan ng Google Speech Recognition sa Android o supported browser sa web.'
+          'Pagkilala sa Boses',
+          'Kailangan ng Google Speech Recognition sa Android o suportadong browser sa web.'
         );
         return;
       }
@@ -2446,7 +2446,7 @@ export default function StudentDashboard({ navigation }: any) {
         <TabHeroHeader
           onMenuPress={openSidebar}
           notifDot={unreadNotifCount > 0}
-          title="Practice"
+          title="Pagsasanay"
           subtitle="Magsanay tayong magbasa nang magkasama!"
           illustration={require('../../assets/singing.webp')}
           titleA11yStyle={heroTitleA11yStyle}
@@ -3850,8 +3850,8 @@ export default function StudentDashboard({ navigation }: any) {
         <TabHeroHeader
           onBackPress={() => navigateTo('home')}
           notifDot={unreadNotifCount > 0}
-          title="Notifications"
-          subtitle="Stay updated on your reading journey."
+          title="Mga Abiso"
+          subtitle="Manatiling updated sa iyong paglalakbay sa pagbasa."
           illustration={require('../../assets/bell.webp')}
           illustrationStyle={styles.notifHeroImage}
           titleA11yStyle={heroTitleA11yStyle}

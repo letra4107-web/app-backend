@@ -1330,8 +1330,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const header = (
       <TabHeroHeader
         onMenuPress={openSidebar}
-        title="Child Progress"
-        subtitle="Track your child's reading development."
+        title="Progreso ng Anak"
+        subtitle="Subaybayan ang pag-unlad ng iyong anak sa pagbasa."
         illustration={require('../../assets/parentprogress.png')}
         illustrationStyle={styles.heroIllustrationWide}
         notifDot={unreadNotifications > 0}
@@ -1782,8 +1782,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <>
           <TabHeroHeader
             onMenuPress={openSidebar}
-            title="Calendar"
-            subtitle="Plan and follow your child's learning activities."
+            title="Kalendaryo"
+            subtitle="Planuhin at subaybayan ang mga aktibidad sa pag-aaral ng iyong anak."
             illustration={require('../../assets/parentcalendar.png')}
             illustrationStyle={styles.heroIllustrationSquare}
             notifDot={unreadNotifications > 0}
@@ -1976,8 +1976,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <>
         <TabHeroHeader
           onMenuPress={openSidebar}
-          title="Calendar"
-          subtitle={`Plan and follow ${selectedChild.name.split(' ')[0]}'s learning activities.`}
+          title="Kalendaryo"
+          subtitle={`Planuhin at subaybayan ang mga aktibidad sa pag-aaral ni ${selectedChild.name.split(' ')[0]}.`}
           illustration={require('../../assets/parentcalendar.png')}
           illustrationStyle={styles.heroIllustrationSquare}
           notifDot={unreadNotifications > 0}
@@ -2319,8 +2319,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     <>
       <TabHeroHeader
         onMenuPress={openSidebar}
-        title="Profile"
-        subtitle="Manage your account and children."
+        title="Aking Profile"
+        subtitle="Pamahalaan ang iyong account at mga anak."
         illustration={require('../../assets/parentprofile.png')}
         illustrationStyle={styles.heroIllustrationSquare}
         notifDot={unreadNotifications > 0}
@@ -2433,8 +2433,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     <>
       <TabHeroHeader
         onBackPress={() => navigateTo('welcome')}
-        title="Settings"
-        subtitle="Preferences and support."
+        title="Mga Setting"
+        subtitle="Kagustuhan at suporta."
         illustration={require('../../assets/parentsettings.png')}
         illustrationStyle={styles.heroIllustrationSquare}
         titleA11yStyle={settingsHeaderTitleA11yStyle}
@@ -2579,12 +2579,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <>
             <TabHeroHeader
               onMenuPress={openSidebar}
-              title="Notifications"
-              subtitle="Stay updated on your child's learning journey."
+              title="Mga Abiso"
+              subtitle="Manatiling updated sa paglalakbay ng iyong anak sa pag-aaral."
               illustration={require('../../assets/parentnotif.png')}
               illustrationStyle={styles.heroIllustrationSquare}
             />
-            <ErrorBoundary title="Notifications unavailable" message="Notifications could not load right now. The rest of the dashboard is still ready.">
+            <ErrorBoundary title="Hindi Available ang Mga Abiso" message="Hindi ma-load ang mga abiso ngayon. Gumagana pa rin ang ibang bahagi ng dashboard.">
               <NotificationsView
                 userId={parentId}
                 childList={children.map((child) => ({ id: child.id, name: child.name }))}
