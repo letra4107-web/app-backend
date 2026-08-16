@@ -15,6 +15,7 @@ import {
 } from '../services/moduleService';
 import { STUDENT_MODULE_AVATARS } from '../utils/studentAvatar';
 import TabHeroHeader from '../components/TabHeroHeader';
+import { useAccessibility } from '../contexts/AccessibilityContext';
 
 type Props = {
   firstName: string;
@@ -40,6 +41,25 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Same "scaled size + swap font family" pattern as StudentDashboard's
+  // a11yText - this is the module list/detail/assessment surface, so the
+  // graded quiz text (choiceText/contentText below) needs it as much as the
+  // navigational chrome does.
+  const { highContrast, a11yFont, a11ySize } = useAccessibility();
+  const a11yText = (baseSize: number, weight: 'regular' | 'medium' | 'bold' = 'regular') => ({
+    fontSize: a11ySize(baseSize),
+    ...(a11yFont(weight) ? { fontFamily: a11yFont(weight) } : {}),
+  });
+  const heroTitleA11y = a11yText(typography.size.hero, 'regular');
+  const heroSubtitleA11y = { ...a11yText(14, 'regular'), ...(highContrast ? { color: '#ffffff' } : {}) };
+  const sectionTitleA11y = a11yText(18, 'regular');
+  const cardTitleA11y = a11yText(16, 'regular');
+  const bodyA11y = a11yText(12, 'medium');
+  const contentTextA11y = a11yText(25, 'regular');
+  const contentTextWideA11y = a11yText(18, 'regular');
+  const choiceTextA11y = a11yText(22, 'regular');
+  const buttonA11y = a11yText(14, 'bold');
 
   const loadPath = async () => {
     setLoading(true);
@@ -144,18 +164,18 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
       <View style={styles.screen}>
         <LinearGradient colors={colors.heroGradient} style={styles.detailHero}>
           <Ionicons name={result.passed ? 'trophy' : 'refresh'} size={48} color="#fff" />
-          <Text style={styles.resultTitle}>{result.passed ? 'Mahusay!' : 'Subukan muli'}</Text>
+          <Text style={[styles.resultTitle, heroTitleA11y]}>{result.passed ? 'Mahusay!' : 'Subukan muli'}</Text>
           <Text style={styles.resultScore}>{Math.round(result.score)}%</Text>
-          <Text style={styles.resultSubtitle}>{result.passed ? 'Kumpleto na ang module at bukas na ang susunod.' : 'Kailangan ng 75% upang makapasa.'}</Text>
+          <Text style={[styles.resultSubtitle, bodyA11y]}>{result.passed ? 'Kumpleto na ang module at bukas na ang susunod.' : 'Kailangan ng 75% upang makapasa.'}</Text>
         </LinearGradient>
         <View style={styles.resultActions}>
           <TouchableOpacity style={styles.primaryButton} onPress={() => {
             setResult(null); setDetail(null); setAssessment(null); void loadPath();
           }}>
-            <Text style={styles.primaryButtonText}>{result.passed ? 'Tingnan ang Susunod' : 'Bumalik sa Module'}</Text>
+            <Text style={[styles.primaryButtonText, buttonA11y]}>{result.passed ? 'Tingnan ang Susunod' : 'Bumalik sa Module'}</Text>
           </TouchableOpacity>
           {!result.passed && <TouchableOpacity style={styles.secondaryButton} onPress={() => { setResult(null); void beginAssessment(); }}>
-            <Text style={styles.secondaryButtonText}>Ulitin ang Pagsusulit</Text>
+            <Text style={[styles.secondaryButtonText, buttonA11y]}>Ulitin ang Pagsusulit</Text>
           </TouchableOpacity>}
         </View>
       </View>
@@ -170,15 +190,15 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
             <Ionicons name="arrow-back" size={20} color="#fff" /><Text style={styles.backText}>Modyul</Text>
           </TouchableOpacity>
           <Text style={styles.assessmentEyebrow}>PAGSUSULIT</Text>
-          <Text style={styles.detailTitle}>Tanong {questionIndex + 1} sa {assessment.items.length}</Text>
-          <Text style={styles.detailSubtitle}>Pakinggan at piliin ang tamang sagot.</Text>
+          <Text style={[styles.detailTitle, heroTitleA11y]}>Tanong {questionIndex + 1} sa {assessment.items.length}</Text>
+          <Text style={[styles.detailSubtitle, heroSubtitleA11y]}>Pakinggan at piliin ang tamang sagot.</Text>
         </LinearGradient>
         <ScrollView contentContainerStyle={styles.assessmentBody}>
           <View style={styles.questionProgress}><View style={[styles.questionProgressFill, { width: `${((questionIndex + 1) / assessment.items.length) * 100}%` }]} /></View>
           <TouchableOpacity style={styles.listenCard} onPress={() => speakPhrase(currentQuestion.content_text)}>
             <View style={styles.listenIcon}><Ionicons name="volume-high" size={30} color="#fff" /></View>
-            <Text style={styles.listenTitle}>Pakinggan muli</Text>
-            <Text style={styles.listenSubtitle}>I-tap para marinig ang tunog</Text>
+            <Text style={[styles.listenTitle, cardTitleA11y]}>Pakinggan muli</Text>
+            <Text style={[styles.listenSubtitle, bodyA11y]}>I-tap para marinig ang tunog</Text>
           </TouchableOpacity>
           <View style={styles.choiceGrid}>
             {choices.map((choice) => <TouchableOpacity
@@ -187,11 +207,11 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
               disabled={busy}
               onPress={() => void chooseAnswer(choice.content_text)}
             >
-              <Text style={styles.choiceText}>{choice.content_text}</Text>
+              <Text style={[styles.choiceText, choiceTextA11y]}>{choice.content_text}</Text>
             </TouchableOpacity>)}
           </View>
           {busy && <ActivityIndicator color={colors.lavenderDark} />}
-          {!!error && <Text style={styles.errorText}>{error}</Text>}
+          {!!error && <Text style={[styles.errorText, bodyA11y]}>{error}</Text>}
         </ScrollView>
       </View>
     );
@@ -213,18 +233,18 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
             <Ionicons name="arrow-back" size={20} color="#fff" /><Text style={styles.backText}>Mga Modyul</Text>
           </TouchableOpacity>
           <Text style={[styles.assessmentEyebrow, styles.detailHeroTextCol]}>MODYUL {detail.module.module_number} · {contentTypeLabel(detail.module.instructional_content_type).toUpperCase()}</Text>
-          <Text style={[styles.detailTitle, styles.detailHeroTextCol]}>{detail.module.title}</Text>
-          <Text style={[styles.detailSubtitle, styles.detailHeroTextCol]}>{detail.module.description}</Text>
+          <Text style={[styles.detailTitle, styles.detailHeroTextCol, heroTitleA11y]}>{detail.module.title}</Text>
+          <Text style={[styles.detailSubtitle, styles.detailHeroTextCol, heroSubtitleA11y]}>{detail.module.description}</Text>
           {!!STUDENT_MODULE_AVATARS[detail.module.module_number] && (
             <Image source={STUDENT_MODULE_AVATARS[detail.module.module_number]} style={styles.detailHeroImage} resizeMode="contain" />
           )}
         </LinearGradient>
         <ScrollView contentContainerStyle={styles.detailBody}>
           <View style={styles.progressCard}>
-            <View style={styles.rowBetween}><Text style={styles.progressTitle}>Progreso ng Modyul</Text><Text style={styles.progressCount}>{completed}/{detail.items.length}</Text></View>
+            <View style={styles.rowBetween}><Text style={[styles.progressTitle, bodyA11y]}>Progreso ng Modyul</Text><Text style={[styles.progressCount, bodyA11y]}>{completed}/{detail.items.length}</Text></View>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${detail.items.length ? (completed / detail.items.length) * 100 : 0}%` }]} /></View>
           </View>
-          <Text style={styles.sectionTitle}>{contentTypeLabel(detail.module.instructional_content_type)}</Text>
+          <Text style={[styles.sectionTitle, sectionTitleA11y]}>{contentTypeLabel(detail.module.instructional_content_type)}</Text>
           <View style={styles.contentGrid}>
             {detail.items.map((item) => <View
               key={item.content_id}
@@ -237,18 +257,18 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
               <TouchableOpacity style={styles.soundButton} onPress={() => speakPhrase(item.content_text)}>
                 <Ionicons name="volume-medium" size={18} color={colors.lavenderDark} />
               </TouchableOpacity>
-              <Text style={[styles.contentText, isLongFormContent && styles.contentTextWide]}>{item.content_text}</Text>
-              {!!item.syllable_hyphenation && item.syllable_hyphenation !== item.content_text && <Text style={styles.syllableText}>{item.syllable_hyphenation}</Text>}
-              {!!item.definition && <Text style={styles.definitionText} numberOfLines={3}>{item.definition}</Text>}
+              <Text style={[styles.contentText, isLongFormContent ? contentTextWideA11y : contentTextA11y, isLongFormContent && styles.contentTextWide]}>{item.content_text}</Text>
+              {!!item.syllable_hyphenation && item.syllable_hyphenation !== item.content_text && <Text style={[styles.syllableText, bodyA11y]}>{item.syllable_hyphenation}</Text>}
+              {!!item.definition && <Text style={[styles.definitionText, bodyA11y]} numberOfLines={3}>{item.definition}</Text>}
               {item.completed ? <View style={styles.donePill}><Ionicons name="checkmark" size={12} color="#fff" /><Text style={styles.doneText}>Tapos</Text></View>
                 : <TouchableOpacity style={styles.practiceButton} onPress={() => onPracticeItem(item)}><Text style={styles.practiceButtonText}>Bigkasin</Text></TouchableOpacity>}
             </View>)}
           </View>
           <TouchableOpacity style={[styles.primaryButton, !ready && styles.disabledButton]} disabled={!ready || busy} onPress={() => void beginAssessment()}>
-            {busy ? <ActivityIndicator color="#fff" /> : <><Ionicons name="school" size={18} color="#fff" /><Text style={styles.primaryButtonText}>Simulan ang Pagsusulit</Text></>}
+            {busy ? <ActivityIndicator color="#fff" /> : <><Ionicons name="school" size={18} color="#fff" /><Text style={[styles.primaryButtonText, buttonA11y]}>Simulan ang Pagsusulit</Text></>}
           </TouchableOpacity>
-          {!ready && <Text style={styles.helperText}>Tapusin muna ang lahat ng item upang mabuksan ang pagsusulit.</Text>}
-          {!!error && <Text style={styles.errorText}>{error}</Text>}
+          {!ready && <Text style={[styles.helperText, bodyA11y]}>Tapusin muna ang lahat ng item upang mabuksan ang pagsusulit.</Text>}
+          {!!error && <Text style={[styles.errorText, bodyA11y]}>{error}</Text>}
         </ScrollView>
       </View>
     );
@@ -261,11 +281,13 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
         title={`Tuloy ang pagkatuto,\n${firstName}!`}
         subtitle="Tapusin ang bawat modyul at pagsusulit upang mabuksan ang susunod."
         illustration={require('../../assets/learn2.webp')}
+        titleA11yStyle={heroTitleA11y}
+        subtitleA11yStyle={heroSubtitleA11y}
       />
       <ScrollView contentContainerStyle={styles.pathBody}>
         {topSection}
-        <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={styles.scopeText}>Sundin ang iyong module path sa ibaba. May dagdag pang laman na darating.</Text></View>
-        <Text style={styles.sectionTitle}>Ang Iyong Landas ng Modyul</Text>
+        <View style={styles.scopeNote}><Ionicons name="information-circle" size={18} color={colors.lavenderDark} /><Text style={[styles.scopeText, bodyA11y]}>Sundin ang iyong module path sa ibaba. May dagdag pang laman na darating.</Text></View>
+        <Text style={[styles.sectionTitle, sectionTitleA11y]}>Ang Iyong Landas ng Modyul</Text>
         {path?.modules.map((module, index) => {
           const meta = stateMeta[module.state];
           const pct = module.content_item_count ? Math.round((module.completed_content_item_count / module.content_item_count) * 100) : 0;
@@ -276,16 +298,16 @@ export default function StudentModules({ firstName, onOpenSidebar, onPracticeIte
               <View style={styles.moduleMainRow}>
                 {!!STUDENT_MODULE_AVATARS[module.module_number] && <View style={styles.moduleImageWrap}><Image source={STUDENT_MODULE_AVATARS[module.module_number]} style={styles.moduleImage} resizeMode="contain" /></View>}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.moduleTitle}>Modyul {module.module_number}: {module.title}</Text>
-                  <Text style={styles.moduleDescription}>{module.description}</Text>
+                  <Text style={[styles.moduleTitle, cardTitleA11y]}>Modyul {module.module_number}: {module.title}</Text>
+                  <Text style={[styles.moduleDescription, bodyA11y]}>{module.description}</Text>
                 </View>
               </View>
-              <Text style={styles.moduleMeta}>{module.content_item_count} {contentTypeLabel(module.instructional_content_type).toLowerCase()} · Pasa: {module.assessment_pass_percentage}%</Text>
+              <Text style={[styles.moduleMeta, bodyA11y]}>{module.content_item_count} {contentTypeLabel(module.instructional_content_type).toLowerCase()} · Pasa: {module.assessment_pass_percentage}%</Text>
               {module.state !== 'locked' && <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${module.state === 'completed' ? 100 : pct}%` }]} /></View>}
             </TouchableOpacity>
           </View>;
         })}
-        {!!error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text><TouchableOpacity onPress={() => void loadPath()}><Text style={styles.retryText}>Subukan muli</Text></TouchableOpacity></View>}
+        {!!error && <View style={styles.errorBox}><Text style={[styles.errorText, bodyA11y]}>{error}</Text><TouchableOpacity onPress={() => void loadPath()}><Text style={[styles.retryText, buttonA11y]}>Subukan muli</Text></TouchableOpacity></View>}
       </ScrollView>
     </View>
   );
