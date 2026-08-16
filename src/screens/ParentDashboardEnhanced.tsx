@@ -797,7 +797,16 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     Animated.parallel([
       Animated.timing(sidebarAnim, { toValue: -SIDEBAR_WIDTH, duration: 240, useNativeDriver: true }),
       Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
-    ]).start(() => setSidebarOpen(false));
+    ]).start(({ finished }) => {
+      // A rapid re-open (openSidebar interrupting this close animation) stops
+      // this timing early and still invokes this callback with finished:false.
+      // Without this guard, setSidebarOpen(false) would fire right after the
+      // newer openSidebar() call had just set it true, desyncing the overlay
+      // (which unmounts when sidebarOpen is false) from the drawer's actual
+      // on-screen position - the "stuck under rapid taps" half of this bug.
+      // Same fix already applied on the Student sidebar (StudentDashboard.tsx).
+      if (finished) setSidebarOpen(false);
+    });
   };
 
   const navigateTo = (nextSection: Section) => {
