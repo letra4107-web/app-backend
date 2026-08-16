@@ -1724,13 +1724,13 @@ export default function StudentDashboard({ navigation }: any) {
               first thing a student sees on Home */}
           <View style={styles.homeDeadlinesCard}>
             <View style={styles.homeDeadlinesHeader}>
-              <Text style={[styles.homeDeadlinesTitle, cardTitleA11y]}>📅 Upcoming Deadlines</Text>
+              <Text style={[styles.homeDeadlinesTitle, cardTitleA11y]}>📅 Mga Paparating na Deadline</Text>
               <TouchableOpacity
                 onPress={() => setSection('learn')}
                 accessibilityRole="button"
                 accessibilityLabel="View all lessons"
               >
-                <Text style={[styles.homeDeadlinesLink, cardSubtitleA11y]}>View lessons</Text>
+                <Text style={[styles.homeDeadlinesLink, cardSubtitleA11y]}>Tingnan ang mga aralin</Text>
               </TouchableOpacity>
             </View>
             {activities.length ? (
@@ -1767,7 +1767,7 @@ export default function StudentDashboard({ navigation }: any) {
               midnight, since there's no calendar-day tracking yet) */}
           <View style={styles.homeTodayCard}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.homeTodayTitle, cardTitleA11y]}>Today&apos;s Reading{'\n'}Progress</Text>
+              <Text style={[styles.homeTodayTitle, cardTitleA11y]}>Progreso sa{'\n'}Pagbasa Ngayon</Text>
               <Text style={[styles.homeTodayStatLine, bodyA11y]}>{goalDone} of {DAILY_GOAL} pagsasanay ngayon</Text>
               <TouchableOpacity
                 style={styles.homeTodayButton}
@@ -1775,46 +1775,46 @@ export default function StudentDashboard({ navigation }: any) {
                 accessibilityRole="button"
                 accessibilityLabel="Continue practice"
               >
-                <Text style={[styles.homeTodayButtonText, buttonA11y]}>Continue Practice</Text>
+                <Text style={[styles.homeTodayButtonText, buttonA11y]}>Ipagpatuloy ang Pagsasanay</Text>
               </TouchableOpacity>
             </View>
             <ProgressRing percent={goalPct} color={colors.lavender} trackColor="rgba(124,111,207,0.15)">
               <Text style={[styles.homeTodayRingPct, statValueA11y]}>{goalPct}%</Text>
-              <Text style={[styles.homeTodayRingLabel, smallLabelA11y]}>Complete</Text>
+              <Text style={[styles.homeTodayRingLabel, smallLabelA11y]}>Kumpleto</Text>
             </ProgressRing>
           </View>
 
           {/* Quick Stats 2x2 grid — Words Practiced, Reading Accuracy,
               Practice Sessions, Current Streak, all real fields */}
-          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Quick Stats</Text>
+          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Mabilisang Estadistika</Text>
           <View style={styles.homeStatGrid}>
             <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
               <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
                 <Ionicons name="book" size={18} color="#fff" />
               </View>
               <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{stats.completed}</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Words Practiced</Text>
+              <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
               <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
                 <Ionicons name="locate" size={18} color="#fff" />
               </View>
               <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Reading Accuracy</Text>
+              <Text style={[styles.homeGridLabel, statLabelA11y]}>Kawastuhan sa Pagbasa</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
               <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.violet }]}>
                 <Ionicons name="bar-chart" size={18} color="#fff" />
               </View>
               <Text style={[styles.homeGridValue, { color: colors.vivid.violet }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Practice Sessions</Text>
+              <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Sesyon ng Pagsasanay</Text>
             </View>
             <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
               <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
                 <Ionicons name="flame" size={18} color="#fff" />
               </View>
               <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</Text>
-              <Text style={[styles.homeGridLabel, statLabelA11y]}>Current Streak</Text>
+              <Text style={[styles.homeGridLabel, statLabelA11y]}>Kasalukuyang Sunod-sunod na Araw</Text>
             </View>
           </View>
 
@@ -1826,9 +1826,9 @@ export default function StudentDashboard({ navigation }: any) {
                 <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Continue Learning</Text>
+                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
                 <Text style={[styles.homeContinueSubtitle, cardSubtitleA11y]}>{continueReadingLesson.title}</Text>
-                <Text style={[styles.homeContinueLessonCount, smallLabelA11y]}>Lesson {continueLessonIndex + 1} of {continueLessonTotal}</Text>
+                <Text style={[styles.homeContinueLessonCount, smallLabelA11y]}>Aralin {continueLessonIndex + 1} ng {continueLessonTotal}</Text>
                 <View style={styles.homeContinueTrackRow}>
                   <View style={styles.homeContinueTrack}>
                     <View style={[styles.homeContinueFill, { width: `${Math.max(4, continueLessonPct)}%` }]} />
@@ -1842,7 +1842,7 @@ export default function StudentDashboard({ navigation }: any) {
                 accessibilityRole="button"
                 accessibilityLabel={`Continue lesson: ${continueReadingLesson.title}`}
               >
-                <Text style={[styles.homeContinueButtonText, buttonA11y]}>Continue</Text>
+                <Text style={[styles.homeContinueButtonText, buttonA11y]}>Ipagpatuloy</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -1851,7 +1851,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Continue Learning</Text>
+                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
                 <Text style={[styles.homeContinueSubtitle, cardSubtitleA11y]}>Wala pang binabasang aralin — simulan ang isa!</Text>
               </View>
               <TouchableOpacity
@@ -1900,7 +1900,7 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="mic" size={24} color={colors.lavenderDark} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.readyPracticeTitle, cardTitleA11y]}>Ready to Practice?</Text>
+              <Text style={[styles.readyPracticeTitle, cardTitleA11y]}>Handa nang Magsanay?</Text>
               <Text style={[styles.readyPracticeSub, bodyA11y]}>Magsanay bumasa ng mga salita at mapabuti ang iyong bigkas gamit ang AI feedback.</Text>
             </View>
             <TouchableOpacity
@@ -1909,14 +1909,14 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Start practice"
             >
-              <Text style={[styles.readyPracticeButtonText, buttonA11y]}>Start Practice</Text>
+              <Text style={[styles.readyPracticeButtonText, buttonA11y]}>Simulan ang Pagsasanay</Text>
             </TouchableOpacity>
           </View>
 
           {/* Recent Activity — merged real feed (see recentActivityItems
               comment above): whatever mix of completed lessons and
               pronunciation sessions actually happened, not a fixed layout */}
-          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Recent Activity</Text>
+          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Kamakailang Aktibidad</Text>
           {recentActivityItems.length ? (
             recentActivityItems.map((item) => (
               <View key={item.key} style={styles.homeRecentActivityCard}>
@@ -1957,7 +1957,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={[styles.homeQuickIconWrap, { backgroundColor: colors.lavender }]}>
                 <Ionicons name="library-outline" size={20} color="#fff" />
               </View>
-              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Learn</Text>
+              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Aralin</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.homeQuickCard, { backgroundColor: '#FBE7DF' }]}
@@ -1968,7 +1968,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={[styles.homeQuickIconWrap, { backgroundColor: colors.coral }]}>
                 <Ionicons name="mic-outline" size={20} color="#fff" />
               </View>
-              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Practice</Text>
+              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Pagsasanay</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.homeQuickCard, { backgroundColor: '#E9F1E2' }]}
@@ -1979,7 +1979,7 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={[styles.homeQuickIconWrap, { backgroundColor: colors.sage }]}>
                 <Ionicons name="analytics-outline" size={20} color="#fff" />
               </View>
-              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Progress</Text>
+              <Text style={[styles.homeQuickLabel, cardSubtitleA11y]}>Progreso</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -2076,11 +2076,11 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={styles.learnProgressTopRow}>
                 <View style={styles.practiceProgressTitleRow}>
                   <Ionicons name="albums-outline" size={16} color={colors.lavenderDark} />
-                  <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Today&apos;s Practice</Text>
+                  <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Pagsasanay Ngayon</Text>
                 </View>
                 {wordTotal > 0 && (
                   <View style={styles.practiceWordPill}>
-                    <Text style={[styles.practiceWordPillText, smallLabelA11y]}>Word {wordPosition} of {wordTotal}</Text>
+                    <Text style={[styles.practiceWordPillText, smallLabelA11y]}>Salita {wordPosition} ng {wordTotal}</Text>
                   </View>
                 )}
               </View>
@@ -2201,28 +2201,28 @@ export default function StudentDashboard({ navigation }: any) {
 
     const renderSessionProgressCard = () => (
       <View style={styles.practiceStatsCard}>
-        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Session Progress</Text>
+        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Progreso ng Sesyon</Text>
         <View style={styles.practiceStatsRow}>
           <View style={styles.practiceStatsCol}>
             <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.navy }]}>
               <Ionicons name="bar-chart" size={18} color="#fff" />
             </View>
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{wordsPracticedToday}</Text>
-            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Words Practiced</Text>
+            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
           </View>
           <View style={styles.practiceStatsCol}>
             <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.green }]}>
               <Ionicons name="checkmark-circle" size={18} color="#fff" />
             </View>
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{correctToday}</Text>
-            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Correct Pronunciation</Text>
+            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Tamang Bigkas</Text>
           </View>
           <View style={styles.practiceStatsCol}>
             <View style={[styles.practiceStatsIconWrap, { backgroundColor: colors.vivid.orange }]}>
               <Ionicons name="locate" size={18} color="#fff" />
             </View>
             <Text style={[styles.practiceStatsValue, statValueA11y]}>{accuracyToday}%</Text>
-            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Average Accuracy</Text>
+            <Text style={[styles.practiceStatsLabel, statLabelA11y]}>Karaniwang Kawastuhan</Text>
           </View>
         </View>
       </View>
@@ -2234,7 +2234,7 @@ export default function StudentDashboard({ navigation }: any) {
           <Ionicons name="bulb" size={20} color="#fff" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.practiceTipCardTitle, cardTitleA11y]}>Reading Tip</Text>
+          <Text style={[styles.practiceTipCardTitle, cardTitleA11y]}>Tip sa Pagbasa</Text>
           <Text style={[styles.practiceTipCardText, bodyA11y]}>Basahin ang bawat pantig nang dahan-dahan bago sabihin ang buong salita.</Text>
         </View>
       </View>
@@ -2270,11 +2270,11 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={styles.learnProgressTopRow}>
                 <View style={styles.practiceProgressTitleRow}>
                   <Ionicons name="albums-outline" size={16} color={colors.lavenderDark} />
-                  <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Today&apos;s Practice</Text>
+                  <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Pagsasanay Ngayon</Text>
                 </View>
                 {wordTotal > 0 && (
                   <View style={styles.practiceWordPill}>
-                    <Text style={[styles.practiceWordPillText, smallLabelA11y]}>Word {wordPosition} of {wordTotal}</Text>
+                    <Text style={[styles.practiceWordPillText, smallLabelA11y]}>Salita {wordPosition} ng {wordTotal}</Text>
                   </View>
                 )}
               </View>
@@ -2394,7 +2394,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <View style={styles.encourageCard}>
                   <Image source={require('../../assets/book.webp')} style={styles.encourageImage} resizeMode="contain" />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.encourageTitle, cardTitleA11y]}>Every practice makes you a better reader!</Text>
+                    <Text style={[styles.encourageTitle, cardTitleA11y]}>Bawat pagsasanay ay ginagawa kang mas magaling na mambabasa!</Text>
                     <Text style={[styles.encourageSub, bodyA11y]}>
                       {remainingWords > 0
                         ? `${remainingWords} pang salita para matapos ang set ngayon!`
@@ -2408,7 +2408,7 @@ export default function StudentDashboard({ navigation }: any) {
                         accessibilityLabel="Practice this word again"
                       >
                         <Ionicons name="refresh" size={16} color={colors.lavenderDark} />
-                        <Text style={[styles.encourageButtonGhostText, buttonA11y]}>Practice Again</Text>
+                        <Text style={[styles.encourageButtonGhostText, buttonA11y]}>Magsanay Muli</Text>
                       </TouchableOpacity>
                       {/* Next Word only appears once the attempt actually passed -
                           matching PracticeResultCard's own gating (no "Susunod na
@@ -2421,7 +2421,7 @@ export default function StudentDashboard({ navigation }: any) {
                           accessibilityRole="button"
                           accessibilityLabel="Go to next word"
                         >
-                          <Text style={[styles.encourageButtonSolidText, buttonA11y]}>Next Word</Text>
+                          <Text style={[styles.encourageButtonSolidText, buttonA11y]}>Susunod na Salita</Text>
                           <Ionicons name="arrow-forward" size={16} color="#fff" />
                         </TouchableOpacity>
                       )}
@@ -2455,7 +2455,7 @@ export default function StudentDashboard({ navigation }: any) {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.goalCard}>
           <View style={styles.goalTopRow}>
-            <Text style={[styles.goalTitle, cardTitleA11y]}>Today&apos;s Practice</Text>
+            <Text style={[styles.goalTitle, cardTitleA11y]}>Pagsasanay Ngayon</Text>
             {goalDone > 0 ? (
               <Text style={[styles.goalCount, statLabelA11y]}>{goalDone}/{DAILY_GOAL}</Text>
             ) : (
@@ -2496,7 +2496,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         </View>
 
-        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>🤖 Recommended Reading Practice</Text>
+        <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>🤖 Inirekomendang Pagsasanay sa Pagbasa</Text>
 
         {recommendedItem && (
           <View style={styles.aiRecommendationCard}>
@@ -2520,12 +2520,12 @@ export default function StudentDashboard({ navigation }: any) {
               {readingProfile && (
                 <View style={styles.aiConfidencePill}>
                   <Text style={styles.aiConfidenceValue}>{readingProfile.confidenceScore}%</Text>
-                  <Text style={styles.aiConfidenceLabel}>Confidence</Text>
+                  <Text style={styles.aiConfidenceLabel}>Kumpiyansa</Text>
                 </View>
               )}
             </View>
             {!!readingProfile?.recommendedFocus && (
-              <Text style={[styles.aiRecommendationFocus, bodyA11y]}>Focus: {readingProfile.recommendedFocus}</Text>
+              <Text style={[styles.aiRecommendationFocus, bodyA11y]}>Pokus: {readingProfile.recommendedFocus}</Text>
             )}
           </View>
         )}
@@ -2554,7 +2554,7 @@ export default function StudentDashboard({ navigation }: any) {
             <Ionicons name="checkmark-circle" size={24} color={colors.success} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.completedTrackTitle, cardTitleA11y]}>Tapos na ang mga aralin sa modyul na ito!</Text>
-              <Text style={[styles.completedTrackText, bodyA11y]}>Puntahan ang Learn tab para kunin ang pagsusulit ng modyul.</Text>
+              <Text style={[styles.completedTrackText, bodyA11y]}>Puntahan ang tab na Aralin para kunin ang pagsusulit ng modyul.</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -2573,7 +2573,7 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Sabihin ang Salita</Text>
             <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita, pagkatapos sabihin ito nang malakas.</Text>
             <View style={[styles.practiceModeTag, { backgroundColor: '#EFECFB' }]}>
-              <Text style={[styles.practiceModeTagText, { color: colors.lavenderDark }, smallLabelA11y]}>AI Pronunciation Practice</Text>
+              <Text style={[styles.practiceModeTagText, { color: colors.lavenderDark }, smallLabelA11y]}>AI na Pagsasanay sa Bigkas</Text>
             </View>
           </View>
           <View style={styles.practiceModeStartPill}>
@@ -2595,7 +2595,7 @@ export default function StudentDashboard({ navigation }: any) {
             <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Pakinggan at Basahin</Text>
             <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita at sundan ito habang binabasa.</Text>
             <View style={[styles.practiceModeTag, { backgroundColor: '#E9F1E2' }]}>
-              <Text style={[styles.practiceModeTagText, { color: colors.sage }, smallLabelA11y]}>Text-to-Speech Support</Text>
+              <Text style={[styles.practiceModeTagText, { color: colors.sage }, smallLabelA11y]}>Suporta sa Text-to-Speech</Text>
             </View>
           </View>
           <View style={[styles.practiceModeStartPill, { backgroundColor: colors.sage }]}>
@@ -2626,7 +2626,7 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Clear category filter, show all"
             >
-              <Text style={[styles.categoryFilterBarReset, buttonA11y]}>Show All</Text>
+              <Text style={[styles.categoryFilterBarReset, buttonA11y]}>Ipakita Lahat</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -2686,7 +2686,7 @@ export default function StudentDashboard({ navigation }: any) {
       {activitiesLoading ? (
         <View style={styles.centerBlock}>
           <ActivityIndicator size="small" color={colors.lavender} />
-          <Text style={[styles.empty, bodyA11y]}>Loading activities...</Text>
+          <Text style={[styles.empty, bodyA11y]}>Naglo-load ng mga aktibidad...</Text>
         </View>
       ) : activitiesError ? (
         <View style={styles.errorBlock}>
@@ -2726,7 +2726,7 @@ export default function StudentDashboard({ navigation }: any) {
                   accessibilityRole="button"
                   accessibilityLabel={`Turn in ${activity.title}`}
                 >
-                  <Text style={[styles.learnActionButtonText, buttonA11y]}>Turn In</Text>
+                  <Text style={[styles.learnActionButtonText, buttonA11y]}>Isumite</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -2753,7 +2753,7 @@ export default function StudentDashboard({ navigation }: any) {
       {totalLessonsCount > 0 ? (
         <View style={styles.learnProgressCard}>
           <View style={styles.learnProgressTopRow}>
-            <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Learning Progress</Text>
+            <Text style={[styles.learnProgressTitle, cardTitleA11y]}>Progreso sa Pag-aaral</Text>
             <Text style={[styles.learnProgressPct, statValueA11y]}>{learningProgressPct}%</Text>
           </View>
           <Text style={[styles.learnProgressCount, bodyA11y]}>{completedLessonsCount} / {totalLessonsCount} Lessons Completed</Text>
@@ -2777,13 +2777,13 @@ export default function StudentDashboard({ navigation }: any) {
             <Ionicons name="book-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang aralin</Text>
-          <Text style={[styles.learnEmptySubtext, bodyA11y]}>Kapag nag-upload na ang guro mo ng aralin, makikita mo agad dito ang iyong progress! 📚</Text>
+          <Text style={[styles.learnEmptySubtext, bodyA11y]}>Kapag nag-upload na ang guro mo ng aralin, makikita mo agad dito ang iyong progreso! 📚</Text>
         </View>
       )}
 
       {totalLessonsCount > 0 && (
         <>
-          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Lesson Library</Text>
+          <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Aklatan ng Aralin</Text>
 
           {lessonSubjects.length > 1 && (
             <ScrollView
@@ -2813,7 +2813,7 @@ export default function StudentDashboard({ navigation }: any) {
           {lessonsLoading && (
             <View style={styles.centerBlock}>
               <ActivityIndicator size="small" color={colors.lavender} />
-              <Text style={[styles.empty, bodyA11y]}>Loading lessons...</Text>
+              <Text style={[styles.empty, bodyA11y]}>Naglo-load ng mga aralin...</Text>
             </View>
           )}
           {!lessonsLoading && !!lessonsError && (
@@ -2857,7 +2857,7 @@ export default function StudentDashboard({ navigation }: any) {
                         accessibilityRole="button"
                         accessibilityLabel={`Review lesson: ${lesson.title}`}
                       >
-                        <Text style={[styles.lessonStepButtonGhostText, { color: colors.vivid.green }, buttonA11y]}>Review Lesson</Text>
+                        <Text style={[styles.lessonStepButtonGhostText, { color: colors.vivid.green }, buttonA11y]}>Balikan ang Aralin</Text>
                       </TouchableOpacity>
                     ) : state === 'in_progress' ? (
                       <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -2867,7 +2867,7 @@ export default function StudentDashboard({ navigation }: any) {
                           accessibilityRole="button"
                           accessibilityLabel={`Continue lesson: ${lesson.title}`}
                         >
-                          <Text style={[styles.lessonStepButtonLightText, buttonA11y]}>Continue Learning</Text>
+                          <Text style={[styles.lessonStepButtonLightText, buttonA11y]}>Ipagpatuloy ang Pag-aaral</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => void finishLesson(lesson)}
@@ -3094,7 +3094,7 @@ export default function StudentDashboard({ navigation }: any) {
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.progressHeroCard}>
-          <Text style={[styles.progressHeroTitle, cardTitleA11y]}>Overall Reading Progress</Text>
+          <Text style={[styles.progressHeroTitle, cardTitleA11y]}>Kabuuang Progreso sa Pagbasa</Text>
           <View style={styles.progressOverallRow}>
             <View style={styles.progressOverallCol}>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#EFECFB' }]}>
@@ -3102,14 +3102,14 @@ export default function StudentDashboard({ navigation }: any) {
                   <Ionicons name="school" size={16} color="#fff" />
                 </View>
                 <Text style={[styles.progressStatValue, { color: colors.vivid.violet }, statValueA11y]}>{lessonsCompletedCount}</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>Lessons Completed</Text>
+                <Text style={[styles.progressStatLabel, statLabelA11y]}>Mga Natapos na Aralin</Text>
               </View>
               <View style={[styles.progressStatCard, styles.progressOverallStatCard, { backgroundColor: '#E9F1E2' }]}>
                 <View style={[styles.progressStatIconWrap, { backgroundColor: colors.vivid.green }]}>
                   <Ionicons name="book" size={16} color="#fff" />
                 </View>
                 <Text style={[styles.progressStatValue, { color: colors.vivid.green }, statValueA11y]}>{stats.completed}</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>Words Practiced</Text>
+                <Text style={[styles.progressStatLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
               </View>
             </View>
             <View style={styles.progressRingShadowWrap}>
@@ -3123,7 +3123,7 @@ export default function StudentDashboard({ navigation }: any) {
                 gradientId="progressOverallRing"
               >
                 <Text style={[styles.progressHeroRingPct, statValueA11y]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-                <Text style={[styles.progressHeroRingLabel, smallLabelA11y]}>Complete</Text>
+                <Text style={[styles.progressHeroRingLabel, smallLabelA11y]}>Kumpleto</Text>
               </ProgressRing>
             </View>
             <View style={styles.progressOverallCol}>
@@ -3139,11 +3139,11 @@ export default function StudentDashboard({ navigation }: any) {
                   <Ionicons name="flame" size={16} color="#fff" />
                 </View>
                 <Text style={[styles.progressStatValue, { color: colors.vivid.amber }, statValueA11y]}>{progress?.streak || 0} Days</Text>
-                <Text style={[styles.progressStatLabel, statLabelA11y]}>Current Streak</Text>
+                <Text style={[styles.progressStatLabel, statLabelA11y]}>Kasalukuyang Sunod-sunod na Araw</Text>
                 {longestStreak > 0 && (
                   <View style={styles.progressStreakBestPill}>
                     <Ionicons name="star" size={9} color={XP_GOLD} />
-                    <Text style={[styles.progressStreakBestText, smallLabelA11y]}>Best: {longestStreak}d</Text>
+                    <Text style={[styles.progressStreakBestText, smallLabelA11y]}>Pinakamahusay: {longestStreak}d</Text>
                   </View>
                 )}
               </View>
@@ -3170,7 +3170,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.teal }]}>
             <Ionicons name="ribbon" size={14} color="#fff" />
           </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Reading Skills</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Kasanayan sa Pagbasa</Text>
         </View>
         <View style={styles.skillsCard}>
           {skillMeta.map(({ key, label, icon }, idx) => {
@@ -3207,7 +3207,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.violet }]}>
             <Ionicons name="bar-chart" size={14} color="#fff" />
           </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Weekly Reading Activity</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Lingguhang Aktibidad sa Pagbasa</Text>
         </View>
         <View style={styles.progressChartCard}>
           {sessionsThisWeek > 0 ? (
@@ -3230,7 +3230,7 @@ export default function StudentDashboard({ navigation }: any) {
           ) : (
             <View style={styles.progressChartEmpty}>
               <Ionicons name="bar-chart-outline" size={32} color={colors.lavender} />
-              <Text style={[styles.progressChartEmptyText, bodyA11y]}>Wala ka pang practice session ngayong linggo.</Text>
+              <Text style={[styles.progressChartEmptyText, bodyA11y]}>Wala ka pang sesyon ng pagsasanay ngayong linggo.</Text>
             </View>
           )}
           <View style={styles.progressChartDayRow}>
@@ -3250,7 +3250,7 @@ export default function StudentDashboard({ navigation }: any) {
             <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.coral }]}>
               <Ionicons name="analytics" size={14} color="#fff" />
             </View>
-            <Text style={[styles.progressChartTitle, cardTitleA11y]}>Reading Accuracy</Text>
+            <Text style={[styles.progressChartTitle, cardTitleA11y]}>Kawastuhan sa Pagbasa</Text>
           </View>
           {daysWithData.length >= 2 ? (
             <>
@@ -3317,7 +3317,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.navy }]}>
             <Ionicons name="calendar" size={14} color="#fff" />
           </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>This Month</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Ngayong Buwan</Text>
         </View>
         <View style={styles.progressMonthGrid}>
           <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
@@ -3325,21 +3325,21 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="trophy" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.violet }, statValueA11y]}>{lessonsCompletedThisMonth}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Lessons Finished</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Natapos na Aralin</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
             <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
               <Ionicons name="book" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{wordsReadThisMonth}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Words Read</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Salitang Nabasa</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
             <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
               <Ionicons name="locate" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{monthAvgAccuracy !== null ? `${monthAvgAccuracy}%` : '--'}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Average Accuracy</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Karaniwang Kawastuhan</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
             {longestStreak > 0 && (
@@ -3352,7 +3352,7 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="flame" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{longestStreak} Day{longestStreak === 1 ? '' : 's'}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Longest Streak</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Pinakamahabang Sunod-sunod na Araw</Text>
           </View>
         </View>
 
@@ -3360,7 +3360,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.sage }]}>
             <Ionicons name="time" size={14} color="#fff" />
           </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Recent Activity</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Kamakailang Aktibidad</Text>
         </View>
         {recentActivityItems.length ? (
           <View style={styles.learnCardList}>
@@ -3387,7 +3387,7 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
         ) : (
           <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
-            <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala ka pang practice session. Simulan na sa Practice tab!</Text>
+            <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala ka pang sesyon ng pagsasanay. Simulan na sa tab na Pagsasanay!</Text>
           </View>
         )}
 
@@ -3570,10 +3570,10 @@ export default function StudentDashboard({ navigation }: any) {
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.achievementSummaryCard}>
-          <Text style={[styles.progressHeroTitle, cardTitleA11y]}>Achievement Summary</Text>
+          <Text style={[styles.progressHeroTitle, cardTitleA11y]}>Buod ng mga Parangal</Text>
           <View style={styles.achievementSummaryRow}>
             <View style={styles.achievementSummaryLeftCol}>
-              <Text style={[styles.achievementSummaryLabel, cardSubtitleA11y]}>Badges Earned</Text>
+              <Text style={[styles.achievementSummaryLabel, cardSubtitleA11y]}>Mga Nakuhang Parangal</Text>
               <Text style={[styles.achievementSummaryCount, a11yText(28, 'bold')]}>
                 {unlockedCount}<Text style={[styles.achievementSummaryCountTotal, statLabelA11y]}>/{totalCount}</Text>
               </Text>
@@ -3592,7 +3592,7 @@ export default function StudentDashboard({ navigation }: any) {
                 gradientId="badgesSummaryRing"
               >
                 <Text style={[styles.progressHeroRingPct, statValueA11y]}>{unlockPct}%</Text>
-                <Text style={[styles.progressHeroRingLabel, smallLabelA11y]}>Complete</Text>
+                <Text style={[styles.progressHeroRingLabel, smallLabelA11y]}>Kumpleto</Text>
               </ProgressRing>
             </View>
           </View>
@@ -3605,7 +3605,7 @@ export default function StudentDashboard({ navigation }: any) {
               </View>
               <View style={styles.badgeUnlockedPill}>
                 <Ionicons name="checkmark" size={11} color="#fff" />
-                <Text style={[styles.badgeUnlockedPillText, smallLabelA11y]}>Unlocked</Text>
+                <Text style={[styles.badgeUnlockedPillText, smallLabelA11y]}>Nabuksan na</Text>
               </View>
             </View>
           ) : (
@@ -3635,7 +3635,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={[styles.progressSectionIconWrap, { backgroundColor: XP_GOLD }]}>
             <Ionicons name="trophy" size={14} color="#fff" />
           </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Badge Collection</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Koleksyon ng Parangal</Text>
         </View>
         {filteredBadges.length ? (
           <View style={styles.badgesGrid}>{filteredBadges.map(renderBadgeCard)}</View>
@@ -3647,26 +3647,26 @@ export default function StudentDashboard({ navigation }: any) {
 
         {spotlight && (
           <View style={styles.spotlightCard}>
-            <Text style={[styles.spotlightEyebrow, smallLabelA11y]}>Almost There!</Text>
-            <Text style={[styles.spotlightTitle, cardTitleA11y]}>Current Badge Progress</Text>
+            <Text style={[styles.spotlightEyebrow, smallLabelA11y]}>Malapit na!</Text>
+            <Text style={[styles.spotlightTitle, cardTitleA11y]}>Kasalukuyang Progreso ng Parangal</Text>
             <View style={styles.spotlightRow}>
               <Image source={spotlight.badge.image} style={styles.spotlightImage} resizeMode="contain" />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.spotlightBadgeTitle, cardSubtitleA11y]}>{spotlight.badge.title}</Text>
-                <Text style={[styles.spotlightProgressText, smallLabelA11y]}>Progress {spotlight.progress.current}/{spotlight.progress.target}</Text>
+                <Text style={[styles.spotlightProgressText, smallLabelA11y]}>Progreso {spotlight.progress.current}/{spotlight.progress.target}</Text>
                 <View style={styles.spotlightTrack}>
                   <View style={[styles.spotlightFill, { width: `${Math.max(4, spotlight.progress.pct || 0)}%` }]} />
                 </View>
               </View>
             </View>
-            <Text style={[styles.spotlightHint, bodyA11y]}>You&apos;re getting closer! Keep practicing. →</Text>
+            <Text style={[styles.spotlightHint, bodyA11y]}>Malapit ka na! Ipagpatuloy ang pagsasanay. →</Text>
             <TouchableOpacity
               style={styles.spotlightButton}
               onPress={() => goToPractice()}
               accessibilityRole="button"
               accessibilityLabel="Practice now"
             >
-              <Text style={[styles.spotlightButtonText, buttonA11y]}>Practice Now</Text>
+              <Text style={[styles.spotlightButtonText, buttonA11y]}>Magsanay Ngayon</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -3675,7 +3675,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.sage }]}>
             <Ionicons name="time" size={14} color="#fff" />
           </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Recently Earned</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Kamakailang Nakuha</Text>
         </View>
         {recentlyEarned.length ? (
           <View style={styles.learnCardList}>
@@ -3702,7 +3702,7 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={[styles.progressSectionIconWrap, { backgroundColor: colors.vivid.navy }]}>
             <Ionicons name="school" size={14} color="#fff" />
           </View>
-          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Learning Milestones</Text>
+          <Text style={[styles.practiceSectionTitle, styles.progressSectionTitleText, cardTitleA11y]}>Mga Tagumpay sa Pag-aaral</Text>
         </View>
         <View style={styles.homeStatGrid}>
           <View style={[styles.homeGridCard, { backgroundColor: '#EFECFB' }]}>
@@ -3710,28 +3710,28 @@ export default function StudentDashboard({ navigation }: any) {
               <Ionicons name="school" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.navy }, statValueA11y]}>{lessonsCompletedCount}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Lessons Completed</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Natapos na Aralin</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#FBE7DF' }]}>
             <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.orange }]}>
               <Ionicons name="mic" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.orange }, statValueA11y]}>{progress?.total_attempts || 0}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Voice Practices</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Pagsasanay sa Boses</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#FFF3DC' }]}>
             <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.amber }]}>
               <Ionicons name="book" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.amber }, statValueA11y]}>{stats.completed}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Words Practiced</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Mga Salitang Nasanay</Text>
           </View>
           <View style={[styles.homeGridCard, { backgroundColor: '#E9F1E2' }]}>
             <View style={[styles.homeGridIconWrap, { backgroundColor: colors.vivid.green }]}>
               <Ionicons name="bar-chart" size={18} color="#fff" />
             </View>
             <Text style={[styles.homeGridValue, { color: colors.vivid.green }, statValueA11y]}>{overallAccuracyPct !== null ? `${overallAccuracyPct}%` : '--'}</Text>
-            <Text style={[styles.homeGridLabel, statLabelA11y]}>Overall Progress</Text>
+            <Text style={[styles.homeGridLabel, statLabelA11y]}>Kabuuang Progreso</Text>
           </View>
         </View>
 
@@ -3743,13 +3743,13 @@ export default function StudentDashboard({ navigation }: any) {
         >
           <Image source={require('../../assets/celebrate.webp')} style={styles.badgesCelebrateImage} resizeMode="contain" />
           <View style={{ maxWidth: '62%' }}>
-            <Text style={[styles.badgesCelebrateTitle, cardTitleA11y]}>Fantastic Work!</Text>
-            <Text style={[styles.badgesCelebrateSub, bodyA11y]}>Every badge represents your hard work and growing reading skills.</Text>
+            <Text style={[styles.badgesCelebrateTitle, cardTitleA11y]}>Magaling na Trabaho!</Text>
+            <Text style={[styles.badgesCelebrateSub, bodyA11y]}>Bawat parangal ay sumasalamin sa iyong sipag at lumalakas na kasanayan sa pagbasa.</Text>
           </View>
           <View style={styles.badgesNextCard}>
             {spotlight ? (
               <>
-                <Text style={[styles.badgesNextLabel, smallLabelA11y]}>Next Badge to Unlock</Text>
+                <Text style={[styles.badgesNextLabel, smallLabelA11y]}>Susunod na Parangal na Mabubuksan</Text>
                 <Text style={[styles.badgesNextTitle, cardSubtitleA11y]}>{spotlight.badge.title}</Text>
                 <Text style={[styles.badgesNextDetail, smallLabelA11y]}>
                   {Math.max(0, (spotlight.progress.target || 0) - (spotlight.progress.current || 0))} more to go
@@ -3767,7 +3767,7 @@ export default function StudentDashboard({ navigation }: any) {
             accessibilityRole="button"
             accessibilityLabel="Continue learning"
           >
-            <Text style={[styles.badgesCelebrateButtonText, buttonA11y]}>Continue Learning →</Text>
+            <Text style={[styles.badgesCelebrateButtonText, buttonA11y]}>Ipagpatuloy ang Pag-aaral →</Text>
           </TouchableOpacity>
         </LinearGradient>
       </ScrollView>
@@ -3879,7 +3879,7 @@ export default function StudentDashboard({ navigation }: any) {
               accessibilityLabel="Mark all notifications as read"
               onPress={markAllNotificationsRead}
             >
-              <Text style={[styles.notifMarkAllButtonText, buttonA11y]}>Mark All Read</Text>
+              <Text style={[styles.notifMarkAllButtonText, buttonA11y]}>Markahan Lahat Bilang Nabasa</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -4290,7 +4290,7 @@ function PracticeResultCard({
         {showScore && (
           <View style={[styles.accuracyRing, { borderColor: ringColor }]}>
             <Text style={styles.accuracyPercent}>{score}%</Text>
-            <Text style={styles.accuracyLabel}>accuracy</Text>
+            <Text style={styles.accuracyLabel}>kawastuhan</Text>
           </View>
         )}
         <View style={styles.starRow}>
@@ -4322,7 +4322,7 @@ function PracticeResultCard({
       {showScore && (
         <View style={[styles.accuracyRing, { borderColor: ringColor }]}>
           <Text style={[styles.accuracyPercent, { color: ringTextColor }]}>{score}%</Text>
-          <Text style={styles.accuracyLabel}>accuracy</Text>
+          <Text style={styles.accuracyLabel}>kawastuhan</Text>
         </View>
       )}
       <Text style={styles.scoreCoachText}>{scoreMessage(score)}</Text>

@@ -636,7 +636,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       setPasswordModalVisible(false);
       setNewPasswordInput('');
       setConfirmPasswordInput('');
-      Alert.alert('Password Updated', 'Matagumpay na napalitan ang iyong password.');
+      Alert.alert('Na-update ang Password', 'Matagumpay na napalitan ang iyong password.');
     } catch (err: any) {
       setPasswordModalError(err?.message || 'Hindi mapalitan ang password. Subukan muli.');
     } finally {
@@ -1028,7 +1028,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.childSummaryEyebrow}>Your Child</Text>
+            <Text style={styles.childSummaryEyebrow}>Ang Iyong Anak</Text>
             <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
@@ -1051,7 +1051,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
             >
-              <Text style={styles.switchChildButtonText}>Switch Child</Text>
+              <Text style={styles.switchChildButtonText}>Palitan ang Anak</Text>
               <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.lavenderDark} />
             </TouchableOpacity>
           )}
@@ -1082,16 +1082,16 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.latestReadingCard}>
           <View style={styles.latestReadingHeader}>
             <View>
-              <Text style={styles.latestReadingEyebrow}>LATEST READING RESULT</Text>
+              <Text style={styles.latestReadingEyebrow}>PINAKABAGONG RESULTA SA PAGBASA</Text>
               <Text style={styles.latestReadingWord}>{latestReading?.word || 'No reading yet'}</Text>
             </View>
             <Ionicons name={latestReading?.is_correct ? 'checkmark-circle' : 'book-outline'} size={26} color={latestReading?.is_correct ? colors.success : colors.lavenderDark} />
           </View>
           <View style={styles.latestReadingStats}>
-            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading ? `${Math.round(latestReading.accuracy_percentage || 0)}%` : '--'}</Text><Text style={styles.latestReadingLabel}>Accuracy</Text></View>
-            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.attempts ?? '--'}</Text><Text style={styles.latestReadingLabel}>Attempts</Text></View>
-            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.duration_seconds != null ? `${latestReading.duration_seconds}s` : '--'}</Text><Text style={styles.latestReadingLabel}>Duration</Text></View>
-            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{selectedChildStats.streak}</Text><Text style={styles.latestReadingLabel}>Day Streak</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading ? `${Math.round(latestReading.accuracy_percentage || 0)}%` : '--'}</Text><Text style={styles.latestReadingLabel}>Kawastuhan</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.attempts ?? '--'}</Text><Text style={styles.latestReadingLabel}>Beses na Sinubukan</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading?.duration_seconds != null ? `${latestReading.duration_seconds}s` : '--'}</Text><Text style={styles.latestReadingLabel}>Tagal</Text></View>
+            <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{selectedChildStats.streak}</Text><Text style={styles.latestReadingLabel}>Sunod-sunod na Araw</Text></View>
           </View>
           <Text style={styles.latestReadingObservation}>
             {childReadingProfile?.insights[0] || 'Complete more reading practice to generate an observation.'}
@@ -1117,7 +1117,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 <View style={styles.heroProgressIconWrap}>
                   <Ionicons name="book" size={12} color="#fff" />
                 </View>
-                <Text style={styles.heroProgressEyebrow}>READING PROGRESS</Text>
+                <Text style={styles.heroProgressEyebrow}>PROGRESO SA PAGBASA</Text>
               </View>
               <Text style={[styles.heroProgressTitle, heroCardTitleA11yStyle]}>{selectedChild.name.split(' ')[0]}&apos;s Reading Progress</Text>
             </View>
@@ -1132,7 +1132,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 gradientId="parentHeroRing"
               >
                 <Text style={styles.heroProgressPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-                <Text style={styles.heroProgressPctLabel}>Overall</Text>
+                <Text style={styles.heroProgressPctLabel}>Kabuuan</Text>
               </ProgressRing>
             </View>
           </View>
@@ -1149,38 +1149,38 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             {tierMessage(selectedChild.name.split(' ')[0], avgAccuracy)}
           </Text>
           <TouchableOpacity style={styles.heroProgressButton} onPress={() => setSection('progress')} activeOpacity={0.85}>
-            <Text style={styles.heroProgressButtonText}>View Full Progress</Text>
+            <Text style={styles.heroProgressButtonText}>Tingnan ang Buong Progreso</Text>
             <Ionicons name="arrow-forward" size={14} color={colors.heroGradient[0]} />
           </TouchableOpacity>
         </LinearGradient>
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Quick Overview</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Mabilisang Pagtingin</Text>
         <View style={styles.overviewGrid}>
           <View style={[styles.overviewCard, { backgroundColor: '#EFECFB' }]}>
             <Ionicons name="school" size={20} color={colors.lavender} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavender }]}>
               {lessonsCompleted}{childLessonsTotal !== null ? `/${childLessonsTotal}` : ''}
             </Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Lessons Completed</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Natapos na Aralin</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#FFF3DC' }]}>
             <Ionicons name="mic" size={20} color={colors.sun} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sun }]}>{practiceSessionsThisWeek}</Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Reading Practice (this week)</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Pagsasanay sa Pagbasa (ngayong linggo)</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
             <Ionicons name="book" size={20} color={colors.lavenderDark} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavenderDark }]}>{wordsPracticed}</Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Words Practiced</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Salitang Nasanay</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="checkmark-circle" size={20} color={colors.sage} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sage }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>All-Time Average</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Kabuuang Karaniwan</Text>
           </View>
         </View>
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>This Week&apos;s Activity</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Aktibidad Ngayong Linggo</Text>
         <View style={styles.trendCard}>
           <View style={styles.weekBarRow}>
             {weekDayBars.map((day, i) => (
@@ -1202,7 +1202,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </Text>
         </View>
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Reading Skills Overview</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Pangkalahatang-ideya ng Kasanayan sa Pagbasa</Text>
         <View style={styles.currentLessonCard}>
           {childCurrentLesson ? (
             <>
@@ -1218,12 +1218,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               )}
             </>
           ) : (
-            <Text style={styles.skillOverviewEmpty}>No lesson opened yet.</Text>
+            <Text style={styles.skillOverviewEmpty}>Wala pang binuksang aralin.</Text>
           )}
         </View>
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>This Week&apos;s Insight</Text>
-        <Text style={styles.homeSectionSub}>Practice activity over last 7 days</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Pananaw Ngayong Linggo</Text>
+        <Text style={styles.homeSectionSub}>Aktibidad ng pagsasanay sa nakalipas na 7 araw</Text>
         <View style={styles.weeklyInsightCard}>
           {skillMeta.map(({ key, label }) => {
             const group = skillGroups[key];
@@ -1242,14 +1242,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             );
           })}
           <TouchableOpacity onPress={() => setSection('progress')}>
-            <Text style={styles.insightSeeMore}>See Recommendations →</Text>
+            <Text style={styles.insightSeeMore}>Tingnan ang Mga Rekomendasyon →</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.goalCard}>
           <View style={styles.goalCardHeader}>
             <Ionicons name="flag" size={18} color={colors.sun} />
-            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Today&apos;s Reading Goal</Text>
+            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Layunin sa Pagbasa Ngayon</Text>
           </View>
           <Text style={[styles.goalCardValue, goalCardValueA11yStyle]}>{goalDone}/{DAILY_GOAL} Activities</Text>
           <View style={styles.goalCardTrack}>
@@ -1265,9 +1265,9 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
 
         <View style={styles.recentHeaderRow}>
-          <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Recent</Text>
+          <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Kamakailan</Text>
           <TouchableOpacity onPress={() => setSection('progress')}>
-            <Text style={styles.viewAllLink}>View All Activity →</Text>
+            <Text style={styles.viewAllLink}>Tingnan Lahat ng Aktibidad →</Text>
           </TouchableOpacity>
         </View>
         {recentActivityItems.length ? (
@@ -1285,7 +1285,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           ))
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No activity yet.</Text>
+            <Text style={styles.emptyText}>Wala pang aktibidad.</Text>
           </View>
         )}
 
@@ -1296,10 +1296,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           style={styles.supportBanner}
         >
           <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.supportBannerTitle}>Your Support Matters</Text>
-            <Text style={styles.supportBannerText}>Every little bit of encouragement can make a difference.</Text>
+            <Text style={styles.supportBannerTitle}>Mahalaga ang Iyong Suporta</Text>
+            <Text style={styles.supportBannerText}>Malaki ang naitutulong ng bawat munting paghikayat.</Text>
             <TouchableOpacity style={styles.supportBannerButton} onPress={() => setSection('progress')}>
-              <Text style={styles.supportBannerButtonText}>View Child Progress →</Text>
+              <Text style={styles.supportBannerButtonText}>Tingnan ang Progreso ng Anak →</Text>
             </TouchableOpacity>
           </View>
           <Image source={require('../../assets/parenthome.png')} style={styles.supportBannerImage} resizeMode="contain" />
@@ -1308,15 +1308,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.quickActions}>
           <TouchableOpacity style={styles.quickAction} onPress={() => setShowEnroll(true)} accessibilityRole="button" accessibilityLabel="Enroll a child">
             <Ionicons name="person-add" size={16} color={colors.lavenderDark} />
-            <Text style={styles.quickActionText}>Enroll Child</Text>
+            <Text style={styles.quickActionText}>I-enroll ang Anak</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View reports">
             <Ionicons name="bar-chart" size={16} color={colors.lavenderDark} />
-            <Text style={styles.quickActionText}>View Reports</Text>
+            <Text style={styles.quickActionText}>Tingnan ang Ulat</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Manage profile">
             <Ionicons name="person-circle" size={16} color={colors.lavenderDark} />
-            <Text style={styles.quickActionText}>Manage Profile</Text>
+            <Text style={styles.quickActionText}>Pamahalaan ang Profile</Text>
           </TouchableOpacity>
         </View>
         </ScrollView>
@@ -1347,7 +1347,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>📝</Text>
-              <Text style={styles.emptyText}>Wala pang anak na may progress.</Text>
+              <Text style={styles.emptyText}>Wala pang anak na may progreso.</Text>
             </View>
           </ScrollView>
         </>
@@ -1508,7 +1508,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           accessibilityRole="button"
           accessibilityLabel={`Viewing ${selectedChild.name}${children.length > 1 ? '. Tap to switch child' : ''}`}
         >
-          <Text style={styles.viewingSelectorText}>Viewing: {selectedChild.name}</Text>
+          <Text style={styles.viewingSelectorText}>Tinitingnan: {selectedChild.name}</Text>
           {children.length > 1 && <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.lavenderDark} />}
         </TouchableOpacity>
 
@@ -1558,21 +1558,21 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         {childReadingProfile && (
           <View style={styles.readingProgressCard}>
             <View style={styles.readingProgressHeader}>
-              <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>AI Reading Summary</Text>
+              <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>Buod ng Pagbasa ng AI</Text>
               <Ionicons name="sparkles" size={22} color={colors.lavenderDark} />
             </View>
             <View style={styles.overallStatsRow}>
               <View style={styles.overallStatCell}>
                 <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.confidenceScore}%</Text>
-                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Confidence</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Kumpiyansa</Text>
               </View>
               <View style={styles.overallStatCell}>
                 <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.averageAccuracy ?? '--'}{childReadingProfile.averageAccuracy !== null ? '%' : ''}</Text>
-                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Last 20 Sessions</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Huling 20 Sesyon</Text>
               </View>
               <View style={styles.overallStatCell}>
                 <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{childReadingProfile.weeklyPracticeDays}</Text>
-                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Days This Week</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Mga Araw Ngayong Linggo</Text>
               </View>
             </View>
             <Text style={styles.readingProgressMessage}>
@@ -1583,18 +1583,18 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 <Ionicons name="home" size={18} color={colors.sun} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.recommendTitle}>Recommended Home Practice</Text>
+                <Text style={styles.recommendTitle}>Inirekomendang Pagsasanay sa Bahay</Text>
                 <Text style={styles.recommendText}>{childReadingProfile.recommendedHomePractice}</Text>
                 {!!childReadingProfile.weakSounds.length && (
-                  <Text style={styles.recommendText}>Needs more practice: {childReadingProfile.weakSounds.map((sound) => sound.unit.toUpperCase()).join(', ')}</Text>
+                  <Text style={styles.recommendText}>Kailangan pa ng pagsasanay: {childReadingProfile.weakSounds.map((sound) => sound.unit.toUpperCase()).join(', ')}</Text>
                 )}
               </View>
             </View>
           </View>
         )}
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Progress Overview</Text>
-        <Text style={styles.periodFilterLabel}>TIME PERIOD FILTER</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Pangkalahatang-ideya ng Progreso</Text>
+        <Text style={styles.periodFilterLabel}>FILTER NG PANAHON</Text>
         <View style={styles.periodFilterRow}>
           {PERIOD_LABELS.map((period) => (
             <TouchableOpacity
@@ -1634,7 +1634,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <Text style={styles.readingProgressMessage}>{tierMessage(periodAvg)}</Text>
         </View>
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Reading Performance</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Pagganap sa Pagbasa</Text>
         <View style={styles.trendCard}>
           {bucketsWithData.length >= 2 ? (
             <>
@@ -1651,28 +1651,28 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           ) : (
             <View style={styles.trendEmpty}>
               <Ionicons name="analytics-outline" size={28} color={colors.lavender} />
-              <Text style={styles.trendEmptyText}>Not enough practice sessions in this period to show a trend.</Text>
+              <Text style={styles.trendEmptyText}>Hindi pa sapat ang sesyon ng pagsasanay sa panahong ito para magpakita ng takbo.</Text>
             </View>
           )}
         </View>
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Reading Skills</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Kasanayan sa Pagbasa</Text>
         <View style={styles.overallStatsRow}>
           <View style={styles.overallStatCell}>
                 <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{selectedChildStats.overallAccuracy !== null ? `${selectedChildStats.overallAccuracy}%` : '--'}</Text>
-                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>All-Time Average</Text>
+                <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Kabuuang Karaniwan</Text>
           </View>
           <View style={styles.overallStatCell}>
             <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{selectedChildStats.wordsPracticed}</Text>
-            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Words Practiced</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Mga Salitang Nasanay</Text>
           </View>
           <View style={styles.overallStatCell}>
             <Text style={[styles.overallStatValue, overallStatValueA11yStyle]}>{selectedChildStats.totalAttempts}</Text>
-            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Total Attempts</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Kabuuang Beses na Sinubukan</Text>
           </View>
           <View style={styles.overallStatCell}>
             <Text style={[styles.overallStatValue, overallStatValueA11yStyle, { color: colors.coral }]}>{selectedChildStats.streak}</Text>
-            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Day Streak</Text>
+            <Text style={[styles.overallStatLabel, overallStatLabelA11yStyle]}>Sunod-sunod na Araw</Text>
           </View>
         </View>
 
@@ -1716,7 +1716,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Ionicons name="bulb" size={18} color={colors.sun} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.recommendTitle}>Recommended Next Step</Text>
+              <Text style={styles.recommendTitle}>Inirekomendang Susunod na Hakbang</Text>
               <Text style={styles.recommendText}>
                 Continue practicing {weakestSkill.label.replace(' (approx.)', '')} - it&apos;s currently {selectedChild.name.split(' ')[0]}&apos;s area with the most room to grow.
               </Text>
@@ -1727,7 +1727,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 accessibilityRole="button"
                 accessibilityLabel="View recommended activities"
               >
-                <Text style={styles.recommendButtonText}>View Recommended Activities</Text>
+                <Text style={styles.recommendButtonText}>Tingnan ang Inirekomendang Aktibidad</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1744,7 +1744,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
         )}
 
-        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Recent Learning History</Text>
+        <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Kamakailang Kasaysayan sa Pag-aaral</Text>
         <View style={styles.selectedTasksCard}>
           {visibleHistory.length ? (
             visibleHistory.map((session, i) => (
@@ -1753,7 +1753,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   <Ionicons name="mic" size={18} color={colors.lavenderDark} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.activityChildName}>Tagalog Word Practice</Text>
+                  <Text style={styles.activityChildName}>Pagsasanay sa Salitang Tagalog</Text>
                   <Text style={styles.activityTitle}>{session.word} · {new Date(session.created_at).toLocaleString()}</Text>
                 </View>
                 <Text style={[styles.recentActivityScore, { color: tierColor(Math.round(Number(session.accuracy_percentage) || 0)) }]}>
@@ -1762,7 +1762,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </View>
             ))
           ) : (
-            <Text style={styles.emptyDetail}>No speech practice yet.</Text>
+            <Text style={styles.emptyDetail}>Wala pang pagsasanay sa pagsasalita.</Text>
           )}
         </View>
 
@@ -1990,7 +1990,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={styles.childAvatarLgText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.childSummaryEyebrow}>Viewing Calendar For</Text>
+            <Text style={styles.childSummaryEyebrow}>Tinitingnan ang Kalendaryo Para Kay</Text>
             <Text style={[styles.childSummaryName, childNameA11yStyle]}>{selectedChild.name}</Text>
             <View style={styles.childSummaryBadgeRow}>
               <View style={styles.gradeBadge}>
@@ -2009,7 +2009,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
             >
-              <Text style={styles.switchChildButtonText}>Switch Child</Text>
+              <Text style={styles.switchChildButtonText}>Palitan ang Anak</Text>
               <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.lavenderDark} />
             </TouchableOpacity>
           )}
@@ -2060,7 +2060,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Jump to today"
             >
-              <Text style={styles.todayPillText}>Today</Text>
+              <Text style={styles.todayPillText}>Ngayon</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.monthButton}
@@ -2106,10 +2106,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             })}
           </View>
           <View style={styles.dayLegendRow}>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.lavenderDark }]} /><Text style={styles.dayLegendText}>Lesson</Text></View>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} /><Text style={styles.dayLegendText}>Practice</Text></View>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.success }]} /><Text style={styles.dayLegendText}>Completed</Text></View>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.warning }]} /><Text style={styles.dayLegendText}>Reminder</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.lavenderDark }]} /><Text style={styles.dayLegendText}>Aralin</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} /><Text style={styles.dayLegendText}>Pagsasanay</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.success }]} /><Text style={styles.dayLegendText}>Nakumpleto</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.warning }]} /><Text style={styles.dayLegendText}>Paalala</Text></View>
           </View>
         </View>
 
@@ -2179,27 +2179,27 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </TouchableOpacity>
             ))
           ) : (
-            <Text style={styles.emptyDetail}>No activities on this date.</Text>
+            <Text style={styles.emptyDetail}>Walang aktibidad sa petsang ito.</Text>
           )}
         </View>
 
         <View style={styles.weekSummaryCard}>
           <View style={styles.weekSummaryHeaderRow}>
             <Ionicons name="bar-chart" size={16} color={colors.sage} />
-            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>This Week</Text>
+            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Ngayong Linggo</Text>
           </View>
           <View style={styles.weekSummaryStatsRow}>
             <View style={styles.weekSummaryStat}>
               <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: colors.lavenderDark }]}>{weekLessonsCompleted}</Text>
-              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Lessons</Text>
+              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Mga Aralin</Text>
             </View>
             <View style={styles.weekSummaryStat}>
               <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: CALENDAR_PRACTICE_BLUE }]}>{weekSessions.length}</Text>
-              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Practice Sessions</Text>
+              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Mga Sesyon ng Pagsasanay</Text>
             </View>
             <View style={styles.weekSummaryStat}>
               <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: colors.sage }]}>{activeDaysThisWeek}</Text>
-              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Active Days</Text>
+              <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Mga Araw na Aktibo</Text>
             </View>
           </View>
           <View style={styles.weekProgressTrack}>
@@ -2211,7 +2211,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.upcomingCard}>
           <View style={styles.upcomingHeaderRow}>
             <Ionicons name="alarm" size={16} color={colors.sun} />
-            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Upcoming Reminders</Text>
+            <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle]}>Mga Paparating na Paalala</Text>
           </View>
           {upcomingReminders.length ? (
             upcomingReminders.map((item) => (
@@ -2224,7 +2224,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               </View>
             ))
           ) : (
-            <Text style={styles.emptyDetail}>No upcoming reminders scheduled.</Text>
+            <Text style={styles.emptyDetail}>Walang naka-iskedyul na paparating na paalala.</Text>
           )}
         </View>
 
@@ -2239,15 +2239,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             accessibilityLabel="Add a reminder"
           >
             <Ionicons name="add-circle" size={16} color={colors.lavenderDark} />
-            <Text style={styles.quickActionText}>Add Reminder</Text>
+            <Text style={styles.quickActionText}>Magdagdag ng Paalala</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View progress">
             <Ionicons name="bar-chart" size={16} color={colors.lavenderDark} />
-            <Text style={styles.quickActionText}>View Progress</Text>
+            <Text style={styles.quickActionText}>Tingnan ang Progreso</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Open notification settings">
             <Ionicons name="settings" size={16} color={colors.lavenderDark} />
-            <Text style={styles.quickActionText}>Notification Settings</Text>
+            <Text style={styles.quickActionText}>Mga Setting ng Abiso</Text>
           </TouchableOpacity>
         </View>
 
@@ -2255,12 +2255,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
             <Ionicons name="book" size={20} color={colors.lavenderDark} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavenderDark }]}>{wordsPracticed}</Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Words Practiced</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Salitang Nasanay</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
             <Ionicons name="checkmark-circle" size={20} color={colors.sage} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sage }]}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
-            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>All-Time Average</Text>
+            <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Kabuuang Karaniwan</Text>
           </View>
         </View>
 
@@ -2268,7 +2268,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={{ flex: 1, paddingRight: 8 }}>
             <View style={styles.upcomingHeaderRow}>
               <Ionicons name="bulb" size={16} color={colors.lavenderDark} />
-              <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle, { fontSize: a11ySize(14) }]}>Parent Insight</Text>
+              <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle, { fontSize: a11ySize(14) }]}>Pananaw ng Magulang</Text>
             </View>
             <Text style={styles.parentInsightText}>
               {hasEnoughInsightData
@@ -2276,7 +2276,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 : `Not enough practice history yet to spot a pattern in ${selectedChild.name.split(' ')[0]}'s routine.`}
             </Text>
             <TouchableOpacity onPress={() => setSection('progress')}>
-              <Text style={styles.insightSeeMore}>View Child Progress →</Text>
+              <Text style={styles.insightSeeMore}>Tingnan ang Progreso ng Anak →</Text>
             </TouchableOpacity>
           </View>
           <Image source={require('../../assets/parentcalendar.png')} style={styles.parentInsightImage} resizeMode="contain" />
@@ -2342,16 +2342,16 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={[styles.accountName, accountNameA11yStyle]}>{parentName}</Text>
             <Text style={[styles.accountEmail, accountSubA11yStyle]}>{parentEmail}</Text>
             <View style={styles.accountBadge}>
-              <Text style={styles.accountBadgeText}>Parent Account</Text>
+              <Text style={styles.accountBadgeText}>Account ng Magulang</Text>
             </View>
           </View>
         </View>
         <TouchableOpacity style={styles.editProfileButton} onPress={() => navigateTo('profile')}>
-          <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+          <Text style={styles.editProfileButtonText}>I-edit ang Profile</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.settingsGroupTitle}>My Children</Text>
+      <Text style={styles.settingsGroupTitle}>Aking mga Anak</Text>
       {children.map((child) => {
         const childInitials = child.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
         const level = child.child_progress?.[0]?.level;
@@ -2377,31 +2377,31 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel={`Manage ${child.name}`}
             >
-              <Text style={styles.manageChildButtonText}>Manage Child</Text>
+              <Text style={styles.manageChildButtonText}>Pamahalaan ang Anak</Text>
             </TouchableOpacity>
           </View>
         );
       })}
       <TouchableOpacity style={styles.enrollChildRow} onPress={() => setShowEnroll(true)}>
         <Ionicons name="add" size={18} color={colors.lavenderDark} />
-        <Text style={styles.enrollChildRowText}>Enroll New Child</Text>
+        <Text style={styles.enrollChildRowText}>Mag-enroll ng Bagong Anak</Text>
       </TouchableOpacity>
 
-      <Text style={styles.settingsGroupTitle}>Account Settings</Text>
+      <Text style={styles.settingsGroupTitle}>Mga Setting ng Account</Text>
       <View style={styles.settingsListCard}>
         <TouchableOpacity style={styles.settingsRow} onPress={() => navigateTo('profile')}>
           <Ionicons name="person-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Personal Information</Text>
-            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Update your name and phone number</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Personal na Impormasyon</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>I-update ang iyong pangalan at numero ng telepono</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.settingsRow} onPress={openPasswordModal}>
           <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Change Password</Text>
-            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Update your account password securely</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Palitan ang Password</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Ligtas na i-update ang password ng iyong account</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
@@ -2444,7 +2444,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <ScrollView style={styles.mainScroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {hasUnsavedParentSettingsChanges && (
         <View style={styles.unsavedSettingsBar}>
-          <Text style={[styles.unsavedSettingsBarText, saveDiscardBarTextA11yStyle]}>You have unsaved changes.</Text>
+          <Text style={[styles.unsavedSettingsBarText, saveDiscardBarTextA11yStyle]}>May mga hindi pa na-save na pagbabago.</Text>
           <View style={styles.unsavedSettingsBarButtons}>
             <TouchableOpacity
               style={styles.discardSettingsButton}
@@ -2453,7 +2453,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Discard unsaved changes"
             >
-              <Text style={[styles.discardSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Discard</Text>
+              <Text style={[styles.discardSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Huwag I-save</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.saveSettingsButton}
@@ -2465,14 +2465,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               {savingSettingKey === '__all__' ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={[styles.saveSettingsButtonText, saveDiscardButtonTextA11yStyle]}>Save Changes</Text>
+                <Text style={[styles.saveSettingsButtonText, saveDiscardButtonTextA11yStyle]}>I-save ang mga Pagbabago</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      <Text style={styles.settingsGroupTitle}>Notification Preferences</Text>
+      <Text style={styles.settingsGroupTitle}>Kagustuhan sa Abiso</Text>
       <View style={styles.settingsListCard}>
         {!parentSettings ? (
           <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
@@ -2486,7 +2486,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         )}
       </View>
 
-      <Text style={styles.settingsGroupTitle}>Reading Support Preferences</Text>
+      <Text style={styles.settingsGroupTitle}>Kagustuhan sa Suporta sa Pagbasa</Text>
       <View style={styles.settingsListCard}>
         {!parentSettings ? (
           <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
@@ -2497,7 +2497,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <View style={[styles.settingsToggleRow, { borderBottomWidth: 0 }]}>
               <Ionicons name="speedometer-outline" size={20} color={colors.lavenderDark} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Speech Speed</Text>
+                <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Bilis ng Pagsasalita</Text>
                 <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentSettings.speech_rate || 'normal'}</Text>
               </View>
               <View style={styles.speedSegment}>
@@ -2518,13 +2518,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         )}
       </View>
 
-      <Text style={styles.settingsGroupTitle}>Help & Support</Text>
+      <Text style={styles.settingsGroupTitle}>Tulong at Suporta</Text>
       <View style={styles.settingsListCard}>
         <TouchableOpacity style={styles.settingsRow} onPress={contactSupport}>
           <Ionicons name="headset-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Contact Support</Text>
-            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Get help from our team</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Kontakin ang Suporta</Text>
+            <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Humingi ng tulong sa aming team</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
@@ -2534,14 +2534,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <Ionicons name="shield-checkmark-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Privacy Policy</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Patakaran sa Pagkapribado</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <View style={[styles.settingsRow, { borderBottomWidth: 0 }]}>
           <Ionicons name="information-circle-outline" size={20} color={colors.lavenderDark} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>App Version</Text>
+            <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Bersyon ng App</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{appVersion} - Up to date</Text>
           </View>
         </View>
@@ -2738,12 +2738,12 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.emailModalBackdrop}>
           <View style={styles.emailModalSheet}>
             <View style={styles.emailModalHeader}>
-              <Text style={styles.emailModalTitle}>Change Password</Text>
+              <Text style={styles.emailModalTitle}>Palitan ang Password</Text>
               <TouchableOpacity onPress={closePasswordModal} disabled={savingPassword}>
                 <Ionicons name="close" size={24} color={colors.ink} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.passwordModalHint}>Use at least 8 characters for your new password.</Text>
+            <Text style={styles.passwordModalHint}>Gumamit ng hindi bababa sa 8 karakter para sa iyong bagong password.</Text>
             <View style={styles.passwordInputWrap}>
               <TextInput
                 style={[styles.emailModalInput, styles.passwordInputField]}
@@ -2751,7 +2751,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 onChangeText={setNewPasswordInput}
                 autoCapitalize="none"
                 secureTextEntry={!showNewPasswordInput}
-                placeholder="New password"
+                placeholder="Bagong password"
                 placeholderTextColor={colors.inkSoft}
               />
               <TouchableOpacity
@@ -2769,7 +2769,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 onChangeText={setConfirmPasswordInput}
                 autoCapitalize="none"
                 secureTextEntry={!showConfirmPasswordInput}
-                placeholder="Confirm new password"
+                placeholder="Kumpirmahin ang bagong password"
                 placeholderTextColor={colors.inkSoft}
                 onSubmitEditing={submitPasswordChange}
               />
@@ -2791,7 +2791,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               onPress={submitPasswordChange}
               disabled={savingPassword}
             >
-              {savingPassword ? <ActivityIndicator color="#fff" /> : <Text style={styles.emailModalSubmitText}>Update Password</Text>}
+              {savingPassword ? <ActivityIndicator color="#fff" /> : <Text style={styles.emailModalSubmitText}>I-update ang Password</Text>}
             </TouchableOpacity>
           </View>
         </View>
