@@ -80,6 +80,21 @@ type Upload = {
   metadata?: { title?: string; subject?: string; completed?: boolean } | null;
 };
 
+type PdfAssignment = {
+  id: string;
+  status: 'assigned' | 'in_progress' | 'completed';
+  assigned_at: string;
+  due_date: string | null;
+  pdf_material_id: string;
+  pdf_materials: {
+    id: string;
+    title: string;
+    file_url: string;
+    level: string | null;
+    grade_level: number | null;
+  } | null;
+};
+
 // Text-only variants of colors.warning/colors.danger: the base hex values are tuned for
 // backgrounds/icons/borders and fail WCAG AA (~2.15:1 / ~3.78:1) when used as
 // text color on white. These darker shades stay in the same amber/red family
@@ -182,6 +197,9 @@ export default function StudentDashboard({ navigation }: any) {
   const [lessonFilter, setLessonFilter] = useState<string>('Lahat');
   const [activities, setActivities] = useState<StudentActivity[]>([]);
   const [uploadsError, setUploadsError] = useState<string>('');
+  const [pdfAssignments, setPdfAssignments] = useState<PdfAssignment[]>([]);
+  const [pdfAssignmentsLoading, setPdfAssignmentsLoading] = useState(false);
+  const [pdfAssignmentsError, setPdfAssignmentsError] = useState<string>('');
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [lessonsError, setLessonsError] = useState<string>('');
   const [activitiesLoading, setActivitiesLoading] = useState(false);
@@ -359,6 +377,70 @@ export default function StudentDashboard({ navigation }: any) {
       console.error('[Uploads] Both Supabase and backend failed:', backendErr?.message || backendErr);
       setUploadsError('Hindi ma-load ang mga leksyon. Check internet o Supabase RLS.');
       return [];
+    }
+  };
+
+  const loadPdfAssignments = async (childId?: string): Promise<PdfAssignment[]> => {
+    if (!childId) return [];
+    setPdfAssignmentsLoading(true);
+    setPdfAssignmentsError('');
+    try {
+      const { data, error } = await supabase
+        .from('pdf_assignments')
+        .select('id, status, assigned_at, due_date, pdf_material_id, pdf_materials(id, title, file_url, level, grade_level)')
+        .eq('student_id', childId)
+        .order('assigned_at', { ascending: false });
+
+      if (error) throw error;
+      const rows = (data || []) as unknown as PdfAssignment[];
+      setPdfAssignments(rows);
+      return rows;
+    } catch (err: any) {
+      console.error('[PdfAssignments] load failed:', err?.message || err);
+      setPdfAssignmentsError('Hindi ma-load ang mga ipinadalang PDF. Subukan muli mamaya.');
+      return [];
+    } finally {
+      setPdfAssignmentsLoading(false);
+    }
+  };
+
+  const retryPdfAssignments = () => {
+    if (child) void loadPdfAssignments(child.id);
+  };
+
+  const pdfAssignmentStatusLabel = (status: PdfAssignment['status']) => {
+    if (status === 'completed') return 'Nabasa na';
+    if (status === 'in_progress') return 'Binabasa';
+    return 'Bago';
+  };
+
+  const openPdfAssignment = async (assignment: PdfAssignment) => {
+    const material = assignment.pdf_materials;
+    if (!material?.file_url) {
+      Alert.alert('Hindi Mabuksan', 'Walang link ang PDF na ito.');
+      return;
+    }
+
+    try {
+      await Linking.openURL(material.file_url);
+
+      if (assignment.status === 'assigned') {
+        const { error } = await supabase
+          .from('pdf_assignments')
+          .update({ status: 'in_progress' })
+          .eq('id', assignment.id);
+
+        if (error) {
+          console.warn('[PdfAssignments] status update failed:', error.message);
+        } else {
+          setPdfAssignments((current) =>
+            current.map((a) => (a.id === assignment.id ? { ...a, status: 'in_progress' } : a))
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error('[PdfAssignments] openPdfAssignment failed:', err?.message || err);
+      Alert.alert('May Problema', 'Hindi ma-open ang PDF. Siguraduhing may internet connection.');
     }
   };
 
@@ -733,6 +815,7 @@ export default function StudentDashboard({ navigation }: any) {
         return new Map<string, WordDefinition>();
       }),
       loadOfficialCurriculum(profile.id),
+      loadPdfAssignments(profile.id),
     ]);
     setWordDefinitions(definitions);
 
@@ -2748,6 +2831,69 @@ export default function StudentDashboard({ navigation }: any) {
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang assignment ngayon</Text>
           <Text style={[styles.learnEmptySubtext, bodyA11y]}>Hihintayin natin ang unang takdang-aralin mula sa guro mo! 📝</Text>
+        </View>
+      )}
+
+      <View style={styles.learnSectionHeader}>
+        <View style={[styles.learnBadgePill, { backgroundColor: '#E9F1E2' }]}>
+          <Ionicons name="send" size={16} color={colors.sage} />
+          <Text style={[styles.learnBadgeText, { color: colors.sage }, smallLabelA11y]}>MGA IPINADALANG PDF</Text>
+        </View>
+        <Text style={[styles.learnSectionSubtitle, bodyA11y]}>Mga PDF na direktang ipinadala sa iyo ng guro</Text>
+      </View>
+
+      {pdfAssignmentsLoading ? (
+        <View style={styles.centerBlock}>
+          <ActivityIndicator size="small" color={colors.lavender} />
+          <Text style={[styles.empty, bodyA11y]}>Naglo-load ng mga PDF...</Text>
+        </View>
+      ) : pdfAssignmentsError ? (
+        <View style={styles.errorBlock}>
+          <Text style={[styles.error, bodyA11y]}>{pdfAssignmentsError}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={retryPdfAssignments}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading assigned PDFs"
+          >
+            <Text style={[styles.retryButtonText, buttonA11y]}>Subukan muli</Text>
+          </TouchableOpacity>
+        </View>
+      ) : pdfAssignments.length ? (
+        <View style={styles.learnCardList}>
+          {pdfAssignments.map((assignment) => {
+            const material = assignment.pdf_materials;
+            const title = material?.title || 'PDF';
+            return (
+              <View key={assignment.id} style={styles.learnLessonCard}>
+                <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
+                  <Ionicons name="document-text-outline" size={22} color={colors.sage} />
+                </View>
+                <View style={styles.uploadBody}>
+                  <Text style={[styles.learnItemTitle, cardTitleA11y]}>{title}</Text>
+                  <Text style={[styles.learnItemMeta, smallLabelA11y]}>
+                    {material?.level ? `${material.level} • ` : ''}{pdfAssignmentStatusLabel(assignment.status)}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.learnActionButton, { backgroundColor: colors.sage }]}
+                  onPress={() => void openPdfAssignment(assignment)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${title}`}
+                >
+                  <Text style={[styles.learnActionButtonText, buttonA11y]}>Buksan</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
+            <Ionicons name="send-outline" size={40} color={colors.lavenderDark} />
+          </View>
+          <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang ipinadalang PDF</Text>
+          <Text style={[styles.learnEmptySubtext, bodyA11y]}>Kapag nagpadala ang guro mo ng PDF, makikita mo agad ito dito! 📄</Text>
         </View>
       )}
 
