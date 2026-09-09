@@ -76,12 +76,18 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
   // childId+date, not Math.random on every load) so "today's word" stays the
   // same word if the screen reloads - level-gating stays intact, only the
   // *within-level* selection changed from ranked to random.
-  let level = 'Beginner';
+  let level: string;
   try {
     const officialProgression = await fetchOfficialReadingProgress();
     level = officialProgression.effective_level;
   } catch (progressionError: any) {
-    console.warn('[WordOfDay] official level lookup failed; defaulting to Beginner:', progressionError?.message || progressionError);
+    // Never substitute Beginner here. A network failure must show the retry
+    // state rather than give an Intermediate/Advanced child the wrong word.
+    console.warn('[WordOfDay] official level lookup failed:', progressionError?.message || progressionError);
+    throw new Error('Hindi ma-load ang antas ng pagbasa. Subukan muli.');
+  }
+  if (!['Beginner', 'Intermediate', 'Advanced'].includes(level)) {
+    throw new Error('Hindi wasto ang antas ng pagbasa. Subukan muli.');
   }
 
   const candidates = await supabase
