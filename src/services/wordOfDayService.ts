@@ -86,7 +86,7 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
 
   const candidates = await supabase
     .from('reading_content')
-    .select('word_id,content_text')
+    .select('id,word_id,content_text')
     .eq('content_type', 'word')
     .eq('is_active', true)
     .eq('level', level)
@@ -102,7 +102,10 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
   }
   const index = Math.abs(`${childId}-${date}`.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % words.length;
   const word = words[index].content_text;
-  const contentId: string | null = words[index].word_id;
+  // word_of_day_log.content_id references reading_content.id, not
+  // words.id. Keeping the curriculum id lets Word of the Day participate in
+  // the same audited, active content source without violating its FK.
+  const contentId: string | null = words[index].id;
   const recommendationId: string | null = null;
   const recommendationReason: string | null = 'Random na salita mula sa iyong antas.';
 
