@@ -8,7 +8,7 @@ const path = require('path');
 const XLSX = require('xlsx');
 const { supabaseAdmin } = require('../config/supabase');
 
-const FILE_PATH = path.join(__dirname, 'Tagalog_Phonetic_Words_Dyslexia_App_Updated.xlsx');
+const DEFAULT_FILE_PATH = path.join(__dirname, 'Tagalog_Phonetic_Words_Dyslexia_App_Updated.xlsx');
 const SHEET_TO_LEVEL = {
   'Level 1 Simple': 'beginner',
   'Level 2 Intermediate': 'intermediate',
@@ -53,8 +53,8 @@ const hasConsonantCluster = (word) => {
   return /[bcdfghjklmpqrstvwxyz]{2,}/.test(w);
 };
 
-const readWordRows = () => {
-  const workbook = XLSX.readFile(FILE_PATH);
+const readWordRows = (filePath) => {
+  const workbook = XLSX.readFile(filePath);
   const rows = [];
   Object.entries(SHEET_TO_LEVEL).forEach(([sheetName, level]) => {
     const sheet = workbook.Sheets[sheetName];
@@ -79,8 +79,12 @@ const readWordRows = () => {
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
-  const rows = readWordRows();
-  console.log(`Read ${rows.length} word rows from ${path.basename(FILE_PATH)}.`);
+  const fileFlagIndex = process.argv.indexOf('--file');
+  const filePath = fileFlagIndex >= 0 && process.argv[fileFlagIndex + 1]
+    ? path.resolve(process.argv[fileFlagIndex + 1])
+    : DEFAULT_FILE_PATH;
+  const rows = readWordRows(filePath);
+  console.log(`Read ${rows.length} word rows from ${path.basename(filePath)}.`);
 
   const { data: existing, error: fetchError } = await supabaseAdmin
     .from('words')

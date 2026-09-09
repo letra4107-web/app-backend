@@ -85,9 +85,11 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
   }
 
   const candidates = await supabase
-    .from('words')
-    .select('id,word')
-    .eq('level', level.toLowerCase())
+    .from('reading_content')
+    .select('word_id,content_text')
+    .eq('content_type', 'word')
+    .eq('is_active', true)
+    .eq('level', level)
     .limit(500);
   if (candidates.error) throw candidates.error;
   const words = candidates.data || [];
@@ -99,8 +101,8 @@ export const getOrCreateWordOfDay = async (childId: string, gradeLevel: number) 
     return null;
   }
   const index = Math.abs(`${childId}-${date}`.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % words.length;
-  const word = words[index].word;
-  const contentId: string | null = words[index].id;
+  const word = words[index].content_text;
+  const contentId: string | null = words[index].word_id;
   const recommendationId: string | null = null;
   const recommendationReason: string | null = 'Random na salita mula sa iyong antas.';
 

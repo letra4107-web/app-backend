@@ -38,14 +38,16 @@ const createWordsRouter = (supabase = supabaseAdmin) => {
     const limitRaw = parseInt(req.query.limit, 10);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 24;
 
+    // `reading_content` is the publish gate for the audited word bank.
+    // Keeping historical `words` rows is necessary for old attempts and
+    // curriculum links, but those rows must never be offered to a student.
+    const displayLevel = `${level[0].toUpperCase()}${level.slice(1)}`;
     let query = supabase
-      .from('words')
-      .select('id,word,level,syllable_count,has_diphthong,has_consonant_cluster');
-    // Explicit client-data correction. The canonical grid is sourced from
-    // reading_content, but this legacy fallback must not reintroduce the
-    // rejected English workbook row.
-    query = query.neq('word', 'shorts');
-    query = query.eq('level', level);
+      .from('reading_content')
+      .select('word_id,content_text,level')
+      .eq('content_type', 'word')
+      .eq('is_active', true)
+      .eq('level', displayLevel);
 
     const { data, error } = await query;
     if (error) {
@@ -55,7 +57,14 @@ const createWordsRouter = (supabase = supabaseAdmin) => {
 
     // Fisher-Yates shuffle - the words table has no meaningful order to
     // preserve, and the frontend relies on a fresh random sample each call.
-    const pool = data || [];
+    const pool = (data || []).map((item) => ({
+      id: item.word_id,
+      word: item.content_text,
+      level,
+      syllable_count: null,
+      has_diphthong: false,
+      has_consonant_cluster: false,
+    }));
     for (let i = pool.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];

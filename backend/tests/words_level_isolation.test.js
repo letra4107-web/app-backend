@@ -18,10 +18,10 @@ class Query {
     return Promise.resolve({ data: { id: 'student-1' }, error: null });
   }
   then(resolve) {
-    assert.strictEqual(this.table, 'words');
+    assert.strictEqual(this.table, 'reading_content');
     this.state.wordLevel = this.filters.find(([column]) => column === 'level')?.[1];
     return Promise.resolve({
-      data: [{ id: 'beginner-word', word: 'baka', level: this.state.wordLevel }], error: null,
+      data: [{ word_id: 'beginner-word', content_text: 'baka', level: this.state.wordLevel }], error: null,
     }).then(resolve);
   }
 }
@@ -70,7 +70,7 @@ const request = (port, path, token) => new Promise((resolve, reject) => {
     );
     assert.strictEqual(forged.status, 200);
     assert.strictEqual(forged.body.effectiveLevel, 'beginner');
-    assert.strictEqual(supabase.state.wordLevel, 'beginner');
+    assert.strictEqual(supabase.state.wordLevel, 'Beginner');
     assert(forged.body.words.every((word) => word.level === 'beginner'));
   } finally {
     await new Promise((resolve) => server.close(resolve));
