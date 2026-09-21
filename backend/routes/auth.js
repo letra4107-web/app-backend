@@ -74,6 +74,52 @@ const authLog = (level, message, meta = {}) => {
   console[level](`[auth] ${message}`, { timestamp: new Date().toISOString(), ...meta });
 };
 
+// Mobile counterpart of the web /api/auth/events route. Both applications
+// share Supabase, so this writes directly to the audit_logs table consumed by
+// the web Admin Audit Trail. Identity and role come only from a verified token.
+router.post('/events', async (req, res) => {
+  try {
+    const type = String(req.body?.type || '').toLowerCase();
+    if (type !== 'login') return res.status(400).json({ success: false, message: 'Invalid authentication event.' });
+
+    const token = bearerTokenFrom(req.headers.authorization);
+    if (!token) return res.status(401).json({ success: false, message: 'Authentication is required.' });
+
+    const { data: authenticated, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authenticated?.user?.id) {
+      return res.status(401).json({ success: false, message: 'Your sign-in session is invalid or expired.' });
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('users')
+      .select('name, role')
+      .eq('id', authenticated.user.id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    // Match the web audit policy: do not add an admin's own login to the
+    // operational trail, while still recording parent, teacher, and student logins.
+    if (profile?.role === 'admin') return res.json({ success: true, audited: false });
+
+    const { error: insertError } = await supabaseAdmin.from('audit_logs').insert({
+      actor_id: authenticated.user.id,
+      actor_role: profile?.role || null,
+      actor_name: profile?.name || authenticated.user.email || null,
+      action: 'AUTH.LOGIN_SUCCESS',
+      module: 'auth',
+      record_id: null,
+      status: 'successful',
+      metadata: { source: 'mobile', method: req.method, path: 'api/auth/events' },
+    });
+    if (insertError) throw insertError;
+
+    return res.json({ success: true, audited: true });
+  } catch (error) {
+    console.error('[auth/events] failed:', error?.message || error);
+    return res.status(500).json({ success: false, message: 'Unable to record authentication event.' });
+  }
+});
+
 const makeOtpRequestKey = (email, clientRequestId) => {
   const cleanRequestId = String(clientRequestId || '').trim().slice(0, 160);
   if (!email || !cleanRequestId) return '';
