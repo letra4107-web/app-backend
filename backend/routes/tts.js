@@ -15,8 +15,8 @@ const TTS_ENDPOINT = 'https://texttospeech.googleapis.com/v1/text:synthesize';
 // existing normal-speed playback path.
 const TTS_ENDPOINT_BETA = 'https://texttospeech.googleapis.com/v1beta1/text:synthesize';
 const CACHE_BUCKET = 'tts-cache';
-const DEFAULT_VOICE = 'fil-PH-Wavenet-A';
-const ALLOWED_VOICES = new Set(['fil-PH-Wavenet-A', 'fil-PH-Wavenet-C']);
+const DEFAULT_VOICE = 'fil-PH-Neural2-A';
+const ALLOWED_VOICES = new Set(['fil-PH-Neural2-A']);
 const LANGUAGE_CODE = 'fil-PH';
 
 // Google bills per character - this is a hard ceiling on any single request,
@@ -65,8 +65,20 @@ const escapeSsmlText = (text) => String(text)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&apos;');
 
+const FILIPINO_LETTER_SOUNDS = {
+  A: 'a', E: 'e', I: 'i', O: 'o', U: 'u', B: 'ba', K: 'ka', D: 'da', G: 'ga',
+  M: 'ma', N: 'na', NG: 'nga', P: 'pa', R: 'ra', S: 'sa', T: 'ta', W: 'wa', Y: 'ya',
+};
+const filipinoIpa = (text) => {
+  const expanded = FILIPINO_LETTER_SOUNDS[String(text).trim().toUpperCase()] || String(text).trim().toLowerCase();
+  return expanded.replace(/ng/g, 'ŋ').replace(/ñ/g, 'ɲ').replace(/dy/g, 'dʲ').replace(/ts/g, 'tʃ').replace(/r/g, 'ɾ');
+};
+
 const buildMarkedSsml = (syllables) => {
-  const body = syllables.map((syllable, index) => `<mark name="s${index}"/>${escapeSsmlText(syllable)}`).join('');
+  const body = syllables.map((syllable, index) => {
+    const spoken = FILIPINO_LETTER_SOUNDS[String(syllable).trim().toUpperCase()] || syllable;
+    return `<mark name="s${index}"/><phoneme alphabet="ipa" ph="${filipinoIpa(spoken)}">${escapeSsmlText(spoken)}</phoneme>`;
+  }).join('');
   return `<speak>${body}</speak>`;
 };
 
@@ -94,6 +106,8 @@ function ensureCacheBucket() {
 router.post('/speak', async (req, res) => {
   try {
     const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+    const ssml = typeof req.body?.ssml === 'string' ? req.body.ssml.trim() : '';
+    const synthesisText = ssml || text;
     const requestedVoice = typeof req.body?.voice === 'string' ? req.body.voice.trim() : '';
     const voice = ALLOWED_VOICES.has(requestedVoice) ? requestedVoice : DEFAULT_VOICE;
     const requestedRate = Number(req.body?.rate);
@@ -101,10 +115,10 @@ router.post('/speak', async (req, res) => {
       ? Math.min(MAX_SPEECH_RATE, Math.max(MIN_SPEECH_RATE, requestedRate))
       : DEFAULT_SPEECH_RATE;
 
-    if (!text) {
+    if (!synthesisText) {
       return postJson(res, 400, { success: false, message: 'Missing text to synthesize.' });
     }
-    if (text.length > MAX_TEXT_LENGTH) {
+    if (synthesisText.length > MAX_TEXT_LENGTH * 8) {
       return postJson(res, 400, { success: false, message: `Text is too long (max ${MAX_TEXT_LENGTH} characters).` });
     }
     if (!GOOGLE_TTS_API_KEY) {
@@ -113,7 +127,7 @@ router.post('/speak', async (req, res) => {
 
     await ensureCacheBucket();
 
-    const cacheKey = cacheKeyFor(text, voice, rate);
+    const cacheKey = cacheKeyFor(synthesisText, voice, rate);
     const cachePath = `${cacheKey}.mp3`;
     const { data: publicUrlData } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(cachePath);
     const publicUrl = publicUrlData?.publicUrl;
@@ -138,7 +152,7 @@ router.post('/speak', async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        input: { text },
+        input: ssml ? { ssml } : { text },
         voice: { languageCode: LANGUAGE_CODE, name: voice },
         audioConfig: { audioEncoding: 'MP3', speakingRate: rate },
       }),
