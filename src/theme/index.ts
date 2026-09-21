@@ -14,38 +14,44 @@
 // No provider, no context, no component - plain values only.
 
 export const colors = {
-  cream: '#FBF3E2',
-  ink: '#3B322C',
+  cream: '#FAF8F3',
+  ink: '#243331',
   // The WCAG-AA contrast fix from the previous stage now has exactly one
   // home - every screen importing this instead of hand-typing the hex is
   // what makes that class of drift structurally impossible going forward.
-  inkSoft: '#5F5044',
-  sun: '#E3971A',
-  coral: '#E06B4C',
-  sage: '#5C8047',
-  lavender: '#7C6FCF',
-  lavenderDark: '#5F52B0',
-  heroGradient: ['#6D28D9', '#974CDE', '#9D174D'] as const,
+  inkSoft: '#667572',
+  sun: '#D9A441',
+  coral: '#B85042',
+  sage: '#43865C',
+  lavender: '#176B68',
+  lavenderDark: '#0F4F4D',
+  heroGradient: ['#176B68', '#176B68', '#176B68'] as const,
   vivid: {
-    green: '#16A34A',
-    orange: '#EA580C',
-    violet: '#7C3AED',
-    amber: '#F59E0B',
-    teal: '#0D9488',
-    navy: '#1E3A8A',
+    green: '#43865C',
+    orange: '#B47B2A',
+    violet: '#176B68',
+    amber: '#D9A441',
+    teal: '#176B68',
+    navy: '#477A9B',
   },
-  success: '#10b981',
-  warning: '#f59e0b',
-  warningText: '#B45309',
-  danger: '#ef4444',
-  dangerText: '#DC2626',
-  primary: '#4f46e5',
-  primaryLight: '#eef2ff',
-  border: '#e5e7eb',
-  textPrimary: '#111827',
-  textSecondary: '#6b7280',
+  success: '#43865C',
+  warning: '#B47B2A',
+  warningText: '#B47B2A',
+  danger: '#B85042',
+  dangerText: '#B85042',
+  info: '#477A9B',
+  primary: '#176B68',
+  primaryLight: '#E5F1EF',
+  border: '#DDDCD5',
+  textPrimary: '#243331',
+  textSecondary: '#667572',
   white: '#ffffff',
 };
+
+export const roleColors = {
+  student: { primary: '#176B68', primaryDark: '#0F4F4D', soft: '#E5F1EF' },
+  parent: { primary: '#9A6742', primaryDark: '#70492F', soft: '#F5ECE3' },
+} as const;
 
 export const typography = {
   family: {
@@ -113,7 +119,7 @@ export const shadows = {
     elevation: 5,
   },
   hero: {
-    shadowColor: colors.heroGradient[0],
+    shadowColor: colors.primary,
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },

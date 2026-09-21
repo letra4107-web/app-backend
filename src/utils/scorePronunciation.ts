@@ -7,7 +7,7 @@
 // "balikaka" scored 73% against "kalikasan"); 75 keeps real STT-noise near
 // misses (dropped vowels, clipped final letters) passing while rejecting
 // mismatched words.
-export const PRACTICE_PASSING_SCORE = 75;
+export const PRACTICE_PASSING_SCORE = 88;
 
 // Unicode combining diacritical marks block (U+0300-U+036F), stripped after
 // NFD normalization to fold accented characters down to their base letter.

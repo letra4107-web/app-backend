@@ -9,7 +9,7 @@ import {
   subscribeToParentNotifications,
 } from '../services/notificationService';
 import { useAccessibility } from '../contexts/AccessibilityContext';
-import { colors, radius, shadows } from '../theme';
+import { colors, radius, roleColors, shadows } from '../theme';
 
 // SURFACE/BORDER/DANGER are intentionally NOT theme.colors equivalents -
 // one-off hex values kept local rather than coerced onto a nearby color.
@@ -36,17 +36,17 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; actionLabel: string; section: Section }> = {
-  lesson: { icon: 'book-outline', color: colors.lavenderDark, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
+  lesson: { icon: 'book-outline', color: roleColors.parent.primaryDark, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
   assignment: { icon: 'clipboard-outline', color: colors.sun, actionLabel: 'Tingnan ang Kalendaryo', section: 'calendar' },
   word: { icon: 'text-outline', color: colors.coral, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
   xp: { icon: 'flash-outline', color: colors.sun, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
   streak: { icon: 'flame-outline', color: colors.coral, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
   achievement: { icon: 'ribbon-outline', color: colors.sage, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
-  practice: { icon: 'mic-outline', color: colors.lavenderDark, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
+  practice: { icon: 'mic-outline', color: roleColors.parent.primaryDark, actionLabel: 'Tingnan ang Progreso', section: 'progress' },
 };
 const DEFAULT_META = {
   icon: 'notifications-outline' as keyof typeof Ionicons.glyphMap,
-  color: colors.lavenderDark,
+  color: roleColors.parent.primaryDark,
   actionLabel: 'Tingnan ang Progreso',
   section: 'progress' as Section,
 };
@@ -262,7 +262,7 @@ export function NotificationsView({
                 accessibilityLabel={`${meta.actionLabel} for ${item.title}`}
               >
                 <Text style={styles.actionButtonText}>{meta.actionLabel}</Text>
-                <Ionicons name="chevron-forward" size={13} color={colors.lavenderDark} />
+                <Ionicons name="chevron-forward" size={13} color={roleColors.parent.primaryDark} />
               </TouchableOpacity>
             )}
           </View>
@@ -327,7 +327,7 @@ export function NotificationsView({
         ))}
       </View>
 
-      {loading && <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 12 }} />}
+      {loading && <ActivityIndicator color={roleColors.parent.primaryDark} style={{ marginVertical: 12 }} />}
       {!!error && (
         <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
           {error}
@@ -431,9 +431,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '900', color: colors.ink },
   subtitle: { fontSize: 13, color: colors.inkSoft, marginTop: 4 },
   markAllButton: {
-    borderWidth: 1.5, borderColor: colors.lavenderDark, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20,
+    borderWidth: 1.5, borderColor: roleColors.parent.primaryDark, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20,
   },
-  markAllText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
+  markAllText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 12 },
   error: { color: DANGER, marginBottom: 12 },
 
   summaryBanner: {
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     marginBottom: 14, alignItems: 'center', ...shadows.card,
   },
   summaryIconWrap: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: colors.lavenderDark,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: roleColors.parent.primaryDark,
     alignItems: 'center', justifyContent: 'center',
   },
   summaryTitle: { fontWeight: '900', color: colors.ink, fontSize: 14 },
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingVertical: 7, paddingHorizontal: 14,
     backgroundColor: SURFACE,
   },
-  filterChipActive: { backgroundColor: colors.lavenderDark, borderColor: colors.lavenderDark },
+  filterChipActive: { backgroundColor: roleColors.parent.primaryDark, borderColor: roleColors.parent.primaryDark },
   filterChipText: { color: colors.ink, fontWeight: '700', fontSize: 12 },
   filterChipTextActive: { color: '#fff' },
 
@@ -465,19 +465,19 @@ const styles = StyleSheet.create({
   cardIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTitle: { fontWeight: '800', color: colors.ink, flexShrink: 1 },
-  unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.lavenderDark },
+  unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: roleColors.parent.primaryDark },
   cardBody: { color: colors.inkSoft, marginTop: 3, lineHeight: 19, fontSize: 13 },
   cardFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   cardDate: { color: colors.inkSoft, fontSize: 11 },
   actionButton: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  actionButtonText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
+  actionButtonText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 12 },
 
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 40, gap: 10 },
   emptyText: { color: colors.inkSoft, fontSize: 14 },
   closeButton: { padding: 6 },
 
   spotlightCard: {
-    backgroundColor: colors.lavenderDark, borderRadius: radius.lg, padding: 18, marginTop: 8, ...shadows.raised,
+    backgroundColor: roleColors.parent.primaryDark, borderRadius: radius.lg, padding: 18, marginTop: 8, ...shadows.raised,
   },
   spotlightBadge: {
     alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 12,
@@ -492,5 +492,5 @@ const styles = StyleSheet.create({
   spotlightStatValue: { color: '#fff', fontWeight: '900', fontSize: 22 },
   spotlightDelta: { fontWeight: '900', fontSize: 13 },
   spotlightButton: { backgroundColor: '#fff', borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
-  spotlightButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 14 },
+  spotlightButtonText: { color: roleColors.parent.primaryDark, fontWeight: '900', fontSize: 14 },
 });

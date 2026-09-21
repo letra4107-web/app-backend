@@ -5,7 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { updateProfile, uploadAvatar } from '../services/profileService';
-import { colors, radius, typography } from '../theme';
+import { colors, radius, roleColors, typography } from '../theme';
 import TabHeroHeader from '../components/TabHeroHeader';
 
 type Props = {
@@ -99,7 +99,7 @@ export default function ParentProfileScreen({
 
   return (
     <View style={{ flex: 1 }}>
-      <TabHeroHeader
+      <TabHeroHeader variant="parent"
         onBackPress={onGoBack}
         title="Aking Profile"
         subtitle="I-manage ang iyong personal na detalye."
@@ -183,22 +183,22 @@ const styles = StyleSheet.create({
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatarWrap: { position: 'relative' },
   avatar: { width: 68, height: 68, borderRadius: 34 },
-  avatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { color: colors.lavender, fontSize: 24, fontWeight: '900' },
+  avatarPlaceholder: { backgroundColor: '#F5ECE3', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { color: roleColors.parent.primary, fontSize: 24, fontWeight: '900' },
   avatarEdit: {
     position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13,
-    backgroundColor: colors.lavenderDark, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
+    backgroundColor: roleColors.parent.primaryDark, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
   },
   profileName: { fontSize: 18, fontWeight: '900', color: colors.ink },
   profileEmail: { color: colors.inkSoft, fontSize: 12, marginTop: 4 },
   cardTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16, marginBottom: 12 },
   input: {
-    minHeight: 48, borderWidth: 1, borderColor: '#E5DDF2', borderRadius: radius.sm,
+    minHeight: 48, borderWidth: 1, borderColor: '#DDDCD5', borderRadius: radius.sm,
     paddingHorizontal: 14, fontSize: 15, color: colors.ink, marginBottom: 12,
   },
   readOnlyInput: { backgroundColor: '#F8F7FC' },
   primaryButton: {
-    backgroundColor: colors.lavenderDark, borderRadius: radius.md, paddingVertical: 14,
+    backgroundColor: roleColors.parent.primaryDark, borderRadius: radius.md, paddingVertical: 14,
     alignItems: 'center',
   },
   primaryButtonText: { color: '#fff', fontWeight: '900' },

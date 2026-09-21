@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, shadows } from '../theme';
+import { colors, roleColors, shadows } from '../theme';
 
 export type BottomNavItem = {
   key: string;
@@ -14,10 +14,12 @@ export default function DashboardBottomNav({
   items,
   activeKey,
   onSelect,
+  activeColor = roleColors.student.primary,
 }: {
   items: BottomNavItem[];
   activeKey: string;
   onSelect: (key: string) => void;
+  activeColor?: string;
 }) {
   return (
     <View style={styles.container} accessibilityRole="tablist">
@@ -33,7 +35,7 @@ export default function DashboardBottomNav({
             accessibilityState={{ selected: active }}
             accessibilityLabel={item.label}
           >
-            <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
+            <View style={[styles.iconWrap, active && [styles.iconWrapActive, { backgroundColor: activeColor, shadowColor: activeColor }]]}>
               <Ionicons
                 name={active ? (item.icon.replace('-outline', '') as keyof typeof Ionicons.glyphMap) : item.icon}
                 size={25}
@@ -45,7 +47,7 @@ export default function DashboardBottomNav({
                 </View>
               )}
             </View>
-            <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>{item.label}</Text>
+            <Text style={[styles.label, active && [styles.labelActive, { color: activeColor }]]} numberOfLines={1}>{item.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -60,7 +62,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E9E4F2',
+    borderTopColor: colors.border,
     paddingTop: 8,
     paddingBottom: 9,
     paddingHorizontal: 6,
@@ -84,15 +86,13 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconWrapActive: {
-    backgroundColor: colors.lavenderDark,
-    shadowColor: colors.lavenderDark,
     shadowOpacity: 0.24,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
   label: { color: colors.inkSoft, fontSize: 11, fontWeight: '700', marginTop: 3 },
-  labelActive: { color: colors.lavenderDark, fontWeight: '900' },
+  labelActive: { fontWeight: '900' },
   badge: {
     position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18,
     paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.coral,

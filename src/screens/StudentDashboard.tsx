@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, AppState, AppStateStatus, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import ReanimatedView, { runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
@@ -21,7 +22,7 @@ import StudentWordOfDay from './StudentWordOfDay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ConfettiOverlay from '../components/ConfettiOverlay';
 import AchievementModal from './AchievementModal';
-import { getAsiaManilaDate, getOrCreateWordOfDay, WordOfDayLog } from '../services/wordOfDayService';
+import { getAsiaManilaDate, getOrCreateWordOfDay, getWordOfTheDay, WordOfDayLog } from '../services/wordOfDayService';
 import { buildNextProgress, ChildProgress, saveProgress } from '../services/progressService';
 import {
   ACHIEVEMENTS, unlockAchievements, getPronunciationStats, PronunciationStats, AchievementCategory, AchievementDefinition,
@@ -30,6 +31,7 @@ import {
 import { fetchStudentActivities, StudentActivity } from '../services/activityService';
 import { speakPhrase, stopSpeaking, setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { speakWordCloud, speakSyllablesCloud, stopCloudSpeaking, setCloudSpeechRate } from '../services/cloudTtsService';
+import { FILIPINO_TTS_RATES } from '../services/filipinoTts';
 import SyllableKaraokeText from '../components/SyllableKaraokeText';
 import WordMeaningReveal from '../components/WordMeaningReveal';
 import { fetchDashboardSettings, DashboardSettings } from '../services/settingsService';
@@ -61,6 +63,7 @@ import { studentAvatarSource } from '../utils/studentAvatar';
 import StudentModules from './StudentModules';
 import StudentProfileScreen from './StudentProfileScreen';
 import TabHeroHeader from '../components/TabHeroHeader';
+import GuidedPdfReader, { GuidedPdfAssignment } from './GuidedPdfReader';
 
 type ChildProfile = {
   id: string;
@@ -82,7 +85,7 @@ type Upload = {
 
 type PdfAssignment = {
   id: string;
-  status: 'assigned' | 'in_progress' | 'completed';
+  status: 'assigned' | 'in_progress' | 'submitted' | 'reviewed' | 'completed';
   assigned_at: string;
   due_date: string | null;
   pdf_material_id: string;
@@ -90,6 +93,10 @@ type PdfAssignment = {
     id: string;
     title: string;
     file_url: string;
+    extracted_text: string | null;
+    chunk_size: number | null;
+    preview_words?: string[] | null;
+    estimated_minutes?: number | null;
     level: string | null;
     grade_level: number | null;
   } | null;
@@ -103,7 +110,7 @@ type PdfAssignment = {
 // XP_GOLD is intentionally not a theme token - it carries an "XP gold"
 // semantic distinct from theme.colors.warning, even though the hex is
 // numerically identical.
-const XP_GOLD = '#f59e0b';
+const XP_GOLD = '#D9A441';
 // Single source of truth for the drawer's width - the closed-position
 // translateX must always equal -SIDEBAR_WIDTH so the drawer fully clears the
 // screen edge. A stale hardcoded offset here (from before the drawer was
@@ -167,11 +174,14 @@ const formatElapsed = (totalSeconds: number) => {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function StudentDashboard({ navigation }: any) {
+  const safeAreaInsets = useSafeAreaInsets();
   const [child, setChild] = useState<ChildProfile | null>(null);
   const [studentAvatarUrl, setStudentAvatarUrl] = useState<string | null>(null);
   const [studentAvatarKey, setStudentAvatarKey] = useState<string | null>(null);
   const [progress, setProgress] = useState<ChildProgress | null>(null);
   const [wordOfDay, setWordOfDay] = useState<WordOfDayLog | null>(null);
+  const [wordOfDayLoading, setWordOfDayLoading] = useState(true);
+  const [wordOfDayError, setWordOfDayError] = useState('');
   const [manilaDateKey, setManilaDateKey] = useState(getAsiaManilaDate());
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const [wordDefinitions, setWordDefinitions] = useState<Map<string, WordDefinition>>(new Map());
@@ -200,6 +210,7 @@ export default function StudentDashboard({ navigation }: any) {
   const [pdfAssignments, setPdfAssignments] = useState<PdfAssignment[]>([]);
   const [pdfAssignmentsLoading, setPdfAssignmentsLoading] = useState(false);
   const [pdfAssignmentsError, setPdfAssignmentsError] = useState<string>('');
+  const [openPdfAssignment, setOpenPdfAssignment] = useState<PdfAssignment | null>(null);
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [lessonsError, setLessonsError] = useState<string>('');
   const [activitiesLoading, setActivitiesLoading] = useState(false);
@@ -299,7 +310,7 @@ export default function StudentDashboard({ navigation }: any) {
     if (!selectedWord) return;
     setPracticeListening(true);
     setPracticeProcessing(false);
-    setPracticeStatus('Nakikinig… Basahin nang malinaw.');
+    setPracticeStatus('Nakikinig...');
     practiceStartRef.current = Date.now();
     latestInterimTranscriptRef.current = '';
   });
@@ -328,7 +339,7 @@ export default function StudentDashboard({ navigation }: any) {
     if (!transcript) return;
     latestInterimTranscriptRef.current = transcript;
     setPracticeTranscript(transcript);
-    setPracticeStatus(event.isFinal ? 'Narinig ko!' : 'Naririnig kita...');
+    setPracticeStatus(event.isFinal ? 'Sinusuri ang sagot...' : 'Nakikinig...');
 
     recognitionSessionRef.current?.onTranscript(transcript, event.isFinal);
   });
@@ -339,8 +350,10 @@ export default function StudentDashboard({ navigation }: any) {
     setPracticeProcessing(false);
     setPracticeStatus(
       event.error === 'no-speech'
-        ? 'Hindi ko narinig. Subukan natin ulit.'
-        : 'May problema sa mikropono. Subukan muli.'
+        ? 'Walang narinig na boses. Subukan mong bigkasin ulit.'
+        : event.error === 'network'
+          ? 'Nawalan ng koneksyon habang nakikinig. Suriin ang internet at subukan muli.'
+          : 'May problema sa speech recognition. Subukan muli.'
     );
   });
 
@@ -387,7 +400,7 @@ export default function StudentDashboard({ navigation }: any) {
     try {
       const { data, error } = await supabase
         .from('pdf_assignments')
-        .select('id, status, assigned_at, due_date, pdf_material_id, pdf_materials(id, title, file_url, level, grade_level)')
+        .select('id, status, assigned_at, due_date, pdf_material_id, pdf_materials(id, title, file_url, extracted_text, chunk_size, preview_words, estimated_minutes, level, grade_level)')
         .eq('student_id', childId)
         .order('assigned_at', { ascending: false });
 
@@ -409,39 +422,20 @@ export default function StudentDashboard({ navigation }: any) {
   };
 
   const pdfAssignmentStatusLabel = (status: PdfAssignment['status']) => {
-    if (status === 'completed') return 'Nabasa na';
+    if (status === 'completed') return 'Nakumpleto na';
+    if (status === 'reviewed') return 'Na-review na ng guro';
+    if (status === 'submitted') return 'Naipasa na sa guro';
     if (status === 'in_progress') return 'Binabasa';
     return 'Bago';
   };
 
-  const openPdfAssignment = async (assignment: PdfAssignment) => {
+  const openAssignedPdfReader = (assignment: PdfAssignment) => {
     const material = assignment.pdf_materials;
-    if (!material?.file_url) {
-      Alert.alert('Hindi Mabuksan', 'Walang link ang PDF na ito.');
+    if (!material?.extracted_text) {
+      Alert.alert('Hindi Mabuksan', 'Walang nabasang teksto sa kuwentong ito. Makipag-ugnayan sa guro mo.');
       return;
     }
-
-    try {
-      await Linking.openURL(material.file_url);
-
-      if (assignment.status === 'assigned') {
-        const { error } = await supabase
-          .from('pdf_assignments')
-          .update({ status: 'in_progress' })
-          .eq('id', assignment.id);
-
-        if (error) {
-          console.warn('[PdfAssignments] status update failed:', error.message);
-        } else {
-          setPdfAssignments((current) =>
-            current.map((a) => (a.id === assignment.id ? { ...a, status: 'in_progress' } : a))
-          );
-        }
-      }
-    } catch (err: any) {
-      console.error('[PdfAssignments] openPdfAssignment failed:', err?.message || err);
-      Alert.alert('May Problema', 'Hindi ma-open ang PDF. Siguraduhing may internet connection.');
-    }
+    setOpenPdfAssignment(assignment);
   };
 
   const loadPublishedLessons = async (gradeLevel?: number | string | null) => {
@@ -457,6 +451,24 @@ export default function StudentDashboard({ navigation }: any) {
       return [];
     } finally {
       setLessonsLoading(false);
+    }
+  };
+
+  const loadWordOfDay = async (childId?: string, gradeLevel?: number) => {
+    if (!childId) return null;
+    setWordOfDayLoading(true);
+    setWordOfDayError('');
+    try {
+      const log = await getOrCreateWordOfDay(childId, gradeLevel || 1);
+      setWordOfDay(log);
+      return log;
+    } catch (err: any) {
+      console.warn('[StudentDashboard] word-of-day load failed:', err?.message || err);
+      setWordOfDay(null);
+      setWordOfDayError('Hindi ma-load ang Salita Ngayon. Pakitingnan ang internet at subukan muli.');
+      return null;
+    } finally {
+      setWordOfDayLoading(false);
     }
   };
 
@@ -538,22 +550,6 @@ export default function StudentDashboard({ navigation }: any) {
       console.warn('[StudentDashboard] settings load failed:', error?.message || error);
       return null;
     }
-  };
-
-  // Same real dyslexia_font field/update path as the Settings tab's own
-  // Accessibility toggle - not a second source of truth. DashboardSettingsScreen
-  // unmounts/remounts whenever the Settings tab is left and reopened, so it
-  // always refetches this value fresh; nothing to keep in sync there.
-  // Same mailto pattern as DashboardSettingsScreen's contactSupport (that
-  // component isn't mounted from the sidebar, so this is a small, deliberate
-  // duplication matching how ParentDashboardEnhanced already keeps its own
-  // local copy too, rather than a new shared-service refactor).
-  const contactSupportFromSidebar = async () => {
-    const subject = encodeURIComponent('LinawLetra support - Student account');
-    const body = encodeURIComponent(`User ID: ${child?.auth_uid || ''}\n\nHow can we help?`);
-    const url = `mailto:support@linawletra.app?subject=${subject}&body=${body}`;
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) await Linking.openURL(url);
   };
 
   const handleStudentLogout = async () => {
@@ -795,10 +791,7 @@ export default function StudentDashboard({ navigation }: any) {
       });
 
     const [wordLog, uploads, lessonRows, assignedActivities, , , , , , , definitions] = await Promise.all([
-      getOrCreateWordOfDay(profile.id, Number(profile.grade_level || 1)).catch((err) => {
-        console.warn('[StudentDashboard] word-of-day load failed:', err?.message || err);
-        return null;
-      }),
+      loadWordOfDay(profile.id, Number(profile.grade_level || 1)),
       fetchTeacherUploads(Number(profile.grade_level || 1)),
       loadPublishedLessons(Number(profile.grade_level || 1)),
       loadStudentActivities(profile.auth_uid, profile.id),
@@ -940,14 +933,7 @@ export default function StudentDashboard({ navigation }: any) {
       if (currentDate !== manilaDateKey) {
         setManilaDateKey(currentDate);
         if (child?.id) {
-          try {
-            const wordLog = await getOrCreateWordOfDay(child.id, Number(child.grade_level || 1));
-            if (wordLog?.date !== wordOfDay?.date) {
-              setWordOfDay(wordLog);
-            }
-          } catch (err: any) {
-            console.warn('[StudentDashboard] failed to refresh Word of the Day at Manila midnight:', err?.message || err);
-          }
+          await loadWordOfDay(child.id, Number(child.grade_level || 1));
         }
       }
     };
@@ -1313,6 +1299,18 @@ export default function StudentDashboard({ navigation }: any) {
     speakWordCloud(word.replace(/-/g, ' '), { onError: (message) => setPracticeStatus(message) });
   };
 
+  const repeatCorrectWordTwice = (word: string) => {
+    const text = word.replace(/-/g, ' ');
+    speakWordCloud(text, {
+      rate: FILIPINO_TTS_RATES.repeatCorrectWord,
+      onError: (message) => setPracticeStatus(message),
+      onDone: () => speakWordCloud(text, {
+        rate: FILIPINO_TTS_RATES.repeatCorrectWord,
+        onError: (message) => setPracticeStatus(message),
+      }),
+    });
+  };
+
   // Prefers the client workbook's syllable_hyphenation column (linguistically
   // accurate - respects Tagalog onset-cluster rules) for curriculum words,
   // falling back to the syllabifyText() heuristic for anything outside the
@@ -1356,6 +1354,7 @@ export default function StudentDashboard({ navigation }: any) {
     setKaraokeSyllableIndex(0);
     setListenJustFinished(false);
     speakSyllablesCloud(parts, {
+      rate: FILIPINO_TTS_RATES.word,
       onSyllableIndex: (index) => setKaraokeSyllableIndex(index),
       onDone: () => {
         setKaraokeSyllableIndex(null);
@@ -1593,10 +1592,11 @@ export default function StudentDashboard({ navigation }: any) {
       }
 
       stopSpeaking();
-      speakPhrase(correct ? feedback : `${feedback} Pakinggan mo. ${selectedWord.replace(/-/g, ' ')}`, {
+      speakPhrase(feedback, {
+        rate: FILIPINO_TTS_RATES.feedback,
         onError: (message) => setPracticeStatus(message),
         onDone: () => {
-          if (!correct) speakPracticeWord(selectedWord);
+          if (!correct) repeatCorrectWordTwice(selectedWord);
         },
       });
 
@@ -1705,7 +1705,7 @@ export default function StudentDashboard({ navigation }: any) {
 
       const available = await ExpoSpeechRecognitionModule.isRecognitionAvailable();
       if (!available) {
-        setPracticeStatus('Hindi available ang speech recognition sa device na ito.');
+        setPracticeStatus('Walang nahanap na microphone. Ikabit o piliin ang mic sa device settings, saka subukan muli.');
         Alert.alert(
           'Pagkilala sa Boses',
           'Kailangan ng Google Speech Recognition sa Android o suportadong browser sa web.'
@@ -1714,9 +1714,30 @@ export default function StudentDashboard({ navigation }: any) {
       }
 
       if (Platform.OS === 'android' || Platform.OS === 'ios') {
-        const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-        if (!permission.granted) {
-          setPracticeStatus('Kailangan natin ng microphone permission para makinig.');
+        const currentPermission = await ExpoSpeechRecognitionModule.getPermissionsAsync();
+        if (!currentPermission.granted) {
+          const openSettings = currentPermission.canAskAgain === false;
+          Alert.alert(
+            openSettings ? 'Hindi magamit ang mikropono' : 'Kailangan namin ang mikropono',
+            'Ginagamit ang mikropono para marinig ang pagbasa mo at mabigyan ka ng feedback.',
+            [
+              { text: 'Mamaya na', style: 'cancel' },
+              {
+                text: openSettings ? 'Buksan ang Settings' : 'Payagan ang Mikropono',
+                onPress: () => {
+                  if (openSettings) {
+                    void Linking.openSettings();
+                  } else {
+                    void ExpoSpeechRecognitionModule.requestPermissionsAsync().then((permission) => {
+                      if (permission.granted) void startPracticeListening();
+                      else setPracticeStatus('Kailangan natin ng microphone permission para makinig. Payagan ito sa settings ng device.');
+                    });
+                  }
+                },
+              },
+            ],
+          );
+          setPracticeStatus('Kailangan natin ng microphone permission para makinig. Payagan ito sa settings ng device.');
           return;
         }
       }
@@ -1781,6 +1802,15 @@ export default function StudentDashboard({ navigation }: any) {
     </View>
   );
 
+  if (openPdfAssignment && child) return (
+    <GuidedPdfReader
+      assignment={openPdfAssignment as GuidedPdfAssignment}
+      studentId={child.id}
+      onClose={() => { setOpenPdfAssignment(null); void loadPdfAssignments(child.id); }}
+      onChanged={() => void loadPdfAssignments(child.id)}
+    />
+  );
+
   // Hoisted out of renderPractice() (component-level, not function-local) so
   // that both renderWordOfDay() (the Home tab, which now embeds the practice
   // entry point directly - see panel item 2) and renderPractice()'s own
@@ -1811,6 +1841,29 @@ export default function StudentDashboard({ navigation }: any) {
       speakPracticeWord(word);
     }
   };
+
+  const renderPracticeModeTabs = () => (
+    <View style={styles.practiceModeTabs} accessibilityRole="tablist">
+      <TouchableOpacity
+        style={[styles.practiceModeTab, practiceMode === 'say' && styles.practiceModeTabActive]}
+        onPress={() => setPracticeMode('say')}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: practiceMode === 'say' }}
+      >
+        <Ionicons name="mic" size={17} color={practiceMode === 'say' ? '#fff' : colors.primary} />
+        <Text style={[styles.practiceModeTabText, practiceMode === 'say' && styles.practiceModeTabTextActive]}>Sabihin ang Salita</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.practiceModeTab, practiceMode === 'listen' && styles.practiceModeTabActive]}
+        onPress={() => { setPracticeMode('listen'); if (selectedWord) playListenWord(selectedWord); }}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: practiceMode === 'listen' }}
+      >
+        <Ionicons name="volume-high" size={17} color={practiceMode === 'listen' ? '#fff' : colors.primary} />
+        <Text style={[styles.practiceModeTabText, practiceMode === 'listen' && styles.practiceModeTabTextActive]}>Pakinggan at Basahin</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   const wordsPracticedToday = todaySessions.length;
 
@@ -1903,6 +1956,32 @@ export default function StudentDashboard({ navigation }: any) {
       const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       return isToday ? `Today ${time}` : `${date.toLocaleDateString()} ${time}`;
     };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const deadlineInfo = (activity: StudentActivity) => {
+      const due = new Date(activity.deadline);
+      due.setHours(0, 0, 0, 0);
+      const completed = activity.status === 'completed' || activity.status === 'completed_late';
+      const late = !completed && due < today;
+      const label = late ? 'Late'
+        : due.getTime() === today.getTime() ? 'Ngayong Araw'
+        : due.getTime() === tomorrow.getTime() ? 'Bukas'
+        : due.toLocaleDateString('fil-PH', { month: 'long', day: 'numeric' });
+      return { due, late, label };
+    };
+    const deadlineItems = activities
+      .filter((activity) => activity.status !== 'completed' && activity.status !== 'completed_late')
+      .sort((a, b) => {
+        const aInfo = deadlineInfo(a);
+        const bInfo = deadlineInfo(b);
+        if (aInfo.late !== bInfo.late) return aInfo.late ? 1 : -1;
+        return aInfo.due.getTime() - bInfo.due.getTime();
+    })
+      .slice(0, 3);
+    const fallbackWord = getWordOfTheDay().word;
+    const homeContentStyle = [styles.homeContent, { paddingBottom: Math.max(safeAreaInsets.bottom, 16) + 96 }];
 
     return (
       <>
@@ -1921,7 +2000,7 @@ export default function StudentDashboard({ navigation }: any) {
           subtitleA11yStyle={heroSubtitleA11yStyle}
         />
 
-        <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={homeContentStyle} showsVerticalScrollIndicator={false}>
           {!!error && (
             <View style={styles.homeErrorBanner}>
               <Text style={styles.homeBannerEmoji}>💛</Text>
@@ -1939,38 +2018,60 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
-          {/* Deadlines widget — moved to top so upcoming due dates are the
-              first thing a student sees on Home */}
+          {/* Keep overdue work visible, but never describe it as upcoming. */}
           <View style={styles.homeDeadlinesCard}>
             <View style={styles.homeDeadlinesHeader}>
-              <Text style={[styles.homeDeadlinesTitle, cardTitleA11y]}>📅 Mga Paparating na Deadline</Text>
+              <Text style={[styles.homeDeadlinesTitle, cardTitleA11y]} numberOfLines={2}>📅 Mga Deadline</Text>
               <TouchableOpacity
                 onPress={() => setSection('learn')}
                 accessibilityRole="button"
                 accessibilityLabel="View all lessons"
+                style={styles.homeDeadlinesLinkWrap}
               >
-                <Text style={[styles.homeDeadlinesLink, cardSubtitleA11y]}>Tingnan ang mga aralin</Text>
+                <Text style={[styles.homeDeadlinesLink, cardSubtitleA11y]}>Tingnan ang lahat</Text>
               </TouchableOpacity>
             </View>
-            {activities.length ? (
-              activities.slice(0, 3).map((activity) => (
+            {activitiesLoading ? (
+              <ActivityIndicator color={colors.lavenderDark} style={{ paddingVertical: 16 }} />
+            ) : activitiesError ? (
+              <View style={styles.homeDeadlinesEmpty}>
+                <Text style={[styles.homeDeadlinesEmptyText, bodyA11y]}>Hindi ma-load ang mga deadline.</Text>
+                <TouchableOpacity
+                  style={styles.homeInlineRetry}
+                  onPress={() => child && void loadStudentActivities(child.auth_uid, child.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Subukan muling i-load ang mga deadline"
+                >
+                  <Text style={styles.homeInlineRetryText}>Subukan Muli</Text>
+                </TouchableOpacity>
+              </View>
+            ) : deadlineItems.length ? (
+              deadlineItems.map((activity) => {
+                const info = deadlineInfo(activity);
+                return (
                 <TouchableOpacity
                   key={activity.id}
                   style={styles.homeActivityRow}
                   onPress={() => setSection('learn')}
                   accessibilityRole="button"
-                  accessibilityLabel={`${activity.title}, due ${new Date(activity.deadline).toLocaleDateString()}`}
+                  accessibilityLabel={`${activity.title}, ${info.label}`}
                 >
-                  <View style={[styles.homeStatusDot, { backgroundColor: getStatusColor(activity.status) }]} />
+                  <View style={styles.homeActivityIconWrap}>
+                    <Ionicons name="clipboard" size={20} color={info.late ? '#B42318' : colors.lavenderDark} />
+                  </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.homeActivityTitle, cardSubtitleA11y]}>{activity.title}</Text>
-                    <Text style={[styles.homeActivityMeta, smallLabelA11y]}>
-                      {activity.subject || 'Activity'} • {new Date(activity.deadline).toLocaleDateString()}
-                    </Text>
+                    <Text style={[styles.homeActivityTitle, cardSubtitleA11y]} numberOfLines={1}>{activity.title}</Text>
+                    <View style={styles.homeActivityMetaRow}>
+                      <View style={[styles.homeStatusDot, { backgroundColor: info.late ? '#B42318' : getStatusColor(activity.status) }]} />
+                      <Text style={[styles.homeActivityMeta, smallLabelA11y]}>
+                        {activity.subject || 'Activity'} • {info.label}
+                      </Text>
+                    </View>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
                 </TouchableOpacity>
-              ))
+                );
+              })
             ) : (
               <View style={styles.homeDeadlinesEmpty}>
                 <Text style={styles.homeDeadlinesEmptyEmoji}>🌱</Text>
@@ -1991,7 +2092,7 @@ export default function StudentDashboard({ navigation }: any) {
               <Text style={[styles.homeTodayStatLine, bodyA11y]}>Bawat pagsasanay ay isang hakbang pasulong!</Text>
               <TouchableOpacity
                 style={styles.homeTodayButton}
-                onPress={() => goToPractice()}
+                onPress={() => recommendedItem ? startWord(recommendedItem.contentText, 'say', recommendedItem.id) : setSection('learn')}
                 accessibilityRole="button"
                 accessibilityLabel="Continue practice"
               >
@@ -2003,7 +2104,23 @@ export default function StudentDashboard({ navigation }: any) {
 
           {/* Continue Learning — real in-progress lesson + inferred
               Lesson X of Y (see comment above on continueLessonIndex) */}
-          {continueReadingLesson ? (
+          <View style={styles.homeWebOnlyHidden}>
+          {lessonsError ? (
+            <View style={styles.homeContinueCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Hindi ma-load ang iyong aralin</Text>
+                <Text style={[styles.homeContinueSubtitle, bodyA11y]}>Pakitingnan ang internet connection at subukan muli.</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.homeContinueButton}
+                onPress={() => child && void loadPublishedLessons(Number(child.grade_level || 1))}
+                accessibilityRole="button"
+                accessibilityLabel="Subukan muling i-load ang mga aralin"
+              >
+                <Text style={[styles.homeContinueButtonText, buttonA11y]}>Subukan Muli</Text>
+              </TouchableOpacity>
+            </View>
+          ) : continueReadingLesson ? (
             <View style={styles.homeContinueCard}>
               <View style={styles.homeContinueImageWrap}>
                 <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
@@ -2050,7 +2167,26 @@ export default function StudentDashboard({ navigation }: any) {
 
           {/* Word of the Day — kept intact, a real distinct feature the new
               reference layout has no equivalent slot for */}
-          {wordOfDay ? (
+          </View>
+          {wordOfDayLoading ? (
+            <View style={styles.homeHeroCard}>
+              <ActivityIndicator color={colors.lavenderDark} style={{ paddingVertical: 26 }} />
+            </View>
+          ) : wordOfDayError ? (
+            <View style={styles.homeHeroCard}>
+              <Text style={styles.homeHeroEmptyEmoji}>📡</Text>
+              <Text style={[styles.homeHeroEmptyTitle, cardTitleA11y]}>Hindi ma-load ang Salita Ngayon</Text>
+              <Text style={[styles.homeHeroEmptyText, bodyA11y]}>Pakitingnan ang internet connection at subukan muli.</Text>
+              <TouchableOpacity
+                style={styles.homeHeroEmptyButton}
+                onPress={() => child && void loadWordOfDay(child.id, Number(child.grade_level || 1))}
+                accessibilityRole="button"
+                accessibilityLabel="Subukan muling i-load ang Salita Ngayon"
+              >
+                <Text style={styles.homeHeroEmptyButtonText}>Subukan Muli</Text>
+              </TouchableOpacity>
+            </View>
+          ) : wordOfDay ? (
             <View style={styles.homeHeroCard}>
               <View style={styles.homeHeroTopRow}>
                 <View style={styles.homeHeroBadge}>
@@ -2074,38 +2210,89 @@ export default function StudentDashboard({ navigation }: any) {
           ) : (
             <View style={styles.homeHeroCard}>
               <Text style={styles.homeHeroEmptyEmoji}>📅</Text>
-              <Text style={[styles.homeHeroEmptyText, bodyA11y]}>Wala pang salita ngayon. Subukan muli mamaya.</Text>
+              <Text style={[styles.homeHeroEmptyTitle, cardTitleA11y]}>Wala pang Salita Ngayon</Text>
+              <Text style={[styles.homeHeroEmptyText, bodyA11y]}>Pwede ka pa ring magpatuloy sa iyong pagsasanay.</Text>
+              <TouchableOpacity
+                style={styles.homeHeroEmptyButton}
+                onPress={() => startWord(fallbackWord, 'say')}
+                accessibilityRole="button"
+                accessibilityLabel={`Simulan ang pagsasanay gamit ang salitang ${fallbackWord}`}
+              >
+                <Ionicons name="mic-outline" size={18} color="#fff" />
+                <Text style={styles.homeHeroEmptyButtonText}>Simulan ang Pagsasanay</Text>
+              </TouchableOpacity>
             </View>
           )}
-
-          {/* Ready to Practice? — single consolidated card per reference
-              layout, replacing the old two-row Say/Listen mode list */}
-          <View style={styles.readyPracticeCard}>
-            <View style={styles.readyPracticeIconWrap}>
-              <Ionicons name="mic" size={24} color={colors.lavenderDark} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.readyPracticeTitle, cardTitleA11y]}>Handa nang Magsanay?</Text>
-              <Text style={[styles.readyPracticeSub, bodyA11y]}>Magsanay bumasa ng mga salita at mapabuti ang iyong bigkas gamit ang AI feedback.</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.readyPracticeButton}
-              onPress={() => goToPractice()}
-              accessibilityRole="button"
-              accessibilityLabel="Start practice"
-            >
-              <Text style={[styles.readyPracticeButtonText, buttonA11y]}>Simulan ang Pagsasanay</Text>
-            </TouchableOpacity>
-          </View>
 
           {/* Recent Activity — merged real feed (see recentActivityItems
               comment above): whatever mix of completed lessons and
               pronunciation sessions actually happened, not a fixed layout */}
+          {lessonsError ? (
+            <View style={styles.homeContinueCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Hindi ma-load ang iyong aralin</Text>
+                <Text style={[styles.homeContinueSubtitle, bodyA11y]}>Pakitingnan ang internet connection at subukan muli.</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.homeContinueButton}
+                onPress={() => child && void loadPublishedLessons(Number(child.grade_level || 1))}
+                accessibilityRole="button"
+                accessibilityLabel="Subukan muling i-load ang mga aralin"
+              >
+                <Text style={[styles.homeContinueButtonText, buttonA11y]}>Subukan Muli</Text>
+              </TouchableOpacity>
+            </View>
+          ) : continueReadingLesson ? (
+            <View style={styles.homeContinueCard}>
+              <View style={styles.homeContinueImageWrap}>
+                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
+                <Text style={[styles.homeContinueSubtitle, cardSubtitleA11y]}>{continueReadingLesson.title}</Text>
+                <Text style={[styles.homeContinueLessonCount, smallLabelA11y]}>Aralin {continueLessonIndex + 1} ng {continueLessonTotal}</Text>
+                <View style={styles.homeContinueTrackRow}>
+                  <View style={styles.homeContinueTrack}>
+                    <View style={[styles.homeContinueFill, { width: `${Math.max(4, continueLessonPct)}%` }]} />
+                  </View>
+                  <Text style={[styles.homeContinuePct, smallLabelA11y]}>{continueLessonPct}%</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.homeContinueButton} onPress={() => setSection('learn')} accessibilityRole="button" accessibilityLabel={`Continue lesson: ${continueReadingLesson.title}`}>
+                <Text style={[styles.homeContinueButtonText, buttonA11y]}>Ipagpatuloy</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.homeContinueCard}>
+              <View style={styles.homeContinueImageWrap}>
+                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
+                <Text style={[styles.homeContinueSubtitle, cardSubtitleA11y]}>Wala pang binabasang aralin — simulan ang isa!</Text>
+              </View>
+              <TouchableOpacity style={styles.homeContinueButton} onPress={() => setSection('learn')} accessibilityRole="button" accessibilityLabel="Start a lesson">
+                <Text style={[styles.homeContinueButtonText, buttonA11y]}>Simulan</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.homeStartPracticeButton}
+            onPress={() => recommendedItem ? startWord(recommendedItem.contentText, 'say', recommendedItem.id) : setSection('learn')}
+            accessibilityRole="button"
+            accessibilityLabel="Simulan ang Pagsasanay"
+          >
+            <Ionicons name="mic-outline" size={19} color="#fff" />
+            <Text style={[styles.homeStartPracticeButtonText, buttonA11y]}>Simulan ang Pagsasanay</Text>
+          </TouchableOpacity>
+
+          <View style={styles.homeWebOnlyHidden}>
           <Text style={[styles.practiceSectionTitle, cardTitleA11y]}>Kamakailang Aktibidad</Text>
           {recentActivityItems.length ? (
             recentActivityItems.map((item) => (
               <View key={item.key} style={styles.homeRecentActivityCard}>
-                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
+                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#E5F1EF' }]}>
                   <Ionicons
                     name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
                     size={20}
@@ -2125,7 +2312,10 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
           )}
 
-          {/* Bottom encouragement banner */}
+          </View>
+          {/* Legacy practice widgets are intentionally hidden: Home stays focused on
+              practice, lessons, Salita Ngayon, deadlines, and recent activity. */}
+          <View style={{ display: 'none' }}>
           <View style={styles.homeQuoteBanner}>
             <Text style={[styles.homeQuoteText, bodyA11y]}>&quot;Bawat salitang nababasa mo, lumalakas ka!&quot;</Text>
             <Image source={require('../../assets/thumbsup.webp')} style={styles.homeQuoteImage} resizeMode="contain" />
@@ -2134,7 +2324,7 @@ export default function StudentDashboard({ navigation }: any) {
           {/* Quick actions */}
           <View style={styles.homeQuickRow}>
             <TouchableOpacity
-              style={[styles.homeQuickCard, { backgroundColor: '#EFECFB' }]}
+              style={[styles.homeQuickCard, { backgroundColor: '#E5F1EF' }]}
               onPress={() => setSection('learn')}
               accessibilityRole="button"
               accessibilityLabel="Go to Learn"
@@ -2195,7 +2385,7 @@ export default function StudentDashboard({ navigation }: any) {
                   {stats.streak > 0 ? 'May-init ang streak mo!' : 'Simulan ang streak!'}
                 </Text>
               </View>
-              <View style={[styles.rewardPill, { backgroundColor: '#EFECFB' }]}>
+              <View style={[styles.rewardPill, { backgroundColor: '#E5F1EF' }]}>
                 <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
                   <Ionicons name="ribbon" size={13} color={colors.lavenderDark} />
                 </View>
@@ -2276,13 +2466,13 @@ export default function StudentDashboard({ navigation }: any) {
             accessibilityRole="button"
             accessibilityLabel="Start Say the Word practice mode"
           >
-            <View style={[styles.practiceModeIconWrap, { backgroundColor: '#EFECFB' }]}>
+            <View style={[styles.practiceModeIconWrap, { backgroundColor: '#E5F1EF' }]}>
               <Ionicons name="mic" size={24} color={colors.lavenderDark} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Sabihin ang Salita</Text>
               <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita, pagkatapos sabihin ito nang malakas.</Text>
-              <View style={[styles.practiceModeTag, { backgroundColor: '#EFECFB' }]}>
+              <View style={[styles.practiceModeTag, { backgroundColor: '#E5F1EF' }]}>
                 <Text style={[styles.practiceModeTagText, { color: colors.lavenderDark }, smallLabelA11y]}>AI na Pagsasanay sa Bigkas</Text>
               </View>
             </View>
@@ -2343,6 +2533,7 @@ export default function StudentDashboard({ navigation }: any) {
 
           {renderSessionProgressCard()}
           {renderReadingTipCard()}
+          </View>
         </ScrollView>
       </>
     );
@@ -2427,6 +2618,7 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
 
             <View style={styles.practiceHero}>
+              {renderPracticeModeTabs()}
               <Animated.View
                 style={[
                   styles.practiceMoodBadge,
@@ -2452,6 +2644,7 @@ export default function StudentDashboard({ navigation }: any) {
                   definition={{
                     displayWord: getWordDefinition(selectedWord)!.display_word,
                     meaningFil: getWordDefinition(selectedWord)!.meaning_fil,
+                    exampleSentence: getWordDefinition(selectedWord)!.example_sentence,
                     isAmbiguous: getWordDefinition(selectedWord)!.is_ambiguous,
                   }}
                   bodyA11yStyle={bodyA11y}
@@ -2465,13 +2658,16 @@ export default function StudentDashboard({ navigation }: any) {
                     { flex: 1, width: undefined, backgroundColor: colors.sage, shadowColor: colors.sage },
                     listenPlaying && styles.listenButtonActive,
                   ]}
-                  onPress={() => playListenWord(selectedWord)}
+                  onPress={() => {
+                    if (listenPlaying) { stopCloudSpeaking(); setListenPlaying(false); }
+                    else playListenWord(selectedWord);
+                  }}
                   disabled={isKaraokeActive}
                   accessibilityRole="button"
                   accessibilityLabel={`Play pronunciation for ${selectedWord}`}
                 >
                   <Ionicons name={listenPlaying ? 'volume-high' : 'play'} size={26} color="#fff" />
-                  <Text style={[styles.sayWordButtonText, buttonA11y]}>{listenPlaying ? 'Pinapatugtog' : 'Pakinggan'}</Text>
+                  <Text style={[styles.sayWordButtonText, buttonA11y]}>{listenPlaying ? 'Itigil' : 'Pakinggan'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2490,7 +2686,7 @@ export default function StudentDashboard({ navigation }: any) {
                   ) : (
                     <Ionicons name="albums-outline" size={26} color="#fff" />
                   )}
-                  <Text style={[styles.sayWordButtonText, buttonA11y]}>Pantig-pantig</Text>
+                  <Text style={[styles.sayWordButtonText, buttonA11y]}>Basahin nang Malakas</Text>
                 </TouchableOpacity>
               </View>
 
@@ -2519,7 +2715,6 @@ export default function StudentDashboard({ navigation }: any) {
       setPracticeStatus('Kaya mo yan. Subukan ulit!');
     };
     const handleNextWord = () => {
-      if (!practiceResult?.correct) return;
       if (!recommendedItem) {
         setSelectedWord(null);
         setSelectedContentId(null);
@@ -2584,6 +2779,7 @@ export default function StudentDashboard({ navigation }: any) {
             </View>
 
             <View style={styles.practiceHero}>
+              {renderPracticeModeTabs()}
               <Animated.View
                 style={[
                   styles.practiceMoodBadge,
@@ -2613,6 +2809,7 @@ export default function StudentDashboard({ navigation }: any) {
                   definition={{
                     displayWord: getWordDefinition(selectedWord)!.display_word,
                     meaningFil: getWordDefinition(selectedWord)!.meaning_fil,
+                    exampleSentence: getWordDefinition(selectedWord)!.example_sentence,
                     isAmbiguous: getWordDefinition(selectedWord)!.is_ambiguous,
                   }}
                   bodyA11yStyle={bodyA11y}
@@ -2664,7 +2861,7 @@ export default function StudentDashboard({ navigation }: any) {
                   <Text style={styles.micTimerText}>{formatElapsed(recordingElapsed)} • Nakikinig...</Text>
                 )}
                 {!!practiceTranscript && (
-                  <Text style={[styles.practiceTranscript, bodyA11y]}>Narinig ko: &quot;{practiceTranscript}&quot;</Text>
+                  <Text style={[styles.practiceTranscript, bodyA11y]}>Narinig: {practiceTranscript}</Text>
                 )}
               </View>
             </View>
@@ -2703,8 +2900,7 @@ export default function StudentDashboard({ navigation }: any) {
                           matching PracticeResultCard's own gating (no "Susunod na
                           Salita" button on a wrong result) so this card can't be
                           used to skip ahead on a failed attempt. */}
-                      {practiceResult.correct && (
-                        <TouchableOpacity
+                      <TouchableOpacity
                           style={styles.encourageButtonSolid}
                           onPress={handleNextWord}
                           accessibilityRole="button"
@@ -2712,8 +2908,7 @@ export default function StudentDashboard({ navigation }: any) {
                         >
                           <Text style={[styles.encourageButtonSolidText, buttonA11y]}>Susunod na Salita</Text>
                           <Ionicons name="arrow-forward" size={16} color="#fff" />
-                        </TouchableOpacity>
-                      )}
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </View>
@@ -2767,8 +2962,11 @@ export default function StudentDashboard({ navigation }: any) {
 
     return (
     <View style={styles.assignmentsSectionWrap}>
+      {/* Legacy task cards are intentionally not part of the student Learn
+          flow. Teacher-assigned stories below are the single source here. */}
+      {false && <>
       <View style={styles.learnSectionHeader}>
-        <View style={[styles.learnBadgePill, { backgroundColor: '#EFECFB' }]}>
+        <View style={[styles.learnBadgePill, { backgroundColor: '#E5F1EF' }]}>
           <Ionicons name="clipboard" size={16} color={colors.lavenderDark} />
           <Text style={[styles.learnBadgeText, { color: colors.lavenderDark }, smallLabelA11y]}>MGA TAKDANG-ARALIN</Text>
         </View>
@@ -2796,7 +2994,7 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.learnCardList}>
           {activities.map((activity) => (
             <View key={activity.id} style={styles.learnActivityCard}>
-              <View style={[styles.learnIconWrap, { backgroundColor: '#EFECFB' }]}>
+              <View style={[styles.learnIconWrap, { backgroundColor: '#E5F1EF' }]}>
                 <Ionicons name="clipboard" size={22} color={colors.lavenderDark} />
               </View>
               <View style={{ flex: 1 }}>
@@ -2825,8 +3023,8 @@ export default function StudentDashboard({ navigation }: any) {
           ))}
         </View>
       ) : (
-        <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
-          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
+        <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF' }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E5F1EF' }]}>
             <Ionicons name="clipboard-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang assignment ngayon</Text>
@@ -2834,6 +3032,7 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
       )}
 
+      </>}
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#E9F1E2' }]}>
           <Ionicons name="send" size={16} color={colors.sage} />
@@ -2874,10 +3073,11 @@ export default function StudentDashboard({ navigation }: any) {
                   <Text style={[styles.learnItemMeta, smallLabelA11y]}>
                     {material?.level ? `${material.level} • ` : ''}{pdfAssignmentStatusLabel(assignment.status)}
                   </Text>
+                  {!!assignment.due_date && <Text style={[styles.learnItemMeta, smallLabelA11y]}>Deadline: {new Date(assignment.due_date).toLocaleDateString()}</Text>}
                 </View>
                 <TouchableOpacity
                   style={[styles.learnActionButton, { backgroundColor: colors.sage }]}
-                  onPress={() => void openPdfAssignment(assignment)}
+                  onPress={() => openAssignedPdfReader(assignment)}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${title}`}
                 >
@@ -2888,8 +3088,8 @@ export default function StudentDashboard({ navigation }: any) {
           })}
         </View>
       ) : (
-        <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
-          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
+        <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF' }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E5F1EF' }]}>
             <Ionicons name="send-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang ipinadalang PDF</Text>
@@ -2897,6 +3097,7 @@ export default function StudentDashboard({ navigation }: any) {
         </View>
       )}
 
+      {false && <>
       <View style={styles.learnSectionHeader}>
         <View style={[styles.learnBadgePill, { backgroundColor: '#E9F1E2' }]}>
           <Ionicons name="document-text" size={16} color={colors.sage} />
@@ -2927,8 +3128,8 @@ export default function StudentDashboard({ navigation }: any) {
           </Text>
         </View>
       ) : (
-        <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC' }]}>
-          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#EFECFB' }]}>
+        <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF' }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E5F1EF' }]}>
             <Ionicons name="book-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang aralin</Text>
@@ -3080,37 +3281,7 @@ export default function StudentDashboard({ navigation }: any) {
         </>
       )}
 
-      {!!uploadsError && (
-        <View style={styles.errorBlock}>
-          <Text style={[styles.error, bodyA11y]}>{uploadsError}</Text>
-        </View>
-      )}
-      {!lessons.length && uploads.length > 0 && (
-        <View style={styles.learnCardList}>
-          {uploads.map((upload) => {
-            const name = upload.metadata?.title || upload.path.split('/').pop() || 'Aralin';
-            return (
-              <View key={upload.id} style={styles.learnLessonCard}>
-                <View style={[styles.learnIconWrap, { backgroundColor: '#E9F1E2' }]}>
-                  <Ionicons name={iconForUpload(upload.content_type)} size={22} color={colors.sage} />
-                </View>
-                <View style={styles.uploadBody}>
-                  <Text style={[styles.learnItemTitle, cardTitleA11y]}>{name}</Text>
-                  <Text style={[styles.learnItemMeta, smallLabelA11y]}>{new Date(upload.created_at).toLocaleDateString()}</Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.learnActionButton, { backgroundColor: colors.sage }]}
-                  onPress={() => openUpload(upload)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${name}`}
-                >
-                  <Text style={[styles.learnActionButtonText, buttonA11y]}>Buksan</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-        </View>
-      )}
+      </>}
     </View>
     );
   };
@@ -3332,7 +3503,7 @@ export default function StudentDashboard({ navigation }: any) {
         {filteredBadges.length ? (
           <View style={styles.badgesGrid}>{filteredBadges.map(renderBadgeCard)}</View>
         ) : (
-          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
+          <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF', marginBottom: 20 }]}>
             <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala pang badge sa kategoryang ito.</Text>
           </View>
         )}
@@ -3385,7 +3556,7 @@ export default function StudentDashboard({ navigation }: any) {
             ))}
           </View>
         ) : (
-          <View style={[styles.learnEmptyCard, { backgroundColor: '#F5F3FC', marginBottom: 20 }]}>
+          <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF', marginBottom: 20 }]}>
             <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala ka pang nakukuhang badge. Magsanay para makakuha ng una mo!</Text>
           </View>
         )}
@@ -3677,12 +3848,9 @@ export default function StudentDashboard({ navigation }: any) {
     { key: 'achievements', label: 'Parangal', icon: 'ribbon-outline' },
   ];
   const studentSidebarItems = [
-    { key: 'profile', label: 'Aking Detalye', icon: 'person-outline', onPress: () => navigateTo('profile') },
-    { key: 'notifications', label: 'Mga Abiso', icon: 'notifications-outline', badge: unreadNotifCount, onPress: () => navigateTo('notifications') },
-    { key: 'settings', label: 'Mga Setting', icon: 'settings-outline', onPress: () => navigateTo('settings') },
-    { key: 'help', label: 'Tulong', icon: 'help-circle-outline', onPress: contactSupportFromSidebar },
-    { key: 'about', label: 'Tungkol Dito', icon: 'information-circle-outline', onPress: () => Alert.alert('Tungkol sa LinawLetra', 'Isang kasama sa pagbasa na dinisenyo upang tulungan ang bawat mag-aaral na umunlad nang may tiwala.') },
-    { key: 'privacy', label: 'Pagkapribado', icon: 'shield-checkmark-outline', onPress: () => Linking.openURL('https://linawletra.app/privacy').catch(() => Alert.alert('Hindi Mabuksan', 'Hindi mabuksan ang Patakaran sa Pagkapribado.')) },
+    { key: 'home', label: 'Simula', icon: 'home-outline', onPress: () => navigateTo('home') },
+    { key: 'learn', label: 'Aralin', icon: 'library-outline', onPress: () => navigateTo('learn') },
+    { key: 'achievements', label: 'Parangal', icon: 'ribbon-outline', onPress: () => navigateTo('achievements') },
   ];
 
   return (
@@ -3800,9 +3968,6 @@ export default function StudentDashboard({ navigation }: any) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.sidebarProfileName} numberOfLines={1}>{child?.name || 'Estudyante'}</Text>
                 <Text style={styles.sidebarProfileGrade}>Mag-aaral sa Baitang {child?.grade_level || '-'}</Text>
-                <TouchableOpacity onPress={() => navigateTo('profile')}>
-                  <Text style={styles.sidebarProfileLink}>Tingnan ang Profile ›</Text>
-                </TouchableOpacity>
               </View>
             </View>
           </LinearGradient>
@@ -3814,11 +3979,6 @@ export default function StudentDashboard({ navigation }: any) {
                 <Ionicons name={item.icon as any} size={20} color={colors.lavenderDark} />
               </View>
               <Text style={styles.navLabel}>{item.label}</Text>
-              {!!item.badge && (
-                <View style={styles.navCountBadge}>
-                  <Text style={styles.navCountBadgeText}>{item.badge > 9 ? '9+' : item.badge}</Text>
-                </View>
-              )}
               <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
             </TouchableOpacity>
           ))}
@@ -4023,12 +4183,12 @@ function PracticeResultCard({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#FAF8F3' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   centerBlock: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18 },
   header: { paddingHorizontal: 18, paddingBottom: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { fontSize: 24, fontWeight: '900', color: '#111827' },
-  subtitle: { color: '#6B7280', marginTop: 4 },
+  greeting: { fontSize: 24, fontWeight: '900', color: '#243331' },
+  subtitle: { color: '#667572', marginTop: 4 },
   logout: { backgroundColor: '#E74C3C', width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 18, paddingBottom: 48 },
   // --- Progress tab (accent: colors.success green — "growth over time") ---
@@ -4060,7 +4220,7 @@ const styles = StyleSheet.create({
   progressHeroRingLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 11, marginTop: 2 },
   progressHeroLabel: { color: colors.ink, fontWeight: '800', fontSize: 14, marginBottom: 8 },
   progressHeroStatusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F5F3FC',
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E5F1EF',
     borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7,
   },
   progressHeroStatusText: { fontWeight: '800', fontSize: 13 },
@@ -4124,7 +4284,7 @@ const styles = StyleSheet.create({
   progressWordChipText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 13 },
   progressWordsMore: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, marginLeft: 2 },
   progressWordsEmpty: { color: colors.inkSoft, fontWeight: '600', fontSize: 13 },
-  sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginTop: 18, marginBottom: 10 },
+  sectionTitle: { fontSize: 20, fontWeight: '900', color: '#243331', marginTop: 18, marginBottom: 10 },
   badgeRow: { gap: 10, paddingBottom: 4 },
   // --- Badges tab (accent: lavender, ties into Home's achievement showcase) ---
   // 1280x1920 in the source art (own ratio group, distinct from
@@ -4166,7 +4326,7 @@ const styles = StyleSheet.create({
   badgesCelebrateButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 14 },
   badgesFilterRow: { marginBottom: 16 },
   badgesFilterChip: {
-    backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 13, marginRight: 8,
+    backgroundColor: '#E5F1EF', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 13, marginRight: 8,
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   badgesFilterChipActive: { backgroundColor: colors.lavender },
@@ -4174,7 +4334,7 @@ const styles = StyleSheet.create({
   badgesFilterChipTextActive: { color: '#fff' },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   badgeCard: {
-    width: '48%', backgroundColor: '#F5F3FC', borderRadius: radius.lg, padding: 14,
+    width: '48%', backgroundColor: '#E5F1EF', borderRadius: radius.lg, padding: 14,
     alignItems: 'center', marginBottom: 14,
     ...shadows.card,
   },
@@ -4217,7 +4377,7 @@ const styles = StyleSheet.create({
   // --- Learn tab (assignments = lavender family, PDF lessons = sage family) ---
   assignmentsSectionWrap: {
     paddingBottom: 10, marginBottom: 6,
-    borderBottomWidth: 1, borderBottomColor: '#E9E4F2',
+    borderBottomWidth: 1, borderBottomColor: '#DDDCD5',
   },
   learnSectionHeader: { marginTop: 8, marginBottom: 14 },
   learnBadgePill: {
@@ -4229,7 +4389,7 @@ const styles = StyleSheet.create({
   learnCardList: { gap: 12, marginBottom: 8 },
   learnActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#F5F3FC', borderRadius: 20, padding: 14, marginBottom: 12,
+    backgroundColor: '#E5F1EF', borderRadius: 20, padding: 14, marginBottom: 12,
   },
   learnLessonCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -4365,7 +4525,7 @@ const styles = StyleSheet.create({
   },
   completedTrackTitle: { color: '#166534', fontWeight: '900', fontSize: 15 },
   completedTrackText: { color: '#166534', fontWeight: '600', fontSize: 12, marginTop: 2 },
-  empty: { color: '#6B7280', marginBottom: 8 },
+  empty: { color: '#667572', marginBottom: 8 },
   errorBlock: { backgroundColor: '#fff1f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
   error: { color: '#b91c1c', marginBottom: 10, fontWeight: '700' },
   retryButton: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: '#dc2626', borderRadius: 8, alignSelf: 'flex-start' },
@@ -4381,10 +4541,10 @@ const styles = StyleSheet.create({
   skeletonBlock: { width: '48%', height: 100, borderRadius: 14, backgroundColor: 'rgba(124,111,207,0.12)' },
   practicePanel: { marginTop: 18, padding: 16, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: colors.border },
   practiceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  practiceTitle: { fontSize: 18, fontWeight: '900', color: '#111827' },
+  practiceTitle: { fontSize: 18, fontWeight: '900', color: '#243331' },
   practiceClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  practiceCloseText: { color: '#6B7280', fontWeight: '800' },
-  practiceSubtitle: { color: '#6B7280', marginBottom: 12 },
+  practiceCloseText: { color: '#667572', fontWeight: '800' },
+  practiceSubtitle: { color: '#667572', marginBottom: 12 },
   resultCard: {
     marginTop: 20, borderRadius: 24, padding: 20, alignItems: 'center',
     shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
@@ -4393,7 +4553,7 @@ const styles = StyleSheet.create({
   wrongCard: { backgroundColor: '#FFF3DC' },
   resultEmoji: { fontSize: 28, textAlign: 'center', marginBottom: 8 },
   resultTitle: { fontFamily: typography.family.display, fontSize: 19, textAlign: 'center', color: colors.ink },
-  resultTranscript: { color: '#6B7280', fontSize: 13, marginTop: 10, textAlign: 'center' },
+  resultTranscript: { color: '#667572', fontSize: 13, marginTop: 10, textAlign: 'center' },
   resultScore: { marginTop: 8, color: colors.primary, fontWeight: '700', textAlign: 'center' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 18 },
   modalCard: { backgroundColor: '#fff', borderRadius: 8, padding: 14 },
@@ -4441,10 +4601,10 @@ const styles = StyleSheet.create({
     marginBottom: 6, backgroundColor: '#fff',
     shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  navItemActive: { backgroundColor: '#EFECFB' },
+  navItemActive: { backgroundColor: '#E5F1EF' },
   navIconWrap: {
     width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#F5F3FC',
+    backgroundColor: '#E5F1EF',
   },
   navIconWrapActive: { backgroundColor: '#fff' },
   navLabel: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
@@ -4454,7 +4614,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   navCountBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
-  navFractionPill: { backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  navFractionPill: { backgroundColor: '#E5F1EF', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   navFractionPillText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 10.5 },
   sidebarProgressCard: {
     backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16, overflow: 'hidden',
@@ -4495,7 +4655,7 @@ const styles = StyleSheet.create({
   },
   sidebarFullSignOutText: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, textDecorationLine: 'underline' },
   // --- Home tab ---
-  homeBg: { flex: 1, width: '100%', backgroundColor: '#EEF0FA' },
+  homeBg: { flex: 1, width: '100%', backgroundColor: '#FAF8F3' },
   homeContent: { padding: 18, paddingBottom: 48 },
   homeErrorBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -4521,26 +4681,28 @@ const styles = StyleSheet.create({
   // overflow:hidden clips it cleanly, matching the reference).
   heroImage: { position: 'absolute', right: -2, bottom: -14, width: 124, height: 246 },
   readyPracticeCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: '#FBE7DF', borderRadius: radius.xl, padding: 18, marginBottom: 16,
     borderWidth: 1, borderColor: 'rgba(224,107,76,0.15)',
     ...shadows.card,
   },
+  readyPracticeTopRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 16,
+  },
   readyPracticeIconWrap: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: '#EFECFB',
+    width: 52, height: 52, borderRadius: 26, backgroundColor: '#E5F1EF',
     alignItems: 'center', justifyContent: 'center',
   },
   readyPracticeTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16, marginBottom: 4 },
   readyPracticeSub: { color: colors.inkSoft, fontSize: 12, fontWeight: '600', lineHeight: 17 },
   readyPracticeButton: {
     backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 16,
-    minHeight: 44, alignItems: 'center', justifyContent: 'center',
+    minHeight: 48, alignItems: 'center', justifyContent: 'center',
   },
   readyPracticeButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   homeRecentActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: '#EEE9F9',
+    borderWidth: 1, borderColor: '#DDDCD5',
     ...shadows.card,
   },
   homeRecentActivityIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
@@ -4549,7 +4711,9 @@ const styles = StyleSheet.create({
   homeRecentActivityTime: { color: colors.inkSoft, fontSize: 11, fontWeight: '600' },
   homeRecentActivityEmpty: { alignItems: 'center', paddingVertical: 20, marginBottom: 8 },
   homeRecentActivityEmptyText: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  homeWebOnlyHidden: { display: 'none' },
   homeTodayCard: {
+    display: 'none',
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3DC', borderRadius: radius.xl, padding: 18, marginBottom: 16,
     ...shadows.raised,
   },
@@ -4570,7 +4734,7 @@ const styles = StyleSheet.create({
   homeGridValue: { fontFamily: typography.family.display, fontSize: 20, marginTop: 8 },
   homeGridLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, marginTop: 2 },
   homeContinueCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: radius.lg, padding: 16, marginBottom: 16, gap: 12,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F1EF', borderRadius: radius.lg, padding: 16, marginBottom: 16, gap: 12,
     ...shadows.card,
   },
   homeContinueTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 15 },
@@ -4581,6 +4745,12 @@ const styles = StyleSheet.create({
   homeContinuePct: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
   homeContinueButton: { backgroundColor: colors.lavender, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
   homeContinueButtonText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  homeStartPracticeButton: {
+    minHeight: 50, borderRadius: radius.md, backgroundColor: colors.primary,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginBottom: 16, ...shadows.card,
+  },
+  homeStartPracticeButtonText: { color: '#fff', fontWeight: '900', fontSize: 14 },
   // Source art is a tall 1:2 character illustration (1120x2240), not a
   // square headshot - a plain "cover" crop centers vertically and risks
   // cutting off the character's head/face. Instead the wrap clips a fixed
@@ -4608,7 +4778,10 @@ const styles = StyleSheet.create({
   homeHeroStreakText: { color: '#fff', fontWeight: '900', fontSize: 11, letterSpacing: 0.3 },
   homeHeroSub: { color: colors.inkSoft, fontWeight: '600', textAlign: 'center', marginBottom: 4, fontSize: 13 },
   homeHeroEmptyEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
-  homeHeroEmptyText: { color: colors.inkSoft, textAlign: 'center', fontWeight: '600' },
+  homeHeroEmptyTitle: { color: colors.ink, textAlign: 'center', fontSize: 17, marginBottom: 6 },
+  homeHeroEmptyText: { color: colors.inkSoft, textAlign: 'center', fontWeight: '600', lineHeight: 19 },
+  homeHeroEmptyButton: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, minHeight: 48, paddingHorizontal: 18, borderRadius: 16, backgroundColor: colors.lavenderDark },
+  homeHeroEmptyButtonText: { color: '#fff', fontWeight: '900', fontSize: 14 },
   homePracticeSectionTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16, marginBottom: 10 },
   homePracticeRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
@@ -4639,14 +4812,19 @@ const styles = StyleSheet.create({
   },
   homeQuickLabel: { fontWeight: '800', color: colors.ink, fontSize: 13 },
   homeDeadlinesCard: {
-    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 20, padding: 16,
+    backgroundColor: '#fff', borderRadius: radius.xl, padding: 18, marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(124,111,207,0.12)',
+    ...shadows.card,
   },
-  homeDeadlinesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  homeDeadlinesTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16 },
+  homeDeadlinesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 8 },
+  homeDeadlinesTitle: { flex: 1, fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 16 },
+  homeDeadlinesLinkWrap: { flexShrink: 0, paddingTop: 2 },
   homeDeadlinesLink: { color: colors.lavenderDark, fontWeight: '800', fontSize: 13 },
   homeDeadlinesEmpty: { alignItems: 'center', paddingVertical: 14 },
   homeDeadlinesEmptyEmoji: { fontSize: 28, marginBottom: 6 },
   homeDeadlinesEmptyText: { color: colors.inkSoft, textAlign: 'center', fontWeight: '600', fontSize: 13 },
+  homeInlineRetry: { marginTop: 10, minHeight: 44, paddingHorizontal: 16, borderRadius: 14, backgroundColor: '#E5F1EF', justifyContent: 'center' },
+  homeInlineRetryText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13 },
   // --- Notifications tab ---
   // Padding gives the negative-offset dot room inside this wrapper's own
   // bounding box instead of poking outside it - on Android, a
@@ -4672,7 +4850,7 @@ const styles = StyleSheet.create({
   notifSummaryTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 15 },
   notifSummarySub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 3 },
   notifMarkAllButton: {
-    backgroundColor: '#F5F3FC', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 13,
+    backgroundColor: '#E5F1EF', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 13,
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   notifMarkAllButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 11 },
@@ -4680,7 +4858,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#fff', borderRadius: 18, padding: 14,
     shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
   },
-  notifCardUnread: { backgroundColor: '#F5F3FC' },
+  notifCardUnread: { backgroundColor: '#E5F1EF' },
   notifIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   notifTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lavender },
@@ -4712,12 +4890,12 @@ const styles = StyleSheet.create({
   goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: colors.lavender },
   goalEmptyNote: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 10 },
   practiceSectionTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16, marginBottom: 12, marginTop: 4 },
-  aiRecommendationCard: { backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', borderRadius: radius.md, padding: 14, marginBottom: 14, ...shadows.card },
+  aiRecommendationCard: { backgroundColor: '#E5F1EF', borderWidth: 1, borderColor: '#DDDCD5', borderRadius: radius.md, padding: 14, marginBottom: 14, ...shadows.card },
   aiRecommendationTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   aiRecommendationIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
   aiRecommendationWord: { color: colors.lavenderDark, fontWeight: '900', fontSize: 19 },
   aiRecommendationWordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  trackPill: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#D9D4F4' },
+  trackPill: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#DDDCD5' },
   trackPillText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 10 },
   aiRecommendationReason: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, lineHeight: 17, marginTop: 2 },
   aiRecommendationFocus: { color: colors.ink, fontWeight: '700', fontSize: 12, marginTop: 10 },
@@ -4726,7 +4904,7 @@ const styles = StyleSheet.create({
   aiConfidenceLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 9 },
   categoryFilterBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#EFECFB', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14,
+    backgroundColor: '#E5F1EF', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14,
   },
   categoryFilterBarText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 13 },
   categoryFilterBarReset: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13, textDecorationLine: 'underline' },
@@ -4743,6 +4921,11 @@ const styles = StyleSheet.create({
   practiceModeTagText: { fontWeight: '800', fontSize: 11 },
   practiceModeStartPill: { backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 11 },
   practiceModeStartText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  practiceModeTabs: { flexDirection: 'row', gap: 8, width: '100%', marginBottom: 16 },
+  practiceModeTab: { flex: 1, minHeight: 44, borderRadius: 14, backgroundColor: colors.primaryLight, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 6 },
+  practiceModeTabActive: { backgroundColor: colors.primary },
+  practiceModeTabText: { color: colors.primary, fontWeight: '800', fontSize: 11, textAlign: 'center' },
+  practiceModeTabTextActive: { color: '#fff' },
   listenNextButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     alignSelf: 'center', backgroundColor: '#E9F1E2', borderRadius: 999,
@@ -4750,7 +4933,7 @@ const styles = StyleSheet.create({
   },
   listenNextButtonText: { color: colors.sage, fontWeight: '900', fontSize: 14 },
   listenButtonRow: { flexDirection: 'row', gap: 10, width: '100%' },
-  practiceStatsCard: { backgroundColor: '#F5F3FC', borderRadius: radius.xl, padding: 18, marginTop: 8, marginBottom: 8, ...shadows.card },
+  practiceStatsCard: { backgroundColor: '#E5F1EF', borderRadius: radius.xl, padding: 18, marginTop: 8, marginBottom: 8, ...shadows.card },
   practiceStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   practiceStatsCol: { alignItems: 'center', flex: 1, gap: 4 },
   practiceStatsValue: { color: colors.ink, fontWeight: '900', fontSize: 16 },
@@ -4792,7 +4975,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#EFECFB',
+    backgroundColor: '#E5F1EF',
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -4868,7 +5051,7 @@ const styles = StyleSheet.create({
 
   encourageCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#F5F3FC', borderRadius: radius.xl, padding: 16, marginTop: 8, marginBottom: 20,
+    backgroundColor: '#E5F1EF', borderRadius: radius.xl, padding: 16, marginTop: 8, marginBottom: 20,
     ...shadows.card,
   },
   encourageImage: { width: 71, height: 124 },
@@ -4988,14 +5171,21 @@ const styles = StyleSheet.create({
   homeActivityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(59,50,44,0.08)',
+    gap: 12,
+    backgroundColor: '#E5F1EF',
+    borderRadius: radius.lg,
+    padding: 12,
+    marginBottom: 8,
   },
-  homeStatusDot: { width: 10, height: 10, borderRadius: 5 },
-  homeActivityTitle: { color: colors.ink, fontWeight: '900' },
-  homeActivityMeta: { color: colors.inkSoft, fontSize: 12, marginTop: 2 },
+  homeActivityIconWrap: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#E5F1EF',
+  },
+  homeActivityMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  homeStatusDot: { width: 8, height: 8, borderRadius: 4 },
+  homeActivityTitle: { color: colors.ink, fontWeight: '900', fontSize: 14 },
+  homeActivityMeta: { color: colors.inkSoft, fontSize: 12 },
   profileHero: {
     backgroundColor: '#fff',
     borderRadius: 12,

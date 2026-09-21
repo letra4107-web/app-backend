@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl, postJson } from '../config/api';
@@ -8,6 +9,7 @@ import { WordOfDayLog } from '../services/wordOfDayService';
 import { WordDefinition } from '../services/wordDefinitionsService';
 import { speakPhrase } from '../services/ttsService';
 import { speakWordCloud } from '../services/cloudTtsService';
+import { FILIPINO_TTS_RATES } from '../services/filipinoTts';
 import { logPhonemeConfusion } from '../services/phonemeService';
 import { createSpeechRecognitionSession, SpeechRecognitionSession } from '../utils/speechRecognitionSession';
 import { colors, typography } from '../theme';
@@ -43,6 +45,9 @@ export default function StudentWordOfDay({
   const [completedToday, setCompletedToday] = useState(log.correct === true);
   const [message, setMessage] = useState('');
   const [analysis, setAnalysis] = useState<{ accuracy: number; feedback: string } | null>(null);
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
+  const [permissionBlocked, setPermissionBlocked] = useState(false);
   const isStartingRef = useRef(false);
   const isListeningRef = useRef(false);
   const processingRef = useRef(false);
@@ -103,11 +108,23 @@ export default function StudentWordOfDay({
         : TRY_PHRASES[Math.floor(Math.random() * TRY_PHRASES.length)]);
       setAnalysis({ accuracy: score, feedback: phrase });
       if (correct) setCompletedToday(true);
-      speakPhrase(phrase, { onError: setMessage });
+      speakPhrase(phrase, {
+        rate: FILIPINO_TTS_RATES.feedback,
+        onError: setMessage,
+        onDone: () => {
+          if (!correct) {
+            const target = log.word.replace(/-/g, ' ');
+            speakWordCloud(target, {
+              rate: FILIPINO_TTS_RATES.repeatCorrectWord,
+              onError: setMessage,
+              onDone: () => speakWordCloud(target, { rate: FILIPINO_TTS_RATES.repeatCorrectWord, onError: setMessage }),
+            });
+          }
+        },
+      });
       if (!correct) {
-        setTimeout(() => {
-          if (isMountedRef.current) speakWordCloud(log.word, { onError: setMessage });
-        }, 2000);
+        // The two slow target-word repeats start only after the Filipino
+        // encouragement finishes; see the onDone callback above.
       }
       await onResult(correct, attempts, score, response.transcript, response.completion);
     } catch (error: any) {
@@ -166,7 +183,7 @@ export default function StudentWordOfDay({
       : 'May problema sa speech recognition ng device. Subukan muli.');
   });
 
-  const startRecording = async () => {
+  const beginRecording = async () => {
     if (isStartingRef.current || isListeningRef.current || processingRef.current) return;
     isStartingRef.current = true;
     setStarting(true);
@@ -175,12 +192,6 @@ export default function StudentWordOfDay({
       const available = await ExpoSpeechRecognitionModule.isRecognitionAvailable();
       if (!available) {
         setMessage('Hindi available ang speech recognition sa device na ito.');
-        return;
-      }
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!isMountedRef.current) return;
-      if (!permission.granted) {
-        setMessage('Kailangan ng mikropono. I-enable ito sa device settings.');
         return;
       }
       recognitionSessionRef.current?.dispose();
@@ -226,6 +237,44 @@ export default function StudentWordOfDay({
     }
   };
 
+  const startRecording = async () => {
+    if (isStartingRef.current || isListeningRef.current || processingRef.current) return;
+    if (Platform.OS === 'web') {
+      await beginRecording();
+      return;
+    }
+    const permission = await ExpoSpeechRecognitionModule.getPermissionsAsync();
+    if (permission.granted) {
+      const seenWalkthrough = await AsyncStorage.getItem('linawletra.voice-walkthrough-seen');
+      if (seenWalkthrough) await beginRecording();
+      else setShowWalkthrough(true);
+      return;
+    }
+    setPermissionBlocked(permission.canAskAgain === false);
+    setShowPermissionGuide(true);
+  };
+
+  const requestMicrophone = async () => {
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!isMountedRef.current) return;
+    if (!permission.granted) {
+      setPermissionBlocked(permission.canAskAgain === false);
+      setShowPermissionGuide(false);
+      setMessage('Hindi magamit ang mikropono. Payagan ito para makapagsanay sa pagbasa.');
+      return;
+    }
+    setShowPermissionGuide(false);
+    const seenWalkthrough = await AsyncStorage.getItem('linawletra.voice-walkthrough-seen');
+    if (seenWalkthrough) await beginRecording();
+    else setShowWalkthrough(true);
+  };
+
+  const startFirstPractice = async () => {
+    await AsyncStorage.setItem('linawletra.voice-walkthrough-seen', 'true');
+    setShowWalkthrough(false);
+    await beginRecording();
+  };
+
   const stopRecording = () => {
     if (!isListeningRef.current) return;
     try {
@@ -243,6 +292,43 @@ export default function StudentWordOfDay({
 
   return (
     <View style={styles.container}>
+      <Modal transparent visible={showPermissionGuide} animationType="fade" onRequestClose={() => setShowPermissionGuide(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>🎙️</Text>
+            <Text style={styles.modalTitle}>{permissionBlocked ? 'Hindi magamit ang mikropono' : 'Kailangan namin ang mikropono'}</Text>
+            <Text style={styles.modalText}>Ginagamit ang mikropono para marinig ang pagbasa mo at mabigyan ka ng feedback.</Text>
+            {permissionBlocked ? (
+              <TouchableOpacity style={styles.modalPrimaryButton} onPress={() => void Linking.openSettings()}>
+                <Text style={styles.modalPrimaryText}>Buksan ang Settings</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.modalPrimaryButton} onPress={() => void requestMicrophone()}>
+                <Text style={styles.modalPrimaryText}>Payagan ang Mikropono</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.modalSecondaryButton} onPress={() => setShowPermissionGuide(false)}>
+              <Text style={styles.modalSecondaryText}>Mamaya na</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      <Modal transparent visible={showWalkthrough} animationType="fade" onRequestClose={() => setShowWalkthrough(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Ganito lang kadali!</Text>
+            <Text style={styles.walkthroughStep}>🎙️  1. Payagan ang mikropono</Text>
+            <Text style={styles.walkthroughText}>Kailangan ito para marinig ang iyong pagbasa.</Text>
+            <Text style={styles.walkthroughStep}>🗣️  2. Sabihin ang salita</Text>
+            <Text style={styles.walkthroughText}>Basahin nang malinaw at dahan-dahan.</Text>
+            <Text style={styles.walkthroughStep}>✨  3. Tingnan ang feedback</Text>
+            <Text style={styles.walkthroughText}>Makikita mo kung paano pa mapapaganda ang iyong pagbasa.</Text>
+            <TouchableOpacity style={styles.modalPrimaryButton} onPress={() => void startFirstPractice()}>
+              <Text style={styles.modalPrimaryText}>Simulan ang Pagsasanay</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <View style={styles.card}>
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
@@ -257,7 +343,23 @@ export default function StudentWordOfDay({
         <View style={styles.wordCard}>
           <Text style={styles.wordLabel}>Basahin nang malinaw</Text>
           <Text style={styles.word}>{display}</Text>
-          {!!definition && <Text style={styles.wordMeaning}>{definition.meaning_fil}</Text>}
+          {!!definition && (
+            <View style={styles.wordMeaningRow}>
+              <Text style={styles.wordMeaning}>{definition.meaning_fil}</Text>
+              <TouchableOpacity
+                style={styles.meaningPlayButton}
+                onPress={() => speakPhrase([definition.meaning_fil, definition.example_sentence].filter(Boolean).join(' '), {
+                  bypassToggle: true,
+                  rate: FILIPINO_TTS_RATES.meaning,
+                  onError: setMessage,
+                })}
+                accessibilityRole="button"
+                accessibilityLabel="Pakinggan ang kahulugan"
+              >
+                <Ionicons name="volume-high" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {!!log.recommendation_reason && (
@@ -316,6 +418,12 @@ export default function StudentWordOfDay({
               </View>
             )}
 
+            {!!message && message.startsWith('Hindi magamit ang mikropono') && (
+              <TouchableOpacity style={styles.settingsButton} onPress={() => setShowPermissionGuide(true)}>
+                <Text style={styles.settingsButtonText}>Subukan Muli</Text>
+              </TouchableOpacity>
+            )}
+
             {!!analysis && (
               <View style={styles.analysisCard}>
                 <Text style={styles.analysisTitle}>Pagsusuri ng Bigkas</Text>
@@ -348,13 +456,15 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1, minWidth: 0, paddingRight: 10 },
   title: { color: colors.lavenderDark, fontSize: 20, fontWeight: '900' },
   subtitle: { color: colors.inkSoft, fontSize: 13, marginTop: 4 },
-  chip: { backgroundColor: '#F4EDFF', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
+  chip: { backgroundColor: '#E5F1EF', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
   chipText: { color: colors.lavenderDark, fontWeight: '700', fontSize: 12 },
-  wordCard: { backgroundColor: '#F7F6FF', borderRadius: 24, padding: 18, alignItems: 'center', marginBottom: 20 },
+  wordCard: { backgroundColor: '#E5F1EF', borderRadius: 24, padding: 18, alignItems: 'center', marginBottom: 20 },
   wordLabel: { color: colors.lavender, fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 },
   word: { fontFamily: typography.family.display, fontSize: 46, color: colors.lavenderDark, letterSpacing: 1.6, textAlign: 'center', lineHeight: 52 },
-  wordMeaning: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', marginTop: 10, textAlign: 'center', lineHeight: 18, maxWidth: '85%' },
-  recommendationBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFECFB', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 },
+  wordMeaningRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },
+  wordMeaning: { color: colors.inkSoft, fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 18, maxWidth: '78%' },
+  meaningPlayButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  recommendationBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E5F1EF', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 },
   recommendationText: { flex: 1, color: colors.lavenderDark, fontSize: 13, fontWeight: '700', lineHeight: 18 },
   buttonRow: { width: '100%', flexDirection: 'row', gap: 10, alignItems: 'stretch', marginBottom: 14 },
   listenButton: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: colors.lavender, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 12, backgroundColor: '#fff', justifyContent: 'center' },
@@ -370,11 +480,24 @@ const styles = StyleSheet.create({
   correctBubble: { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: colors.success },
   wrongBubble: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: colors.warning },
   resultText: { textAlign: 'center', fontWeight: '700', fontSize: 15 },
-  analysisCard: { marginTop: 14, width: '100%', borderRadius: 20, padding: 18, backgroundColor: '#F8F7FF', borderWidth: 1, borderColor: '#D9D4F4', alignItems: 'center' },
+  analysisCard: { marginTop: 14, width: '100%', borderRadius: 20, padding: 18, backgroundColor: '#E5F1EF', borderWidth: 1, borderColor: '#DDDCD5', alignItems: 'center' },
   analysisTitle: { color: colors.textPrimary, fontWeight: '800', fontSize: 14 },
   analysisScore: { color: colors.lavenderDark, fontWeight: '900', fontSize: 24, marginTop: 6 },
   analysisFeedback: { color: colors.inkSoft, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 },
   analysisReward: { color: colors.success, fontWeight: '800', fontSize: 12, marginTop: 8 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(43, 35, 57, 0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  modalCard: { width: '100%', maxWidth: 420, backgroundColor: '#fff', borderRadius: 28, padding: 24, alignItems: 'center' },
+  modalEmoji: { fontSize: 38, marginBottom: 8 },
+  modalTitle: { color: colors.ink, fontFamily: typography.family.display, fontSize: 22, textAlign: 'center', marginBottom: 10 },
+  modalText: { color: colors.inkSoft, fontSize: 14, fontWeight: '600', textAlign: 'center', lineHeight: 21, marginBottom: 20 },
+  modalPrimaryButton: { width: '100%', minHeight: 52, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.lavenderDark, borderRadius: 16, paddingHorizontal: 14, marginTop: 12 },
+  modalPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  modalSecondaryButton: { minHeight: 44, justifyContent: 'center', marginTop: 8 },
+  modalSecondaryText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 14 },
+  walkthroughStep: { alignSelf: 'stretch', color: colors.ink, fontWeight: '900', fontSize: 15, marginTop: 10 },
+  walkthroughText: { alignSelf: 'stretch', color: colors.inkSoft, fontSize: 13, fontWeight: '600', lineHeight: 19, marginTop: 3 },
+  settingsButton: { alignSelf: 'center', minHeight: 42, justifyContent: 'center', marginTop: 8, paddingHorizontal: 12 },
+  settingsButtonText: { color: colors.lavenderDark, fontWeight: '900', textDecorationLine: 'underline' },
   doneBanner: { marginTop: 18, alignItems: 'center' },
   doneText: { fontWeight: '800', color: colors.textPrimary, fontSize: 15 },
   doneSubtext: { color: colors.textSecondary, marginTop: 4, fontSize: 13, textAlign: 'center' },

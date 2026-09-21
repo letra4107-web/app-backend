@@ -270,7 +270,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
 }
 
 const styles = StyleSheet.create({
-  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F1FB' },
+  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5F1EF' },
   content: { padding: 16, paddingBottom: 40 },
   successBanner: {
     color: '#166534', backgroundColor: 'rgba(34,197,94,0.10)', padding: 12, borderRadius: 14,
@@ -288,11 +288,11 @@ const styles = StyleSheet.create({
   },
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 },
   avatar: { width: 68, height: 68, borderRadius: 34 },
-  avatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
+  avatarPlaceholder: { backgroundColor: '#E5F1EF', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: colors.lavender, fontSize: 24, fontWeight: '900' },
   profileName: { fontSize: 18, fontWeight: '900', color: colors.ink },
   summaryBadgeRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
-  gradeBadge: { backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  gradeBadge: { backgroundColor: '#E5F1EF', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   gradeBadgeText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
   levelBadge: { backgroundColor: '#E9F1E2', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   levelBadgeText: { color: colors.sage, fontWeight: '800', fontSize: 12 },
@@ -300,9 +300,9 @@ const styles = StyleSheet.create({
   avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   avatarOption: {
     width: 58, height: 58, borderRadius: 18, backgroundColor: '#F8F7FC', borderWidth: 1.5,
-    borderColor: '#E5DDF2', alignItems: 'center', justifyContent: 'center',
+    borderColor: '#DDDCD5', alignItems: 'center', justifyContent: 'center',
   },
-  avatarOptionSelected: { borderColor: colors.lavenderDark, backgroundColor: '#EFECFB' },
+  avatarOptionSelected: { borderColor: colors.lavenderDark, backgroundColor: '#E5F1EF' },
   avatarOptionImage: { width: 46, height: 46 },
   avatarOptionCheck: {
     position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10,
@@ -315,12 +315,12 @@ const styles = StyleSheet.create({
   showcaseItem: { width: 78, alignItems: 'center' },
   showcaseImageWrap: {
     width: 64, height: 64, borderRadius: 20, backgroundColor: '#F8F7FC', borderWidth: 1.5,
-    borderColor: '#E5DDF2', alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+    borderColor: '#DDDCD5', alignItems: 'center', justifyContent: 'center', marginBottom: 6,
   },
   showcaseImage: { width: 50, height: 50 },
   showcaseLabel: { color: colors.inkSoft, fontSize: 11, fontWeight: '700', textAlign: 'center' },
   input: {
-    minHeight: 48, borderWidth: 1, borderColor: '#E5DDF2', borderRadius: radius.sm,
+    minHeight: 48, borderWidth: 1, borderColor: '#DDDCD5', borderRadius: radius.sm,
     paddingHorizontal: 14, fontSize: 15, color: colors.ink, marginBottom: 12,
   },
   primaryButton: {

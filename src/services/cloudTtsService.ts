@@ -1,9 +1,10 @@
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { buildApiUrl, postJson } from '../config/api';
-import { speakWord as onDeviceSpeakWord } from './ttsService';
 import type { SpeechRate } from './settingsService';
+import { toFilipinoSsml } from './filipinoTts';
 
-export type CloudVoice = 'fil-PH-Wavenet-A' | 'fil-PH-Wavenet-C';
+export type CloudVoice = 'fil-PH-Neural2-A';
+export const FILIPINO_CLOUD_VOICE: CloudVoice = 'fil-PH-Neural2-A';
 
 // Mirrors the backend's DEFAULT_SPEECH_RATE (backend/routes/tts.js) - kept as
 // the fallback here too so a request sent before settings finish loading
@@ -32,6 +33,7 @@ type SpeakResponse = {
 
 type CloudSpeakOptions = {
   voice?: CloudVoice;
+  rate?: number;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -83,14 +85,12 @@ async function ensurePlaybackMode() {
 }
 
 /**
- * Plays a word/phrase through Google Cloud TTS (via the backend proxy),
- * falling back to on-device expo-speech for any failure - network error,
- * quota exceeded, backend down, etc. The "Pakinggan/Listen" button must
- * never go silent, so every failure path below hands off to the fallback
- * rather than surfacing an error to the caller.
+ * Plays Filipino-only speech through the secured Google Cloud proxy. There is
+ * intentionally no device TTS fallback: an uninstalled Filipino device voice
+ * may silently pronounce the content with English rules.
  */
 export async function speakWordCloud(word: string, options: CloudSpeakOptions = {}) {
-  const { voice, onDone, onError } = options;
+  const { voice = FILIPINO_CLOUD_VOICE, rate = currentSpeechRate, onDone, onError } = options;
   const text = word?.trim();
   if (!text) return;
 
@@ -101,7 +101,7 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
 
     const response = await postJson<SpeakResponse>(
       buildApiUrl('/tts/speak'),
-      { text, voice, rate: currentSpeechRate },
+      { ssml: toFilipinoSsml(text), voice, rate },
       15000,
     );
 
@@ -130,8 +130,8 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
 
     player.play();
   } catch (error: any) {
-    console.warn('[CloudTTS] speakWordCloud failed, falling back to on-device TTS:', error?.message || error);
-    onDeviceSpeakWord(text, { onDone, onError });
+    console.warn('[CloudTTS] Filipino Cloud TTS failed:', error?.message || error);
+    onError?.('Hindi ma-play ang Filipino audio ngayon. Subukan muli mamaya.');
   }
 }
 

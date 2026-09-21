@@ -1,8 +1,7 @@
 import React from 'react';
 import { Image, ImageSourcePropType, ImageStyle, StyleProp, StyleSheet, Text, TextStyle, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, typography } from '../theme';
+import { colors, roleColors, typography } from '../theme';
 
 type Props = {
   title: string;
@@ -17,6 +16,7 @@ type Props = {
   subtitleA11yStyle?: StyleProp<TextStyle>;
   backLabelA11yStyle?: StyleProp<TextStyle>;
   backLabel?: string;
+  variant?: 'student' | 'parent';
 } & (
   | { onMenuPress: () => void; onBackPress?: undefined }
   | { onBackPress: () => void; onMenuPress?: undefined }
@@ -28,10 +28,11 @@ type Props = {
 export default function TabHeroHeader({
   title, subtitle, illustration, illustrationStyle, notifDot,
   titleA11yStyle, subtitleA11yStyle, backLabelA11yStyle, backLabel = 'Bumalik',
+  variant = 'student',
   onMenuPress, onBackPress,
 }: Props) {
   return (
-    <LinearGradient colors={colors.heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBanner}>
+    <View style={[styles.heroBanner, { backgroundColor: roleColors[variant].primary }]}>
       {onBackPress ? (
         <TouchableOpacity style={styles.heroBackRow} onPress={onBackPress} accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={20} color="#fff" />
@@ -57,7 +58,7 @@ export default function TabHeroHeader({
       <Text style={[styles.heroGreeting, titleA11yStyle]}>{title}</Text>
       <Text style={[styles.heroSubtitle, subtitleA11yStyle]}>{subtitle}</Text>
       {!!illustration && <Image source={illustration} style={[styles.heroImage, illustrationStyle]} resizeMode="contain" />}
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
   heroMenuIconWrap: { position: 'relative' },
   heroMenuDot: {
     position: 'absolute', top: 0, right: 0, width: 9, height: 9, borderRadius: 4.5,
-    backgroundColor: colors.danger, borderWidth: 1.5, borderColor: colors.heroGradient[0],
+    backgroundColor: colors.danger, borderWidth: 1.5, borderColor: colors.primary,
     zIndex: 10, elevation: 10,
   },
   heroLogoText: { color: '#fff', fontWeight: '800', fontSize: 14 },

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { roleColors } from '../theme';
 import { supabase } from '../config/supabase';
 
 type Message = {
@@ -48,7 +49,7 @@ export default function ParentMessagesTab({ parentId, onUnreadChange }: { parent
     }
   };
 
-  if (loading) return <ActivityIndicator color="#4f46e5" />;
+  if (loading) return <ActivityIndicator color={roleColors.parent.primary} />;
 
   return (
     <ScrollView>
@@ -56,7 +57,7 @@ export default function ParentMessagesTab({ parentId, onUnreadChange }: { parent
       {messages.map((message) => (
         <TouchableOpacity key={message.id} style={[styles.card, !message.read && styles.unread]} onPress={() => openMessage(message)}>
           <View style={styles.row}>
-            <Ionicons name="mail-outline" size={18} color="#4f46e5" />
+            <Ionicons name="mail-outline" size={18} color={roleColors.parent.primary} />
             <Text style={styles.teacher}>{message.users?.name || 'Teacher'}</Text>
           </View>
           <Text style={styles.date}>{new Date(message.created_at).toLocaleString()}</Text>
@@ -70,7 +71,7 @@ export default function ParentMessagesTab({ parentId, onUnreadChange }: { parent
 
 const styles = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: 8, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  unread: { borderColor: '#4f46e5', backgroundColor: '#F4F9FF' },
+  unread: { borderColor: roleColors.parent.primary, backgroundColor: roleColors.parent.soft },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   teacher: { fontWeight: '800', color: '#111827' },
   date: { color: '#6B7280', fontSize: 12, marginTop: 6 },

@@ -9,7 +9,7 @@ import {
   ScheduledActivityType,
   ScheduledActivityStatus,
 } from '../services/scheduledActivityService';
-import { colors } from '../theme';
+import { colors, roleColors } from '../theme';
 
 // BORDER/DANGER are intentionally NOT theme.colors.border/danger - both are
 // slightly different one-off hex values, kept local rather than silently
@@ -208,7 +208,7 @@ export default function AddScheduledActivityModal({
                   <Ionicons
                     name={option.icon}
                     size={16}
-                    color={activityType === option.key ? '#fff' : colors.lavenderDark}
+                    color={activityType === option.key ? '#fff' : roleColors.parent.primaryDark}
                   />
                   <Text style={[styles.chipText, activityType === option.key && styles.chipTextActive]}>
                     {option.label}
@@ -321,11 +321,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
-  chipActive: { backgroundColor: colors.lavenderDark, borderColor: colors.lavenderDark },
+  chipActive: { backgroundColor: roleColors.parent.primaryDark, borderColor: roleColors.parent.primaryDark },
   chipText: { color: colors.ink, fontWeight: '700', fontSize: 13 },
   chipTextActive: { color: '#fff' },
   error: { color: DANGER, marginTop: 10, fontWeight: '600' },
-  submit: { backgroundColor: colors.lavenderDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  submit: { backgroundColor: roleColors.parent.primaryDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   submitText: { color: '#fff', fontWeight: '800' },
   deleteButton: {
     flexDirection: 'row',

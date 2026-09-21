@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { roleColors } from '../theme';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../config/supabase';
 import { signOutUser } from '../services/supabaseService';
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
   label: { fontWeight: '800', marginTop: 14, marginBottom: 6, color: '#374151' },
   input: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 10, padding: 12, backgroundColor: '#fff' },
   readOnly: { backgroundColor: '#F3F4F6', color: '#6B7280' },
-  button: { backgroundColor: '#4f46e5', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+  button: { backgroundColor: roleColors.parent.primary, padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 10 },
   logout: { backgroundColor: '#E74C3C', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 22 },
   buttonText: { color: '#fff', fontWeight: '800' },
   error: { color: '#E74C3C', marginBottom: 8 },

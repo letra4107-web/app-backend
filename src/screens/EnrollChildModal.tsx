@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { buildApiUrl, postJson } from '../config/api';
-import { colors, radius, typography } from '../theme';
+import { colors, radius, roleColors, typography } from '../theme';
 
 type ReadingDifficulty = 'Beginner' | 'Intermediate' | 'Advanced';
 
@@ -118,7 +118,7 @@ export default function EnrollChildModal({ visible, onClose, onEnrolled }: Props
 
           {difficulty && (
             <View style={styles.levelCard}>
-              <Ionicons name="sparkles" size={20} color={colors.lavenderDark} />
+              <Ionicons name="sparkles" size={20} color={roleColors.parent.primaryDark} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.levelLabel}>Awtomatikong antas ng pagbasa</Text>
                 <Text style={styles.levelValue}>{difficulty}</Text>
@@ -147,15 +147,15 @@ const styles = StyleSheet.create({
   inputError: { borderColor: colors.danger },
   gradeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   gradeButton: { width: '31%', borderWidth: 1.5, borderColor: '#DDD6EB', borderRadius: radius.sm, paddingVertical: 11, alignItems: 'center' },
-  gradeButtonActive: { backgroundColor: colors.lavenderDark, borderColor: colors.lavenderDark },
+  gradeButtonActive: { backgroundColor: roleColors.parent.primaryDark, borderColor: roleColors.parent.primaryDark },
   gradeText: { color: colors.ink, fontWeight: '800', fontSize: 12 },
   gradeTextActive: { color: '#fff' },
-  levelCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#EFECFB', borderRadius: radius.sm, padding: 13, marginTop: 16 },
+  levelCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F5ECE3', borderRadius: radius.sm, padding: 13, marginTop: 16 },
   levelLabel: { color: colors.inkSoft, fontSize: 11, fontWeight: '700' },
-  levelValue: { color: colors.lavenderDark, fontWeight: '900', fontSize: 15, marginTop: 1 },
+  levelValue: { color: roleColors.parent.primaryDark, fontWeight: '900', fontSize: 15, marginTop: 1 },
   error: { color: colors.dangerText, marginTop: 5, fontSize: 12 },
   errorBanner: { color: colors.dangerText, backgroundColor: '#FDECEC', borderRadius: radius.sm, padding: 11, fontWeight: '700' },
-  submit: { backgroundColor: colors.lavenderDark, borderRadius: radius.md, padding: 14, alignItems: 'center', marginTop: 20 },
+  submit: { backgroundColor: roleColors.parent.primaryDark, borderRadius: radius.md, padding: 14, alignItems: 'center', marginTop: 20 },
   submitText: { color: '#fff', fontWeight: '900' },
   hint: { color: colors.inkSoft, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 9 },
   disabled: { opacity: 0.65 },

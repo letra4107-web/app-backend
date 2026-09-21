@@ -36,17 +36,17 @@ import { setTtsEnabled, setSpeechRateSetting } from '../services/ttsService';
 import { accessibilityFromSettings, useAccessibility } from '../contexts/AccessibilityContext';
 import { fetchReadingProfile, ReadingProfile } from '../services/readingInsightsService';
 import { averageAccuracy } from '../services/achievementService';
-import { colors, radius, shadows } from '../theme';
+import { colors, radius, roleColors, shadows } from '../theme';
 
 // Same daily-goal formula as the Student Dashboard (total_attempts mod
 // DAILY_GOAL) - kept identical so a child's "goal" means the same thing
 // whether they or their parent is looking at it.
 const DAILY_GOAL = 5;
 const SIDEBAR_WIDTH = 300;
-// Distinct from theme.colors.lavenderDark so the Calendar's Lesson vs
+// Distinct from theme.roleColors.parent.primaryDark so the Calendar's Lesson vs
 // Practice day-dots read as genuinely different hues at 6px, not two shades
 // of purple.
-const CALENDAR_PRACTICE_BLUE = '#2F80ED';
+const CALENDAR_PRACTICE_BLUE = roleColors.parent.primaryDark;
 
 type SkillCategory = 'letters' | 'syllables' | 'words';
 const categorizeWord = (word: string): SkillCategory => {
@@ -174,9 +174,9 @@ type ChildRow = {
 
 // PRIMARY_TEXT/SURFACE/BACKGROUND are intentionally NOT theme tokens - kept
 // local rather than coerced onto a nearby-but-different color.
-const PRIMARY_TEXT = '#3730a3';
-const SURFACE = '#ffffff';
-const BACKGROUND = '#f5f3ff';
+const PRIMARY_TEXT = '#243331';
+const SURFACE = '#FFFFFF';
+const BACKGROUND = '#FAF8F3';
 
 const PARENT_BOTTOM_ITEMS: BottomNavItem[] = [
   { key: 'welcome', label: 'Simula', icon: 'home-outline' },
@@ -188,8 +188,8 @@ const PARENT_BOTTOM_ITEMS: BottomNavItem[] = [
 
 const LEVEL_COLORS: Record<Level, string> = {
   Beginner: colors.success,
-  Intermediate: colors.primary,
-  Advanced: '#7c3aed',
+  Intermediate: roleColors.parent.primary,
+  Advanced: roleColors.parent.primaryDark,
 };
 
 export default function ParentDashboardEnhanced({ navigation }: any) {
@@ -892,7 +892,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (canOpen) await Linking.openURL(url);
   };
 
-  const getLevelColor = (level: Level) => LEVEL_COLORS[level] || colors.primary;
+  const getLevelColor = (level: Level) => LEVEL_COLORS[level] || roleColors.parent.primary;
 
   const getActivityDateKey = (activity: StudentActivity) => new Date(activity.deadline).toISOString().slice(0, 10);
   const SCHEDULED_TYPE_ICON: Record<ScheduledActivity['activity_type'], keyof typeof Ionicons.glyphMap> = {
@@ -905,7 +905,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (status === 'completed') return colors.success;
     if (status === 'missed') return colors.danger;
     if (status === 'in_progress') return colors.warning;
-    return colors.lavenderDark;
+    return roleColors.parent.primaryDark;
   };
   const toggleScheduledComplete = async (item: ScheduledActivity) => {
     try {
@@ -938,7 +938,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (!selectedChild) {
       return (
         <>
-          <TabHeroHeader
+          <TabHeroHeader variant="parent"
             onMenuPress={openSidebar}
             title={`Magandang Araw,\n${parentName || 'Kinakarga...'}!`}
             subtitle="Narito kung paano ang progreso ng iyong anak ngayon."
@@ -1085,7 +1085,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     return (
       <>
-        <TabHeroHeader
+        <TabHeroHeader variant="parent"
           onMenuPress={openSidebar}
           title={`Magandang Araw,\n${parentName || 'Kinakarga...'}!`}
           subtitle="Narito kung paano ang progreso ng iyong anak ngayon."
@@ -1126,7 +1126,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
             >
               <Text style={styles.switchChildButtonText}>Palitan ang Anak</Text>
-              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.lavenderDark} />
+              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={roleColors.parent.primaryDark} />
             </TouchableOpacity>
           )}
         </View>
@@ -1144,10 +1144,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   setChildPickerOpen(false);
                 }}
               >
-                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: colors.lavenderDark, fontWeight: '800' }]}>
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: roleColors.parent.primaryDark, fontWeight: '800' }]}>
                   {child.name}
                 </Text>
-                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={colors.lavenderDark} />}
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={roleColors.parent.primaryDark} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1159,7 +1159,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.latestReadingEyebrow}>PINAKABAGONG RESULTA SA PAGBASA</Text>
               <Text style={styles.latestReadingWord}>{latestReading?.word || 'Wala pang pagbasa'}</Text>
             </View>
-            <Ionicons name={latestReading?.is_correct ? 'checkmark-circle' : 'book-outline'} size={26} color={latestReading?.is_correct ? colors.success : colors.lavenderDark} />
+            <Ionicons name={latestReading?.is_correct ? 'checkmark-circle' : 'book-outline'} size={26} color={latestReading?.is_correct ? colors.success : roleColors.parent.primaryDark} />
           </View>
           <View style={styles.latestReadingStats}>
             <View style={styles.latestReadingStat}><Text style={styles.latestReadingValue}>{latestReading ? `${Math.round(latestReading.accuracy_percentage || 0)}%` : '--'}</Text><Text style={styles.latestReadingLabel}>Kawastuhan</Text></View>
@@ -1176,7 +1176,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
 
         <LinearGradient
-          colors={colors.heroGradient}
+          colors={[roleColors.parent.primary, roleColors.parent.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroProgressCard}
@@ -1202,7 +1202,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 strokeWidth={9}
                 color="#fff"
                 trackColor="rgba(255,255,255,0.25)"
-                gradientColors={['#ffffff', '#F5D0FE']}
+                gradientColors={[roleColors.parent.primary, roleColors.parent.primary]}
                 gradientId="parentHeroRing"
               >
                 <Text style={styles.heroProgressPct}>{avgAccuracy !== null ? `${avgAccuracy}%` : '--'}</Text>
@@ -1224,27 +1224,27 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </Text>
           <TouchableOpacity style={styles.heroProgressButton} onPress={() => setSection('progress')} activeOpacity={0.85}>
             <Text style={styles.heroProgressButtonText}>Tingnan ang Buong Progreso</Text>
-            <Ionicons name="arrow-forward" size={14} color={colors.heroGradient[0]} />
+            <Ionicons name="arrow-forward" size={14} color={roleColors.parent.primary} />
           </TouchableOpacity>
         </LinearGradient>
 
         <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Mabilisang Pagtingin</Text>
         <View style={styles.overviewGrid}>
-          <View style={[styles.overviewCard, { backgroundColor: '#EFECFB' }]}>
-            <Ionicons name="school" size={20} color={colors.lavender} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavender }]}>
+          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
+            <Ionicons name="school" size={20} color={roleColors.parent.primary} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: roleColors.parent.primary }]}>
               {lessonsCompleted}{childLessonsTotal !== null ? `/${childLessonsTotal}` : ''}
             </Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Natapos na Aralin</Text>
           </View>
-          <View style={[styles.overviewCard, { backgroundColor: '#FFF3DC' }]}>
+          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
             <Ionicons name="mic" size={20} color={colors.sun} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sun }]}>{practiceSessionsThisWeek}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Pagsasanay sa Pagbasa (ngayong linggo)</Text>
           </View>
-          <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
-            <Ionicons name="book" size={20} color={colors.lavenderDark} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavenderDark }]}>{wordsPracticed}</Text>
+          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
+            <Ionicons name="book" size={20} color={roleColors.parent.primaryDark} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: roleColors.parent.primaryDark }]}>{wordsPracticed}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Salitang Nasanay</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
@@ -1281,7 +1281,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           {childCurrentLesson ? (
             <>
               <View style={styles.skillOverviewRow}>
-                <Ionicons name="book" size={18} color={colors.lavenderDark} />
+                <Ionicons name="book" size={18} color={roleColors.parent.primaryDark} />
                 <Text style={styles.currentLessonTitle}>
                   {childCurrentLesson.status === 'completed' ? 'Tapos na Aralin: ' : 'Kasalukuyang Ginagawa: '}
                   {childCurrentLesson.title}
@@ -1347,8 +1347,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         {recentActivityItems.length ? (
           recentActivityItems.map((item) => (
             <View key={item.key} style={styles.recentActivityCard}>
-              <View style={[styles.recentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#EFECFB' }]}>
-                <Ionicons name={item.kind === 'lesson' ? 'book' : 'mic'} size={16} color={item.kind === 'lesson' ? colors.sage : colors.lavenderDark} />
+              <View style={[styles.recentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#F5ECE3' }]}>
+                <Ionicons name={item.kind === 'lesson' ? 'book' : 'mic'} size={16} color={item.kind === 'lesson' ? colors.sage : roleColors.parent.primaryDark} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.currentLessonTitle}>{item.kind === 'lesson' ? 'Lesson Completed' : 'Reading Practice'}</Text>
@@ -1364,7 +1364,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         )}
 
         <LinearGradient
-          colors={[colors.heroGradient[1], colors.heroGradient[2]]}
+          colors={[roleColors.parent.primary, roleColors.parent.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.supportBanner}
@@ -1381,15 +1381,15 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <View style={styles.quickActions}>
           <TouchableOpacity style={styles.quickAction} onPress={() => setShowEnroll(true)} accessibilityRole="button" accessibilityLabel="Enroll a child">
-            <Ionicons name="person-add" size={16} color={colors.lavenderDark} />
+            <Ionicons name="person-add" size={16} color={roleColors.parent.primaryDark} />
             <Text style={styles.quickActionText}>I-enroll ang Anak</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View reports">
-            <Ionicons name="bar-chart" size={16} color={colors.lavenderDark} />
+            <Ionicons name="bar-chart" size={16} color={roleColors.parent.primaryDark} />
             <Text style={styles.quickActionText}>Tingnan ang Ulat</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Manage profile">
-            <Ionicons name="person-circle" size={16} color={colors.lavenderDark} />
+            <Ionicons name="person-circle" size={16} color={roleColors.parent.primaryDark} />
             <Text style={styles.quickActionText}>Pamahalaan ang Profile</Text>
           </TouchableOpacity>
         </View>
@@ -1402,7 +1402,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     const selectedChild = children.find((child) => child.id === selectedChildId) || children[0];
 
     const header = (
-      <TabHeroHeader
+      <TabHeroHeader variant="parent"
         onMenuPress={openSidebar}
         title="Progreso ng Anak"
         subtitle="Subaybayan ang pag-unlad ng iyong anak sa pagbasa."
@@ -1583,7 +1583,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           accessibilityLabel={`Viewing ${selectedChild.name}${children.length > 1 ? '. Tap to switch child' : ''}`}
         >
           <Text style={styles.viewingSelectorText}>Tinitingnan: {selectedChild.name}</Text>
-          {children.length > 1 && <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.lavenderDark} />}
+          {children.length > 1 && <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={roleColors.parent.primaryDark} />}
         </TouchableOpacity>
 
         {childPickerOpen && children.length > 1 && (
@@ -1599,10 +1599,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   setChildPickerOpen(false);
                 }}
               >
-                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: colors.lavenderDark, fontWeight: '800' }]}>
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: roleColors.parent.primaryDark, fontWeight: '800' }]}>
                   {child.name}
                 </Text>
-                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={colors.lavenderDark} />}
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={roleColors.parent.primaryDark} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -1633,7 +1633,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <View style={styles.readingProgressCard}>
             <View style={styles.readingProgressHeader}>
               <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>Buod ng Pagbasa ng AI</Text>
-              <Ionicons name="sparkles" size={22} color={colors.lavenderDark} />
+              <Ionicons name="sparkles" size={22} color={roleColors.parent.primaryDark} />
             </View>
             <View style={styles.overallStatsRow}>
               <View style={styles.overallStatCell}>
@@ -1689,10 +1689,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             <Text style={[styles.readingProgressTitle, cardTitleA11yStyle]}>
               {progressPeriod === 'all' ? 'All-Time Reading Accuracy' : `${periodRingLabel} Reading Accuracy`}
             </Text>
-            <Ionicons name="book" size={24} color={colors.lavender} />
+            <Ionicons name="book" size={24} color={roleColors.parent.primary} />
           </View>
           <View style={{ alignItems: 'center', marginVertical: 12 }}>
-            <ProgressRing percent={periodAvg ?? 0} color={colors.lavenderDark} trackColor="rgba(124,111,207,0.15)">
+            <ProgressRing percent={periodAvg ?? 0} color={roleColors.parent.primaryDark} trackColor="rgba(124,111,207,0.15)">
               <Text style={styles.readingProgressPct}>{periodAvg !== null ? `${periodAvg}%` : '--'}</Text>
               <Text style={styles.readingProgressPctSub}>{periodRingLabel}</Text>
             </ProgressRing>
@@ -1712,7 +1712,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.trendCard}>
           {bucketsWithData.length >= 2 ? (
             <>
-              <TrendLineChart points={bucketPoints} width={chartWidth} color={colors.lavenderDark} />
+              <TrendLineChart points={bucketPoints} width={chartWidth} color={roleColors.parent.primaryDark} />
               <View style={styles.trendMsgRow}>
                 <Ionicons name="checkmark-circle" size={13} color={colors.success} />
                 <Text style={styles.trendMsgText}>
@@ -1724,7 +1724,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             </>
           ) : (
             <View style={styles.trendEmpty}>
-              <Ionicons name="analytics-outline" size={28} color={colors.lavender} />
+              <Ionicons name="analytics-outline" size={28} color={roleColors.parent.primary} />
               <Text style={styles.trendEmptyText}>Hindi pa sapat ang sesyon ng pagsasanay sa panahong ito para magpakita ng takbo.</Text>
             </View>
           )}
@@ -1809,7 +1809,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         {periodAvg !== null && (
           <View style={styles.insightCardV2}>
-            <Ionicons name="sparkles" size={18} color={colors.lavenderDark} />
+            <Ionicons name="sparkles" size={18} color={roleColors.parent.primaryDark} />
             <Text style={styles.insightCardV2Text}>
               {periodDelta !== null && periodDelta > 0
                 ? `${selectedChild.name.split(' ')[0]}'s reading accuracy has improved by ${periodDelta}% in this period. Consistent practice is helping build confidence.`
@@ -1824,7 +1824,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             visibleHistory.map((session, i) => (
               <View key={`${session.created_at}-${i}`} style={styles.activityRow}>
                 <View style={styles.activityEmoji}>
-                  <Ionicons name="mic" size={18} color={colors.lavenderDark} />
+                  <Ionicons name="mic" size={18} color={roleColors.parent.primaryDark} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.activityChildName}>Pagsasanay sa Salitang Tagalog</Text>
@@ -1854,7 +1854,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     if (!selectedChild) {
       return (
         <>
-          <TabHeroHeader
+          <TabHeroHeader variant="parent"
             onMenuPress={openSidebar}
             title="Kalendaryo"
             subtitle="Planuhin at subaybayan ang mga aktibidad sa pag-aaral ng iyong anak."
@@ -1982,7 +1982,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         key: `lp-${p.id}`,
         sortKey: timeSource || dateKey,
         pillLabel: 'Aralin',
-        pillColor: colors.lavenderDark,
+        pillColor: roleColors.parent.primaryDark,
         icon: 'book',
         title,
         meta: `${time ? `${time} • ` : ''}${p.status === 'completed' ? 'Tapos na' : 'Isinasagawa'}`,
@@ -1996,7 +1996,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         key: `act-${a.id}`,
         sortKey: a.deadline,
         pillLabel: 'Aralin',
-        pillColor: colors.lavenderDark,
+        pillColor: roleColors.parent.primaryDark,
         icon: 'clipboard',
         title: a.title,
         meta: `${new Date(a.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • ${a.status === 'completed' || a.status === 'completed_late' ? 'Tapos na' : a.status === 'overdue' ? 'Lampas na sa Deadline' : 'Naka-iskedyul'}`,
@@ -2030,7 +2030,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         item.activity_type === 'practice' ? 'Pagsasanay' :
         item.activity_type === 'appointment' ? 'Pagpupulong' : 'Paalala';
       const pillColor =
-        item.activity_type === 'reading_lesson' ? colors.lavenderDark :
+        item.activity_type === 'reading_lesson' ? roleColors.parent.primaryDark :
         item.activity_type === 'practice' ? CALENDAR_PRACTICE_BLUE : colors.warning;
       dayEntries.push({
         key: `sched-${item.id}`,
@@ -2048,7 +2048,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
     return (
       <>
-        <TabHeroHeader
+        <TabHeroHeader variant="parent"
           onMenuPress={openSidebar}
           title="Kalendaryo"
           subtitle={`Planuhin at subaybayan ang mga aktibidad sa pag-aaral ni ${selectedChild.name.split(' ')[0]}.`}
@@ -2084,7 +2084,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityLabel={childPickerOpen ? 'Close child switcher' : 'Switch to a different child'}
             >
               <Text style={styles.switchChildButtonText}>Palitan ang Anak</Text>
-              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.lavenderDark} />
+              <Ionicons name={childPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={roleColors.parent.primaryDark} />
             </TouchableOpacity>
           )}
         </View>
@@ -2102,10 +2102,10 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   setChildPickerOpen(false);
                 }}
               >
-                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: colors.lavenderDark, fontWeight: '800' }]}>
+                <Text style={[styles.childPickerRowText, child.id === selectedChild.id && { color: roleColors.parent.primaryDark, fontWeight: '800' }]}>
                   {child.name}
                 </Text>
-                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={colors.lavenderDark} />}
+                {child.id === selectedChild.id && <Ionicons name="checkmark" size={16} color={roleColors.parent.primaryDark} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -2120,7 +2120,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Go to previous month"
             >
-              <Ionicons name="chevron-back" size={18} color={colors.primary} />
+              <Ionicons name="chevron-back" size={18} color={roleColors.parent.primary} />
             </TouchableOpacity>
             <Text style={styles.calendarMonth}>{monthLabel}</Text>
             <TouchableOpacity
@@ -2143,7 +2143,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel="Go to next month"
             >
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+              <Ionicons name="chevron-forward" size={18} color={roleColors.parent.primary} />
             </TouchableOpacity>
           </View>
           <View style={styles.weekHeader}>
@@ -2169,7 +2169,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                   <Text style={[styles.dayText, selected && styles.dayTextSelected]}>{cell.date.getDate()}</Text>
                   {hasAnyDot && (
                     <View style={styles.dayDots}>
-                      {dayTypes.lesson && <View style={[styles.dayDot, { backgroundColor: colors.lavenderDark }]} />}
+                      {dayTypes.lesson && <View style={[styles.dayDot, { backgroundColor: roleColors.parent.primaryDark }]} />}
                       {dayTypes.practice && <View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} />}
                       {dayTypes.completed && <View style={[styles.dayDot, { backgroundColor: colors.success }]} />}
                       {dayTypes.reminder && <View style={[styles.dayDot, { backgroundColor: colors.warning }]} />}
@@ -2180,7 +2180,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             })}
           </View>
           <View style={styles.dayLegendRow}>
-            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.lavenderDark }]} /><Text style={styles.dayLegendText}>Aralin</Text></View>
+            <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: roleColors.parent.primaryDark }]} /><Text style={styles.dayLegendText}>Aralin</Text></View>
             <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: CALENDAR_PRACTICE_BLUE }]} /><Text style={styles.dayLegendText}>Pagsasanay</Text></View>
             <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.success }]} /><Text style={styles.dayLegendText}>Nakumpleto</Text></View>
             <View style={styles.dayLegendItem}><View style={[styles.dayDot, { backgroundColor: colors.warning }]} /><Text style={styles.dayLegendText}>Paalala</Text></View>
@@ -2264,7 +2264,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           </View>
           <View style={styles.weekSummaryStatsRow}>
             <View style={styles.weekSummaryStat}>
-              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: colors.lavenderDark }]}>{weekLessonsCompleted}</Text>
+              <Text style={[styles.weekSummaryStatValue, weekStatValueA11yStyle, { color: roleColors.parent.primaryDark }]}>{weekLessonsCompleted}</Text>
               <Text style={[styles.weekSummaryStatLabel, weekStatLabelA11yStyle]}>Mga Aralin</Text>
             </View>
             <View style={styles.weekSummaryStat}>
@@ -2312,23 +2312,23 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             accessibilityRole="button"
             accessibilityLabel="Add a reminder"
           >
-            <Ionicons name="add-circle" size={16} color={colors.lavenderDark} />
+            <Ionicons name="add-circle" size={16} color={roleColors.parent.primaryDark} />
             <Text style={styles.quickActionText}>Magdagdag ng Paalala</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('progress')} accessibilityRole="button" accessibilityLabel="View progress">
-            <Ionicons name="bar-chart" size={16} color={colors.lavenderDark} />
+            <Ionicons name="bar-chart" size={16} color={roleColors.parent.primaryDark} />
             <Text style={styles.quickActionText}>Tingnan ang Progreso</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickAction} onPress={() => setSection('settings')} accessibilityRole="button" accessibilityLabel="Open notification settings">
-            <Ionicons name="settings" size={16} color={colors.lavenderDark} />
+            <Ionicons name="settings" size={16} color={roleColors.parent.primaryDark} />
             <Text style={styles.quickActionText}>Mga Setting ng Abiso</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.overviewGrid}>
-          <View style={[styles.overviewCard, { backgroundColor: '#EAF3FB' }]}>
-            <Ionicons name="book" size={20} color={colors.lavenderDark} />
-            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.lavenderDark }]}>{wordsPracticed}</Text>
+          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
+            <Ionicons name="book" size={20} color={roleColors.parent.primaryDark} />
+            <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: roleColors.parent.primaryDark }]}>{wordsPracticed}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Salitang Nasanay</Text>
           </View>
           <View style={[styles.overviewCard, { backgroundColor: '#E9F1E2' }]}>
@@ -2341,7 +2341,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         <View style={styles.parentInsightCard}>
           <View style={{ flex: 1, paddingRight: 8 }}>
             <View style={styles.upcomingHeaderRow}>
-              <Ionicons name="bulb" size={16} color={colors.lavenderDark} />
+              <Ionicons name="bulb" size={16} color={roleColors.parent.primaryDark} />
               <Text style={[styles.homeSectionTitleInline, sectionTitleInlineA11yStyle, { fontSize: a11ySize(14) }]}>Pananaw ng Magulang</Text>
             </View>
             <Text style={styles.parentInsightText}>
@@ -2371,7 +2371,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
     isLast = false,
   ) => (
     <View style={[styles.settingsToggleRow, isLast && { borderBottomWidth: 0 }]}>
-      <Ionicons name={icon} size={20} color={colors.lavenderDark} />
+      <Ionicons name={icon} size={20} color={roleColors.parent.primaryDark} />
       <View style={{ flex: 1 }}>
         <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>{title}</Text>
         <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{subtitle}</Text>
@@ -2380,8 +2380,8 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         value={!!value}
         onValueChange={(next) => updateParentSetting(key, next as any)}
         disabled={savingSettingKey === '__all__'}
-        trackColor={{ false: '#cbd5e1', true: 'rgba(95,82,176,0.4)' }}
-        thumbColor={value ? colors.lavenderDark : '#f8fafc'}
+        trackColor={{ false: '#cbd5e1', true: 'rgba(154,103,66,0.4)' }}
+        thumbColor={value ? roleColors.parent.primaryDark : '#f8fafc'}
         accessibilityRole="switch"
         accessibilityLabel={title}
         accessibilityHint={subtitle}
@@ -2391,7 +2391,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
   const renderSettings = () => (
     <>
-      <TabHeroHeader
+      <TabHeroHeader variant="parent"
         onMenuPress={openSidebar}
         title="Aking Profile"
         subtitle="Pamahalaan ang iyong account at mga anak."
@@ -2457,14 +2457,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         );
       })}
       <TouchableOpacity style={styles.enrollChildRow} onPress={() => setShowEnroll(true)}>
-        <Ionicons name="add" size={18} color={colors.lavenderDark} />
+        <Ionicons name="add" size={18} color={roleColors.parent.primaryDark} />
         <Text style={styles.enrollChildRowText}>Mag-enroll ng Bagong Anak</Text>
       </TouchableOpacity>
 
       <Text style={styles.settingsGroupTitle}>Mga Setting ng Account</Text>
       <View style={styles.settingsListCard}>
         <TouchableOpacity style={styles.settingsRow} onPress={() => navigateTo('profile')}>
-          <Ionicons name="person-outline" size={20} color={colors.lavenderDark} />
+          <Ionicons name="person-outline" size={20} color={roleColors.parent.primaryDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Personal na Impormasyon</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>I-update ang iyong pangalan at numero ng telepono</Text>
@@ -2472,7 +2472,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.settingsRow} onPress={openPasswordModal}>
-          <Ionicons name="lock-closed-outline" size={20} color={colors.lavenderDark} />
+          <Ionicons name="lock-closed-outline" size={20} color={roleColors.parent.primaryDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Palitan ang Password</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Ligtas na i-update ang password ng iyong account</Text>
@@ -2487,7 +2487,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             setEmailModalVisible(true);
           }}
         >
-          <Ionicons name="mail-outline" size={20} color={colors.lavenderDark} />
+          <Ionicons name="mail-outline" size={20} color={roleColors.parent.primaryDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Email</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentEmail}</Text>
@@ -2505,7 +2505,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   // preferences and help & support - per the split requested 2026-08-14.
   const renderAppSettings = () => (
     <>
-      <TabHeroHeader
+      <TabHeroHeader variant="parent"
         onBackPress={() => navigateTo('welcome')}
         title="Mga Setting"
         subtitle="Kagustuhan at suporta."
@@ -2549,7 +2549,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <Text style={styles.settingsGroupTitle}>Kagustuhan sa Abiso</Text>
       <View style={styles.settingsListCard}>
         {!parentSettings ? (
-          <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
+          <ActivityIndicator color={roleColors.parent.primaryDark} style={{ marginVertical: 16 }} />
         ) : (
           <>
             {renderToggleRow('book-outline', 'Update sa Aralin', 'Kapag binuksan ng iyong anak ang isang aralin', 'lesson_notifications', parentSettings.lesson_notifications)}
@@ -2563,13 +2563,13 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <Text style={styles.settingsGroupTitle}>Kagustuhan sa Suporta sa Pagbasa</Text>
       <View style={styles.settingsListCard}>
         {!parentSettings ? (
-          <ActivityIndicator color={colors.lavenderDark} style={{ marginVertical: 16 }} />
+          <ActivityIndicator color={roleColors.parent.primaryDark} style={{ marginVertical: 16 }} />
         ) : (
           <>
             {renderToggleRow('text-outline', 'Font na Madaling Basahin', 'Gumamit ng font na dinisenyo para sa mas madaling pagbasa', 'dyslexia_font', parentSettings.dyslexia_font)}
             {renderToggleRow('volume-high-outline', 'Text-to-Speech', 'Pakinggan ang teksto na binabasa sa app', 'tts_enabled', parentSettings.tts_enabled)}
             <View style={[styles.settingsToggleRow, { borderBottomWidth: 0 }]}>
-              <Ionicons name="speedometer-outline" size={20} color={colors.lavenderDark} />
+              <Ionicons name="speedometer-outline" size={20} color={roleColors.parent.primaryDark} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Bilis ng Pagsasalita</Text>
                 <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{parentSettings.speech_rate || 'normal'}</Text>
@@ -2595,7 +2595,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       <Text style={styles.settingsGroupTitle}>Tulong at Suporta</Text>
       <View style={styles.settingsListCard}>
         <TouchableOpacity style={styles.settingsRow} onPress={contactSupport}>
-          <Ionicons name="headset-outline" size={20} color={colors.lavenderDark} />
+          <Ionicons name="headset-outline" size={20} color={roleColors.parent.primaryDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Kontakin ang Suporta</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>Humingi ng tulong sa aming team</Text>
@@ -2606,14 +2606,14 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           style={styles.settingsRow}
           onPress={() => Linking.openURL('https://linawletra.app/privacy').catch(() => {})}
         >
-          <Ionicons name="shield-checkmark-outline" size={20} color={colors.lavenderDark} />
+          <Ionicons name="shield-checkmark-outline" size={20} color={roleColors.parent.primaryDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Patakaran sa Pagkapribado</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
         </TouchableOpacity>
         <View style={[styles.settingsRow, { borderBottomWidth: 0 }]}>
-          <Ionicons name="information-circle-outline" size={20} color={colors.lavenderDark} />
+          <Ionicons name="information-circle-outline" size={20} color={roleColors.parent.primaryDark} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingsRowTitle, toggleTitleA11yStyle]}>Bersyon ng App</Text>
             <Text style={[styles.settingsRowSub, toggleSubA11yStyle]}>{appVersion} - Up to date</Text>
@@ -2651,7 +2651,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       case 'notifications':
         return (
           <>
-            <TabHeroHeader
+            <TabHeroHeader variant="parent"
               onMenuPress={openSidebar}
               title="Mga Abiso"
               subtitle="Manatiling updated sa paglalakbay ng iyong anak sa pag-aaral."
@@ -2683,7 +2683,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={roleColors.parent.primary} />
       </View>
     );
   }
@@ -2713,7 +2713,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       )}
 
       {section !== 'profile' && section !== 'appSettings' && (
-        <DashboardBottomNav
+        <DashboardBottomNav activeColor={roleColors.parent.primary}
           items={PARENT_BOTTOM_ITEMS.map((item) => item.key === 'notifications' ? { ...item, badge: unreadNotifications } : item)}
           activeKey={section}
           onSelect={(key) => navigateTo(key as Section)}
@@ -2727,7 +2727,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
       {sidebarOpen && (
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: sidebarAnim }] }]}> 
         <ScrollView style={styles.sidebarScroll} contentContainerStyle={styles.sidebarScrollContent} showsVerticalScrollIndicator={false}>
-          <LinearGradient colors={colors.heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sidebarHero}>
+          <LinearGradient colors={[roleColors.parent.primary, roleColors.parent.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.sidebarHero}>
             <TouchableOpacity style={styles.sidebarCloseButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={closeSidebar}>
               <Ionicons name="close" size={20} color="#fff" />
             </TouchableOpacity>
@@ -2764,7 +2764,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             ].map((item) => (
               <TouchableOpacity key={item.key} style={styles.navItem} onPress={item.onPress} activeOpacity={0.78}>
                 <View style={styles.navIconWrap}>
-                  <Ionicons name={item.icon as any} size={20} color={colors.lavenderDark} />
+                  <Ionicons name={item.icon as any} size={20} color={roleColors.parent.primaryDark} />
                 </View>
                 <Text style={styles.navLabel}>{item.label}</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.inkSoft} />
@@ -2972,14 +2972,14 @@ const styles = StyleSheet.create({
     marginBottom: 6, backgroundColor: '#fff',
     shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  navItemActive: { backgroundColor: '#EFECFB' },
+  navItemActive: { backgroundColor: '#F5ECE3' },
   navIconWrap: {
     width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#F5F3FC',
+    backgroundColor: '#F5ECE3',
   },
   navIconWrapActive: { backgroundColor: '#fff' },
   navLabel: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
-  navLabelActive: { color: colors.lavenderDark, fontWeight: '900' },
+  navLabelActive: { color: roleColors.parent.primaryDark, fontWeight: '900' },
   navBadge: {
     minWidth: 26, paddingHorizontal: 8, height: 24, borderRadius: 12,
     backgroundColor: colors.vivid.amber, alignItems: 'center', justifyContent: 'center',
@@ -3005,9 +3005,9 @@ const styles = StyleSheet.create({
   childCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   childAvatar: {
     width: 46, height: 46, borderRadius: 23,
-    backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: roleColors.parent.soft, alignItems: 'center', justifyContent: 'center',
   },
-  childAvatarText: { fontSize: 18, fontWeight: '900', color: colors.primary },
+  childAvatarText: { fontSize: 18, fontWeight: '900', color: roleColors.parent.primary },
   childName: { fontSize: 17, fontWeight: '900', color: colors.textPrimary },
   childMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   levelBadge: { borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 },
@@ -3016,20 +3016,20 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
   statChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: roleColors.parent.soft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
   },
   statChipText: { fontSize: 12, fontWeight: '800', color: PRIMARY_TEXT },
   progressTrack: { height: 8, backgroundColor: colors.border, borderRadius: 999, overflow: 'hidden', marginBottom: 6 },
-  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 999 },
+  progressFill: { height: '100%', backgroundColor: roleColors.parent.primary, borderRadius: 999 },
   progressLabel: { fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginBottom: 10 },
   childDetails: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   emptyDetail: { color: colors.textSecondary, fontSize: 13, marginTop: 8 },
   quickActions: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 8 },
   quickAction: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.lavenderDark, backgroundColor: SURFACE,
+    paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: roleColors.parent.primaryDark, backgroundColor: SURFACE,
   },
-  quickActionText: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
+  quickActionText: { fontSize: 12, fontWeight: '800', color: roleColors.parent.primaryDark },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
 
   // Home tab redesign - shares the Student Dashboard's HOME_* palette for
@@ -3037,9 +3037,9 @@ const styles = StyleSheet.create({
   // emoji) compared to the more playful student-facing screens.
   viewingSelector: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'flex-start',
-    backgroundColor: '#EFECFB', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, gap: 6, marginBottom: 12,
+    backgroundColor: '#F5ECE3', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, gap: 6, marginBottom: 12,
   },
-  viewingSelectorText: { fontSize: 13, fontWeight: '800', color: colors.lavenderDark },
+  viewingSelectorText: { fontSize: 13, fontWeight: '800', color: roleColors.parent.primaryDark },
   childPickerList: {
     backgroundColor: SURFACE, borderRadius: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 12, overflow: 'hidden',
   },
@@ -3053,21 +3053,21 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE, borderRadius: radius.lg, padding: 18, marginBottom: 16,
     ...shadows.card,
   },
-  latestReadingCard: { backgroundColor: '#F8F7FF', borderRadius: radius.lg, padding: 16, marginBottom: 16, ...shadows.card },
+  latestReadingCard: { backgroundColor: '#F5ECE3', borderRadius: radius.lg, padding: 16, marginBottom: 16, ...shadows.card },
   latestReadingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  latestReadingEyebrow: { color: colors.lavenderDark, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  latestReadingEyebrow: { color: roleColors.parent.primaryDark, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   latestReadingWord: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 3 },
   latestReadingStats: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 14, paddingVertical: 10, marginBottom: 12 },
   latestReadingStat: { flex: 1, alignItems: 'center', paddingHorizontal: 3 },
-  latestReadingValue: { color: colors.lavenderDark, fontSize: 16, fontWeight: '900' },
+  latestReadingValue: { color: roleColors.parent.primaryDark, fontSize: 16, fontWeight: '900' },
   latestReadingLabel: { color: colors.inkSoft, fontSize: 9, fontWeight: '700', marginTop: 2, textAlign: 'center' },
   latestReadingObservation: { color: colors.ink, fontSize: 12, fontWeight: '700', lineHeight: 18 },
   latestReadingPractice: { color: colors.sage, fontSize: 12, fontWeight: '800', lineHeight: 18, marginTop: 6 },
   childAvatarLg: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: '#EFECFB',
+    width: 56, height: 56, borderRadius: 28, backgroundColor: '#F5ECE3',
     alignItems: 'center', justifyContent: 'center',
   },
-  childAvatarLgText: { fontSize: 22, fontWeight: '900', color: colors.lavenderDark },
+  childAvatarLgText: { fontSize: 22, fontWeight: '900', color: roleColors.parent.primaryDark },
   childSummaryName: { fontSize: 18, fontWeight: '900', color: colors.ink, marginBottom: 8 },
   childSummaryBadgeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   gradeBadge: { backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
@@ -3083,7 +3083,7 @@ const styles = StyleSheet.create({
   },
   readingProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
   readingProgressTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
-  readingProgressPct: { fontSize: 26, fontWeight: '900', color: colors.lavenderDark },
+  readingProgressPct: { fontSize: 26, fontWeight: '900', color: roleColors.parent.primaryDark },
   improvementBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10,
@@ -3115,10 +3115,10 @@ const styles = StyleSheet.create({
   // goal, recent feed, support banner
   childSummaryEyebrow: { fontSize: 11, fontWeight: '800', color: colors.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4 },
   switchChildButton: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFECFB',
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F5ECE3',
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'flex-start',
   },
-  switchChildButtonText: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
+  switchChildButtonText: { fontSize: 12, fontWeight: '800', color: roleColors.parent.primaryDark },
   heroProgressCard: {
     borderRadius: 26, padding: 20, marginBottom: 16, overflow: 'hidden',
     ...shadows.hero,
@@ -3158,7 +3158,7 @@ const styles = StyleSheet.create({
     borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18, alignSelf: 'flex-start',
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
-  heroProgressButtonText: { fontSize: 12, fontWeight: '800', color: colors.heroGradient[0] },
+  heroProgressButtonText: { fontSize: 12, fontWeight: '800', color: roleColors.parent.primary },
   heroProgressRingWrap: {
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
@@ -3168,7 +3168,7 @@ const styles = StyleSheet.create({
   weekBarRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 90, marginBottom: 10 },
   weekBarCol: { alignItems: 'center', gap: 6, flex: 1 },
   weekBarTrack: { height: 70, width: 16, justifyContent: 'flex-end' },
-  weekBarFill: { width: 16, borderRadius: 8, backgroundColor: colors.lavender },
+  weekBarFill: { width: 16, borderRadius: 8, backgroundColor: roleColors.parent.primary },
   weekBarLabel: { fontSize: 10, color: colors.textSecondary, fontWeight: '700' },
   weekBarSummary: { fontSize: 12, color: colors.inkSoft, fontWeight: '700', textAlign: 'center' },
   skillOverviewRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -3184,9 +3184,9 @@ const styles = StyleSheet.create({
   insightRowTrack: { height: 6, backgroundColor: '#f3f4f6', borderRadius: 999, overflow: 'hidden' },
   insightRowFill: { height: '100%', borderRadius: 999 },
   insightRowStatus: { fontSize: 11, fontWeight: '700' },
-  insightSeeMore: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark, marginTop: 4 },
+  insightSeeMore: { fontSize: 12, fontWeight: '800', color: roleColors.parent.primaryDark, marginTop: 4 },
   goalCard: {
-    backgroundColor: '#FFF3DC', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8,
+    backgroundColor: '#F5ECE3', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8,
     ...shadows.card,
   },
   goalCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -3196,7 +3196,7 @@ const styles = StyleSheet.create({
   goalCardFill: { height: '100%', borderRadius: 999, backgroundColor: colors.sun },
   goalCardSub: { fontSize: 12, color: colors.inkSoft, fontWeight: '600' },
   recentHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  viewAllLink: { fontSize: 12, fontWeight: '800', color: colors.lavenderDark },
+  viewAllLink: { fontSize: 12, fontWeight: '800', color: roleColors.parent.primaryDark },
   recentActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: SURFACE, borderRadius: 16,
     padding: 12, marginBottom: 10, ...shadows.card,
@@ -3224,12 +3224,12 @@ const styles = StyleSheet.create({
   weekProgressTrack: { height: 7, backgroundColor: 'rgba(92,128,71,0.16)', borderRadius: 999, overflow: 'hidden' },
   weekProgressFill: { height: '100%', borderRadius: 999, backgroundColor: colors.sage },
   weekSummaryCaption: { fontSize: 11.5, color: colors.inkSoft, fontWeight: '600' },
-  upcomingCard: { backgroundColor: '#FFF3DC', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8, ...shadows.card },
+  upcomingCard: { backgroundColor: '#F5ECE3', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8, ...shadows.card },
   upcomingHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   upcomingRowText: { fontSize: 12.5, color: colors.ink, fontWeight: '700', flex: 1 },
   parentInsightCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFECFB', borderRadius: radius.md,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5ECE3', borderRadius: radius.md,
     padding: 16, marginBottom: 16,
     ...shadows.card,
   },
@@ -3245,7 +3245,7 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: SURFACE, borderRadius: 999, paddingVertical: 9,
     alignItems: 'center', borderWidth: 1, borderColor: colors.border,
   },
-  periodChipActive: { backgroundColor: colors.lavenderDark, borderColor: colors.lavenderDark },
+  periodChipActive: { backgroundColor: roleColors.parent.primaryDark, borderColor: roleColors.parent.primaryDark },
   periodChipText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
   periodChipTextActive: { color: '#fff' },
   readingProgressPctSub: { fontSize: 10, color: colors.inkSoft, fontWeight: '700', textAlign: 'center', marginTop: 2 },
@@ -3272,11 +3272,11 @@ const styles = StyleSheet.create({
   miniChartTitle: { fontSize: 13, fontWeight: '800', color: colors.ink, marginBottom: 10 },
   miniChartBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 70 },
   miniBarCol: { alignItems: 'center', gap: 4, flex: 1 },
-  miniBar: { width: 14, borderRadius: 4, backgroundColor: colors.lavender },
+  miniBar: { width: 14, borderRadius: 4, backgroundColor: roleColors.parent.primary },
   miniBarLabel: { fontSize: 9, color: colors.textSecondary },
   miniChartSub: { fontSize: 11, color: colors.inkSoft, marginTop: 10, textAlign: 'center' },
   recommendCard: {
-    flexDirection: 'row', gap: 12, backgroundColor: '#FFF3DC', borderRadius: 16,
+    flexDirection: 'row', gap: 12, backgroundColor: '#F5ECE3', borderRadius: 16,
     padding: 16, marginBottom: 12, alignItems: 'flex-start',
     ...shadows.card,
   },
@@ -3292,13 +3292,13 @@ const styles = StyleSheet.create({
   },
   recommendButtonText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   insightCardV2: {
-    flexDirection: 'row', gap: 10, backgroundColor: '#EFECFB', borderRadius: 16,
+    flexDirection: 'row', gap: 10, backgroundColor: '#F5ECE3', borderRadius: 16,
     padding: 16, marginBottom: 16, alignItems: 'flex-start',
     ...shadows.card,
   },
   insightCardV2Text: { fontSize: 12, color: colors.ink, lineHeight: 18, flex: 1 },
   detailedReportButton: {
-    backgroundColor: colors.lavenderDark, borderRadius: 16, paddingVertical: 16,
+    backgroundColor: roleColors.parent.primaryDark, borderRadius: 16, paddingVertical: 16,
     alignItems: 'center', marginTop: 4, marginBottom: 8,
   },
   detailedReportButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
@@ -3311,7 +3311,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: roleColors.parent.soft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3323,7 +3323,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   calendarCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8 },
-  todayPill: { backgroundColor: colors.lavenderDark, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
+  todayPill: { backgroundColor: roleColors.parent.primaryDark, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
   todayPillText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   dayLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
   dayLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -3340,7 +3340,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 4,
   },
-  dayCellSelected: { backgroundColor: colors.primary },
+  dayCellSelected: { backgroundColor: roleColors.parent.primary },
   dayText: { color: colors.textPrimary, fontWeight: '800' },
   dayTextSelected: { color: '#fff' },
   dayDots: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
@@ -3367,12 +3367,12 @@ const styles = StyleSheet.create({
   selectedTasksTitle: { color: colors.textPrimary, fontWeight: '900', fontSize: 16, marginBottom: 10 },
   selectedTasksHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   scheduledCompleteButton: { padding: 4 },
-  insightCard: { backgroundColor: colors.primaryLight, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: colors.primary, padding: 16, marginBottom: 12 },
+  insightCard: { backgroundColor: roleColors.parent.soft, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: roleColors.parent.primary, padding: 16, marginBottom: 12 },
   insightChildName: { fontSize: 14, fontWeight: '900', color: PRIMARY_TEXT, marginBottom: 10 },
-  insightRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#c7d2fe' },
+  insightRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#DDDCD5' },
   insightText: { color: colors.textPrimary, lineHeight: 20 },
   activityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
-  activityEmoji: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  activityEmoji: { width: 44, height: 44, borderRadius: 22, backgroundColor: roleColors.parent.soft, alignItems: 'center', justifyContent: 'center' },
   activityEmojiText: { fontSize: 22 },
   activityChildName: { fontWeight: '800', color: colors.textPrimary },
   activityTitle: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
@@ -3388,9 +3388,9 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyEmoji: { fontSize: 48, marginBottom: 14 },
   emptyText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
-  emptyButton: { backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16 },
+  emptyButton: { backgroundColor: roleColors.parent.primary, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16 },
   emptyButtonText: { color: '#fff', fontWeight: '800' },
-  rewardsChip: { backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
+  rewardsChip: { backgroundColor: roleColors.parent.soft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
   rewardsChipText: { color: PRIMARY_TEXT, fontWeight: '800', fontSize: 11 },
 
   accountCard: {
@@ -3398,20 +3398,20 @@ const styles = StyleSheet.create({
   },
   accountCardTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   accountAvatar: { width: 68, height: 68, borderRadius: 34 },
-  accountAvatarPlaceholder: { backgroundColor: '#EFECFB', alignItems: 'center', justifyContent: 'center' },
-  accountAvatarInitial: { color: colors.lavenderDark, fontSize: 23, fontWeight: '900' },
+  accountAvatarPlaceholder: { backgroundColor: '#F5ECE3', alignItems: 'center', justifyContent: 'center' },
+  accountAvatarInitial: { color: roleColors.parent.primaryDark, fontSize: 23, fontWeight: '900' },
   accountName: { fontSize: 16, fontWeight: '900', color: colors.ink },
   accountEmail: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   accountBadge: {
-    alignSelf: 'flex-start', backgroundColor: '#EFECFB', borderRadius: 999,
+    alignSelf: 'flex-start', backgroundColor: '#F5ECE3', borderRadius: 999,
     paddingHorizontal: 10, paddingVertical: 3, marginTop: 6,
   },
-  accountBadgeText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 11 },
+  accountBadgeText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 11 },
   editProfileButton: {
-    borderWidth: 1.5, borderColor: colors.lavenderDark, borderRadius: 999,
+    borderWidth: 1.5, borderColor: roleColors.parent.primaryDark, borderRadius: 999,
     paddingVertical: 11, alignItems: 'center', marginTop: 14,
   },
-  editProfileButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13 },
+  editProfileButtonText: { color: roleColors.parent.primaryDark, fontWeight: '900', fontSize: 13 },
 
   unsavedSettingsBar: {
     backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: colors.sun, borderRadius: 16,
@@ -3425,7 +3425,7 @@ const styles = StyleSheet.create({
   },
   discardSettingsButtonText: { color: colors.inkSoft, fontWeight: '800', fontSize: 14 },
   saveSettingsButton: {
-    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: colors.lavenderDark,
+    flex: 1, minHeight: 44, borderRadius: 999, backgroundColor: roleColors.parent.primaryDark,
     alignItems: 'center', justifyContent: 'center',
   },
   saveSettingsButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
@@ -3436,14 +3436,14 @@ const styles = StyleSheet.create({
     padding: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 10,
   },
   childAvatarSize: { width: 52, height: 52, borderRadius: 26 },
-  manageChildButton: { borderWidth: 1.5, borderColor: colors.lavenderDark, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 },
-  manageChildButtonText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 12 },
+  manageChildButton: { borderWidth: 1.5, borderColor: roleColors.parent.primaryDark, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 },
+  manageChildButtonText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 12 },
   enrollChildRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: colors.lavenderDark, borderStyle: 'dashed', borderRadius: 16,
+    borderWidth: 1.5, borderColor: roleColors.parent.primaryDark, borderStyle: 'dashed', borderRadius: 16,
     paddingVertical: 14, marginBottom: 20,
   },
-  enrollChildRowText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 14 },
+  enrollChildRowText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 14 },
 
   settingsListCard: {
     backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1, borderColor: colors.border, marginBottom: 20, overflow: 'hidden',
@@ -3458,10 +3458,10 @@ const styles = StyleSheet.create({
   },
   settingsRowTitle: { color: colors.ink, fontWeight: '800', fontSize: 14 },
   settingsRowSub: { color: colors.inkSoft, fontSize: 11, marginTop: 2 },
-  speedSegment: { flexDirection: 'row', backgroundColor: '#EFECFB', borderRadius: 999, padding: 3 },
+  speedSegment: { flexDirection: 'row', backgroundColor: '#F5ECE3', borderRadius: 999, padding: 3 },
   speedSegmentButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
-  speedSegmentButtonActive: { backgroundColor: colors.lavenderDark },
-  speedSegmentText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 11, textTransform: 'capitalize' },
+  speedSegmentButtonActive: { backgroundColor: roleColors.parent.primaryDark },
+  speedSegmentText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 11, textTransform: 'capitalize' },
   speedSegmentTextActive: { color: '#fff' },
 
   emailModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
@@ -3475,6 +3475,6 @@ const styles = StyleSheet.create({
   passwordInputField: { paddingRight: 44 },
   passwordToggle: { position: 'absolute', right: 10, top: 0, bottom: 0, justifyContent: 'center' },
   emailModalError: { color: '#E0574C', marginTop: 10, fontWeight: '600' },
-  emailModalSubmit: { backgroundColor: colors.lavenderDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  emailModalSubmit: { backgroundColor: roleColors.parent.primaryDark, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   emailModalSubmitText: { color: '#fff', fontWeight: '800' },
 });
