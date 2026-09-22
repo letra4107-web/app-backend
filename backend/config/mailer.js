@@ -335,24 +335,29 @@ const sendPasswordResetCodeEmail = async (email, otp) => {
   const mailOptions = {
     to: email,
     replyTo: emailFrom,
-    subject: 'Your LinawLetra password reset code',
-    text: `Your LinawLetra password reset code is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`,
+    subject: 'LinawLetra: Code para sa pag-reset ng password',
+    text: `I-reset ang iyong password\n\nGamitin ang code sa ibaba upang gumawa ng bagong password para sa iyong LinawLetra account.\n\n${otp}\n\nAng code ay isang beses lamang magagamit at mag-e-expire sa loob ng 10 minuto.\n\nKung hindi ikaw ang humiling ng password reset, maaari mong balewalain ang email na ito. Huwag ibahagi ang code sa kahit sino.\n\n© LinawLetra · Tulong sa pagbasa ng Filipino para sa bawat bata`,
     html: `
       <!DOCTYPE html>
-      <html lang="en">
+      <html lang="fil">
         <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-        <body style="margin:0;padding:0;background:#f6f2ff;font-family:Arial,'Helvetica Neue',sans-serif;color:#312e3f;">
+        <body style="margin:0;padding:0;background:#f5ece3;font-family:Arial,'Helvetica Neue',sans-serif;color:#70492f;">
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
             <tr><td align="center" style="padding:32px 16px;">
-              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 50px rgba(76,61,130,0.12);">
-                <tr><td style="padding:32px;text-align:center;background:#f0ebff;">
-                  <div style="font-size:26px;font-weight:800;color:#5f52b0;">LinawLetra</div>
-                  <h1 style="margin:18px 0 8px;font-size:24px;color:#312e3f;">Password reset code</h1>
-                  <p style="margin:0;color:#665f73;line-height:24px;">Enter this code in the LinawLetra app to choose a new password.</p>
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:#faf8f3;border-radius:24px;overflow:hidden;box-shadow:0 20px 50px rgba(112,73,47,0.14);">
+                <tr><td style="padding:32px;text-align:center;background:#9a6742;">
+                  <div style="font-size:26px;font-weight:800;color:#faf8f3;">LinawLetra</div>
+                  <div style="margin-top:8px;font-size:14px;font-weight:700;letter-spacing:0.8px;color:#f5ece3;">Pag-reset ng Password</div>
                 </td></tr>
                 <tr><td style="padding:32px;text-align:center;">
-                  <div style="display:inline-block;background:#f8f6ff;border:1px solid #d9d2ff;border-radius:18px;padding:18px 26px;font-size:32px;font-weight:800;letter-spacing:10px;color:#5144a3;">${otp}</div>
-                  <p style="margin:24px 0 0;color:#766f82;font-size:13px;line-height:20px;">This code expires in 10 minutes and can only be used once. Do not share it with anyone.</p>
+                  <h1 style="margin:0 0 12px;font-size:24px;line-height:32px;color:#70492f;">I-reset ang iyong password</h1>
+                  <p style="margin:0;color:#70492f;font-size:16px;line-height:24px;">Gamitin ang code sa ibaba upang gumawa ng bagong password para sa iyong LinawLetra account.</p>
+                  <div style="display:inline-block;margin:28px 0 0;background:#f5ece3;border:2px solid #9a6742;border-radius:18px;padding:20px 28px;font-size:34px;font-weight:800;letter-spacing:10px;color:#70492f;line-height:1;">${otp}</div>
+                  <p style="margin:26px 0 0;color:#70492f;font-size:14px;line-height:22px;">Ang code ay isang beses lamang magagamit at mag-e-expire sa loob ng 10 minuto.</p>
+                  <div style="margin-top:20px;padding:16px 18px;background:#f5ece3;border-radius:12px;text-align:left;color:#70492f;font-size:13px;line-height:20px;">Kung hindi ikaw ang humiling ng password reset, maaari mong balewalain ang email na ito. Huwag ibahagi ang code sa kahit sino.</div>
+                </td></tr>
+                <tr><td style="padding:20px 32px;text-align:center;background:#f5ece3;">
+                  <p style="margin:0;color:#70492f;font-size:13px;line-height:20px;">© LinawLetra · Tulong sa pagbasa ng Filipino para sa bawat bata</p>
                 </td></tr>
               </table>
             </td></tr>
