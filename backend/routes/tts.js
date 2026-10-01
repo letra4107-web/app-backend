@@ -4,315 +4,159 @@ const crypto = require('crypto');
 const { supabaseAdmin } = require('../config/supabase');
 
 const router = express.Router();
-
-const GOOGLE_TTS_API_KEY = (process.env.GOOGLE_TTS_API_KEY || '').trim();
-const TTS_ENDPOINT = 'https://texttospeech.googleapis.com/v1/text:synthesize';
-// The v1 endpoint does not support enableTimePointing at all (confirmed live:
-// it 400s with "Unknown name enableTimePointing"). Only v1beta1 returns real
-// timepoints for SSML <mark> tags - confirmed live against fil-PH-Wavenet-A
-// and fil-PH-Wavenet-C. Used only by /speak-syllables below; the plain
-// /speak path is left on v1, unchanged, to avoid any behavior risk to the
-// existing normal-speed playback path.
-const TTS_ENDPOINT_BETA = 'https://texttospeech.googleapis.com/v1beta1/text:synthesize';
+const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY || '').trim();
+const ELEVENLABS_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID || '').trim();
+const ELEVENLABS_ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech';
+const ELEVENLABS_MODEL = 'eleven_multilingual_v2';
 const CACHE_BUCKET = 'tts-cache';
-const DEFAULT_VOICE = 'fil-PH-Neural2-A';
-const ALLOWED_VOICES = new Set(['fil-PH-Neural2-A']);
-const LANGUAGE_CODE = 'fil-PH';
-
-// Google bills per character - this is a hard ceiling on any single request,
-// independent of the free-tier/cost tracking below (protects against a
-// pathological caller sending a huge blob of text in one call).
 const MAX_TEXT_LENGTH = 500;
 const MAX_SYLLABLES = 12;
 const KARAOKE_CACHE_PREFIX = 'karaoke';
-const DEFAULT_KARAOKE_RATE = 0.5;
-const MIN_KARAOKE_RATE = 0.25;
-const MAX_KARAOKE_RATE = 1.0;
-// Normal-speech default was previously unset, which silently meant Google's
-// own default of 1.0 (full conversational speed) - too fast to follow for a
-// dyslexia-support app. 0.82 is ~18% slower. Floor stays well above the
-// karaoke floor since this is full-word/sentence speech, not a per-syllable
-// read-along - much slower than 0.5 here reads as unnaturally sluggish.
-const DEFAULT_SPEECH_RATE = 0.82;
-const MIN_SPEECH_RATE = 0.5;
-const MAX_SPEECH_RATE = 1.0;
 
 const postJson = (res, statusCode, payload) => res.status(statusCode).json(payload);
+const cacheKeyFor = (text, kind) => crypto.createHash('sha256')
+  .update(`elevenlabs:${ELEVENLABS_VOICE_ID}:${kind}:${text}`)
+  .digest('hex');
 
-// Rate is now part of the audio's identity, same reasoning as
-// karaokeCacheKeyFor below - a slower/faster synthesis of the same text is a
-// different file, so it must be a different cache key. This intentionally
-// no longer matches the pre-existing cacheKeyFor(text, voice) hash used by
-// any already-cached audio (which was synthesized at the implicit old
-// default of 1.0) - those entries simply age out unused rather than being
-// incorrectly served at the wrong rate.
-const cacheKeyFor = (text, voice, rate) =>
-  crypto.createHash('sha256').update(`${voice}::${rate}::${text}`).digest('hex');
-
-// Separate key space from cacheKeyFor: rate and per-syllable boundaries are
-// both part of the audio identity here (a slow, marked-up "ka-li-ka-san"
-// request is a completely different synthesis than the normal-speed plain
-// "kalikasan" request cached above), so both feed the hash, and the object
-// path is further namespaced under karaoke/ so the two caches can never
-// collide even if a hash somehow matched.
-const karaokeCacheKeyFor = (syllables, voice, rate) =>
-  crypto.createHash('sha256').update(`${voice}::${rate}::${syllables.join('|')}`).digest('hex');
-
-const escapeSsmlText = (text) => String(text)
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&apos;');
-
-const FILIPINO_LETTER_SOUNDS = {
-  A: 'a', E: 'e', I: 'i', O: 'o', U: 'u', B: 'ba', K: 'ka', D: 'da', G: 'ga',
-  M: 'ma', N: 'na', NG: 'nga', P: 'pa', R: 'ra', S: 'sa', T: 'ta', W: 'wa', Y: 'ya',
-};
-const filipinoIpa = (text) => {
-  const expanded = FILIPINO_LETTER_SOUNDS[String(text).trim().toUpperCase()] || String(text).trim().toLowerCase();
-  return expanded.replace(/ng/g, 'ŋ').replace(/ñ/g, 'ɲ').replace(/dy/g, 'dʲ').replace(/ts/g, 'tʃ').replace(/r/g, 'ɾ');
-};
-
-const buildMarkedSsml = (syllables) => {
-  const body = syllables.map((syllable, index) => {
-    const spoken = FILIPINO_LETTER_SOUNDS[String(syllable).trim().toUpperCase()] || syllable;
-    return `<mark name="s${index}"/><phoneme alphabet="ipa" ph="${filipinoIpa(spoken)}">${escapeSsmlText(spoken)}</phoneme>`;
-  }).join('');
-  return `<speak>${body}</speak>`;
-};
-
-// Supabase Storage has no "create if not exists" - listBuckets/createBucket
-// is the closest thing, and createBucket simply errors (harmlessly) if the
-// bucket is already there. Memoized so this only runs once per server
-// process, not on every request.
 let bucketReadyPromise = null;
 function ensureCacheBucket() {
   if (!bucketReadyPromise) {
-    bucketReadyPromise = supabaseAdmin.storage
-      .createBucket(CACHE_BUCKET, { public: true, fileSizeLimit: '5MB' })
+    bucketReadyPromise = supabaseAdmin.storage.createBucket(CACHE_BUCKET, { public: true, fileSizeLimit: '5MB' })
       .then(({ error }) => {
-        if (error && !/already exists/i.test(error.message || '')) {
-          console.warn('[TTS] Could not ensure cache bucket exists:', error.message);
-        }
+        if (error && !/already exists/i.test(error.message || '')) console.warn('[TTS] Could not ensure cache bucket exists:', error.message);
       })
-      .catch((error) => {
-        console.warn('[TTS] ensureCacheBucket failed:', error?.message || error);
-      });
+      .catch((error) => console.warn('[TTS] ensureCacheBucket failed:', error?.message || error));
   }
   return bucketReadyPromise;
 }
 
+// The former Google route received SSML. ElevenLabs accepts plain text, so
+// retain the endpoint contract while removing markup before synthesis.
+function plainTextFromSsml(value) {
+  return String(value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&apos;/g, "'").replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim();
+}
+
+async function synthesizeWithTiming(text) {
+  const response = await fetch(`${ELEVENLABS_ENDPOINT}/${encodeURIComponent(ELEVENLABS_VOICE_ID)}/with-timestamps?output_format=mp3_44100_128`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
+    body: JSON.stringify({ text, model_id: ELEVENLABS_MODEL, apply_text_normalization: 'auto' }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.audio_base64) {
+    console.error('[TTS] ElevenLabs synthesis failed:', { status: response.status, error: payload?.detail || payload?.message || payload });
+    throw new Error('ElevenLabs could not generate speech.');
+  }
+  return payload;
+}
+
+async function cachedUrl(path) {
+  const { data } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(path);
+  const url = data?.publicUrl;
+  if (!url) return null;
+  try {
+    return (await fetch(url, { method: 'HEAD' })).ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheAudio(path, audioBase64) {
+  const { error } = await supabaseAdmin.storage.from(CACHE_BUCKET).upload(
+    path, Buffer.from(audioBase64, 'base64'), { contentType: 'audio/mpeg', upsert: true },
+  );
+  return error;
+}
+
+function timepointsForSyllables(syllables, alignment) {
+  const starts = Array.isArray(alignment?.character_start_times_seconds)
+    ? alignment.character_start_times_seconds : [];
+  let offset = 0;
+  return syllables.map((syllable, index) => {
+    const timeSeconds = Number(starts[offset]) || 0;
+    offset += syllable.length + 1; // syllables are sent separated by one space
+    return { markName: `s${index}`, timeSeconds };
+  });
+}
+
+function isConfigured() {
+  return Boolean(ELEVENLABS_API_KEY && ELEVENLABS_VOICE_ID);
+}
+
 router.post('/speak', async (req, res) => {
   try {
-    const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
-    const ssml = typeof req.body?.ssml === 'string' ? req.body.ssml.trim() : '';
-    const synthesisText = ssml || text;
-    const requestedVoice = typeof req.body?.voice === 'string' ? req.body.voice.trim() : '';
-    const voice = ALLOWED_VOICES.has(requestedVoice) ? requestedVoice : DEFAULT_VOICE;
-    const requestedRate = Number(req.body?.rate);
-    const rate = Number.isFinite(requestedRate)
-      ? Math.min(MAX_SPEECH_RATE, Math.max(MIN_SPEECH_RATE, requestedRate))
-      : DEFAULT_SPEECH_RATE;
-
-    if (!synthesisText) {
-      return postJson(res, 400, { success: false, message: 'Missing text to synthesize.' });
-    }
-    if (synthesisText.length > MAX_TEXT_LENGTH * 8) {
-      return postJson(res, 400, { success: false, message: `Text is too long (max ${MAX_TEXT_LENGTH} characters).` });
-    }
-    if (!GOOGLE_TTS_API_KEY) {
-      return postJson(res, 503, { success: false, message: 'Cloud text-to-speech is not configured.' });
-    }
+    const text = plainTextFromSsml(req.body?.ssml || req.body?.text);
+    if (!text) return postJson(res, 400, { success: false, message: 'Missing text to synthesize.' });
+    if (text.length > MAX_TEXT_LENGTH) return postJson(res, 400, { success: false, message: `Text is too long (max ${MAX_TEXT_LENGTH} characters).` });
+    if (!isConfigured()) return postJson(res, 503, { success: false, message: 'ElevenLabs text-to-speech is not configured.' });
 
     await ensureCacheBucket();
+    const path = `${cacheKeyFor(text, 'speech')}.mp3`;
+    const url = await cachedUrl(path);
+    if (url) return postJson(res, 200, { success: true, url, cached: true });
 
-    const cacheKey = cacheKeyFor(synthesisText, voice, rate);
-    const cachePath = `${cacheKey}.mp3`;
-    const { data: publicUrlData } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(cachePath);
-    const publicUrl = publicUrlData?.publicUrl;
-
-    // Cache check: a public bucket means we can just HEAD the object's public
-    // URL rather than doing a signed download - cheap, and works the same
-    // whether or not the bucket-listing permissions are fully configured.
-    if (publicUrl) {
-      try {
-        const headResponse = await fetch(publicUrl, { method: 'HEAD' });
-        if (headResponse.ok) {
-          console.log('[TTS] cache hit', { voice, rate, characters: text.length });
-          return postJson(res, 200, { success: true, url: publicUrl, cached: true });
-        }
-      } catch (headError) {
-        // Cache-check failing is not fatal - fall through and synthesize fresh.
-        console.warn('[TTS] cache HEAD check failed, synthesizing fresh:', headError?.message || headError);
-      }
-    }
-
-    const googleResponse = await fetch(`${TTS_ENDPOINT}?key=${encodeURIComponent(GOOGLE_TTS_API_KEY)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: ssml ? { ssml } : { text },
-        voice: { languageCode: LANGUAGE_CODE, name: voice },
-        audioConfig: { audioEncoding: 'MP3', speakingRate: rate },
-      }),
-    });
-
-    const googlePayload = await googleResponse.json().catch(() => ({}));
-
-    if (!googleResponse.ok || !googlePayload?.audioContent) {
-      console.error('[TTS] Google synthesis failed:', {
-        status: googleResponse.status,
-        error: googlePayload?.error?.message || googlePayload,
-      });
-      return postJson(res, 502, { success: false, message: 'Could not generate speech right now.' });
-    }
-
-    // Usage tracking: character count per real (non-cached) API call, so
-    // Railway logs can be grepped for "[TTS] usage" to tally spend against
-    // the 1M free WaveNet characters/month.
-    console.log('[TTS] usage', { voice, rate, characters: text.length, cached: false });
-
-    const audioBuffer = Buffer.from(googlePayload.audioContent, 'base64');
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(CACHE_BUCKET)
-      .upload(cachePath, audioBuffer, { contentType: 'audio/mpeg', upsert: true });
-
+    const speech = await synthesizeWithTiming(text);
+    const uploadError = await cacheAudio(path, speech.audio_base64);
     if (uploadError) {
-      // Caching is best-effort - the student still gets their audio even if
-      // the cache write fails, they just won't benefit from it next time.
-      console.warn('[TTS] Failed to cache audio:', uploadError.message);
-      return postJson(res, 200, {
-        success: true,
-        audioContent: googlePayload.audioContent,
-        cached: false,
-      });
+      console.warn('[TTS] Failed to cache ElevenLabs audio:', uploadError.message);
+      return postJson(res, 200, { success: true, audioContent: speech.audio_base64, cached: false });
     }
-
-    return postJson(res, 200, { success: true, url: publicUrl, cached: false });
+    const { data } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(path);
+    console.log('[TTS] ElevenLabs usage', { characters: text.length, cached: false });
+    return postJson(res, 200, { success: true, url: data?.publicUrl, cached: false });
   } catch (err) {
-    console.error('[TTS] /speak failed:', { message: err?.message, stack: err?.stack });
-    return postJson(res, 500, { success: false, message: 'Could not generate speech right now.' });
+    console.error('[TTS] /speak failed:', { message: err?.message });
+    return postJson(res, 502, { success: false, message: 'Could not generate speech right now.' });
   }
 });
 
 router.post('/speak-syllables', async (req, res) => {
   try {
-    const rawSyllables = Array.isArray(req.body?.syllables) ? req.body.syllables : [];
-    const syllables = rawSyllables.map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
-    const requestedVoice = typeof req.body?.voice === 'string' ? req.body.voice.trim() : '';
-    const voice = ALLOWED_VOICES.has(requestedVoice) ? requestedVoice : DEFAULT_VOICE;
-    const requestedRate = Number(req.body?.rate);
-    const rate = Number.isFinite(requestedRate)
-      ? Math.min(MAX_KARAOKE_RATE, Math.max(MIN_KARAOKE_RATE, requestedRate))
-      : DEFAULT_KARAOKE_RATE;
+    const syllables = (Array.isArray(req.body?.syllables) ? req.body.syllables : [])
+      .map((s) => typeof s === 'string' ? s.trim() : '').filter(Boolean);
+    if (!syllables.length) return postJson(res, 400, { success: false, message: 'Missing syllables to synthesize.' });
+    if (syllables.length > MAX_SYLLABLES || syllables.join('').length > MAX_TEXT_LENGTH) {
+      return postJson(res, 400, { success: false, message: 'Text is too long.' });
+    }
+    if (!isConfigured()) return postJson(res, 503, { success: false, message: 'ElevenLabs text-to-speech is not configured.' });
 
-    if (!syllables.length) {
-      return postJson(res, 400, { success: false, message: 'Missing syllables to synthesize.' });
-    }
-    if (syllables.length > MAX_SYLLABLES) {
-      return postJson(res, 400, { success: false, message: `Too many syllables (max ${MAX_SYLLABLES}).` });
-    }
-    const joinedLength = syllables.join('').length;
-    if (joinedLength > MAX_TEXT_LENGTH) {
-      return postJson(res, 400, { success: false, message: `Text is too long (max ${MAX_TEXT_LENGTH} characters).` });
-    }
-    if (!GOOGLE_TTS_API_KEY) {
-      return postJson(res, 503, { success: false, message: 'Cloud text-to-speech is not configured.' });
-    }
-
+    const text = syllables.join(' ');
     await ensureCacheBucket();
-
-    const cacheKey = karaokeCacheKeyFor(syllables, voice, rate);
-    const audioPath = `${KARAOKE_CACHE_PREFIX}/${cacheKey}.mp3`;
-    const metaPath = `${KARAOKE_CACHE_PREFIX}/${cacheKey}.json`;
-    const { data: audioUrlData } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(audioPath);
-    const { data: metaUrlData } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(metaPath);
-    const publicUrl = audioUrlData?.publicUrl;
-    const metaUrl = metaUrlData?.publicUrl;
-
-    // Timepoints aren't embedded in the mp3 bytes, so a cache hit needs both
-    // the audio object AND its metadata JSON to be usable - if either is
-    // missing (e.g. a partial write from a previous failed request), this
-    // falls through and resynthesizes rather than returning audio with no
-    // (or stale) timing data.
-    if (publicUrl && metaUrl) {
+    const key = cacheKeyFor(text, 'karaoke');
+    const audioPath = `${KARAOKE_CACHE_PREFIX}/${key}.mp3`;
+    const metaPath = `${KARAOKE_CACHE_PREFIX}/${key}.json`;
+    const audioUrl = await cachedUrl(audioPath);
+    if (audioUrl) {
+      const { data: metaUrlData } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(metaPath);
       try {
-        const [audioHead, metaResponse] = await Promise.all([
-          fetch(publicUrl, { method: 'HEAD' }),
-          fetch(metaUrl),
-        ]);
-        if (audioHead.ok && metaResponse.ok) {
-          const meta = await metaResponse.json().catch(() => null);
-          if (Array.isArray(meta?.timepoints) && meta.timepoints.length === syllables.length) {
-            console.log('[TTS] karaoke cache hit', { voice, rate, syllableCount: syllables.length });
-            return postJson(res, 200, { success: true, url: publicUrl, timepoints: meta.timepoints, cached: true });
-          }
+        const metaResponse = await fetch(metaUrlData?.publicUrl);
+        const meta = await metaResponse.json();
+        if (metaResponse.ok && Array.isArray(meta?.timepoints) && meta.timepoints.length === syllables.length) {
+          return postJson(res, 200, { success: true, url: audioUrl, timepoints: meta.timepoints, cached: true });
         }
-      } catch (headError) {
-        console.warn('[TTS] karaoke cache check failed, synthesizing fresh:', headError?.message || headError);
-      }
+      } catch { /* regenerate incomplete cache entries */ }
     }
 
-    const ssml = buildMarkedSsml(syllables);
-    const googleResponse = await fetch(`${TTS_ENDPOINT_BETA}?key=${encodeURIComponent(GOOGLE_TTS_API_KEY)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: { ssml },
-        voice: { languageCode: LANGUAGE_CODE, name: voice },
-        audioConfig: { audioEncoding: 'MP3', speakingRate: rate },
-        enableTimePointing: ['SSML_MARK'],
-      }),
-    });
-
-    const googlePayload = await googleResponse.json().catch(() => ({}));
-
-    if (!googleResponse.ok || !googlePayload?.audioContent) {
-      console.error('[TTS] Google karaoke synthesis failed:', {
-        status: googleResponse.status,
-        error: googlePayload?.error?.message || googlePayload,
-      });
-      return postJson(res, 502, { success: false, message: 'Could not generate syllable speech right now.' });
-    }
-
-    // Google returns timepoints unordered - restore syllable order by the
-    // numeric suffix on the mark name ("s0", "s1", ...) rather than trusting
-    // array order.
-    const timepoints = (Array.isArray(googlePayload.timepoints) ? googlePayload.timepoints : [])
-      .map((tp) => ({ markName: tp.markName, timeSeconds: Number(tp.timeSeconds) || 0 }))
-      .sort((a, b) => Number(String(a.markName).slice(1)) - Number(String(b.markName).slice(1)));
-
-    console.log('[TTS] karaoke usage', { voice, rate, syllableCount: syllables.length, characters: joinedLength, cached: false });
-
-    const audioBuffer = Buffer.from(googlePayload.audioContent, 'base64');
-
-    const [{ error: uploadError }, { error: metaUploadError }] = await Promise.all([
-      supabaseAdmin.storage.from(CACHE_BUCKET).upload(audioPath, audioBuffer, { contentType: 'audio/mpeg', upsert: true }),
-      supabaseAdmin.storage.from(CACHE_BUCKET).upload(
-        metaPath,
-        Buffer.from(JSON.stringify({ timepoints, syllables, voice, rate })),
-        { contentType: 'application/json', upsert: true },
-      ),
+    const speech = await synthesizeWithTiming(text);
+    const timepoints = timepointsForSyllables(syllables, speech.alignment || speech.normalized_alignment);
+    const [audioError, metaResult] = await Promise.all([
+      cacheAudio(audioPath, speech.audio_base64),
+      supabaseAdmin.storage.from(CACHE_BUCKET).upload(metaPath, Buffer.from(JSON.stringify({ timepoints })), { contentType: 'application/json', upsert: true }),
     ]);
-
-    if (uploadError || metaUploadError) {
-      // Same best-effort caching policy as /speak: the student still gets
-      // their audio + timepoints even if the cache write fails.
-      console.warn('[TTS] Failed to cache karaoke audio/metadata:', uploadError?.message || metaUploadError?.message);
-      return postJson(res, 200, {
-        success: true,
-        audioContent: googlePayload.audioContent,
-        timepoints,
-        cached: false,
-      });
+    if (audioError || metaResult.error) {
+      console.warn('[TTS] Failed to cache ElevenLabs karaoke audio:', audioError?.message || metaResult.error?.message);
+      return postJson(res, 200, { success: true, audioContent: speech.audio_base64, timepoints, cached: false });
     }
-
-    return postJson(res, 200, { success: true, url: publicUrl, timepoints, cached: false });
+    const { data } = supabaseAdmin.storage.from(CACHE_BUCKET).getPublicUrl(audioPath);
+    console.log('[TTS] ElevenLabs karaoke usage', { syllableCount: syllables.length, characters: text.length, cached: false });
+    return postJson(res, 200, { success: true, url: data?.publicUrl, timepoints, cached: false });
   } catch (err) {
-    console.error('[TTS] /speak-syllables failed:', { message: err?.message, stack: err?.stack });
-    return postJson(res, 500, { success: false, message: 'Could not generate syllable speech right now.' });
+    console.error('[TTS] /speak-syllables failed:', { message: err?.message });
+    return postJson(res, 502, { success: false, message: 'Could not generate syllable speech right now.' });
   }
 });
 

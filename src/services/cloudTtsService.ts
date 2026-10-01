@@ -1,15 +1,12 @@
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { buildApiUrl, postJson } from '../config/api';
 import type { SpeechRate } from './settingsService';
-import { toFilipinoSsml } from './filipinoTts';
+export type CloudVoice = 'elevenlabs-configured';
+// Voice selection stays server-side so the ElevenLabs voice ID and API key
+// never become part of the Expo bundle.
+export const FILIPINO_CLOUD_VOICE: CloudVoice = 'elevenlabs-configured';
 
-export type CloudVoice = 'fil-PH-Neural2-A';
-export const FILIPINO_CLOUD_VOICE: CloudVoice = 'fil-PH-Neural2-A';
-
-// Mirrors the backend's DEFAULT_SPEECH_RATE (backend/routes/tts.js) - kept as
-// the fallback here too so a request sent before settings finish loading
-// still uses the slower default rather than an undefined rate silently
-// falling back to Google's own 1.0.
+// Retain the existing UI speed preset in the client request contract.
 const SPEECH_RATE_BY_PRESET: Record<SpeechRate, number> = { slow: 0.65, normal: 0.82, fast: 1.0 };
 let currentSpeechRate = SPEECH_RATE_BY_PRESET.normal;
 
@@ -85,12 +82,12 @@ async function ensurePlaybackMode() {
 }
 
 /**
- * Plays Filipino-only speech through the secured Google Cloud proxy. There is
+ * Plays Filipino-only speech through the secured ElevenLabs proxy. There is
  * intentionally no device TTS fallback: an uninstalled Filipino device voice
  * may silently pronounce the content with English rules.
  */
 export async function speakWordCloud(word: string, options: CloudSpeakOptions = {}) {
-  const { voice = FILIPINO_CLOUD_VOICE, rate = currentSpeechRate, onDone, onError } = options;
+  const { rate = currentSpeechRate, onDone, onError } = options;
   const text = word?.trim();
   if (!text) return;
 
@@ -101,7 +98,7 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
 
     const response = await postJson<SpeakResponse>(
       buildApiUrl('/tts/speak'),
-      { ssml: toFilipinoSsml(text), voice, rate },
+      { text, rate },
       15000,
     );
 
@@ -137,8 +134,7 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
 
 /**
  * Plays a word as slow, syllable-marked speech and drives onSyllableIndex in
- * sync with real Google TTS timepoints (SSML <mark> + enableTimePointing,
- * v1beta1 - confirmed live to work with fil-PH-Wavenet-A/C). Unlike
+ * sync with real ElevenLabs character timestamps. Unlike
  * speakWordCloud, this has NO on-device fallback: expo-speech has no timing
  * API, so there is no way to keep the highlight in sync if cloud synthesis
  * fails. Callers should treat onError as "fall back to plain speakWordCloud
