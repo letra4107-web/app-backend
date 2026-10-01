@@ -121,7 +121,7 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
     }
 
     const player = createAudioPlayer(source);
-    player.playbackRate = getCloudPlaybackRate(rate);
+    player.setPlaybackRate(getCloudPlaybackRate(rate));
     activePlayer = player;
 
     const subscription = player.addListener('playbackStatusUpdate', (status) => {
@@ -179,7 +179,7 @@ export async function speakSyllablesCloud(syllables: string[], options: KaraokeS
     const player = createAudioPlayer(source);
     // currentTime remains in source-audio time, so ElevenLabs' timestamps
     // continue to line up even when this applies the web-equivalent rate.
-    player.playbackRate = getCloudPlaybackRate(rate);
+    player.setPlaybackRate(getCloudPlaybackRate(rate));
     activePlayer = player;
 
     let lastIndex = -1;
