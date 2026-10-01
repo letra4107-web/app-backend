@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "scheme": "linawletra",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Logo.jpg",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -16,8 +16,9 @@
     },
     "android": {
       "package": "com.linawletra.app",
+      "versionCode": 19,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Logo.png",
+        "foregroundImage": "./assets/Logo.jpg",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -25,7 +26,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/Logo.jpg"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -36,7 +37,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/Logo.png",
+          "image": "./assets/Logo.jpg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

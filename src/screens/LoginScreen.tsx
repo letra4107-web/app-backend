@@ -8,7 +8,6 @@ import {
   signOutUserFully,
 } from '../services/supabaseService';
 import { getSavedProfiles, saveAuthProfile, removeSavedProfile, updateSavedProfileToken, SavedAuthProfile } from '../services/authProfileStore';
-import { requireLocalAuth, canUseLocalAuth } from '../services/localAuthService';
 import { colors, typography } from '../theme';
 
 interface LoginScreenProps {
@@ -31,30 +30,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [touchedPassword, setTouchedPassword] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  // One-tap re-login (panel item 1). The biometric/PIN gate is mandatory -
-  // it's the security boundary that replaced immediate server-side token
-  // revocation on logout (see the trade-off note on signOutUser in
-  // supabaseService.ts). So the picker only ever renders when the device
-  // actually has a lock enrolled; otherwise saved profiles are still pruned
-  // by TTL in the background, but the UI silently falls through to the full
-  // credential form instead of offering a bare tap-to-login.
+  // One-tap re-login (panel item 1). Tapping a saved profile logs in
+  // immediately - no biometric/PIN gate. Saved profiles are still pruned by
+  // TTL in the background (see authProfileStore.ts).
   const [savedProfiles, setSavedProfiles] = useState<SavedAuthProfile[]>([]);
   const [profilesChecked, setProfilesChecked] = useState(false);
-  const [localAuthAvailable, setLocalAuthAvailable] = useState(false);
   const [showFullForm, setShowFullForm] = useState(false);
   const [reloginBusyId, setReloginBusyId] = useState<string | null>(null);
   const [reloginError, setReloginError] = useState('');
 
   useEffect(() => {
     void (async () => {
-      const [profiles, gateAvailable] = await Promise.all([getSavedProfiles(), canUseLocalAuth()]);
+      const profiles = await getSavedProfiles();
       setSavedProfiles(profiles);
-      setLocalAuthAvailable(gateAvailable);
       setProfilesChecked(true);
     })();
   }, []);
 
-  const canOfferOneTapLogin = profilesChecked && localAuthAvailable && savedProfiles.length > 0;
+  const canOfferOneTapLogin = profilesChecked && savedProfiles.length > 0;
 
   const validateIdentifier = (value: string) => {
     const trimmed = value.trim();
@@ -285,37 +278,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  // One-tap re-login (panel item 1): MANDATORY gate behind the device's own
-  // lock (fingerprint/face/PIN) - this replaced immediate server-side token
-  // revocation as the security boundary (see supabaseService.ts's
-  // signOutUser trade-off note), so it is never skipped. The picker is only
-  // ever shown when canOfferOneTapLogin already confirmed a lock is
-  // enrolled, but the device's lock state can change between screens (e.g.
-  // someone removes their PIN in Settings mid-session), so this re-checks
-  // and refuses to proceed - falling back to the full credential form -
-  // rather than silently letting the tap through unguarded.
+  // One-tap re-login (panel item 1): tapping a saved profile logs in
+  // immediately, no biometric/PIN confirmation.
   const handleTapProfile = async (profile: SavedAuthProfile) => {
     setReloginError('');
     setReloginBusyId(profile.userId);
     try {
-      const stillAvailable = await canUseLocalAuth();
-      if (!stillAvailable) {
-        setReloginBusyId(null);
-        setLocalAuthAvailable(false);
-        setShowFullForm(true);
-        Alert.alert(
-          'Kailangan ng Lock Screen',
-          'Wala nang naka-set na fingerprint/face/PIN sa device na ito, kaya kailangan mong mag-log in gamit ang buong email at password.',
-        );
-        return;
-      }
-
-      const passedGate = await requireLocalAuth(`Kumpirmahin na ikaw si ${profile.displayName}`);
-      if (!passedGate) {
-        setReloginBusyId(null);
-        return;
-      }
-
       const { data, error } = await relogin(profile.refreshToken);
       if (error || !data?.session || !data?.user) {
         console.warn('[Login] saved profile relogin failed, dropping it:', error?.message || error);
@@ -393,19 +361,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         </View>
 
         <View style={styles.topHeader}>
-          <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Maligayang pagbabalik!</Text>
           <Text style={styles.subtitle}>Mag-login para ipagpatuloy ang iyong paglalakbay sa pagbasa.</Text>
         </View>
 
         {/* One-tap re-login (panel item 1): shown instead of the full form
-            only when there are saved profiles AND the device has a
-            fingerprint/face/PIN enrolled to gate them with (canOfferOneTapLogin),
-            and the user hasn't asked for "Gumamit ng Ibang Account". Each tile
-            requires that device lock before it's used - see handleTapProfile -
-            so this isn't a bare bypass of the password on a shared family
-            device. The "Hindi ikaw ito?" icon on each tile is a real,
-            fully-revoking sign-out of that saved profile (see
+            when there are saved profiles and the user hasn't asked for
+            "Gumamit ng Ibang Account". Tapping a tile logs in immediately -
+            see handleTapProfile. The "Hindi ikaw ito?" icon on each tile is
+            a real, fully-revoking sign-out of that saved profile (see
             handleRemoveProfile) - deliberately a visible button, not a
             hidden long-press, so a parent/teacher switching the device to a
             different student can find it without knowing a gesture. */}
@@ -425,7 +390,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   disabled={!!reloginBusyId}
                   accessibilityRole="button"
                   accessibilityLabel={`Log in as ${profile.displayName}`}
-                  accessibilityHint="Confirms with fingerprint, face, or PIN before logging in"
                 >
                   {profile.avatarUrl ? (
                     <Image source={{ uri: profile.avatarUrl }} style={styles.profileTileAvatar} />

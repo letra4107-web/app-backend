@@ -43,8 +43,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
     return () => clearTimeout(timer);
   }, [navigation, opacity, scale]);
 
-  const bg = require('../../assets/background.png');
-  const logo = require('../../assets/Logo.png');
+  const bg = require('../../assets/students/backgrounds/student-hero-bg.png');
+  const logo = require('../../assets/Logo.jpg');
 
   return (
     <ImageBackground source={bg} style={styles.container} resizeMode="cover">

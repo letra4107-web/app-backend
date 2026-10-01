@@ -6,9 +6,17 @@ export type CloudVoice = 'elevenlabs-configured';
 // never become part of the Expo bundle.
 export const FILIPINO_CLOUD_VOICE: CloudVoice = 'elevenlabs-configured';
 
-// Retain the existing UI speed preset in the client request contract.
-const SPEECH_RATE_BY_PRESET: Record<SpeechRate, number> = { slow: 0.65, normal: 0.82, fast: 1.0 };
+// Keep this in lockstep with web/src/lib/ttsSettings.ts. ElevenLabs creates
+// the source audio at a minimum of 0.7x, then each client compensates during
+// playback so the heard speed remains the selected web/mobile speed.
+const SPEECH_RATE_BY_PRESET: Record<SpeechRate, number> = { slow: 0.4, normal: 0.5, fast: 0.8 };
+const ELEVENLABS_MIN_GENERATION_RATE = 0.7;
 let currentSpeechRate = SPEECH_RATE_BY_PRESET.normal;
+
+export function getCloudPlaybackRate(rate: number): number {
+  const generationRate = Math.max(ELEVENLABS_MIN_GENERATION_RATE, Math.min(1, rate));
+  return rate / generationRate;
+}
 
 /**
  * Settings' "Reading Speed" control calls this (alongside ttsService's own
@@ -113,6 +121,7 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
     }
 
     const player = createAudioPlayer(source);
+    player.playbackRate = getCloudPlaybackRate(rate);
     activePlayer = player;
 
     const subscription = player.addListener('playbackStatusUpdate', (status) => {
@@ -141,7 +150,7 @@ export async function speakWordCloud(word: string, options: CloudSpeakOptions = 
  * for audio, but don't attempt to highlight" rather than going silent.
  */
 export async function speakSyllablesCloud(syllables: string[], options: KaraokeSpeakOptions = {}) {
-  const { voice, rate, onSyllableIndex, onDone, onError } = options;
+  const { voice, rate = currentSpeechRate, onSyllableIndex, onDone, onError } = options;
   const clean = (syllables || []).map((s) => s?.trim()).filter(Boolean);
   if (!clean.length) return;
 
@@ -168,6 +177,9 @@ export async function speakSyllablesCloud(syllables: string[], options: KaraokeS
 
     const timepoints = response.timepoints;
     const player = createAudioPlayer(source);
+    // currentTime remains in source-audio time, so ElevenLabs' timestamps
+    // continue to line up even when this applies the web-equivalent rate.
+    player.playbackRate = getCloudPlaybackRate(rate);
     activePlayer = player;
 
     let lastIndex = -1;

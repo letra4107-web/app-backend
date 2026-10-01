@@ -156,7 +156,7 @@ export default function StudentProfileScreen({ navigation, onGoBack, gradeLevel,
         onBackPress={onGoBack}
         title="Aking Profile"
         subtitle="Ipakita ang mga natapos mong parangal!"
-        illustration={require('../../assets/trophy.webp')}
+        illustration={require('../../assets/students/illustrations/achievement-illustration.png')}
       />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         {!!message && <Text style={styles.successBanner}>{message}</Text>}

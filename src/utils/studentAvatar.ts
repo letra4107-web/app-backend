@@ -2,30 +2,30 @@ import { ImageSourcePropType } from 'react-native';
 import { ACHIEVEMENTS } from '../services/achievementService';
 
 export const DEFAULT_STUDENT_AVATARS = [
-  { key: 'default:reader', label: 'Reader', image: require('../../assets/learnboypng.webp') },
-  { key: 'default:book', label: 'Book', image: require('../../assets/book.webp') },
-  { key: 'default:star', label: 'Star', image: require('../../assets/thumbsup.webp') },
-  { key: 'default:trophy', label: 'Trophy', image: require('../../assets/trophy.webp') },
+  { key: 'default:reader', label: 'Reader', image: require('../../assets/students/characters/student-hero-character.png') },
+  { key: 'default:book', label: 'Book', image: require('../../assets/students/mascot/owl-mascot.png') },
+  { key: 'default:star', label: 'Star', image: require('../../assets/students/illustrations/lesson-card-illustration.png') },
+  { key: 'default:trophy', label: 'Trophy', image: require('../../assets/students/illustrations/achievement-illustration.png') },
 ] as const;
 
 export const STUDENT_MODULE_AVATARS: Record<number, ImageSourcePropType> = {
-  1: require('../../assets/modyul/modyul1.png'),
-  2: require('../../assets/modyul/modyul2.png'),
-  3: require('../../assets/modyul/modyul3.png'),
-  4: require('../../assets/modyul/modyul4.png'),
-  5: require('../../assets/modyul/modyul5.png'),
-  6: require('../../assets/modyul/modyul6.png'),
-  7: require('../../assets/modyul/modyul7.png'),
-  8: require('../../assets/modyul/modyul8.png'),
-  9: require('../../assets/modyul/modyul9.png'),
-  10: require('../../assets/modyul/modyul10.png'),
-  11: require('../../assets/modyul/modyul11.png'),
-  12: require('../../assets/modyul/modyul12.png'),
-  13: require('../../assets/modyul/modyul13.png'),
-  14: require('../../assets/modyul/modyul14.png'),
-  15: require('../../assets/modyul/modyul15.png'),
-  16: require('../../assets/modyul/modyul16.png'),
-  17: require('../../assets/modyul/modyul17.png'),
+  1: require('../../assets/students/aralin/aralin-header-books.png'),
+  2: require('../../assets/students/aralin/aralin-phonics-blocks.png'),
+  3: require('../../assets/students/aralin/aralin-current.png'),
+  4: require('../../assets/students/aralin/aralin-reading-book.png'),
+  5: require('../../assets/students/aralin/aralin-pencil-stars.png'),
+  6: require('../../assets/students/mascot/owl-mascot.png'),
+  7: require('../../assets/students/aralin/aralin-module-path.png'),
+  8: require('../../assets/students/aralin/aralin-header-books.png'),
+  9: require('../../assets/students/aralin/aralin-phonics-blocks.png'),
+  10: require('../../assets/students/aralin/aralin-current.png'),
+  11: require('../../assets/students/aralin/aralin-reading-book.png'),
+  12: require('../../assets/students/aralin/aralin-pencil-stars.png'),
+  13: require('../../assets/students/mascot/owl-mascot.png'),
+  14: require('../../assets/students/aralin/aralin-module-path.png'),
+  15: require('../../assets/students/aralin/aralin-header-books.png'),
+  16: require('../../assets/students/aralin/aralin-phonics-blocks.png'),
+  17: require('../../assets/students/aralin/aralin-current.png'),
 };
 
 export const studentAvatarSource = (

@@ -445,7 +445,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         </View>
 
         <View style={styles.topHeader}>
-          <Image source={require('../../assets/Logo.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/Logo.jpg')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Gumawa ng Account</Text>
           <Text style={styles.subtitle}>Magsimula na tayo sa LinawLetra.</Text>
           <Text style={styles.supportingText}>Gumawa ng account bilang magulang para suportahan ang paglalakbay sa pagbasa ng iyong anak.</Text>

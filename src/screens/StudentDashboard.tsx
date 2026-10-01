@@ -1995,7 +1995,7 @@ export default function StudentDashboard({ navigation }: any) {
           notifDot={unreadNotifCount > 0}
           title={`Kumusta,\n${getFirstName(child?.name || '')}! 👋`}
           subtitle="Handa ka na bang matuto ngayon?"
-          illustration={require('../../assets/waving.webp')}
+          illustration={require('../../assets/students/characters/student-hero-character.png')}
           titleA11yStyle={heroTitleA11yStyle}
           subtitleA11yStyle={heroSubtitleA11yStyle}
         />
@@ -2099,7 +2099,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <Text style={[styles.homeTodayButtonText, buttonA11y]}>Ipagpatuloy ang Pagsasanay</Text>
               </TouchableOpacity>
             </View>
-            <Image source={require('../../assets/thumbsup.webp')} style={{ width: 84, height: 84 }} resizeMode="contain" />
+            <Image source={require('../../assets/students/illustrations/lesson-card-illustration.png')} style={{ width: 84, height: 84 }} resizeMode="contain" />
           </View>
 
           {/* Continue Learning — real in-progress lesson + inferred
@@ -2123,7 +2123,7 @@ export default function StudentDashboard({ navigation }: any) {
           ) : continueReadingLesson ? (
             <View style={styles.homeContinueCard}>
               <View style={styles.homeContinueImageWrap}>
-                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
+                <Image source={require('../../assets/students/illustrations/lesson-card-illustration.png')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
@@ -2148,7 +2148,7 @@ export default function StudentDashboard({ navigation }: any) {
           ) : (
             <View style={styles.homeContinueCard}>
               <View style={styles.homeContinueImageWrap}>
-                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
+                <Image source={require('../../assets/students/illustrations/lesson-card-illustration.png')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
@@ -2245,7 +2245,7 @@ export default function StudentDashboard({ navigation }: any) {
           ) : continueReadingLesson ? (
             <View style={styles.homeContinueCard}>
               <View style={styles.homeContinueImageWrap}>
-                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
+                <Image source={require('../../assets/students/illustrations/lesson-card-illustration.png')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
@@ -2265,7 +2265,7 @@ export default function StudentDashboard({ navigation }: any) {
           ) : (
             <View style={styles.homeContinueCard}>
               <View style={styles.homeContinueImageWrap}>
-                <Image source={require('../../assets/reading.webp')} style={styles.homeContinueImage} resizeMode="contain" />
+                <Image source={require('../../assets/students/illustrations/lesson-card-illustration.png')} style={styles.homeContinueImage} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.homeContinueTitle, cardTitleA11y]}>Ipagpatuloy ang Pag-aaral</Text>
@@ -2292,7 +2292,7 @@ export default function StudentDashboard({ navigation }: any) {
           {recentActivityItems.length ? (
             recentActivityItems.map((item) => (
               <View key={item.key} style={styles.homeRecentActivityCard}>
-                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#E5F1EF' }]}>
+                <View style={[styles.homeRecentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : colors.primaryLight }]}>
                   <Ionicons
                     name={item.kind === 'lesson' ? 'checkmark-circle' : 'mic'}
                     size={20}
@@ -2318,13 +2318,13 @@ export default function StudentDashboard({ navigation }: any) {
           <View style={{ display: 'none' }}>
           <View style={styles.homeQuoteBanner}>
             <Text style={[styles.homeQuoteText, bodyA11y]}>&quot;Bawat salitang nababasa mo, lumalakas ka!&quot;</Text>
-            <Image source={require('../../assets/thumbsup.webp')} style={styles.homeQuoteImage} resizeMode="contain" />
+            <Image source={require('../../assets/students/illustrations/lesson-card-illustration.png')} style={styles.homeQuoteImage} resizeMode="contain" />
           </View>
 
           {/* Quick actions */}
           <View style={styles.homeQuickRow}>
             <TouchableOpacity
-              style={[styles.homeQuickCard, { backgroundColor: '#E5F1EF' }]}
+              style={[styles.homeQuickCard, { backgroundColor: colors.primaryLight }]}
               onPress={() => setSection('learn')}
               accessibilityRole="button"
               accessibilityLabel="Go to Learn"
@@ -2385,7 +2385,7 @@ export default function StudentDashboard({ navigation }: any) {
                   {stats.streak > 0 ? 'May-init ang streak mo!' : 'Simulan ang streak!'}
                 </Text>
               </View>
-              <View style={[styles.rewardPill, { backgroundColor: '#E5F1EF' }]}>
+              <View style={[styles.rewardPill, { backgroundColor: colors.primaryLight }]}>
                 <View style={[styles.rewardIconWrap, { backgroundColor: '#fff' }]}>
                   <Ionicons name="ribbon" size={13} color={colors.lavenderDark} />
                 </View>
@@ -2466,13 +2466,13 @@ export default function StudentDashboard({ navigation }: any) {
             accessibilityRole="button"
             accessibilityLabel="Start Say the Word practice mode"
           >
-            <View style={[styles.practiceModeIconWrap, { backgroundColor: '#E5F1EF' }]}>
+            <View style={[styles.practiceModeIconWrap, { backgroundColor: colors.primaryLight }]}>
               <Ionicons name="mic" size={24} color={colors.lavenderDark} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.practiceModeTitle, cardTitleA11y]}>Sabihin ang Salita</Text>
               <Text style={[styles.practiceModeSub, bodyA11y]}>Pakinggan ang salita, pagkatapos sabihin ito nang malakas.</Text>
-              <View style={[styles.practiceModeTag, { backgroundColor: '#E5F1EF' }]}>
+              <View style={[styles.practiceModeTag, { backgroundColor: colors.primaryLight }]}>
                 <Text style={[styles.practiceModeTagText, { color: colors.lavenderDark }, smallLabelA11y]}>AI na Pagsasanay sa Bigkas</Text>
               </View>
             </View>
@@ -2586,7 +2586,8 @@ export default function StudentDashboard({ navigation }: any) {
             }}
             title={'Basahin\nKasama Ako'}
             subtitle="Sundan ng mata ang bawat pantig habang binabasa ko ito para sa iyo."
-            illustration={require('../../assets/reading.webp')}
+            illustration={require('../../assets/students/illustrations/lesson-card-illustration.png')}
+            backgroundImage={require('../../assets/students/backgrounds/word-practice-background.png')}
             titleA11yStyle={heroTitleA11yStyle}
             subtitleA11yStyle={heroSubtitleA11yStyle}
             backLabelA11yStyle={bodyA11y}
@@ -2655,7 +2656,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <TouchableOpacity
                   style={[
                     styles.sayWordButton,
-                    { flex: 1, width: undefined, backgroundColor: colors.sage, shadowColor: colors.sage },
+                    { width: '100%', backgroundColor: colors.sage, shadowColor: colors.sage },
                     listenPlaying && styles.listenButtonActive,
                   ]}
                   onPress={() => {
@@ -2673,7 +2674,7 @@ export default function StudentDashboard({ navigation }: any) {
                 <TouchableOpacity
                   style={[
                     styles.sayWordButton,
-                    { flex: 1, width: undefined, backgroundColor: colors.lavenderDark, shadowColor: colors.lavenderDark },
+                    { width: '100%', backgroundColor: colors.primary, shadowColor: colors.primary },
                     isKaraokeActive && styles.listenButtonActive,
                   ]}
                   onPress={() => playSyllableKaraoke(selectedWord)}
@@ -2743,7 +2744,8 @@ export default function StudentDashboard({ navigation }: any) {
             }}
             title={'Pagsasanay sa\nPagbigkas'}
             subtitle="Basahin nang malakas ang salita at hayaang suriin ng AI ang bigkas mo."
-            illustration={require('../../assets/singing.webp')}
+            illustration={require('../../assets/students/mascot/owl-mascot.png')}
+            backgroundImage={require('../../assets/students/backgrounds/word-practice-background-v2.png')}
             titleA11yStyle={heroTitleA11yStyle}
             subtitleA11yStyle={heroSubtitleA11yStyle}
             backLabelA11yStyle={bodyA11y}
@@ -2878,7 +2880,7 @@ export default function StudentDashboard({ navigation }: any) {
                 />
 
                 <View style={styles.encourageCard}>
-                  <Image source={require('../../assets/book.webp')} style={styles.encourageImage} resizeMode="contain" />
+                  <Image source={require('../../assets/students/mascot/owl-mascot.png')} style={styles.encourageImage} resizeMode="contain" />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.encourageTitle, cardTitleA11y]}>Bawat pagsasanay ay ginagawa kang mas magaling na mambabasa!</Text>
                     <Text style={[styles.encourageSub, bodyA11y]}>
@@ -2966,7 +2968,7 @@ export default function StudentDashboard({ navigation }: any) {
           flow. Teacher-assigned stories below are the single source here. */}
       {false && <>
       <View style={styles.learnSectionHeader}>
-        <View style={[styles.learnBadgePill, { backgroundColor: '#E5F1EF' }]}>
+        <View style={[styles.learnBadgePill, { backgroundColor: colors.primaryLight }]}>
           <Ionicons name="clipboard" size={16} color={colors.lavenderDark} />
           <Text style={[styles.learnBadgeText, { color: colors.lavenderDark }, smallLabelA11y]}>MGA TAKDANG-ARALIN</Text>
         </View>
@@ -2994,7 +2996,7 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.learnCardList}>
           {activities.map((activity) => (
             <View key={activity.id} style={styles.learnActivityCard}>
-              <View style={[styles.learnIconWrap, { backgroundColor: '#E5F1EF' }]}>
+              <View style={[styles.learnIconWrap, { backgroundColor: colors.primaryLight }]}>
                 <Ionicons name="clipboard" size={22} color={colors.lavenderDark} />
               </View>
               <View style={{ flex: 1 }}>
@@ -3023,8 +3025,8 @@ export default function StudentDashboard({ navigation }: any) {
           ))}
         </View>
       ) : (
-        <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF' }]}>
-          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E5F1EF' }]}>
+        <View style={[styles.learnEmptyCard, { backgroundColor: colors.primaryLight }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="clipboard-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang assignment ngayon</Text>
@@ -3088,8 +3090,8 @@ export default function StudentDashboard({ navigation }: any) {
           })}
         </View>
       ) : (
-        <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF' }]}>
-          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E5F1EF' }]}>
+        <View style={[styles.learnEmptyCard, { backgroundColor: colors.primaryLight }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="send-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang ipinadalang PDF</Text>
@@ -3128,8 +3130,8 @@ export default function StudentDashboard({ navigation }: any) {
           </Text>
         </View>
       ) : (
-        <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF' }]}>
-          <View style={[styles.learnEmptyIconWrap, { backgroundColor: '#E5F1EF' }]}>
+        <View style={[styles.learnEmptyCard, { backgroundColor: colors.primaryLight }]}>
+          <View style={[styles.learnEmptyIconWrap, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="book-outline" size={40} color={colors.lavenderDark} />
           </View>
           <Text style={[styles.learnEmptyTitle, cardTitleA11y]}>Wala ka pang aralin</Text>
@@ -3425,7 +3427,8 @@ export default function StudentDashboard({ navigation }: any) {
           onMenuPress={openSidebar}
           title={'Aking mga\nParangal'}
           subtitle="Ipagdiwang ang bawat tagumpay mo sa pagbasa!"
-          illustration={require('../../assets/trophy.webp')}
+          illustration={require('../../assets/students/illustrations/achievement-illustration.png')}
+          backgroundImage={require('../../assets/students/aralin/aralin-journey-background.png')}
           illustrationStyle={styles.badgesHeroImage}
           titleA11yStyle={heroTitleA11yStyle}
           subtitleA11yStyle={heroSubtitleA11yStyle}
@@ -3503,7 +3506,7 @@ export default function StudentDashboard({ navigation }: any) {
         {filteredBadges.length ? (
           <View style={styles.badgesGrid}>{filteredBadges.map(renderBadgeCard)}</View>
         ) : (
-          <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF', marginBottom: 20 }]}>
+          <View style={[styles.learnEmptyCard, { backgroundColor: colors.primaryLight, marginBottom: 20 }]}>
             <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala pang badge sa kategoryang ito.</Text>
           </View>
         )}
@@ -3556,7 +3559,7 @@ export default function StudentDashboard({ navigation }: any) {
             ))}
           </View>
         ) : (
-          <View style={[styles.learnEmptyCard, { backgroundColor: '#E5F1EF', marginBottom: 20 }]}>
+          <View style={[styles.learnEmptyCard, { backgroundColor: colors.primaryLight, marginBottom: 20 }]}>
             <Text style={[styles.learnEmptySubtext, bodyA11y]}>Wala ka pang nakukuhang badge. Magsanay para makakuha ng una mo!</Text>
           </View>
         )}
@@ -3567,7 +3570,7 @@ export default function StudentDashboard({ navigation }: any) {
           end={{ x: 1, y: 1 }}
           style={styles.badgesCelebrateBanner}
         >
-          <Image source={require('../../assets/celebrate.webp')} style={styles.badgesCelebrateImage} resizeMode="contain" />
+          <Image source={require('../../assets/students/illustrations/achievement-illustration.png')} style={styles.badgesCelebrateImage} resizeMode="contain" />
           <View style={{ maxWidth: '62%' }}>
             <Text style={[styles.badgesCelebrateTitle, cardTitleA11y]}>Magaling na Trabaho!</Text>
             <Text style={[styles.badgesCelebrateSub, bodyA11y]}>Bawat parangal ay sumasalamin sa iyong sipag at lumalakas na kasanayan sa pagbasa.</Text>
@@ -3678,7 +3681,8 @@ export default function StudentDashboard({ navigation }: any) {
           notifDot={unreadNotifCount > 0}
           title="Mga Abiso"
           subtitle="Manatiling updated sa iyong paglalakbay sa pagbasa."
-          illustration={require('../../assets/bell.webp')}
+          illustration={require('../../assets/students/mascot/owl-mascot.png')}
+          backgroundImage={require('../../assets/students/aralin/aralin-path-background.png')}
           illustrationStyle={styles.notifHeroImage}
           titleA11yStyle={heroTitleA11yStyle}
           subtitleA11yStyle={heroSubtitleA11yStyle}
@@ -4183,7 +4187,7 @@ function PracticeResultCard({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAF8F3' },
+  container: { flex: 1, backgroundColor: colors.cream },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   centerBlock: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18 },
   header: { paddingHorizontal: 18, paddingBottom: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -4220,7 +4224,7 @@ const styles = StyleSheet.create({
   progressHeroRingLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 11, marginTop: 2 },
   progressHeroLabel: { color: colors.ink, fontWeight: '800', fontSize: 14, marginBottom: 8 },
   progressHeroStatusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E5F1EF',
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primaryLight,
     borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7,
   },
   progressHeroStatusText: { fontWeight: '800', fontSize: 13 },
@@ -4326,7 +4330,7 @@ const styles = StyleSheet.create({
   badgesCelebrateButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 14 },
   badgesFilterRow: { marginBottom: 16 },
   badgesFilterChip: {
-    backgroundColor: '#E5F1EF', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 13, marginRight: 8,
+    backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 13, marginRight: 8,
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   badgesFilterChipActive: { backgroundColor: colors.lavender },
@@ -4334,7 +4338,7 @@ const styles = StyleSheet.create({
   badgesFilterChipTextActive: { color: '#fff' },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   badgeCard: {
-    width: '48%', backgroundColor: '#E5F1EF', borderRadius: radius.lg, padding: 14,
+    width: '48%', backgroundColor: colors.primaryLight, borderRadius: radius.lg, padding: 14,
     alignItems: 'center', marginBottom: 14,
     ...shadows.card,
   },
@@ -4377,7 +4381,7 @@ const styles = StyleSheet.create({
   // --- Learn tab (assignments = lavender family, PDF lessons = sage family) ---
   assignmentsSectionWrap: {
     paddingBottom: 10, marginBottom: 6,
-    borderBottomWidth: 1, borderBottomColor: '#DDDCD5',
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   learnSectionHeader: { marginTop: 8, marginBottom: 14 },
   learnBadgePill: {
@@ -4389,7 +4393,7 @@ const styles = StyleSheet.create({
   learnCardList: { gap: 12, marginBottom: 8 },
   learnActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#E5F1EF', borderRadius: 20, padding: 14, marginBottom: 12,
+    backgroundColor: colors.primaryLight, borderRadius: 20, padding: 14, marginBottom: 12,
   },
   learnLessonCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -4601,10 +4605,10 @@ const styles = StyleSheet.create({
     marginBottom: 6, backgroundColor: '#fff',
     shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  navItemActive: { backgroundColor: '#E5F1EF' },
+  navItemActive: { backgroundColor: colors.primaryLight },
   navIconWrap: {
     width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#E5F1EF',
+    backgroundColor: colors.primaryLight,
   },
   navIconWrapActive: { backgroundColor: '#fff' },
   navLabel: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
@@ -4614,7 +4618,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   navCountBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
-  navFractionPill: { backgroundColor: '#E5F1EF', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  navFractionPill: { backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   navFractionPillText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 10.5 },
   sidebarProgressCard: {
     backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16, overflow: 'hidden',
@@ -4655,7 +4659,7 @@ const styles = StyleSheet.create({
   },
   sidebarFullSignOutText: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, textDecorationLine: 'underline' },
   // --- Home tab ---
-  homeBg: { flex: 1, width: '100%', backgroundColor: '#FAF8F3' },
+  homeBg: { flex: 1, width: '100%', backgroundColor: colors.cream },
   homeContent: { padding: 18, paddingBottom: 48 },
   homeErrorBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -4689,7 +4693,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 16,
   },
   readyPracticeIconWrap: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: '#E5F1EF',
+    width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
   readyPracticeTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16, marginBottom: 4 },
@@ -4702,7 +4706,7 @@ const styles = StyleSheet.create({
   homeRecentActivityCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: '#DDDCD5',
+    borderWidth: 1, borderColor: colors.border,
     ...shadows.card,
   },
   homeRecentActivityIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
@@ -4734,7 +4738,7 @@ const styles = StyleSheet.create({
   homeGridValue: { fontFamily: typography.family.display, fontSize: 20, marginTop: 8 },
   homeGridLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 12, marginTop: 2 },
   homeContinueCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F1EF', borderRadius: radius.lg, padding: 16, marginBottom: 16, gap: 12,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryLight, borderRadius: radius.lg, padding: 16, marginBottom: 16, gap: 12,
     ...shadows.card,
   },
   homeContinueTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 15 },
@@ -4823,7 +4827,7 @@ const styles = StyleSheet.create({
   homeDeadlinesEmpty: { alignItems: 'center', paddingVertical: 14 },
   homeDeadlinesEmptyEmoji: { fontSize: 28, marginBottom: 6 },
   homeDeadlinesEmptyText: { color: colors.inkSoft, textAlign: 'center', fontWeight: '600', fontSize: 13 },
-  homeInlineRetry: { marginTop: 10, minHeight: 44, paddingHorizontal: 16, borderRadius: 14, backgroundColor: '#E5F1EF', justifyContent: 'center' },
+  homeInlineRetry: { marginTop: 10, minHeight: 44, paddingHorizontal: 16, borderRadius: 14, backgroundColor: colors.primaryLight, justifyContent: 'center' },
   homeInlineRetryText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13 },
   // --- Notifications tab ---
   // Padding gives the negative-offset dot room inside this wrapper's own
@@ -4850,7 +4854,7 @@ const styles = StyleSheet.create({
   notifSummaryTitle: { fontFamily: typography.family.displaySemi, color: colors.ink, fontSize: 15 },
   notifSummarySub: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 3 },
   notifMarkAllButton: {
-    backgroundColor: '#E5F1EF', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 13,
+    backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 13,
     minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   notifMarkAllButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 11 },
@@ -4858,7 +4862,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#fff', borderRadius: 18, padding: 14,
     shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
   },
-  notifCardUnread: { backgroundColor: '#E5F1EF' },
+  notifCardUnread: { backgroundColor: colors.primaryLight },
   notifIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   notifTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lavender },
@@ -4890,12 +4894,12 @@ const styles = StyleSheet.create({
   goalTrackFill: { height: '100%', borderRadius: 6, backgroundColor: colors.lavender },
   goalEmptyNote: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, marginTop: 10 },
   practiceSectionTitle: { fontFamily: typography.family.display, color: colors.ink, fontSize: 16, marginBottom: 12, marginTop: 4 },
-  aiRecommendationCard: { backgroundColor: '#E5F1EF', borderWidth: 1, borderColor: '#DDDCD5', borderRadius: radius.md, padding: 14, marginBottom: 14, ...shadows.card },
+  aiRecommendationCard: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 14, marginBottom: 14, ...shadows.card },
   aiRecommendationTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   aiRecommendationIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
   aiRecommendationWord: { color: colors.lavenderDark, fontWeight: '900', fontSize: 19 },
   aiRecommendationWordRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  trackPill: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#DDDCD5' },
+  trackPill: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: colors.border },
   trackPillText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 10 },
   aiRecommendationReason: { color: colors.inkSoft, fontWeight: '600', fontSize: 12, lineHeight: 17, marginTop: 2 },
   aiRecommendationFocus: { color: colors.ink, fontWeight: '700', fontSize: 12, marginTop: 10 },
@@ -4904,7 +4908,7 @@ const styles = StyleSheet.create({
   aiConfidenceLabel: { color: colors.inkSoft, fontWeight: '700', fontSize: 9 },
   categoryFilterBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#E5F1EF', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14,
+    backgroundColor: colors.primaryLight, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14,
   },
   categoryFilterBarText: { color: colors.lavenderDark, fontWeight: '800', fontSize: 13 },
   categoryFilterBarReset: { color: colors.lavenderDark, fontWeight: '900', fontSize: 13, textDecorationLine: 'underline' },
@@ -4921,19 +4925,19 @@ const styles = StyleSheet.create({
   practiceModeTagText: { fontWeight: '800', fontSize: 11 },
   practiceModeStartPill: { backgroundColor: colors.lavender, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 11 },
   practiceModeStartText: { color: '#fff', fontWeight: '900', fontSize: 13 },
-  practiceModeTabs: { flexDirection: 'row', gap: 8, width: '100%', marginBottom: 16 },
-  practiceModeTab: { flex: 1, minHeight: 44, borderRadius: 14, backgroundColor: colors.primaryLight, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 6 },
+  practiceModeTabs: { flexDirection: 'row', gap: 8, width: '100%', marginBottom: 18, padding: 4, backgroundColor: colors.cream, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
+  practiceModeTab: { flex: 1, minHeight: 48, borderRadius: 12, backgroundColor: 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 6 },
   practiceModeTabActive: { backgroundColor: colors.primary },
-  practiceModeTabText: { color: colors.primary, fontWeight: '800', fontSize: 11, textAlign: 'center' },
+  practiceModeTabText: { color: colors.primary, fontWeight: '800', fontSize: 11, textAlign: 'center', flexShrink: 1 },
   practiceModeTabTextActive: { color: '#fff' },
   listenNextButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    alignSelf: 'center', backgroundColor: '#E9F1E2', borderRadius: 999,
-    paddingHorizontal: 20, paddingVertical: 12, marginTop: 16,
+    alignSelf: 'stretch', backgroundColor: colors.primaryLight, borderRadius: 16,
+    paddingHorizontal: 20, paddingVertical: 14, marginTop: 4, marginBottom: 8,
   },
-  listenNextButtonText: { color: colors.sage, fontWeight: '900', fontSize: 14 },
-  listenButtonRow: { flexDirection: 'row', gap: 10, width: '100%' },
-  practiceStatsCard: { backgroundColor: '#E5F1EF', borderRadius: radius.xl, padding: 18, marginTop: 8, marginBottom: 8, ...shadows.card },
+  listenNextButtonText: { color: colors.lavenderDark, fontWeight: '900', fontSize: 14 },
+  listenButtonRow: { flexDirection: 'column', gap: 10, width: '100%' },
+  practiceStatsCard: { backgroundColor: colors.primaryLight, borderRadius: radius.xl, padding: 18, marginTop: 8, marginBottom: 8, ...shadows.card },
   practiceStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   practiceStatsCol: { alignItems: 'center', flex: 1, gap: 4 },
   practiceStatsValue: { color: colors.ink, fontWeight: '900', fontSize: 16 },
@@ -4945,22 +4949,24 @@ const styles = StyleSheet.create({
   practiceHero: {
     backgroundColor: '#fff',
     borderRadius: radius.xl,
-    padding: 22,
+    padding: 18,
     alignItems: 'center',
-    marginBottom: 8,
-    ...shadows.raised,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.card,
   },
   practiceMoodBadge: {
-    width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+    width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  practicePrompt: { color: colors.inkSoft, fontWeight: '900', textTransform: 'uppercase', fontSize: 12, marginBottom: 4, letterSpacing: 0.5 },
+  practicePrompt: { color: colors.inkSoft, fontWeight: '900', textTransform: 'uppercase', fontSize: 11, marginBottom: 6, letterSpacing: 0.7 },
   practiceCard: {
     backgroundColor: '#fff', borderRadius: 24, padding: 24,
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
   practiceWordDisplay: {
-    fontSize: 52, color: colors.lavenderDark,
-    letterSpacing: 0, textAlign: 'center', marginBottom: 6,
+    fontSize: 48, color: colors.lavenderDark,
+    letterSpacing: 0.4, textAlign: 'center', marginBottom: 10,
     fontFamily: typography.family.display,
   },
   practiceWordDisplayWide: {
@@ -4975,7 +4981,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#E5F1EF',
+    backgroundColor: colors.primaryLight,
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -4984,8 +4990,8 @@ const styles = StyleSheet.create({
   listenCoachText: { color: colors.lavenderDark, fontWeight: '900' },
   sayWordButton: {
     width: '100%',
-    minHeight: 68,
-    borderRadius: 20,
+    minHeight: 56,
+    borderRadius: 16,
     backgroundColor: colors.lavender,
     flexDirection: 'row',
     alignItems: 'center',
@@ -4998,23 +5004,23 @@ const styles = StyleSheet.create({
   },
   sayWordButtonListening: { backgroundColor: colors.danger },
   listenButtonActive: { borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)' },
-  sayWordButtonText: { color: '#fff', fontWeight: '900', fontSize: 20 },
-  practiceStatus: { color: colors.ink, textAlign: 'center', fontWeight: '800', marginTop: 14 },
-  practiceTranscript: { color: colors.inkSoft, textAlign: 'center', marginTop: 8, fontWeight: '700' },
+  sayWordButtonText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  practiceStatus: { color: colors.ink, textAlign: 'center', fontWeight: '800', marginTop: 14, lineHeight: 19 },
+  practiceTranscript: { color: colors.inkSoft, textAlign: 'center', marginTop: 8, fontWeight: '700', backgroundColor: colors.cream, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 },
 
-  practiceDivider: { height: 1, width: '100%', backgroundColor: 'rgba(124,111,207,0.15)', marginVertical: 18 },
+  practiceDivider: { height: 1, width: '100%', backgroundColor: colors.border, marginVertical: 18 },
   micSection: {
-    width: '100%', alignItems: 'center', backgroundColor: 'rgba(124,111,207,0.08)',
-    borderRadius: 20, paddingVertical: 24, paddingHorizontal: 12,
+    width: '100%', alignItems: 'center', backgroundColor: colors.primaryLight,
+    borderRadius: 18, paddingVertical: 20, paddingHorizontal: 12,
   },
   micGlowOuter: {
     width: 118, height: 118, borderRadius: 59, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(124,111,207,0.12)',
+    backgroundColor: 'rgba(23,107,104,0.12)',
   },
   micGlowOuterRecording: { backgroundColor: 'rgba(239,68,68,0.12)' },
   micGlowInner: {
     width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(124,111,207,0.22)',
+    backgroundColor: 'rgba(23,107,104,0.22)',
   },
   micGlowInnerRecording: { backgroundColor: 'rgba(239,68,68,0.22)' },
   micButton: {
@@ -5051,7 +5057,7 @@ const styles = StyleSheet.create({
 
   encourageCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#E5F1EF', borderRadius: radius.xl, padding: 16, marginTop: 8, marginBottom: 20,
+    backgroundColor: colors.primaryLight, borderRadius: radius.xl, padding: 16, marginTop: 8, marginBottom: 20,
     ...shadows.card,
   },
   encourageImage: { width: 71, height: 124 },
@@ -5172,7 +5178,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#E5F1EF',
+    backgroundColor: colors.primaryLight,
     borderRadius: radius.lg,
     padding: 12,
     marginBottom: 8,
@@ -5180,7 +5186,7 @@ const styles = StyleSheet.create({
   homeActivityIconWrap: {
     width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#E5F1EF',
+    backgroundColor: colors.primaryLight,
   },
   homeActivityMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
   homeStatusDot: { width: 8, height: 8, borderRadius: 4 },

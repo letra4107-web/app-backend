@@ -8,10 +8,12 @@ export const FILIPINO_LETTER_SOUNDS: Record<string, string> = {
 };
 
 export const FILIPINO_TTS_RATES = {
-  word: 0.72,
-  repeatCorrectWord: 0.60,
+  // Match the web TTS controls: slow .4, normal .5, fast .8. Feedback can
+  // stay brisk where a screen explicitly asks for it.
+  word: 0.5,
+  repeatCorrectWord: 0.4,
   feedback: 0.85,
-  meaning: 0.85,
+  meaning: 0.5,
 } as const;
 
 const escapeSsml = (value: string) => value

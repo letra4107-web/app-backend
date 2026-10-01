@@ -942,7 +942,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             onMenuPress={openSidebar}
             title={`Magandang Araw,\n${parentName || 'Kinakarga...'}!`}
             subtitle="Narito kung paano ang progreso ng iyong anak ngayon."
-            illustration={require('../../assets/parenthome.png')}
+            illustration={require('../../assets/students/characters/student-hero-character.png')}
             illustrationStyle={styles.heroIllustrationWide}
             notifDot={unreadNotifications > 0}
             titleA11yStyle={heroTitleA11yStyle}
@@ -1089,7 +1089,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           onMenuPress={openSidebar}
           title={`Magandang Araw,\n${parentName || 'Kinakarga...'}!`}
           subtitle="Narito kung paano ang progreso ng iyong anak ngayon."
-          illustration={require('../../assets/parenthome.png')}
+          illustration={require('../../assets/students/characters/student-hero-character.png')}
           illustrationStyle={styles.heroIllustrationWide}
           notifDot={unreadNotifications > 0}
           titleA11yStyle={heroTitleA11yStyle}
@@ -1183,7 +1183,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         >
           <View style={styles.heroDecorCircleLg} />
           <View style={styles.heroDecorCircleSm} />
-          <Image source={require('../../assets/parenthome.png')} style={styles.heroProgressImage} resizeMode="contain" />
+          <Image source={require('../../assets/students/characters/student-hero-character.png')} style={styles.heroProgressImage} resizeMode="contain" />
 
           <View style={styles.heroProgressTopRow}>
             <View style={{ flex: 1, paddingRight: 8 }}>
@@ -1230,19 +1230,19 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
 
         <Text style={[styles.homeSectionTitle, sectionTitleA11yStyle]}>Mabilisang Pagtingin</Text>
         <View style={styles.overviewGrid}>
-          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
+          <View style={[styles.overviewCard, { backgroundColor: roleColors.student.soft }]}>
             <Ionicons name="school" size={20} color={roleColors.parent.primary} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: roleColors.parent.primary }]}>
               {lessonsCompleted}{childLessonsTotal !== null ? `/${childLessonsTotal}` : ''}
             </Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Natapos na Aralin</Text>
           </View>
-          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
+          <View style={[styles.overviewCard, { backgroundColor: roleColors.student.soft }]}>
             <Ionicons name="mic" size={20} color={colors.sun} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: colors.sun }]}>{practiceSessionsThisWeek}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Pagsasanay sa Pagbasa (ngayong linggo)</Text>
           </View>
-          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
+          <View style={[styles.overviewCard, { backgroundColor: roleColors.student.soft }]}>
             <Ionicons name="book" size={20} color={roleColors.parent.primaryDark} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: roleColors.parent.primaryDark }]}>{wordsPracticed}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Salitang Nasanay</Text>
@@ -1347,7 +1347,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         {recentActivityItems.length ? (
           recentActivityItems.map((item) => (
             <View key={item.key} style={styles.recentActivityCard}>
-              <View style={[styles.recentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : '#F5ECE3' }]}>
+              <View style={[styles.recentActivityIconWrap, { backgroundColor: item.kind === 'lesson' ? '#E9F1E2' : roleColors.student.soft }]}>
                 <Ionicons name={item.kind === 'lesson' ? 'book' : 'mic'} size={16} color={item.kind === 'lesson' ? colors.sage : roleColors.parent.primaryDark} />
               </View>
               <View style={{ flex: 1 }}>
@@ -1376,7 +1376,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.supportBannerButtonText}>Tingnan ang Progreso ng Anak →</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../../assets/parenthome.png')} style={styles.supportBannerImage} resizeMode="contain" />
+          <Image source={require('../../assets/students/characters/student-hero-character.png')} style={styles.supportBannerImage} resizeMode="contain" />
         </LinearGradient>
 
         <View style={styles.quickActions}>
@@ -1406,7 +1406,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         onMenuPress={openSidebar}
         title="Progreso ng Anak"
         subtitle="Subaybayan ang pag-unlad ng iyong anak sa pagbasa."
-        illustration={require('../../assets/parentprogress.png')}
+        illustration={require('../../assets/students/decorations/lesson-progress-decoration.png')}
         illustrationStyle={styles.heroIllustrationWide}
         notifDot={unreadNotifications > 0}
         titleA11yStyle={heroTitleA11yStyle}
@@ -1858,7 +1858,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
             onMenuPress={openSidebar}
             title="Kalendaryo"
             subtitle="Planuhin at subaybayan ang mga aktibidad sa pag-aaral ng iyong anak."
-            illustration={require('../../assets/parentcalendar.png')}
+            illustration={require('../../assets/students/decorations/deadline-card-decoration.png')}
             illustrationStyle={styles.heroIllustrationSquare}
             notifDot={unreadNotifications > 0}
             titleA11yStyle={heroTitleA11yStyle}
@@ -2052,7 +2052,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
           onMenuPress={openSidebar}
           title="Kalendaryo"
           subtitle={`Planuhin at subaybayan ang mga aktibidad sa pag-aaral ni ${selectedChild.name.split(' ')[0]}.`}
-          illustration={require('../../assets/parentcalendar.png')}
+          illustration={require('../../assets/students/decorations/deadline-card-decoration.png')}
           illustrationStyle={styles.heroIllustrationSquare}
           notifDot={unreadNotifications > 0}
           titleA11yStyle={heroCardTitleA11yStyle}
@@ -2326,7 +2326,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         </View>
 
         <View style={styles.overviewGrid}>
-          <View style={[styles.overviewCard, { backgroundColor: '#F5ECE3' }]}>
+          <View style={[styles.overviewCard, { backgroundColor: roleColors.student.soft }]}>
             <Ionicons name="book" size={20} color={roleColors.parent.primaryDark} />
             <Text style={[styles.overviewValue, overviewValueA11yStyle, { color: roleColors.parent.primaryDark }]}>{wordsPracticed}</Text>
             <Text style={[styles.overviewLabel, overviewLabelA11yStyle]}>Mga Salitang Nasanay</Text>
@@ -2353,7 +2353,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               <Text style={styles.insightSeeMore}>Tingnan ang Progreso ng Anak →</Text>
             </TouchableOpacity>
           </View>
-          <Image source={require('../../assets/parentcalendar.png')} style={styles.parentInsightImage} resizeMode="contain" />
+          <Image source={require('../../assets/students/decorations/deadline-card-decoration.png')} style={styles.parentInsightImage} resizeMode="contain" />
         </View>
         </ScrollView>
       </>
@@ -2395,7 +2395,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         onMenuPress={openSidebar}
         title="Aking Profile"
         subtitle="Pamahalaan ang iyong account at mga anak."
-        illustration={require('../../assets/parentprofile.png')}
+        illustration={require('../../assets/students/mascot/owl-mascot.png')}
         illustrationStyle={styles.heroIllustrationSquare}
         notifDot={unreadNotifications > 0}
         titleA11yStyle={settingsHeaderTitleA11yStyle}
@@ -2509,7 +2509,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
         onBackPress={() => navigateTo('welcome')}
         title="Mga Setting"
         subtitle="Kagustuhan at suporta."
-        illustration={require('../../assets/parentsettings.png')}
+        illustration={require('../../assets/students/mascot/owl-mascot.png')}
         illustrationStyle={styles.heroIllustrationSquare}
         titleA11yStyle={settingsHeaderTitleA11yStyle}
         subtitleA11yStyle={settingsHeaderSubA11yStyle}
@@ -2655,7 +2655,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
               onMenuPress={openSidebar}
               title="Mga Abiso"
               subtitle="Manatiling updated sa paglalakbay ng iyong anak sa pag-aaral."
-              illustration={require('../../assets/parentnotif.png')}
+              illustration={require('../../assets/students/mascot/owl-mascot.png')}
               illustrationStyle={styles.heroIllustrationSquare}
             />
             <ErrorBoundary title="Hindi Available ang Mga Abiso" message="Hindi ma-load ang mga abiso ngayon. Gumagana pa rin ang ibang bahagi ng dashboard.">
@@ -2749,7 +2749,7 @@ export default function ParentDashboardEnhanced({ navigation }: any) {
                 <Text style={styles.sidebarHeroMeta}>{enrolledChildrenText}</Text>
                 {selectedChild ? <Text style={styles.sidebarHeroSub}>Pinamamahalaan si {selectedChild.name}</Text> : null}
               </View>
-              <Image source={require('../../assets/parentprofile.png')} style={styles.sidebarHeroImage} resizeMode="contain" />
+              <Image source={require('../../assets/students/mascot/owl-mascot.png')} style={styles.sidebarHeroImage} resizeMode="contain" />
             </View>
           </LinearGradient>
 
@@ -2972,10 +2972,10 @@ const styles = StyleSheet.create({
     marginBottom: 6, backgroundColor: '#fff',
     shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  navItemActive: { backgroundColor: '#F5ECE3' },
+  navItemActive: { backgroundColor: roleColors.student.soft },
   navIconWrap: {
     width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#F5ECE3',
+    backgroundColor: roleColors.student.soft,
   },
   navIconWrapActive: { backgroundColor: '#fff' },
   navLabel: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
@@ -3037,7 +3037,7 @@ const styles = StyleSheet.create({
   // emoji) compared to the more playful student-facing screens.
   viewingSelector: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'flex-start',
-    backgroundColor: '#F5ECE3', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, gap: 6, marginBottom: 12,
+    backgroundColor: roleColors.student.soft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, gap: 6, marginBottom: 12,
   },
   viewingSelectorText: { fontSize: 13, fontWeight: '800', color: roleColors.parent.primaryDark },
   childPickerList: {
@@ -3053,7 +3053,7 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE, borderRadius: radius.lg, padding: 18, marginBottom: 16,
     ...shadows.card,
   },
-  latestReadingCard: { backgroundColor: '#F5ECE3', borderRadius: radius.lg, padding: 16, marginBottom: 16, ...shadows.card },
+  latestReadingCard: { backgroundColor: roleColors.student.soft, borderRadius: radius.lg, padding: 16, marginBottom: 16, ...shadows.card },
   latestReadingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   latestReadingEyebrow: { color: roleColors.parent.primaryDark, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   latestReadingWord: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: 3 },
@@ -3064,7 +3064,7 @@ const styles = StyleSheet.create({
   latestReadingObservation: { color: colors.ink, fontSize: 12, fontWeight: '700', lineHeight: 18 },
   latestReadingPractice: { color: colors.sage, fontSize: 12, fontWeight: '800', lineHeight: 18, marginTop: 6 },
   childAvatarLg: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: '#F5ECE3',
+    width: 56, height: 56, borderRadius: 28, backgroundColor: roleColors.student.soft,
     alignItems: 'center', justifyContent: 'center',
   },
   childAvatarLgText: { fontSize: 22, fontWeight: '900', color: roleColors.parent.primaryDark },
@@ -3115,7 +3115,7 @@ const styles = StyleSheet.create({
   // goal, recent feed, support banner
   childSummaryEyebrow: { fontSize: 11, fontWeight: '800', color: colors.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4 },
   switchChildButton: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F5ECE3',
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: roleColors.student.soft,
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'flex-start',
   },
   switchChildButtonText: { fontSize: 12, fontWeight: '800', color: roleColors.parent.primaryDark },
@@ -3186,7 +3186,7 @@ const styles = StyleSheet.create({
   insightRowStatus: { fontSize: 11, fontWeight: '700' },
   insightSeeMore: { fontSize: 12, fontWeight: '800', color: roleColors.parent.primaryDark, marginTop: 4 },
   goalCard: {
-    backgroundColor: '#F5ECE3', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8,
+    backgroundColor: roleColors.student.soft, borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8,
     ...shadows.card,
   },
   goalCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -3224,12 +3224,12 @@ const styles = StyleSheet.create({
   weekProgressTrack: { height: 7, backgroundColor: 'rgba(92,128,71,0.16)', borderRadius: 999, overflow: 'hidden' },
   weekProgressFill: { height: '100%', borderRadius: 999, backgroundColor: colors.sage },
   weekSummaryCaption: { fontSize: 11.5, color: colors.inkSoft, fontWeight: '600' },
-  upcomingCard: { backgroundColor: '#F5ECE3', borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8, ...shadows.card },
+  upcomingCard: { backgroundColor: roleColors.student.soft, borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 8, ...shadows.card },
   upcomingHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   upcomingRowText: { fontSize: 12.5, color: colors.ink, fontWeight: '700', flex: 1 },
   parentInsightCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5ECE3', borderRadius: radius.md,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: roleColors.student.soft, borderRadius: radius.md,
     padding: 16, marginBottom: 16,
     ...shadows.card,
   },
@@ -3276,7 +3276,7 @@ const styles = StyleSheet.create({
   miniBarLabel: { fontSize: 9, color: colors.textSecondary },
   miniChartSub: { fontSize: 11, color: colors.inkSoft, marginTop: 10, textAlign: 'center' },
   recommendCard: {
-    flexDirection: 'row', gap: 12, backgroundColor: '#F5ECE3', borderRadius: 16,
+    flexDirection: 'row', gap: 12, backgroundColor: roleColors.student.soft, borderRadius: 16,
     padding: 16, marginBottom: 12, alignItems: 'flex-start',
     ...shadows.card,
   },
@@ -3292,7 +3292,7 @@ const styles = StyleSheet.create({
   },
   recommendButtonText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   insightCardV2: {
-    flexDirection: 'row', gap: 10, backgroundColor: '#F5ECE3', borderRadius: 16,
+    flexDirection: 'row', gap: 10, backgroundColor: roleColors.student.soft, borderRadius: 16,
     padding: 16, marginBottom: 16, alignItems: 'flex-start',
     ...shadows.card,
   },
@@ -3398,12 +3398,12 @@ const styles = StyleSheet.create({
   },
   accountCardTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   accountAvatar: { width: 68, height: 68, borderRadius: 34 },
-  accountAvatarPlaceholder: { backgroundColor: '#F5ECE3', alignItems: 'center', justifyContent: 'center' },
+  accountAvatarPlaceholder: { backgroundColor: roleColors.student.soft, alignItems: 'center', justifyContent: 'center' },
   accountAvatarInitial: { color: roleColors.parent.primaryDark, fontSize: 23, fontWeight: '900' },
   accountName: { fontSize: 16, fontWeight: '900', color: colors.ink },
   accountEmail: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   accountBadge: {
-    alignSelf: 'flex-start', backgroundColor: '#F5ECE3', borderRadius: 999,
+    alignSelf: 'flex-start', backgroundColor: roleColors.student.soft, borderRadius: 999,
     paddingHorizontal: 10, paddingVertical: 3, marginTop: 6,
   },
   accountBadgeText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 11 },
@@ -3458,7 +3458,7 @@ const styles = StyleSheet.create({
   },
   settingsRowTitle: { color: colors.ink, fontWeight: '800', fontSize: 14 },
   settingsRowSub: { color: colors.inkSoft, fontSize: 11, marginTop: 2 },
-  speedSegment: { flexDirection: 'row', backgroundColor: '#F5ECE3', borderRadius: 999, padding: 3 },
+  speedSegment: { flexDirection: 'row', backgroundColor: roleColors.student.soft, borderRadius: 999, padding: 3 },
   speedSegmentButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
   speedSegmentButtonActive: { backgroundColor: roleColors.parent.primaryDark },
   speedSegmentText: { color: roleColors.parent.primaryDark, fontWeight: '800', fontSize: 11, textTransform: 'capitalize' },

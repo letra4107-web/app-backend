@@ -5,7 +5,11 @@ const envAndroidPackage = process.env.ANDROID_PACKAGE || process.env.EXPO_ANDROI
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_BASE_URL || PRODUCTION_BACKEND_URL;
 
 module.exports = ({ config }) => {
-  const androidPackage = envAndroidPackage || config.android?.package;
+  const isDevelopmentBuild = process.env.APP_VARIANT === 'development';
+  const baseAndroidPackage = (envAndroidPackage || config.android?.package || '').replace(/\.dev$/, '');
+  // Keep the Android namespace stable. The local debug build receives its
+  // separate `.dev` application ID through Gradle's applicationIdSuffix.
+  const androidPackage = baseAndroidPackage;
 
   const androidPackageIsValid =
     typeof androidPackage === 'string' &&
@@ -34,6 +38,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
+    name: isDevelopmentBuild ? `${config.name} Dev` : config.name,
     plugins: [
       ...(config.plugins ?? []),
       expoBuildPropertiesPlugin,
@@ -54,6 +59,7 @@ module.exports = ({ config }) => {
     },
     extra: {
       ...(config.extra || {}),
+      appVariant: isDevelopmentBuild ? 'development' : 'production',
       eas: {
         projectId: "153e47e5-7a90-480b-ab99-2bada18510e8"   // 🔑 Added EAS project ID
       },

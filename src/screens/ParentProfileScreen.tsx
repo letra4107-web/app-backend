@@ -103,7 +103,7 @@ export default function ParentProfileScreen({
         onBackPress={onGoBack}
         title="Aking Profile"
         subtitle="I-manage ang iyong personal na detalye."
-        illustration={require('../../assets/parentprofile.png')}
+        illustration={require('../../assets/students/mascot/owl-mascot.png')}
         illustrationStyle={styles.heroIllustrationSquare}
       />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>

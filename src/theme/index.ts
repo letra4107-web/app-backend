@@ -14,43 +14,49 @@
 // No provider, no context, no component - plain values only.
 
 export const colors = {
-  cream: '#FAF8F3',
-  ink: '#243331',
+  // Student palette mirrors the web student's role tokens. Keeping it here
+  // prevents the native UI from quietly falling back to the generic teal
+  // application theme as new student surfaces are added.
+  cream: '#FFF4D9',
+  ink: '#3F4145',
   // The WCAG-AA contrast fix from the previous stage now has exactly one
   // home - every screen importing this instead of hand-typing the hex is
   // what makes that class of drift structurally impossible going forward.
-  inkSoft: '#667572',
-  sun: '#D9A441',
-  coral: '#B85042',
-  sage: '#43865C',
-  lavender: '#176B68',
-  lavenderDark: '#0F4F4D',
-  heroGradient: ['#176B68', '#176B68', '#176B68'] as const,
+  inkSoft: '#68645E',
+  sun: '#E8C66A',
+  coral: '#EBAA8C',
+  sage: '#8FB8D8',
+  lavender: '#A99AC5',
+  lavenderDark: '#756995',
+  heroGradient: ['#7567B8', '#8FB8D8', '#A99AC5'] as const,
   vivid: {
-    green: '#43865C',
-    orange: '#B47B2A',
-    violet: '#176B68',
-    amber: '#D9A441',
-    teal: '#176B68',
-    navy: '#477A9B',
+    green: '#7567B8',
+    orange: '#D99AAA',
+    violet: '#7567B8',
+    amber: '#E8C66A',
+    teal: '#8FB8D8',
+    navy: '#6255A3',
   },
-  success: '#43865C',
-  warning: '#B47B2A',
-  warningText: '#B47B2A',
-  danger: '#B85042',
-  dangerText: '#B85042',
-  info: '#477A9B',
-  primary: '#176B68',
-  primaryLight: '#E5F1EF',
-  border: '#DDDCD5',
-  textPrimary: '#243331',
-  textSecondary: '#667572',
+  success: '#7567B8',
+  warning: '#A87320',
+  warningText: '#A87320',
+  danger: '#C96F68',
+  dangerText: '#A34D49',
+  info: '#8FB8D8',
+  primary: '#7567B8',
+  primaryLight: '#EEEAFB',
+  border: '#E6D9BD',
+  textPrimary: '#3F4145',
+  textSecondary: '#68645E',
   white: '#ffffff',
 };
 
 export const roleColors = {
-  student: { primary: '#176B68', primaryDark: '#0F4F4D', soft: '#E5F1EF' },
-  parent: { primary: '#9A6742', primaryDark: '#70492F', soft: '#F5ECE3' },
+  student: { primary: '#7567B8', primaryDark: '#6255A3', soft: '#EEEAFB' },
+  // Parent and student dashboards deliberately share one visual language.
+  // Role-specific content and illustrations remain distinct, while navigation,
+  // hero, button, and card treatment now match exactly.
+  parent: { primary: '#176B68', primaryDark: '#0F4F4D', soft: '#E5F1EF' },
 } as const;
 
 export const typography = {
