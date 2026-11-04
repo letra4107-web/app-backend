@@ -55,7 +55,7 @@ class ProgressQuery {
   async maybeSingle() {
     return {
       data: {
-        achievements: [],
+        child_id:this.state.studentId,xp:100,total_attempts:2,achievements: [],
         level: 'Intermediate',
         streak: 4,
         longest_streak: 7,
@@ -146,12 +146,15 @@ const withServer = async (supabase, callback) => {
         lastPracticeDate: '2099-01-01',
       },
     });
-    assert.strictEqual(update.status, 200);
-    assert.strictEqual(supabase.state.progressPayload.child_id, supabase.state.studentId);
-    assert.strictEqual(supabase.state.progressPayload.level, 'Intermediate');
-    assert.strictEqual(supabase.state.progressPayload.streak, 4);
-    assert.strictEqual(supabase.state.progressPayload.longest_streak, 7);
-    assert.strictEqual(supabase.state.progressPayload.last_practice_date, '2026-08-11');
+    assert.strictEqual(update.status,400);
+    assert.strictEqual(supabase.state.progressPayload,null);
+    const snapshot=await request({port,method:'POST',path:'/api/progress/update',token:'valid-token',body:{}});
+    assert.strictEqual(snapshot.status,200);
+    assert.strictEqual(snapshot.body.progress.child_id,supabase.state.studentId);
+    assert.strictEqual(snapshot.body.progress.level,'Intermediate');
+    assert.strictEqual(snapshot.body.progress.streak,4);
+    assert.strictEqual(snapshot.body.progress.longest_streak,7);
+    assert.strictEqual(snapshot.body.progress.last_practice_date,'2026-08-11');
 
     const contentAttempt = await request({
       port,
@@ -165,10 +168,8 @@ const withServer = async (supabase, callback) => {
         source: 'practice',
       },
     });
-    assert.strictEqual(contentAttempt.status, 200);
-    const attemptCall = supabase.state.rpcCalls.find((call) => call.name === 'record_student_content_attempt');
-    assert.strictEqual(attemptCall.params.p_student_id, supabase.state.studentId);
-    assert.strictEqual(attemptCall.params.p_accuracy, 75);
+    assert.strictEqual(contentAttempt.status,400);
+    assert.strictEqual(supabase.state.rpcCalls.length,0);
 
     const status = await request({
       port,

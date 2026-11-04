@@ -1,5 +1,6 @@
 const express = require('express');
 const { supabaseAdmin } = require('../config/supabase');
+const {requireProgressContract}=require('../services/progressEvents');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_ASSESSMENT_RESPONSES = 50;
@@ -34,13 +35,15 @@ const createModulesRouter = (supabase = supabaseAdmin) => {
     }
   });
 
+  router.use(async(req,res,next)=>{if(req.method!=='POST')return next();try{await requireProgressContract(supabase);return next();}catch(error){return res.status(error.status||503).json({success:false,code:error.code,message:error.message});}});
+
   router.get('/path', async (req, res) => {
     const { data, error } = await supabase.rpc('get_student_module_path', {
       p_student_id: req.authenticatedStudentId,
     });
     if (error) {
       console.error('[Modules] path failed:', error.message || error);
-      return res.status(500).json({ success: false, message: error.message || 'Unable to load module path.' });
+      return res.status(500).json({ success: false, message: 'Unable to load module path.' });
     }
     return res.json({ success: true, path: data });
   });
@@ -55,7 +58,7 @@ const createModulesRouter = (supabase = supabaseAdmin) => {
     });
     if (error) {
       const status = error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : 500;
-      return res.status(status).json({ success: false, message: error.message || 'Unable to load module.' });
+      return res.status(status).json({ success: false, message: 'Unable to load module.' });
     }
     return res.json({ success: true, content: data });
   });
@@ -72,7 +75,7 @@ const createModulesRouter = (supabase = supabaseAdmin) => {
       const status = error.code === '42501' ? 403
         : error.code === 'P0002' ? 404
           : error.code === 'P0001' ? 409 : 500;
-      return res.status(status).json({ success: false, message: error.message || 'Unable to start assessment.' });
+      return res.status(status).json({ success: false, message: 'Unable to start assessment.' });
     }
     return res.json({ success: true, assessment: data });
   });
@@ -103,7 +106,7 @@ const createModulesRouter = (supabase = supabaseAdmin) => {
     if (error) {
       const status = ['22023', 'P0001'].includes(error.code) ? 400
         : error.code === 'P0002' ? 404 : error.code === '42501' ? 403 : 500;
-      return res.status(status).json({ success: false, message: error.message || 'Unable to submit assessment.' });
+      return res.status(status).json({ success: false, message: 'Unable to submit assessment.' });
     }
     return res.json({ success: true, result: data });
   });

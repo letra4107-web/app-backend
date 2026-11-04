@@ -5,7 +5,7 @@ const speech = require('@google-cloud/speech');
 const { scorePracticeWord } = require('./practiceWordScoring');
 const { supabaseAdmin } = require('../config/supabase');
 const { buildAttemptFeedback } = require('../services/readingInsights');
-const { writeWithColumnRetry } = require('../services/schemaRetry');
+const { recordWordOfDayAttempt } = require('../services/wordOfDayAttempt');
 
 const router = express.Router();
 let speechClient = null;
@@ -91,297 +91,28 @@ const wordAccuracy = (spoken, expected) => {
 const { todayKey, yesterdayKey } = require('../services/dateUtils');
 
 const authenticateWordOfDay = async (req) => {
-  const childId = String(req.body?.childId || '').trim();
-  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!childId || !token) return { errorStatus: 401, errorMessage: 'Please sign in again before completing Word of the Day.' };
-  const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !auth?.user) return { errorStatus: 401, errorMessage: 'Your sign-in session has expired.' };
-  const { data: child, error: childError } = await supabaseAdmin.from('children').select('id,auth_uid').eq('id', childId).maybeSingle();
-  if (childError || !child || child.auth_uid !== auth.user.id) {
-    return { errorStatus: 403, errorMessage: 'You cannot complete this Word of the Day.' };
-  }
-  const { data: log, error: logError } = await supabaseAdmin
-    .from('word_of_day_log')
-    .select('word,correct,content_id,recommendation_reason')
-    .eq('child_id', childId)
-    .eq('date', todayKey())
-    .maybeSingle();
-  if (logError || !log) return { errorStatus: 409, errorMessage: "Today's word is not ready yet. Please reload and try again." };
-  return { childId, log };
+  const token = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return {errorStatus:401,errorMessage:'Please sign in again.'};
+  const {data:auth,error}=await supabaseAdmin.auth.getUser(token);
+  if(error||!auth?.user?.id) return {errorStatus:401,errorMessage:'Your sign-in session has expired.'};
+  const {data:child,error:childError}=await supabaseAdmin.from('children').select('id').eq('auth_uid',auth.user.id).maybeSingle();
+  if(childError) return {errorStatus:503,errorMessage:'Unable to verify this activity.'};
+  if(!child||req.body?.childId&&req.body.childId!==child.id) return {errorStatus:403,errorMessage:'This activity is not available to your account.'};
+  return {childId:child.id};
 };
-
-const getTodayKey = todayKey;
-
-const completeWordOfDayAttemptDirect = async (childId, accuracy, isCorrect) => {
-  const today = getTodayKey();
-  const reward = 50;
-
-  const { data: logRow, error: logError } = await supabaseAdmin
-    .from('word_of_day_log')
-    .select('id,correct,attempts')
-    .eq('child_id', childId)
-    .eq('date', today)
-    .maybeSingle();
-  if (logError) throw logError;
-  if (!logRow) throw new Error('Word of the Day has not been initialized');
-
-  const currentAttempts = Number(logRow.attempts || 0);
-  if (logRow.correct === true) {
-    // child_progress has no `longest_streak` column (nor `id` - it's keyed
-    // by child_id directly); confirmed via direct query against the live
-    // table. `streak` doubles as the best available longest-streak value.
-    const { data: progressRow, error: progressError } = await supabaseAdmin
-      .from('child_progress')
-      .select('streak,xp')
-      .eq('child_id', childId)
-      .maybeSingle();
-    if (progressError) throw progressError;
-
-    return {
-      already_completed: true,
-      completed: true,
-      streak: progressRow?.streak ?? 0,
-      longest_streak: progressRow?.streak ?? 0,
-      attempts: currentAttempts,
-      xp_awarded: 0,
-      total_xp: progressRow?.xp ?? 0,
-    };
-  }
-
-  const updatedAttempts = currentAttempts + 1;
-  // word_of_day_log.accuracy and .completed_at are declared in migration 022
-  // but, as of this writing, are still not applied to the live database
-  // (confirmed via direct query). Neither is read anywhere in the app -
-  // accuracy is already tracked authoritatively on
-  // pronunciation_practice_sessions.accuracy_percentage - so they're not in
-  // this payload; writeWithColumnRetry is a second layer of defense for any
-  // *other* column this route doesn't yet know is missing (e.g. a future
-  // migration that lands here before it's applied in Supabase).
-  const { data: updatedLog } = await writeWithColumnRetry(
-    (payload) => supabaseAdmin.from('word_of_day_log').update(payload).eq('id', logRow.id).select().maybeSingle(),
-    { attempts: updatedAttempts, correct: isCorrect, xp_awarded: isCorrect ? reward : 0 },
-    ['attempts', 'correct'],
-  );
-  if (!updatedLog) {
-    throw new Error('Unable to save Word of the Day attempt.');
-  }
-
-  const { data: progressRow, error: progressError } = await supabaseAdmin
-    .from('child_progress')
-    .select('streak,xp,last_practice_date')
-    .eq('child_id', childId)
-    .maybeSingle();
-  if (progressError) throw progressError;
-
-  if (!isCorrect) {
-    return {
-      already_completed: false,
-      completed: false,
-      streak: progressRow?.streak ?? 0,
-      longest_streak: progressRow?.streak ?? 0,
-      attempts: updatedAttempts,
-      xp_awarded: 0,
-      total_xp: progressRow?.xp ?? 0,
-    };
-  }
-
-  if (!progressRow) {
-    const { data: insertedProgress } = await writeWithColumnRetry(
-      (payload) => supabaseAdmin.from('child_progress').insert(payload).select().maybeSingle(),
-      { child_id: childId, xp: reward, streak: 1, last_practice_date: today },
-      ['child_id', 'xp', 'streak'],
-    );
-    if (!insertedProgress) {
-      throw new Error('Unable to create child progress for Word of the Day.');
-    }
-
-    return {
-      already_completed: false,
-      completed: true,
-      streak: insertedProgress.streak,
-      longest_streak: insertedProgress.streak,
-      attempts: updatedAttempts,
-      xp_awarded: reward,
-      total_xp: insertedProgress.xp,
-    };
-  }
-
-  const parseDate = (value) => {
-    if (!value) return null;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return todayKey(parsed);
-  };
-  const lastPracticeDate = parseDate(progressRow.last_practice_date);
-  const yesterday = yesterdayKey();
-  const nextStreak = lastPracticeDate === today
-    ? Math.max(progressRow.streak || 0, 1)
-    : lastPracticeDate === yesterday
-      ? (progressRow.streak || 0) + 1
-      : 1;
-
-  const { data: updatedProgress } = await writeWithColumnRetry(
-    (payload) => supabaseAdmin.from('child_progress').update(payload).eq('child_id', childId).select().maybeSingle(),
-    { xp: (progressRow.xp || 0) + reward, streak: nextStreak, last_practice_date: today, updated_at: new Date().toISOString() },
-    ['xp', 'streak'],
-  );
-  if (!updatedProgress) {
-    throw new Error('Unable to update child progress for Word of the Day.');
-  }
-
-  return {
-    already_completed: false,
-    completed: true,
-    streak: updatedProgress.streak,
-    longest_streak: updatedProgress.streak,
-    attempts: updatedAttempts,
-    xp_awarded: reward,
-    total_xp: updatedProgress.xp,
-  };
+const completeWordOfDay = async (childId, body) => {
+  const result=await recordWordOfDayAttempt(supabaseAdmin,{studentId:childId,logId:body.logId,attempts:body.attempts,transcript:body.transcript});
+  return {success:true,transcript:body.transcript,accuracy:result.accuracy,
+    completion:{attempts:body.attempts,completed:result.isFinal,correct:result.correct,replayed:result.replayed,
+      xp_awarded:result.xpAwarded,total_xp:result.newXp,streak:result.newStreak},badgesPending:result.badgesPending};
 };
-
-const callWordOfDayCompletionRpc = async (childId, accuracy, isCorrect) => {
-  const attempts = [
-    {
-      name: 'complete_personalized_word_of_day_attempt',
-      params: {
-        p_child_id: childId,
-        p_accuracy: accuracy,
-        p_is_correct: isCorrect,
-      },
-    },
-    {
-      name: 'complete_word_of_day_attempt',
-      params: {
-        p_child_id: childId,
-        p_accuracy: accuracy,
-        p_is_correct: isCorrect,
-      },
-    },
-  ];
-
-  // Both RPCs are schema-fragile (a UUID/TEXT id-column mismatch on the
-  // personalized RPC, an ambiguous "attempts" column reference in the legacy
-  // one - see migrations 031 and 022). Rather than re-throw on error classes
-  // we didn't anticipate, always fall through to the next attempt and,
-  // ultimately, to completeWordOfDayAttemptDirect() - a fully equivalent
-  // pure-JS reimplementation that bypasses both RPCs' SQL entirely. A
-  // genuinely broken database (e.g. the word_of_day_log row itself missing)
-  // still surfaces as an error there, so failures are never silently lost.
-  for (const attempt of attempts) {
-    const { data, error } = await supabaseAdmin.rpc(attempt.name, attempt.params);
-    if (!error) {
-      return Array.isArray(data) ? data[0] : data;
-    }
-    console.warn(`[SpeechAPI] ${attempt.name} failed, falling back:`, error.message || error);
-  }
-
-  return completeWordOfDayAttemptDirect(childId, accuracy, isCorrect);
-};
-
-const completeWordOfDay = async (childId, word, transcript) => {
-  const accuracy = wordAccuracy(transcript, word);
-  const { data: previousSessions } = await supabaseAdmin
-    .from('pronunciation_practice_sessions')
-    .select('accuracy_percentage')
-    .eq('student_id', childId)
-    .eq('word', word)
-    .order('created_at', { ascending: false })
-    .limit(1);
-  const completion = await callWordOfDayCompletionRpc(childId, accuracy, accuracy >= 80);
-  return {
-    accuracy,
-    completion,
-    previousAccuracy: previousSessions?.[0]?.accuracy_percentage ?? null,
-  };
-};
-
-// Native mobile recognition already powers Practice successfully. Word of the
-// Day sends its transcript here so authentication, expected-word lookup,
-// scoring, and completion remain server-owned without exposing cloud secrets
-// in the APK or requiring unavailable Railway ADC credentials.
-router.post('/word-of-day-result', express.json({ limit: '32kb' }), async (req, res) => {
+router.get('/word-of-day',async(req,res)=>{try{const verified=await authenticateWordOfDay(req);if(verified.errorStatus)return postJson(res,verified.errorStatus,{success:false,message:verified.errorMessage});return res.json({success:true,log:await require('../services/wordOfDayInitialization').loadWordOfDay(supabaseAdmin,verified.childId)});}catch{return postJson(res,503,{success:false,message:'Hindi ma-load ang Salita ng Araw. Subukan muli.'});}});
+router.post('/word-of-day-result',express.json({limit:'32kb'}),async(req,res)=>{
   try {
-    const transcript = String(req.body?.transcript || '').trim();
-    if (!transcript) return postJson(res, 400, { success: false, message: 'No speech transcript was provided.' });
-    if (transcript.length > 500) return postJson(res, 400, { success: false, message: 'Speech transcript is too long.' });
-
-    const verified = await authenticateWordOfDay(req);
-    if (verified.errorStatus) return postJson(res, verified.errorStatus, { success: false, message: verified.errorMessage });
-    if (verified.log.correct) {
-      return postJson(res, 200, {
-        success: true,
-        alreadyCompleted: true,
-        transcript: '',
-        accuracy: 100,
-        message: "You already completed today's Word of the Day. Come back tomorrow!",
-      });
-    }
-
-    const result = await completeWordOfDay(verified.childId, verified.log.word, transcript);
-    if (result.completion?.already_completed) {
-      return postJson(res, 200, {
-        success: true,
-        alreadyCompleted: true,
-        transcript: '',
-        accuracy: 100,
-        completion: result.completion,
-        message: "You already completed today's Word of the Day. Come back tomorrow!",
-      });
-    }
-    const durationValue = Number(req.body?.durationSeconds);
-    const durationSeconds = Number.isFinite(durationValue) && durationValue >= 0 ? Math.trunc(durationValue) : null;
-    const attemptNumber = result.completion?.attempts || 1;
-    const paceScore = durationSeconds == null ? 70 : Math.max(0, Math.min(100, durationSeconds <= 15 ? 100 : 100 - ((durationSeconds - 15) * 3)));
-    const attemptEfficiency = Math.max(0, 100 - ((attemptNumber - 1) * 20));
-    const confidenceScore = Math.round((result.accuracy * 0.70) + (paceScore * 0.10) + (attemptEfficiency * 0.20));
-    const { data: session, error: sessionError } = await supabaseAdmin
-      .from('pronunciation_practice_sessions')
-      .insert({
-        student_id: verified.childId,
-        word: verified.log.word,
-        spoken_text: transcript,
-        accuracy_percentage: result.accuracy,
-        is_correct: result.accuracy >= 80,
-        practice_source: 'word_of_day',
-        duration_seconds: durationSeconds,
-        attempts: attemptNumber,
-        confidence_score: confidenceScore,
-        recommendation_reason: verified.log.recommendation_reason || null,
-      })
-      .select('id')
-      .maybeSingle();
-    if (sessionError) console.warn('[SpeechAPI] Word-of-the-Day session log failed:', sessionError.message || sessionError);
-
-    if (verified.log.content_id) {
-      const { error: contentError } = await supabaseAdmin.rpc('record_student_content_attempt', {
-        p_student_id: verified.childId,
-        p_content_id: verified.log.content_id,
-        p_accuracy: result.accuracy,
-        p_transcript: transcript,
-        p_duration_seconds: durationSeconds,
-        p_is_full_submission: false,
-        p_source: 'recommendation',
-      });
-      if (contentError) console.warn('[SpeechAPI] Word-of-the-Day curriculum attempt failed:', contentError.message || contentError);
-    }
-    const { data: recentConfusions } = await supabaseAdmin.from('phoneme_confusion')
-      .select('confusion_key').eq('student_id', verified.childId).eq('target_word', verified.log.word)
-      .order('created_at', { ascending: false }).limit(1);
-    const feedback = buildAttemptFeedback({
-      target: verified.log.word,
-      accuracy: result.accuracy,
-      previousAccuracy: result.previousAccuracy,
-      confusions: recentConfusions || [],
-    });
-    return postJson(res, 200, { success: true, transcript, feedback, sessionId: session?.id || null, ...result });
-  } catch (error) {
-    console.error('[SpeechAPI] native Word-of-the-Day result failed:', {
-      message: error?.message,
-      code: error?.code,
-    });
-    return postJson(res, 500, { success: false, message: 'We could not save that attempt. Please try again.' });
-  }
+    const verified=await authenticateWordOfDay(req);
+    if(verified.errorStatus) return postJson(res,verified.errorStatus,{success:false,message:verified.errorMessage});
+    return res.json(await completeWordOfDay(verified.childId,req.body));
+  } catch(error) {return postJson(res,error.status||503,{success:false,message:error.publicMessage||'The daily reward service is unavailable. Retry the same attempt later.'});}
 });
 
 router.post('/transcribe', upload.single('audio'), async (req, res) => {
@@ -409,8 +140,7 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (completingWordOfDay) {
       const verified = await authenticateWordOfDay(req);
       if (verified.errorStatus) return postJson(res, verified.errorStatus, { success: false, message: verified.errorMessage });
-      if (verified.log.correct) return postJson(res, 200, { success: true, alreadyCompleted: true, transcript: '', accuracy: 100, message: "You already completed today's Word of the Day. Come back tomorrow!" });
-      wordOfDay = { childId: verified.childId, word: verified.log.word };
+      wordOfDay = { childId: verified.childId };
     }
     const encoding = getEncoding(mimeType);
     if (!encoding) {
@@ -438,11 +168,12 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
     if (!transcript) {
       return postJson(res, 422, { success: false, message: 'We could not hear a word clearly. Please move closer to the microphone and try again.' });
     }
-    const accuracy = wordAccuracy(transcript, wordOfDay?.word || req.body?.target || '');
+    let accuracy = wordAccuracy(transcript, req.body?.target || '');
     let completion = null;
     if (wordOfDay) {
-      const completed = await completeWordOfDay(wordOfDay.childId, wordOfDay.word, transcript);
+      const completed = await completeWordOfDay(wordOfDay.childId, {...req.body,transcript});
       completion = completed.completion;
+      accuracy = completed.accuracy;
     }
     postJson(res, 200, {
       success: true,
