@@ -10,6 +10,7 @@ const bearerTokenFrom = (authorization = '') => {
 
 const createModulesRouter = (supabase = supabaseAdmin) => {
   const router = express.Router();
+  router.get('/parent-path/:childId', require('./parentModulePath').createParentModulePathHandler(supabase));
 
   router.use(async (req, res, next) => {
     try {
