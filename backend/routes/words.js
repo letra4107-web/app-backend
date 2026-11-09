@@ -1,5 +1,6 @@
 const express = require('express');
 const { supabaseAdmin } = require('../config/supabase');
+const { availablePracticeWords } = require('../services/practiceWordAccess');
 
 const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'];
 
@@ -44,9 +45,10 @@ const createWordsRouter = (supabase = supabaseAdmin) => {
     const displayLevel = `${level[0].toUpperCase()}${level.slice(1)}`;
     let query = supabase
       .from('reading_content')
-      .select('word_id,content_text,level')
+      .select('id,word_id,content_text,level,is_assessment,reading_module_items(module_id,role,reading_modules(is_active))')
       .eq('content_type', 'word')
       .eq('is_active', true)
+      .eq('is_assessment', false)
       .eq('level', displayLevel);
 
     const { data, error } = await query;
@@ -57,8 +59,13 @@ const createWordsRouter = (supabase = supabaseAdmin) => {
 
     // Fisher-Yates shuffle - the words table has no meaningful order to
     // preserve, and the frontend relies on a fresh random sample each call.
-    const pool = (data || []).map((item) => ({
+    // Home and general Practice use this random feed on both mobile platforms.
+    // A published word can still belong exclusively to a locked module; do not
+    // offer an answer that the verified save transaction will reject with 403.
+    const available = await availablePracticeWords(supabase, child.id, data || []);
+    const pool = available.map((item) => ({
       id: item.word_id,
+      contentId: item.id,
       word: item.content_text,
       level,
       syllable_count: null,
