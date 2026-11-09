@@ -36,6 +36,8 @@ const configuredOrigins = [
   'http://127.0.0.1:19006',
   'https://linawletra-130cb.web.app',
   'https://linawletra-130cb.firebaseapp.com',
+  'https://linawletra.com',
+  'https://www.linawletra.com',
   PUBLIC_BACKEND_URL,
   ...splitOrigins(process.env.ALLOWED_ORIGINS),
   ...splitOrigins(process.env.FRONTEND_URL),
@@ -268,6 +270,7 @@ mountRoute('/api/reading', () => require('./routes/reading'));
 mountRoute('/api/pronunciation', () => require('./routes/pronunciation'));
 mountRoute('/api/progress', () => require('./routes/progress'));
 mountRoute('/api/lessons', () => require('./routes/lessons'));
+mountRoute('/api/lesson-files', () => require('./routes/lessonFiles'));
 mountRoute('/api/lesson-progress', () => require('./routes/lessonProgress'));
 mountRoute('/api/activities', () => require('./routes/activities'));
 mountRoute('/api/scheduled-activities', () => require('./routes/scheduledActivities'));
