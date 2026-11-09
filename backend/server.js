@@ -262,6 +262,7 @@ const mountRoute = (basePath, loader) => {
 };
 
 mountRoute('/api/auth', () => require('./routes/auth'));
+mountRoute('/api/speech/filipino', () => require('./routes/cloudSpeech'));
 mountRoute('/api/speech', () => require('./routes/speech'));
 mountRoute('/api/reading', () => require('./routes/reading'));
 mountRoute('/api/pronunciation', () => require('./routes/pronunciation'));

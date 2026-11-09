@@ -43,6 +43,14 @@ server.once('listening', async () => {
     assert.strictEqual(health.res.statusCode, 200, 'Health endpoint should return HTTP 200');
     assert.strictEqual(JSON.parse(health.body).status, 'ok');
 
+    const filipinoSpeech = await request({
+      port: address.port,
+      path: '/api/speech/filipino/transcribe',
+      method: 'POST',
+    });
+    assert.strictEqual(filipinoSpeech.res.statusCode, 401, 'iOS speech route must be mounted and require authentication');
+    assert.strictEqual(JSON.parse(filipinoSpeech.body).code, 'AUTH_REQUIRED');
+
     const preflight = await request({
       port: address.port,
       path: '/api/notifications',
