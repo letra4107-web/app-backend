@@ -2,6 +2,28 @@
 
 ## Backend (Railway)
 
+### Teacher lesson draft/delete permissions — 2026-11-09
+
+Apply `migration/migrations/055_teacher_lesson_management.sql` in Supabase
+SQL Editor. The web repository carries the same idempotent repair as
+`migrations/052_teacher_lesson_management.sql`; apply either copy to the shared
+database. Railway and web builds do not apply these migrations automatically.
+
+The original published-only SELECT policy rejects an owner's transition to
+draft with `42501`, and missing DELETE RLS silently deletes zero rows. The
+repair adds owner-only SELECT and DELETE policies. Published student reads
+and existing INSERT/UPDATE policies are preserved. The web dashboard also
+requires a returned lesson ID before reporting a successful edit or removal.
+
+Validation: 11 real local PostgreSQL cases reproduce both failures, verify
+the repair and reapplication, and check teacher/student/anonymous isolation.
+Run with `QA_TOOLS_DIR` pointing to the installation containing
+`embedded-postgres` and `pg`:
+`node backend/tests/teacher_lesson_permissions.mjs`.
+The web mutation regression suite covers 16 cases. On 2026-11-09 the operator
+reported `Success. No rows returned` after running the repair in Supabase SQL
+Editor. Live teacher draft/delete behavior still needs an interactive check.
+
 Railway auto-deploys the `backend/` directory from `railway.json` on every push
 to `master` (`NIXPACKS` build, `cd backend && npm ci`, then `npm start`). Code
 changes need nothing beyond `git push`.
