@@ -77,7 +77,8 @@ const createModulesRouter = (supabase = supabaseAdmin) => {
           : error.code === 'P0001' ? 409 : 500;
       return res.status(status).json({ success: false, message: 'Unable to start assessment.' });
     }
-    return res.json({ success: true, assessment: data });
+    const assessment = data && { ...data, items: Array.isArray(data.items) ? data.items.map(({ correct_answer_index, ...item }) => item) : data.items };
+    return res.json({ success: true, assessment });
   });
 
   router.post('/attempts/:attemptId/submit', express.json({ limit: '32kb' }), async (req, res) => {

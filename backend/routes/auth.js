@@ -606,14 +606,16 @@ router.post('/enroll-child', async (req, res) => {
       .eq('id', authenticated.user.id)
       .maybeSingle();
     if (parentProfileError) throw parentProfileError;
-    const authenticatedRole = parentProfile?.role || authenticated.user.user_metadata?.role;
+    const authenticatedRole = parentProfile?.role;
+    if (!authenticated.user.email_confirmed_at) return res.status(403).json({ success: false, message: 'Email verification is required.' });
     if (authenticatedRole !== 'parent') {
       return res.status(403).json({ success: false, message: 'Only authenticated parent accounts can enroll a child.' });
     }
     const parentId = authenticated.user.id;
     const parentEmail = authenticated.user.email || parentProfile?.email;
 
-    const { childName, gradeLevel } = req.body;
+    const { childName, gradeLevel, dateOfBirth } = req.body;
+    if(dateOfBirth!=null&&!require('./parentChildren').validBirthDate(dateOfBirth))return res.status(400).json({success:false,message:'Ilagay ang wastong petsa ng kapanganakan.'});
     const cleanName = String(childName || '').trim();
     const finalGradeLevel = Number(gradeLevel);
 
@@ -664,6 +666,7 @@ router.post('/enroll-child', async (req, res) => {
       grade_level: finalGradeLevel,
       username: authEmail,
       auth_uid: userRecord.id,
+      ...(dateOfBirth?{date_of_birth:dateOfBirth}:{}),
       created_at: new Date().toISOString(),
     };
 
@@ -711,12 +714,16 @@ router.post('/enroll-child', async (req, res) => {
       child_id: childId,
       username: authEmail,
       hashed_password: hashedPassword,
-      plain_password: password,
+      // The temporary password is delivered once below; never persist a
+      // recoverable copy. Supabase Auth remains the login source of truth.
+      plain_password: null,
+      password_rotated_at: new Date().toISOString(),
+      plaintext_retired_at: new Date().toISOString(),
       sent_at: new Date().toISOString(),
     });
     if (credentialsError) throw credentialsError;
 
-    // TODO: schedule a daily job or Supabase function to clear child_credentials.plain_password after 24 hours.
+    let credentialsEmailSent=true;
     await transporter.sendMail({
       from: process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>',
       to: parentEmail,
@@ -732,11 +739,14 @@ Reading Level: ${level}
 
 — LinawLetra Team
 `,
-    });
+    }).catch(()=>{credentialsEmailSent=false;console.warn('[Enrollment] Credentials email could not be delivered; one-time credentials are returned to the verified parent.');});
 
+    res.set('Cache-Control','no-store');
     return res.json({
       success: true,
       username: authEmail,
+      credentials:{username:authEmail,password},
+      credentialsEmailSent,
       childId,
       readingLevel: level,
       placementOverrideRecorded: level !== 'Beginner',
