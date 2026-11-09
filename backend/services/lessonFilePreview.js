@@ -33,7 +33,10 @@ function validateLessonFile(file) {
 
 async function imagePdf(buffer, ext) {
   const pdf = await PDFDocument.create();
-  const image = ext === '.png' ? await pdf.embedPng(buffer) : await pdf.embedJpg(buffer);
+  // JPEG parsing expects a standalone ArrayBuffer; pooled Node buffers may
+  // have a nonzero byteOffset and include unrelated bytes before the image.
+  const bytes = Uint8Array.from(buffer);
+  const image = ext === '.png' ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
   const landscape = image.width > image.height;
   const [width, height] = landscape ? [842, 595] : [595, 842];
   const scaled = image.scaleToFit(width - 48, height - 48);

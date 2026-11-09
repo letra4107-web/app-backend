@@ -11,12 +11,16 @@ process.env.EMAIL_PASS = 'test-password';
 const { prepareLessonPdf, validateLessonFile, MAX_FILE_BYTES } = require('../services/lessonFilePreview');
 const { createLessonFilesRouter } = require('../routes/lessonFiles');
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64');
+const jpg = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRQBAwQEBQQFCQUFCRQNCw0UFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFP/AABEIAAEAAQMBEQACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/AO9r+HD+xT//2Q==', 'base64');
 const office = Buffer.concat([Buffer.from([80, 75, 3, 4]), Buffer.from('[Content_Types].xml word/document.xml')]);
 const file = (originalname, buffer) => ({ originalname, buffer });
 
 test('images become readable PDFs and disguised/empty/unsupported files are rejected', async () => {
   const result = await prepareLessonPdf(file('larawan.PNG', png));
   assert.equal((await PDFDocument.load(result)).getPageCount(), 1);
+  const slab = Buffer.alloc(2048); jpg.copy(slab, 13);
+  const jpegResult = await prepareLessonPdf(file('photo.jpg', slab.subarray(13, 13 + jpg.length)));
+  assert.equal((await PDFDocument.load(jpegResult)).getPageCount(), 1);
   for (const input of [file('bad.png', Buffer.from('wrong')), file('bad.docx', png), file('video.mp4', png), file('empty.pdf', Buffer.alloc(0)), file('huge.png', Buffer.alloc(MAX_FILE_BYTES + 1))]) {
     assert.throws(() => validateLessonFile(input), { status: 400 });
   }
