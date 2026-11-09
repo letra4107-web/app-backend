@@ -30,6 +30,10 @@ test('claimed score and foreign events cannot be recorded',async()=>{
 test('PDF extraction refuses foreign hosts before network access and keeps chunks bounded',async()=>{
  let fetched=false;await assert.rejects(extractLessonText('https://attacker.test/private',{fetchImpl:()=>{fetched=true;}}),/extract/);assert.equal(fetched,false);assert.equal(readingChunks('salita '.repeat(250))[0].split(' ').length,100);assert.equal(readingChunks('salita '.repeat(250)).length,3);
 });
+test('real compressed PDF extraction keeps typed-array copy semantics on Node',async()=>{
+ const {PDFDocument,StandardFonts}=require('pdf-lib'),pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica);pdf.addPage().drawText('Ako ay may isang aso. Masaya ako.',{x:40,y:700,font,size:18});const bytes=await pdf.save();
+ const text=await extractLessonText('https://example.supabase.co/storage/v1/object/public/lesson-pdfs/qa.pdf',{fetchImpl:async()=>new Response(bytes,{status:200,headers:{'Content-Length':String(bytes.length)}})});assert.match(text,/Ako ay may isang aso/);
+});
 test('parent edits reject nonparents, foreign children, invalid and future birthdates',async()=>{
  assert.equal(validBirthDate('2020-02-30','2026-11-10'),false);assert.equal(validBirthDate('2027-01-01','2026-11-10'),false);assert.equal(validBirthDate('2020-02-29','2026-11-10'),true);
  const a=fake();assert.equal((await invoke(createParentChildrenRouter(a.client),`/${id(2)}`,undefined,'student','GET')).status,403);

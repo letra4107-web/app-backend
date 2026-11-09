@@ -22,7 +22,11 @@ async function extractLessonText(url,{fetchImpl=fetch,pdfParser=pdfParse}={}){
  if(Number(response.headers.get('content-length'))>20*1024*1024)throw failure(413,'Masyadong malaki ang PDF.');
  const reader=response.body.getReader(),buffers=[];let size=0;
  try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>20*1024*1024)throw failure(413,'Masyadong malaki ang PDF.');buffers.push(Buffer.from(value));}}finally{await reader.cancel().catch(()=>{});}
- return (await pdfParser(Buffer.concat(buffers))).text||'';
+ // pdf.js uses slice while decoding streams. Buffer.slice creates a shared
+ // view, so its in-place decoder can corrupt later PDF objects. A plain
+ // Uint8Array keeps the parser's copy semantics intact on current Node.
+ try{return (await pdfParser(new Uint8Array(Buffer.concat(buffers)))).text||'';}
+ catch{throw failure(422,'Hindi mabasa ang teksto ng PDF. Subukang mag-upload muli ng PDF na may napipiling teksto.');}
 }
 function createReadingAttemptsRouter({client=supabaseAdmin,extract=extractLessonText}={}){
  const router=express.Router();router.use(createStudentGuard(client));
