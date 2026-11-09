@@ -2,6 +2,32 @@
 
 ## Backend (Railway)
 
+### Teacher lesson PDF replacement/removal — 2026-11-09
+
+After the lesson permissions repair, apply
+`migration/migrations/056_lesson_pdf_editing.sql` to the shared Supabase
+database. The web repo carries the same SQL as
+`migrations/053_lesson_pdf_editing.sql`; run either copy once. This allows a
+draft to have no PDF and permits teachers to remove files under their own
+`lesson-pdfs/<auth uid>/` folder. Published lessons must still have a PDF.
+The constraint is added `NOT VALID` to preserve existing records while
+enforcing the requirement on subsequent inserts and updates.
+
+The teacher lesson edit form can replace or detach its PDF. Detachment clears
+all file references and unpublishes the lesson in one update. A replacement
+keeps the same lesson ID and publication state, writes the new public URL and
+storage metadata, and removes the old file only after the update is confirmed.
+Stale PDF references are rejected; ambiguous network failures retain files for
+recovery. The student feeds continue reading published lessons only.
+
+This SQL has been validated locally but has not been applied to production by
+this session. The regression suite now covers 19 real PostgreSQL scenarios,
+including removal, republishing and cross-user storage deletion isolation.
+All 43 focused web lesson tests and the frontend TypeScript check passed.
+An isolated browser check exercised replacement/removal save and cancel,
+reattachment, republishing, invalid file rejection and the 390px dialog layout.
+The browser fixture used mock data and blocked external network requests.
+
 ### Teacher lesson draft/delete permissions — 2026-11-09
 
 Apply `migration/migrations/055_teacher_lesson_management.sql` in Supabase

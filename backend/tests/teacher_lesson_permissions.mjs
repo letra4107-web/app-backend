@@ -99,6 +99,53 @@ try {
   });
   await db.query('RESET ROLE');
   assert.deepEqual((await db.query('SELECT id FROM lessons')).rows, [{ id: foreign }]);
+  // Storage fixture mirrors Supabase's foldername helper and object RLS.
+  await db.query(`
+    ALTER TABLE storage.objects ADD COLUMN name text;
+    ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+    CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$
+      SELECT (string_to_array($1, '/'))[1:array_length(string_to_array($1, '/'), 1)-1]
+    $$;
+    GRANT USAGE ON SCHEMA storage TO authenticated, anon;
+    GRANT SELECT, DELETE ON storage.objects TO authenticated, anon;
+  `);
+  const pdfMigration = await fs.readFile(path.join(root, 'migration/migrations/056_lesson_pdf_editing.sql'), 'utf8');
+  await db.query(pdfMigration);
+  await check('PDF editing migration can be reapplied', async () => { await db.query(pdfMigration); });
+  const editable = randomUUID();
+  await db.query("INSERT INTO lessons(id,teacher_id,title,pdf_url,is_published) VALUES($1,$2,'Editable','old.pdf',true)", [editable, owner]);
+  await db.query(`INSERT INTO storage.objects(id,bucket_id,name) VALUES
+    ($1,'lesson-pdfs',$4),($2,'lesson-pdfs',$5),($3,'other-bucket',$4)`, [randomUUID(), randomUUID(), randomUUID(), `${owner}/old.pdf`, `${other}/private.pdf`]);
+  await asUser(owner);
+  await check('owner can replace a published PDF on the same lesson', async () => {
+    assert.equal((await db.query("UPDATE lessons SET pdf_url='replacement.pdf' WHERE id=$1 RETURNING id", [editable])).rowCount, 1);
+  });
+  await check('PDF removal retains the lesson as a draft and hides it from students', async () => {
+    assert.equal((await db.query('UPDATE lessons SET pdf_url=null,is_published=false WHERE id=$1 RETURNING id', [editable])).rowCount, 1);
+    await asUser(student, 'student');
+    assert.equal((await db.query('SELECT id FROM lessons WHERE id=$1', [editable])).rowCount, 0);
+    await asUser(owner);
+  });
+  await check('publishing a lesson without a PDF is rejected by the database', async () => {
+    await assert.rejects(db.query('UPDATE lessons SET is_published=true WHERE id=$1', [editable]), { code: '23514' });
+    await assert.rejects(db.query("UPDATE lessons SET is_published=true,pdf_url='  ' WHERE id=$1", [editable]), { code: '23514' });
+  });
+  await check('adding a PDF again allows republishing the retained lesson', async () => {
+    assert.equal((await db.query("UPDATE lessons SET pdf_url='new.pdf',is_published=true WHERE id=$1 RETURNING id", [editable])).rowCount, 1);
+  });
+  await check('teacher may delete only PDFs under their own folder in the lesson bucket', async () => {
+    assert.equal((await db.query('DELETE FROM storage.objects WHERE name=$1 RETURNING id', [`${other}/private.pdf`])).rowCount, 0);
+    assert.equal((await db.query("DELETE FROM storage.objects WHERE bucket_id='other-bucket' RETURNING id")).rowCount, 0);
+    assert.equal((await db.query("DELETE FROM storage.objects WHERE bucket_id='lesson-pdfs' AND name=$1 RETURNING id", [`${owner}/old.pdf`])).rowCount, 1);
+  });
+  await check('student cannot remove a teacher PDF', async () => {
+    await asUser(student, 'student');
+    assert.equal((await db.query('DELETE FROM storage.objects RETURNING id')).rowCount, 0);
+  });
+  await check('anonymous users cannot remove lesson PDFs', async () => {
+    await db.query('RESET ROLE'); await db.query('SET ROLE anon');
+    assert.equal((await db.query('DELETE FROM storage.objects RETURNING id')).rowCount, 0);
+  });
   console.log(`${passed} real PostgreSQL cases passed; no production data changed.`);
 } finally {
   if (db) await db.end();
