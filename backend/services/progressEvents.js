@@ -76,6 +76,10 @@ async function recordProgressEvent(client, studentId, eventId, body) {
     || !validBaseReward(data.baseReward,event.content_id,data.xpAwarded,data.replayed)
     || (data.xpAwarded>0 && (event.channel!=='mobile' || event.source!=='practice' || score.accuracy<PRACTICE_PASSING_SCORE))
     || (data.replayed && data.xpAwarded !== 0)) throw rpcFailure();
+  let current;
+  try{current=await client.from('child_progress').select('streak,longest_streak,last_practice_date').eq('child_id',studentId).maybeSingle();}catch{throw rpcFailure();}
+  if(current.error || !current.data)throw rpcFailure(current.error);
+  data.progress={...data.progress,streak:current.data.streak??data.progress.streak??0,longest_streak:current.data.longest_streak??data.progress.longest_streak??0,last_practice_date:current.data.last_practice_date??data.progress.last_practice_date??null};
   return data;
 }
 module.exports = { UUID, onlyKeys, failure, rpcFailure, requireProgressContract, startProgressEvent, recordProgressEvent, validProgress, validBaseReward };
