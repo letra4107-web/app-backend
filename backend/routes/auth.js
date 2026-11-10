@@ -13,6 +13,23 @@ try {
 
 const router = express.Router();
 
+// Administrative compatibility routes are never public. Role comes from the
+// verified identity's stored profile, not request metadata or a supplied uid.
+const requireAdmin = async (req, res, next) => {
+  try {
+    const match = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i);
+    if (!match) return res.status(401).json({ success: false, message: 'Authentication is required.' });
+    const { data, error } = await supabaseAdmin.auth.getUser(match[1]);
+    if (error || !data?.user) return res.status(401).json({ success: false, message: 'Invalid session.' });
+    const profile = await supabaseAdmin.from('users').select('role').eq('id', data.user.id).maybeSingle();
+    if (profile.error) throw profile.error;
+    if (profile.data?.role !== 'admin') return res.status(403).json({ success: false, message: 'Administrator access required.' });
+    return next();
+  } catch { return res.status(503).json({ success: false, message: 'Unable to authorize request.' }); }
+};
+router.use(['/set-role', '/create-student-account', '/debug'], requireAdmin);
+
+
 const OTP_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const OTP_REQUEST_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -30,7 +47,7 @@ const otpExpiryPayload = (expiresAt) => {
   const expiresInSeconds = Number.isFinite(expiresAtMs)
     ? Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000))
     : 0;
-  return { expiresAt: new Date(expiresAt).toISOString(), expiresInSeconds };
+  return { expiresAt: new Date(expiresAt).toISOString(), expiresInSeconds, resendAfterSeconds: 60 };
 };
 const bearerTokenFrom = (authorization = '') => {
   const match = String(authorization).match(/^Bearer\s+(.+)$/i);
@@ -128,13 +145,14 @@ const makeOtpRequestKey = (email, clientRequestId) => {
 
 const setOtpRequestCache = (key, payload) => {
   if (!key) return;
-  otpRequestCache.set(key, { payload, expiresAt: Date.now() + OTP_REQUEST_CACHE_TTL_MS });
-  setTimeout(() => {
+  otpRequestCache.set(key, { payload, createdAt: Date.now(), expiresAt: Date.now() + OTP_REQUEST_CACHE_TTL_MS });
+  const cacheTimer = setTimeout(() => {
     const cached = otpRequestCache.get(key);
     if (cached && cached.expiresAt <= Date.now()) {
       otpRequestCache.delete(key);
     }
   }, OTP_REQUEST_CACHE_TTL_MS + 1000);
+  cacheTimer.unref?.();
 };
 
 const getOtpRequestCache = (key) => {
@@ -145,7 +163,8 @@ const getOtpRequestCache = (key) => {
     otpRequestCache.delete(key);
     return null;
   }
-  return cached.payload;
+  return { ...cached.payload, ...otpExpiryPayload(cached.payload.expiresAt),
+    resendAfterSeconds: Math.max(0, 60 - Math.floor((Date.now() - cached.createdAt) / 1000)) };
 };
 
 const findUserIdByEmail = async (email) => {
@@ -254,7 +273,8 @@ router.post('/complete-password-reset', async (req, res) => {
     const profile = Array.isArray(profiles) ? profiles[0] : null;
     if (!profile?.id) return res.status(400).json({ success: false, message: 'Invalid or expired reset code.' });
 
-    const verification = await verifyOTP(profile.id, code);
+    await resolveOtpIdentity(email, profile.id);
+    const verification = await verifyOTP(profile.id, code, email);
     if (normalizeEmail(verification.email) !== email) {
       throw new Error('Reset code does not match this email.');
     }
@@ -270,6 +290,16 @@ router.post('/complete-password-reset', async (req, res) => {
   }
 });
 
+const resolveOtpIdentity = async (email, preferredUserId = '') => {
+  const userId = preferredUserId || await findUserIdByEmail(email);
+  const { data, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (error || !data?.user || normalizeEmail(data.user.email) !== normalizeEmail(email)) {
+    const invalid = new Error('Invalid verification request. Check the email address.');
+    invalid.status = 400; throw invalid;
+  }
+  return data.user.id;
+};
+
 const findOtpSessionUserId = async (email, preferredUserId = '') => {
   const normalizedEmail = normalizeEmail(email);
 
@@ -278,6 +308,7 @@ const findOtpSessionUserId = async (email, preferredUserId = '') => {
       .from('otp_sessions')
       .select('user_id')
       .eq('user_id', preferredUserId)
+      .eq('email', normalizedEmail)
       .limit(1);
 
     if (error) {
@@ -379,7 +410,7 @@ router.post('/send-email-otp', async (req, res) => {
 
   const main = async () => {
     const stepMs = Date.now();
-    authLog('log', 'send-email-otp request received', { requestId, origin: req.headers.origin, host: req.headers.host, body: req.body });
+    authLog('log', 'send-email-otp request received', { requestId });
     const email = normalizeEmail(req.body.email);
     const clientRequestId = String(req.body.clientRequestId || '').trim();
     const otpRequestKey = makeOtpRequestKey(email, clientRequestId);
@@ -411,6 +442,7 @@ router.post('/send-email-otp', async (req, res) => {
         resolvedUserId = await findUserIdByEmail(email);
       }
 
+      resolvedUserId = await resolveOtpIdentity(email, resolvedUserId);
       const otpSession = await createOTPSession(resolvedUserId, email);
       authLog('log', 'send-email-otp OTP session created', { requestId, clientRequestId, email, userId: resolvedUserId, generatedAt: new Date(stepMs).toISOString(), elapsedMs: Date.now() - stepMs });
 
@@ -453,18 +485,19 @@ router.post('/send-email-otp', async (req, res) => {
       message: error?.message || error,
       code: error?.code,
       stack: error?.stack,
-      body: req.body,
+      body: '[redacted]',
       origin: req.headers.origin,
       elapsedMs,
       isTimeout,
     });
 
-    const status = isTimeout ? 504 : 502;
+    const status = error?.status || (isTimeout ? 504 : 502);
     return sendJsonOnce(status, {
       success: false,
       message: isTimeout
         ? `Request timed out after ${elapsedMs}ms. Check backend connectivity.`
         : error?.message || 'Unable to queue OTP email. Please verify the address and try again.',
+      retryAfterSeconds: error?.retryAfterSeconds,
       requestDuration: elapsedMs,
     });
   } finally {
@@ -924,6 +957,16 @@ const fetchChildProfileByAuthUid = async (authUid, requestId) => {
 };
 
 router.get('/child-profile/:authUid', async (req, res) => {
+  try {
+    const token = bearerTokenFrom(req.headers.authorization);
+    if (!token) return res.status(401).json({ success: false, message: 'Authentication is required.' });
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user) return res.status(401).json({ success: false, message: 'Invalid session.' });
+    if (data.user.id !== req.params.authUid) {
+      const owned = await supabaseAdmin.from('children').select('id').eq('auth_uid', req.params.authUid).eq('parent_id', data.user.id).maybeSingle();
+      if (owned.error || !owned.data) return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+  } catch { return res.status(503).json({ success: false, message: 'Unable to authorize request.' }); }
   const authUid = String(req.params.authUid || '').trim();
   const requestId = `child-profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   authLog('log', 'child-profile request received', {
@@ -1024,11 +1067,13 @@ router.post('/resend-otp', async (req, res) => {
       userId = await findUserIdByEmail(email);
     }
 
+    userId = await resolveOtpIdentity(email, userId);
     const resendStatus = await canResendOTP(userId);
     if (!resendStatus.allowed) {
-      return res.status(400).json({
+      return res.status(429).json({
         success: false,
         message: resendStatus.message,
+        retryAfterSeconds: resendStatus.retryAfterSeconds,
       });
     }
 
@@ -1062,7 +1107,7 @@ router.post('/resend-otp', async (req, res) => {
       return res.status(500).json({ success: false, message: 'OTP session data unavailable' });
     }
 
-    if (new Date() > new Date(existing.expires_at)) {
+    if (existing.verified || new Date() > new Date(existing.expires_at)) {
       await deleteOTPSession(userId);
       const otpSession = await createOTPSession(userId, email);
       await supabaseAdmin
@@ -1126,29 +1171,28 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     userId = await findOtpSessionUserId(email, userId);
+    userId = await resolveOtpIdentity(email, userId);
 
-    const verificationResult = await verifyOTP(userId, code);
-    console.log(`✅ OTP verified for ${email}`);
-
-    // Update the public users table to mark email_verified
-    try {
-      await supabaseAdmin.from('users').update({ email_verified: true }).eq('id', userId);
-    } catch (e) {
-      console.warn('Failed to update users.email_verified:', e.message || e);
+    const verificationResult = await verifyOTP(userId, code, email, false);
+    const confirmation = await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true });
+    if (confirmation.error) throw new Error('Unable to confirm email. Please try again.');
+    await verifyOTP(userId, code, email);
+    const profile = await supabaseAdmin.from('users').select('id').eq('id', userId).maybeSingle();
+    if (profile.error) throw profile.error;
+    let profileUpdate;
+    if (profile.data) {
+      profileUpdate = await supabaseAdmin.from('users').update({ email_verified: true }).eq('id', userId);
+    } else {
+      // Repair an interrupted signup only after validating the actual code.
+      // New self-service accounts are parents; enrolled students keep their role.
+      const child = await supabaseAdmin.from('children').select('id,name').eq('auth_uid', userId).maybeSingle();
+      if (child.error) throw child.error;
+      const user = confirmation.data?.user;
+      profileUpdate = await supabaseAdmin.from('users').upsert({id:userId,email,
+        name:child.data?.name || user?.user_metadata?.full_name || email,
+        role:child.data ? 'student' : 'parent',email_verified:true});
     }
-
-    // Also attempt to mark the Supabase Auth user as confirmed (service role)
-    try {
-      // Some Supabase Admin SDKs accept `email_confirmed_at` or `email_confirm` flags.
-      // We'll set the timestamp field if supported.
-      await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirmed_at: new Date().toISOString() });
-    } catch {
-      try {
-        await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true });
-      } catch (err) {
-        console.warn('Failed to update auth user confirmation status:', err.message || err);
-      }
-    }
+    if (profileUpdate.error) throw new Error('Email confirmed but profile synchronization failed. Try signing in.');
 
     return res.json({
       success: true,
@@ -1167,6 +1211,10 @@ router.post('/verify-otp', async (req, res) => {
 
 router.delete('/cancel-verification', async (req, res) => {
   try {
+    const token = bearerTokenFrom(req.headers.authorization);
+    if (!token) return res.status(401).json({ success: false, message: 'Authentication is required.' });
+    const actor = await supabaseAdmin.auth.getUser(token);
+    if (actor.error || !actor.data?.user) return res.status(401).json({ success: false, message: 'Invalid session.' });
     const email = normalizeEmail(req.body.email);
     let userId = String(req.body.userId || '').trim();
 
@@ -1188,6 +1236,8 @@ router.delete('/cancel-verification', async (req, res) => {
       userId = await findUserIdByEmail(email);
     }
 
+    userId = await resolveOtpIdentity(email, userId);
+    if (actor.data.user.id !== userId) return res.status(403).json({ success: false, message: 'Access denied.' });
     await deleteOTPSession(userId);
     console.log(`✅ Verification cancelled for ${email}`);
 

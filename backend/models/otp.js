@@ -1,4 +1,5 @@
 const { supabaseAdmin } = require('../config/supabase');
+const crypto = require('crypto');
 
 const OTP_COLLECTION = 'otp_sessions';
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
@@ -6,10 +7,22 @@ const MAX_RESEND_ATTEMPTS = 3;
 const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
 
 const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 };
 
 const createOTPSession = async (userId, email) => {
+  const previous = await supabaseAdmin.from(OTP_COLLECTION).select('*').eq('user_id', userId).limit(1);
+  if (previous.error) throw previous.error;
+  const prior = previous.data?.[0];
+  const active = prior && Date.parse(prior.expires_at) > Date.now();
+  if (active) {
+    const restriction = await canResendOTP(userId);
+    if (!restriction.allowed) {
+      const error = new Error(restriction.message);
+      error.status = 429; error.retryAfterSeconds = restriction.retryAfterSeconds;
+      throw error;
+    }
+  }
   const otp = generateOTP();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MS);
@@ -30,7 +43,7 @@ const createOTPSession = async (userId, email) => {
       expires_at: expiresAt.toISOString(),
       attempts: 0,
       verified: false,
-      resend_count: 0,
+      resend_count: active ? (prior.resend_count || 0) + 1 : 0,
       last_resend_at: now.toISOString(),
     });
 
@@ -65,7 +78,8 @@ const createOTPSession = async (userId, email) => {
   }
 };
 
-const verifyOTP = async (userId, otp) => {
+const verifyOTP = async (userId, otp, email, consume = true) => {
+  if (!/^\d{6}$/.test(String(otp))) throw new Error('Invalid OTP.');
   const docRef = await supabaseAdmin.from(OTP_COLLECTION).select('*').eq('user_id', userId).limit(1);
 
   try {
@@ -81,12 +95,13 @@ const verifyOTP = async (userId, otp) => {
     }
 
     const data = doc;
+    if (email && String(data.email).trim().toLowerCase() !== String(email).trim().toLowerCase()) throw new Error('Invalid OTP recipient.');
 
     if (data.verified) {
       throw new Error('OTP already verified');
     }
 
-    if (new Date() > new Date(data.expires_at)) {
+    if (!Number.isFinite(Date.parse(data.expires_at)) || Date.now() >= Date.parse(data.expires_at)) {
       await supabaseAdmin.from(OTP_COLLECTION).delete().eq('user_id', userId);
       throw new Error('OTP has expired. Please request a new one.');
     }
@@ -97,11 +112,18 @@ const verifyOTP = async (userId, otp) => {
     }
 
     if (data.otp !== otp) {
-      await supabaseAdmin.from(OTP_COLLECTION).update({ attempts: (data.attempts || 0) + 1 }).eq('user_id', userId);
+      const rejected = await supabaseAdmin.from(OTP_COLLECTION).update({ attempts: (data.attempts || 0) + 1 }).eq('user_id', userId).eq('attempts', data.attempts || 0);
+      if (rejected.error) throw rejected.error;
       throw new Error(`Invalid OTP. ${5 - ((data.attempts || 0) + 1)} attempts remaining.`);
     }
 
-    await supabaseAdmin.from(OTP_COLLECTION).update({ verified: true, verified_at: new Date().toISOString() }).eq('user_id', userId);
+    if (consume) {
+      const consumed = await supabaseAdmin.from(OTP_COLLECTION)
+        .update({ verified: true, verified_at: new Date().toISOString() })
+        .eq('user_id', userId).eq('otp', otp).eq('verified', false).eq('attempts', data.attempts || 0).eq('expires_at', data.expires_at).select('user_id');
+      if (consumed.error) throw consumed.error;
+      if (!consumed.data?.length) throw new Error('OTP already used or changed. Please request a new one.');
+    }
 
     console.log(`OTP verified for user: ${userId}`);
     return { success: true, email: data.email };
@@ -113,17 +135,20 @@ const verifyOTP = async (userId, otp) => {
 
 const canResendOTP = async (userId) => {
   try {
-    const { data } = await supabaseAdmin.from(OTP_COLLECTION).select('*').eq('user_id', userId).limit(1);
+    const { data, error } = await supabaseAdmin.from(OTP_COLLECTION).select('*').eq('user_id', userId).limit(1);
+    if (error) throw error;
     const doc = Array.isArray(data) && data.length ? data[0] : null;
 
     if (!doc) {
       return { allowed: true, message: 'No previous OTP session' };
     }
+    if (Date.parse(doc.expires_at) <= Date.now()) return { allowed: true, message: 'Previous code expired' };
 
     if ((doc.resend_count || 0) >= MAX_RESEND_ATTEMPTS) {
       return {
         allowed: false,
         message: `Maximum resend attempts (${MAX_RESEND_ATTEMPTS}) exceeded. Try again later.`,
+        retryAfterSeconds: Math.max(1, Math.ceil((Date.parse(doc.expires_at) - Date.now()) / 1000)),
       };
     }
 
@@ -133,6 +158,7 @@ const canResendOTP = async (userId) => {
       return {
         allowed: false,
         message: `Please wait ${secondsRemaining} seconds before resending.`,
+        retryAfterSeconds: secondsRemaining,
       };
     }
 
