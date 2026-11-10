@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-// One-tap re-login (capstone panel item 1). Stores a small list of "saved
+// One-tap re-login (capstone panel item 1). Stores only the most recently used "saved
 // profile" tickets in the OS keychain/keystore (SecureStore, not
 // AsyncStorage) - never the password, only a Supabase refresh token. This is
 // deliberately a *separate* storage key from Supabase's own session token
@@ -27,7 +27,6 @@ export type SavedAuthProfile = {
 };
 
 const STORE_KEY = 'linawletra.savedProfiles.v1';
-const MAX_PROFILES = 5;
 const STUDENT_PROFILE_TTL_DAYS = 7;
 const DEFAULT_PROFILE_TTL_DAYS = 30;
 const ttlDaysFor = (role: SavedAuthProfile['role']) =>
@@ -53,17 +52,17 @@ const writeAll = async (profiles: SavedAuthProfile[]): Promise<void> => {
 export const getSavedProfiles = async (): Promise<SavedAuthProfile[]> => {
   const all = await readAll();
   const now = Date.now();
-  const fresh = all.filter((p) => now - new Date(p.savedAt).getTime() < ttlDaysFor(p.role) * 24 * 60 * 60 * 1000);
+  const fresh = all
+    .filter((p) => now - new Date(p.savedAt).getTime() < ttlDaysFor(p.role) * 24 * 60 * 60 * 1000)
+    .sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt))
+    .slice(0, 1);
   if (fresh.length !== all.length) await writeAll(fresh);
   return fresh;
 };
 
-/** Upserts by userId (moves it to the front) and evicts the oldest past MAX_PROFILES. */
+/** Replaces the saved ticket so one-tap login always belongs to the last account used. */
 export const saveAuthProfile = async (profile: Omit<SavedAuthProfile, 'savedAt'>): Promise<void> => {
-  const all = await readAll();
-  const filtered = all.filter((p) => p.userId !== profile.userId);
-  const next = [{ ...profile, savedAt: new Date().toISOString() }, ...filtered].slice(0, MAX_PROFILES);
-  await writeAll(next);
+  await writeAll([{ ...profile, savedAt: new Date().toISOString() }]);
 };
 
 export const removeSavedProfile = async (userId: string): Promise<void> => {
