@@ -78,10 +78,10 @@ const request = async (route, body = {}, token, method = 'POST') => {
 const session = (overrides = {}) => ({ user_id: 'user-a', email: 'parent@example.test', otp: '123456', expires_at: new Date(Date.now() + 600000).toISOString(), attempts: 0, verified: false, resend_count: 0, last_resend_at: new Date(Date.now() - 61000).toISOString(), ...overrides });
 beforeEach(() => { Object.keys(tables).forEach(k => delete tables[k]); tables.users = [{ id: 'user-a', email: 'parent@example.test', role: 'parent' }, { id: 'user-b', email: 'other@example.test', role: 'parent' }]; mailCount = 0; failWrite = false; failConfirmation = false; });
 after(() => server.close());
-test('AUTH-20: initial send is queued once and network replay reuses the same session', async () => {
+test('AUTH-20: initial send is accepted once and network replay reuses the same session', async () => {
   const body = { userId: 'user-a', email: 'parent@example.test', clientRequestId: 'audit-unique-initial' };
   const first = await request('/send-otp', body); const replay = await request('/send-otp', body);
-  assert.equal(first.status, 200); assert.equal(first.body.emailStatus, 'queued'); assert.equal(replay.status, 200);
+  assert.equal(first.status, 200); assert.equal(first.body.emailStatus, 'sent'); assert.equal(replay.status, 200);
   assert.equal(replay.body.idempotentReplay, true); assert.equal(mailCount, 1); assert.ok(replay.body.expiresInSeconds <= first.body.expiresInSeconds);
 });
 test('AUTH-01: OTP randomness does not use Math.random', () => {

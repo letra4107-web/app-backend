@@ -13,7 +13,7 @@ const directSmtpConfigured = Boolean(DIRECT_SMTP_USER && DIRECT_SMTP_PASS);
 const emailFrom = stripQuotes(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>');
 const isProduction = (process.env.NODE_ENV || 'development') === 'production';
 const smtpConfigured = Boolean(BREVO_API_KEY);
-const SEND_TIMEOUT_MS = parseInt(process.env.SMTP_SEND_TIMEOUT_MS || '45000', 10);
+const SEND_TIMEOUT_MS = parseInt(process.env.SMTP_SEND_TIMEOUT_MS || '15000', 10);
 const VERIFY_TIMEOUT_MS = parseInt(process.env.SMTP_TIMEOUT_MS || '30000', 10);
 
 const mailerLog = (level, message, meta = {}) => {

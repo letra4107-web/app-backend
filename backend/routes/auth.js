@@ -386,7 +386,7 @@ const ensureChildRecordForStudent = async (authUid, displayName, username, paren
 };
 
 router.post('/send-email-otp', async (req, res) => {
-  const TIMEOUT_MS = 8000;
+  const TIMEOUT_MS = 25000;
   const startMs = Date.now();
   const requestId = `send-email-otp-${startMs}-${Math.random().toString(36).slice(2, 8)}`;
   req.setTimeout(TIMEOUT_MS);
@@ -446,13 +446,13 @@ router.post('/send-email-otp', async (req, res) => {
       const otpSession = await createOTPSession(resolvedUserId, email);
       authLog('log', 'send-email-otp OTP session created', { requestId, clientRequestId, email, userId: resolvedUserId, generatedAt: new Date(stepMs).toISOString(), elapsedMs: Date.now() - stepMs });
 
-      const enqueueResult = enqueueOtpEmail({ label: 'send-email-otp', userId: resolvedUserId, email, otp: otpSession.otp });
+      const enqueueResult = await enqueueOtpEmail({ label: 'send-email-otp', userId: resolvedUserId, email, otp: otpSession.otp });
       authLog('log', 'send-email-otp email send queued for background', { requestId, clientRequestId, email, userId: resolvedUserId, enqueueResult, totalElapsedMs: Date.now() - startMs });
 
       return {
         success: true,
-        message: 'OTP queued',
-        emailStatus: 'queued',
+        message: 'OTP accepted by email provider',
+        emailStatus: 'sent',
         jobId: enqueueResult.jobId,
         userId: resolvedUserId,
         ...otpExpiryPayload(otpSession.expiresAt),
@@ -1090,13 +1090,13 @@ router.post('/resend-otp', async (req, res) => {
         .from('otp_sessions')
         .update({ resend_count: 1, last_resend_at: new Date().toISOString() })
         .eq('user_id', userId);
-      const enqueueResult = enqueueOtpEmail({ label: 'resend-otp-initial', userId, email, otp: otpSession.otp });
+      const enqueueResult = await enqueueOtpEmail({ label: 'resend-otp-initial', userId, email, otp: otpSession.otp });
       authLog('log', 'resend-otp email send queued for background', { email, userId, enqueueResult });
 
       return res.json({
         success: true,
         message: 'OTP resent successfully.',
-        emailStatus: 'queued',
+        emailStatus: 'sent',
         jobId: enqueueResult.jobId,
         ...otpExpiryPayload(otpSession.expiresAt),
       });
@@ -1114,13 +1114,13 @@ router.post('/resend-otp', async (req, res) => {
         .from('otp_sessions')
         .update({ resend_count: 1, last_resend_at: new Date().toISOString() })
         .eq('user_id', userId);
-      const enqueueResult = enqueueOtpEmail({ label: 'resend-otp-expired', userId, email, otp: otpSession.otp });
+      const enqueueResult = await enqueueOtpEmail({ label: 'resend-otp-expired', userId, email, otp: otpSession.otp });
       authLog('log', 'resend-otp expired email send queued for background', { email, userId, enqueueResult });
 
       return res.json({
         success: true,
-        message: 'Previous OTP expired. New OTP email queued for delivery.',
-        emailStatus: 'queued',
+        message: 'New OTP accepted by email provider.',
+        emailStatus: 'sent',
         jobId: enqueueResult.jobId,
         ...otpExpiryPayload(otpSession.expiresAt),
       });
@@ -1131,13 +1131,13 @@ router.post('/resend-otp', async (req, res) => {
       .update({ resend_count: (existing.resend_count || 0) + 1, last_resend_at: new Date().toISOString() })
       .eq('user_id', userId);
 
-    const enqueueResult = enqueueOtpEmail({ label: 'resend-otp', userId, email, otp: existing.otp });
+    const enqueueResult = await enqueueOtpEmail({ label: 'resend-otp', userId, email, otp: existing.otp });
     authLog('log', 'resend-otp existing email send queued for background', { email, userId, enqueueResult });
 
     return res.json({
       success: true,
-      message: 'OTP resend queued for delivery.',
-      emailStatus: 'queued',
+      message: 'OTP accepted by email provider.',
+      emailStatus: 'sent',
       jobId: enqueueResult.jobId,
       ...otpExpiryPayload(existing.expires_at),
     });
