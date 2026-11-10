@@ -15,7 +15,7 @@ const KARAOKE_CACHE_PREFIX = 'karaoke';
 
 const postJson = (res, statusCode, payload) => res.status(statusCode).json(payload);
 const cacheKeyFor = (text, kind) => crypto.createHash('sha256')
-  .update(`elevenlabs:${ELEVENLABS_VOICE_ID}:${kind}:${text}`)
+  .update(`elevenlabs:${ELEVENLABS_VOICE_ID}:${kind}${text.trim().toLowerCase() === 'ilog' ? ':isolated-ilog-v2' : ''}:${text}`)
   .digest('hex');
 
 let bucketReadyPromise = null;
@@ -44,7 +44,7 @@ async function synthesizeWithTiming(text) {
   const response = await fetch(`${ELEVENLABS_ENDPOINT}/${encodeURIComponent(ELEVENLABS_VOICE_ID)}/with-timestamps?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
-    body: JSON.stringify({ text, model_id: ELEVENLABS_MODEL, apply_text_normalization: 'auto' }),
+    body: JSON.stringify(text.trim().toLowerCase() === 'ilog' ? {text:'Ilog.',model_id:'eleven_v3',language_code:'fil',voice_settings:{speed:0.7},apply_text_normalization:'auto'} : { text, model_id: ELEVENLABS_MODEL, apply_text_normalization: 'auto' }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload?.audio_base64) {
