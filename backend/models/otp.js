@@ -119,7 +119,7 @@ const verifyOTP = async (userId, otp, email, consume = true) => {
 
     if (consume) {
       const consumed = await supabaseAdmin.from(OTP_COLLECTION)
-        .update({ verified: true, verified_at: new Date().toISOString() })
+        .update({ verified: true })
         .eq('user_id', userId).eq('otp', otp).eq('verified', false).eq('attempts', data.attempts || 0).eq('expires_at', data.expires_at).select('user_id');
       if (consumed.error) throw consumed.error;
       if (!consumed.data?.length) throw new Error('OTP already used or changed. Please request a new one.');

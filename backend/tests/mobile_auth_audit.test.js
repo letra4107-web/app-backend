@@ -20,6 +20,7 @@ class Query {
   delete() { this.op = 'delete'; return this; }
   then(resolve, reject) {
     try {
+      if(this.table==='otp_sessions'&&this.payload&&'verified_at' in this.payload)return Promise.resolve({data:null,error:{code:'PGRST204',message:'verified_at does not exist'}}).then(resolve,reject);
       const rows = tables[this.table] ||= [];
       const matching = rows.filter(row => this.filters.every(filter => filter(row))).slice(0, this.max);
       if (failWrite && this.op !== 'select') return Promise.resolve({ data: null, error: { message: 'simulated write failure' } }).then(resolve, reject);
