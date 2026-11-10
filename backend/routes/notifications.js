@@ -1,7 +1,9 @@
 const express = require('express');
 const { supabaseAdmin } = require('../config/supabase');
+const { authenticatedMobileUser, relatedChildren } = require('../middleware/mobileOwnership');
 
 const router = express.Router();
+router.use(authenticatedMobileUser);
 
 const isMissingColumnError = (error, column) =>
   error?.code === 'PGRST204' &&
@@ -94,6 +96,7 @@ const stripMissingColumn = (payload, error) => {
 router.get('/', async (req, res) => {
   try {
     const userId = String(req.query.userId || req.query.parentId || '').trim();
+    if (userId && userId !== req.mobileUserId) return res.status(403).json({ success: false, message: 'Access denied.' });
     if (!userId) {
       return res.json({ success: true, notifications: [], message: 'No userId provided.' });
     }
@@ -125,6 +128,13 @@ router.post('/', async (req, res) => {
       is_read: req.body.is_read ?? false,
       read: req.body.read ?? false,
     };
+
+    const children = await relatedChildren(req.mobileUserId);
+    const linkedChild = children.find(child => child.id === payload.student_id);
+    const selfOnly = payload.user_id === req.mobileUserId && !payload.student_id && (!payload.parent_id || payload.parent_id === req.mobileUserId);
+    const linkedRecipient = linkedChild && [linkedChild.auth_uid, linkedChild.parent_id].includes(payload.user_id)
+      && (!payload.parent_id || payload.parent_id === linkedChild.parent_id);
+    if (!selfOnly && !linkedRecipient) return res.status(403).json({ success: false, message: 'Access denied.' });
 
     if (!payload.user_id || !payload.title) {
       return res.status(400).json({ success: false, message: 'user_id and title are required.' });
@@ -163,6 +173,14 @@ router.patch('/:id/read', async (req, res) => {
     if (!id) {
       return res.status(400).json({ success: false, message: 'notification id is required.' });
     }
+
+    const found = await supabaseAdmin.from('notifications').select('*').eq('id', id).maybeSingle();
+    if (found.error) throw found.error;
+    if (!found.data) return res.status(404).json({ success: false, message: 'Notification not found.' });
+    const children = await relatedChildren(req.mobileUserId);
+    const owned = found.data.user_id === req.mobileUserId || found.data.parent_id === req.mobileUserId
+      || children.some(child => child.parent_id === req.mobileUserId && (child.id === found.data.student_id || child.auth_uid === found.data.user_id));
+    if (!owned) return res.status(403).json({ success: false, message: 'Access denied.' });
 
     let { error } = await supabaseAdmin
       .from('notifications')

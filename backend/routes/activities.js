@@ -1,7 +1,9 @@
 const express = require('express');
 const { supabaseAdmin } = require('../config/supabase');
+const { authenticatedMobileUser, relatedChildren } = require('../middleware/mobileOwnership');
 
 const router = express.Router();
+router.use(authenticatedMobileUser);
 
 const normalizeStatus = (deadline, status) => {
   if (status === 'completed' || status === 'completed_late') return status;
@@ -17,6 +19,11 @@ router.get('/', async (req, res) => {
     const authUid = String(req.query.authUid || req.query.studentId || '').trim();
     const childId = String(req.query.childId || '').trim();
     const parentId = String(req.query.parentId || '').trim();
+    const children = await relatedChildren(req.mobileUserId);
+    const allowed = new Set([req.mobileUserId, ...children.flatMap(child => [child.id, child.auth_uid])]);
+    if ((parentId && parentId !== req.mobileUserId) || (authUid && !allowed.has(authUid)) || (childId && !allowed.has(childId))) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
 
     let studentIds = [];
     if (parentId) {

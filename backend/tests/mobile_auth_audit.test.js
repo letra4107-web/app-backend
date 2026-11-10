@@ -55,6 +55,15 @@ global.fetch = async () => { throw new Error('External network forbidden in isol
 const model = require('../models/otp');
 const router = require('../routes/auth');
 const app = express(); app.use(express.json()); app.use('/auth', router);
+const loadDataRouter = name => {
+  if (process.env.MOBILE_AUDIT_BASELINE_DATA !== '1') return require('../routes/' + name);
+  const { execFileSync } = require('child_process'); const Module = require('module'); const filename = require.resolve('../routes/' + name);
+  const source = execFileSync('git', ['show', 'HEAD:backend/routes/' + name + '.js'], { cwd: require('path').resolve(__dirname, '../..'), encoding: 'utf8', windowsHide: true });
+  const mod = new Module(filename, module); mod.filename = filename; mod.paths = module.paths;
+  mod._compile(source, filename); return mod.exports;
+};
+app.use('/api/notifications', loadDataRouter('notifications'));
+app.use('/api/activities', loadDataRouter('activities'));
 const server = app.listen(0, '127.0.0.1');
 const ready = new Promise(resolve => server.once('listening', resolve));
 const request = async (route, body = {}, token, method = 'POST') => {
@@ -98,3 +107,12 @@ test('AUTH-22: verification recovery gives a fresh code instead of resending an 
 test('AUTH-17: a parent cannot use the administrative role route', async () => { assert.equal((await request('/set-role', { uid: 'user-a', role: 'admin' }, 'parent-token')).status, 403); });
 test('AUTH-18: resend reports the actual remaining cooldown', async () => { tables.otp_sessions = [session({ last_resend_at: new Date().toISOString() })]; const res = await request('/resend-otp', { email: 'parent@example.test', userId: 'user-a' }); assert.equal(res.status, 429); assert.ok(res.body.retryAfterSeconds > 0 && res.body.retryAfterSeconds <= 60); assert.equal(mailCount, 0); });
 test('AUTH-19: unauthenticated cancellation cannot delete another verification', async () => { tables.otp_sessions = [session()]; const res = await new Promise(async (resolve, reject) => { await ready; const req = http.request({ hostname: '127.0.0.1', port: server.address().port, path: '/auth/cancel-verification', method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(JSON.stringify({ email: 'parent@example.test', userId: 'user-a' })) } }, r => { r.resume(); r.on('end', () => resolve(r.statusCode)); }); req.on('error', reject); req.end(JSON.stringify({ email: 'parent@example.test', userId: 'user-a' })); }); assert.equal(res, 401); assert.equal(tables.otp_sessions.length, 1); });
+test('DATA-01: notification inbox requires authentication', async () => { assert.equal((await request('/api/notifications?userId=user-a', {}, undefined, 'GET')).status, 401); });
+test('DATA-02: another parent inbox is forbidden', async () => { assert.equal((await request('/api/notifications?userId=user-b', {}, 'parent-token', 'GET')).status, 403); });
+test('DATA-03: own empty inbox is a successful empty result', async () => { const result = await request('/api/notifications?userId=user-a', {}, 'parent-token', 'GET'); assert.equal(result.status, 200); assert.deepEqual(result.body.notifications, []); });
+test('DATA-04: notification read mutation requires authentication', async () => { assert.equal((await request('/api/notifications/other/read', {}, undefined, 'PATCH')).status, 401); });
+test('DATA-05: another parent notification cannot be marked read', async () => { tables.notifications = [{ id: 'other', user_id: 'user-b', read: false }]; assert.equal((await request('/api/notifications/other/read', {}, 'parent-token', 'PATCH')).status, 403); assert.equal(tables.notifications[0].read, false); });
+test('DATA-06: forged notification recipients are forbidden', async () => { assert.equal((await request('/api/notifications', { user_id: 'user-b', title: 'forged' }, 'parent-token')).status, 403); });
+test('DATA-07: activities require authentication', async () => { assert.equal((await request('/api/activities?parentId=user-b', {}, undefined, 'GET')).status, 401); });
+test('DATA-08: another parent activities cannot be read', async () => { assert.equal((await request('/api/activities?parentId=user-b', {}, 'parent-token', 'GET')).status, 403); });
+test('DATA-09: own child activities can be read', async () => { tables.children = [{ id: 'child-a', parent_id: 'user-a', auth_uid: 'student-a' }]; tables.activities = [{ id: 'activity-a', student_id: 'child-a' }, { id: 'activity-b', student_id: 'other-child' }]; const result = await request('/api/activities?parentId=user-a', {}, 'parent-token', 'GET'); assert.equal(result.status, 200); assert.equal(result.body.activities.length, 1); assert.equal(result.body.activities[0].id, 'activity-a'); });
