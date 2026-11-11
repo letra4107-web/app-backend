@@ -265,6 +265,7 @@ const mountRoute = (basePath, loader) => {
 
 app.use('/api', require('./middleware/emailVerification').createEmailVerificationGuard(supabaseAdmin));
 
+mountRoute('/api/auth', () => require('./routes/accountEmail'));
 mountRoute('/api/auth', () => require('./routes/auth'));
 mountRoute('/api/speech/filipino', () => require('./routes/cloudSpeech'));
 mountRoute('/api/speech', () => require('./routes/speech'));

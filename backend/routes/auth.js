@@ -1,5 +1,6 @@
 const {passwordResetRecipient}=require('../services/passwordResetRecipient');
 const express = require('express');
+const {childEnrollmentEmail}=require('../lib/emailTemplates');
 const { sendPasswordResetCodeEmail, transporter } = require('../config/mailer');
 const { supabaseAdmin } = require('../config/supabase');
 const { createOTPSession, verifyOTP, canResendOTP, deleteOTPSession } = require('../models/otp');
@@ -764,6 +765,7 @@ router.post('/enroll-child', async (req, res) => {
       from: process.env.EMAIL_FROM || 'LinawLetra <noreply@linawletra.com>',
       to: parentEmail,
       subject: 'LinawLetra — Inyong Anak ay Naka-enroll Na!',
+      html:childEnrollmentEmail({childName,gradeLevel:finalGradeLevel,readingLevel:level,username:authEmail,password}),
       text: `Magandang araw! Naka-enroll na si ${childName} sa LinawLetra.
 
 Narito ang kanyang login credentials:

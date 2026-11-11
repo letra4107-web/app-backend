@@ -2,6 +2,7 @@
 
 // Code delivery and recovery must remain reachable by pending accounts.
 const verificationRoutes = new Set([
+  '/auth/email-availability',
   '/auth/send-otp', '/auth/resend-otp', '/auth/verify-otp',
   '/auth/request-password-reset', '/auth/complete-password-reset',
   '/auth/cancel-verification', '/auth/send-email-otp', '/auth/rollback-incomplete-signup',
