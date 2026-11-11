@@ -35,7 +35,7 @@ test('real compressed PDF extraction keeps typed-array copy semantics on Node',a
  const text=await extractLessonText('https://example.supabase.co/storage/v1/object/public/lesson-pdfs/qa.pdf',{fetchImpl:async()=>new Response(bytes,{status:200,headers:{'Content-Length':String(bytes.length)}})});assert.match(text,/Ako ay may isang aso/);
 });
 test('parent edits reject nonparents, foreign children, invalid and future birthdates',async()=>{
- assert.equal(validBirthDate('2020-02-30','2026-11-10'),false);assert.equal(validBirthDate('2027-01-01','2026-11-10'),false);assert.equal(validBirthDate('2020-02-29','2026-11-10'),true);
+ assert.equal(validBirthDate('2020-02-30','2026-11-10'),false);assert.equal(validBirthDate('2027-01-01','2026-11-10'),false);assert.equal(validBirthDate('2020-02-29','2026-11-10'),false);assert.equal(validBirthDate('2016-02-29','2026-11-10'),true);assert.equal(validBirthDate(null,'2026-11-10'),true);
  const a=fake();assert.equal((await invoke(createParentChildrenRouter(a.client),`/${id(2)}`,undefined,'student','GET')).status,403);
  const b=fake({role:'parent',owned:false});assert.equal((await invoke(createParentChildrenRouter(b.client),`/${id(2)}`,undefined,'parent','GET')).status,404);
  const c=fake({role:'parent'});assert.equal((await invoke(createParentChildrenRouter(c.client),`/${id(2)}`,{name:'Ana',gradeLevel:1,dateOfBirth:'2999-01-01',revision:0},'parent','PATCH')).status,400);assert.equal(c.calls.filter(c=>c.name).length,0);

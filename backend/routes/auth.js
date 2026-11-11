@@ -1,3 +1,4 @@
+const {passwordResetRecipient}=require('../services/passwordResetRecipient');
 const express = require('express');
 const { sendPasswordResetCodeEmail, transporter } = require('../config/mailer');
 const { supabaseAdmin } = require('../config/supabase');
@@ -205,7 +206,7 @@ router.post('/request-password-reset', async (req, res) => {
   try {
     const { data: profileRows, error: profileError } = await supabaseAdmin
       .from('users')
-      .select('id, email')
+      .select('id, email, role')
       .eq('email', email)
       .limit(1);
     if (profileError) throw profileError;
@@ -227,8 +228,10 @@ router.post('/request-password-reset', async (req, res) => {
       return res.json({ success: true, message: genericMessage });
     }
 
+    const recipient=await passwordResetRecipient(supabaseAdmin,profile,email);
+    if(!recipient)return res.json({success:true,message:genericMessage});
     const otpSession = await createOTPSession(profile.id, email);
-    const delivery = await sendPasswordResetCodeEmail(email, otpSession.otp);
+    const delivery = await sendPasswordResetCodeEmail(recipient, otpSession.otp);
     authLog('log', 'password reset code accepted by email provider', {
       email,
       userId: profile.id,

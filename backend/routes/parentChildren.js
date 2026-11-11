@@ -4,9 +4,9 @@ const bcrypt = require('bcryptjs');
 const { supabaseAdmin } = require('../config/supabase');
 const { UUID, rpcFailure } = require('../services/progressEvents');
 
-function validBirthDate(value, today = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Manila', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date())) {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= '1900-01-01' && value <= today
-    && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
+function validBirthDate(value, today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())) {
+ if(value==null||value==='')return true;const [year,month,day]=today.split('-').map(Number),y=year-7,last=new Date(Date.UTC(y,month,0)).getUTCDate();const cutoff=y+'-'+String(month).padStart(2,'0')+'-'+String(Math.min(day,last)).padStart(2,'0');
+ return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&value>='1900-01-01'&&value<=cutoff&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 }
 function createParentChildrenRouter(client = supabaseAdmin) {
   const router = express.Router();
@@ -36,9 +36,9 @@ function createParentChildrenRouter(client = supabaseAdmin) {
       await owned(req);
       const {name,gradeLevel,dateOfBirth,revision}=req.body||{};
       if(typeof name!=='string'||name.trim().length<2||name.trim().length>100||!Number.isInteger(gradeLevel)||gradeLevel<1||gradeLevel>6||!validBirthDate(dateOfBirth)||!Number.isInteger(revision)||revision<0) {
-        return res.status(400).json({success:false,message:'Ilagay ang buong pangalan, baitang 1–6, at wastong petsa ng kapanganakan.'});
+        return res.status(400).json({success:false,message:'Ilagay ang buong pangalan at baitang 1–6. Opsyonal ang birthday; dapat 7 taong gulang pataas kapag nilagyan.'});
       }
-      const result=await client.rpc('update_parent_child_profile',{p_parent_id:req.parentId,p_child_id:req.params.childId,p_name:name.trim(),p_grade:gradeLevel,p_birth_date:dateOfBirth,p_revision:revision});
+      const result=await client.rpc('update_parent_child_profile',{p_parent_id:req.parentId,p_child_id:req.params.childId,p_name:name.trim(),p_grade:gradeLevel,p_birth_date:dateOfBirth||null,p_revision:revision});
       if(result.error) throw rpcFailure(result.error);
       res.json({success:true,child:result.data});
     } catch(error) { fail(res,error); }
