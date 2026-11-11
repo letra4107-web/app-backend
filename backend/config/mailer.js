@@ -1,3 +1,4 @@
+const {otpEmailTemplate}=require('../services/otpEmailTemplate');
 const stripQuotes = (value = '') => String(value).trim().replace(/^"(.*)"$/, '$1');
 const nodemailer = require('nodemailer');
 
@@ -188,83 +189,7 @@ const sendOTPEmail = async (email, otp) => {
     return { success: false, message, otp };
   }
 
-  const mailOptions = {
-    to: email,
-    replyTo: emailFrom,
-    subject: 'LinawLetra Email Verification',
-    text: `Your verification code is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`,
-    html: `
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Identity Verification</title>
-        </head>
-        <body style="margin:0;padding:0;background:#edf2f8;font-family:Arial, 'Helvetica Neue', Helvetica, sans-serif;color:#1f2937;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-            <tr>
-              <td align="center" style="padding:24px 16px;">
-                <table width="100%" max-width="600" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:24px;box-shadow:0 24px 60px rgba(15,23,42,0.08);overflow:hidden;">
-                  <tr>
-                    <td style="padding:32px 32px 16px;text-align:center;background:#f0f7ff;">
-                      <div style="display:inline-flex;align-items:center;justify-content:center;padding:16px 24px;border-radius:16px;background:#ffffff;margin-bottom:16px;">
-                        <span style="display:inline-block;width:32px;height:32px;background:#1d4ed8;border-radius:10px;margin-right:12px;"></span>
-                        <span style="font-size:14px;font-weight:700;color:#1d4ed8;letter-spacing:1px;text-transform:uppercase;">Identity Verification</span>
-                      </div>
-                      <h1 style="font-size:24px;line-height:32px;margin:0;color:#0f172a;font-weight:800;">Your verification code</h1>
-                      <p style="font-size:16px;line-height:26px;color:#475569;margin:12px 0 0;max-width:440px;margin-left:auto;margin-right:auto;">
-                        Enter this single-use code to confirm your email and continue. It was issued only for your account.
-                      </p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:28px 32px 20px;text-align:center;">
-                      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:auto;max-width:420px;border-radius:20px;background:#f8fbff;border:1px solid #e2e8f0;padding:24px;">
-                        <tr>
-                          <td>
-                            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-                              ${otp
-                                .split('')
-                                .map((digit) =>
-                                  `<div style="flex:1;min-width:50px;background:#ffffff;border:1px solid #cbd5e1;border-radius:18px;box-shadow:0 8px 20px rgba(15,23,42,0.06);padding:16px 0;font-size:24px;font-weight:800;color:#0f172a;line-height:1;text-align:center;letter-spacing:0.16em;">${digit}</div>`
-                                )
-                                .join('')}
-                            </div>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="padding-top:20px;text-align:center;">
-                            <p style="margin:0;font-size:14px;color:#475569;line-height:22px;">Valid for <strong>10 minutes</strong></p>
-                            <p style="margin:10px 0 0;font-size:14px;color:#475569;line-height:22px;">Do not share this code with anyone.</p>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0 32px 32px;text-align:center;">
-                      <p style="margin:0;font-size:14px;color:#64748b;line-height:22px;">If you did not request this code, please ignore this message.</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="background:#f8fafc;padding:20px 32px;text-align:center;">
-                      <p style="margin:0;font-size:13px;color:#64748b;line-height:20px;">© 2026 LinawLetra</p>
-                      <p style="margin:12px 0 0;">
-                        <a href="https://linawletra.com/contact" style="color:#1d4ed8;text-decoration:none;margin:0 10px;">Contact us</a>
-                        <span style="color:#94a3b8;">|</span>
-                        <a href="https://linawletra.com/help" style="color:#1d4ed8;text-decoration:none;margin:0 10px;">Help</a>
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-      </html>
-    `,
-  };
+  const mailOptions = {to:email,replyTo:emailFrom,...otpEmailTemplate({code:otp,expiresInMinutes:10})};
 
   try {
     const info = await sendMail(mailOptions);
@@ -332,40 +257,7 @@ const sendPasswordResetEmail = async (email, resetLink) => {
 };
 
 const sendPasswordResetCodeEmail = async (email, otp) => {
-  const mailOptions = {
-    to: email,
-    replyTo: emailFrom,
-    subject: 'LinawLetra: Code para sa pag-reset ng password',
-    text: `I-reset ang iyong password\n\nGamitin ang code sa ibaba upang gumawa ng bagong password para sa iyong LinawLetra account.\n\n${otp}\n\nAng code ay isang beses lamang magagamit at mag-e-expire sa loob ng 10 minuto.\n\nKung hindi ikaw ang humiling ng password reset, maaari mong balewalain ang email na ito. Huwag ibahagi ang code sa kahit sino.\n\n© LinawLetra · Tulong sa pagbasa ng Filipino para sa bawat bata`,
-    html: `
-      <!DOCTYPE html>
-      <html lang="fil">
-        <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-        <body style="margin:0;padding:0;background:#f5ece3;font-family:Arial,'Helvetica Neue',sans-serif;color:#70492f;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-            <tr><td align="center" style="padding:32px 16px;">
-              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:#faf8f3;border-radius:24px;overflow:hidden;box-shadow:0 20px 50px rgba(112,73,47,0.14);">
-                <tr><td style="padding:32px;text-align:center;background:#9a6742;">
-                  <div style="font-size:26px;font-weight:800;color:#faf8f3;">LinawLetra</div>
-                  <div style="margin-top:8px;font-size:14px;font-weight:700;letter-spacing:0.8px;color:#f5ece3;">Pag-reset ng Password</div>
-                </td></tr>
-                <tr><td style="padding:32px;text-align:center;">
-                  <h1 style="margin:0 0 12px;font-size:24px;line-height:32px;color:#70492f;">I-reset ang iyong password</h1>
-                  <p style="margin:0;color:#70492f;font-size:16px;line-height:24px;">Gamitin ang code sa ibaba upang gumawa ng bagong password para sa iyong LinawLetra account.</p>
-                  <div style="display:inline-block;margin:28px 0 0;background:#f5ece3;border:2px solid #9a6742;border-radius:18px;padding:20px 28px;font-size:34px;font-weight:800;letter-spacing:10px;color:#70492f;line-height:1;">${otp}</div>
-                  <p style="margin:26px 0 0;color:#70492f;font-size:14px;line-height:22px;">Ang code ay isang beses lamang magagamit at mag-e-expire sa loob ng 10 minuto.</p>
-                  <div style="margin-top:20px;padding:16px 18px;background:#f5ece3;border-radius:12px;text-align:left;color:#70492f;font-size:13px;line-height:20px;">Kung hindi ikaw ang humiling ng password reset, maaari mong balewalain ang email na ito. Huwag ibahagi ang code sa kahit sino.</div>
-                </td></tr>
-                <tr><td style="padding:20px 32px;text-align:center;background:#f5ece3;">
-                  <p style="margin:0;color:#70492f;font-size:13px;line-height:20px;">© LinawLetra · Tulong sa pagbasa ng Filipino para sa bawat bata</p>
-                </td></tr>
-              </table>
-            </td></tr>
-          </table>
-        </body>
-      </html>
-    `,
-  };
+  const mailOptions = {to:email,replyTo:emailFrom,...otpEmailTemplate({code:otp,purpose:'password-reset',expiresInMinutes:10})};
 
   if (directTransporter) {
     try {
